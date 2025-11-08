@@ -1,0 +1,186 @@
+// **********************************************************************
+// smile/src/Tile1_exec.cpp
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Oct 11 2025
+/*
+How to execute RISC-V commands.
+*/
+ 
+#include "Tile1_exec.hpp"
+#include "Tile1.hpp"
+#include <cstdint>
+
+void exec_addi(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.i; // alias for I-type decoded fields
+  const uint32_t src = tile.read_reg(op.rs1);
+  const uint32_t result = static_cast<uint32_t>(static_cast<int32_t>(src) + op.imm);
+  tile.write_reg(op.rd, result);
+}
+
+void exec_add(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  const uint32_t result = lhs + rhs;
+  tile.write_reg(op.rd, result);
+}
+
+void exec_ecall(Tile1& tile, const Instruction& /*instr*/) { // raise a trap
+  const uint32_t syscall = tile.read_reg(17); // a7 holds syscall id
+  if (syscall == 93u) {                       // is a7 = 93 when we ecall then exit()
+    const uint32_t code = tile.read_reg(10);  // a0 holds exit code
+    tile.request_exit(code);                  // set exit_code & flags: exited_ & halted_
+    return;
+  }
+  Tile1::TrapCause cause = Tile1::TrapCause::EnvironmentCallFromMMode;
+  switch (tile.priv_mode()) { // respect the active privilege mode
+    case Tile1::PrivMode::User:        cause = Tile1::TrapCause::EnvironmentCallFromUMode; break;
+    case Tile1::PrivMode::Supervisor:  cause = Tile1::TrapCause::EnvironmentCallFromSMode; break;
+    case Tile1::PrivMode::Machine:     cause = Tile1::TrapCause::EnvironmentCallFromMMode; break;
+  }
+  tile.request_trap(cause); // simply calls helper so that trap pipeline kicks in
+}
+
+void exec_ebreak(Tile1& tile, const Instruction& /*instr*/) {
+  tile.request_trap(Tile1::TrapCause::Breakpoint);
+}
+
+void exec_uret(Tile1& tile, const Instruction& /*instr*/) {
+  if (tile.priv_mode() != Tile1::PrivMode::User) { // validate active privilege mode before proceeding
+    tile.request_illegal_instruction();            // fall back to illegal-instruction trap if invoked from wrong level
+    return;
+  }
+  tile.resume_from_trap();
+}
+
+void exec_sret(Tile1& tile, const Instruction& /*instr*/) {
+  if (tile.priv_mode() != Tile1::PrivMode::Supervisor) {
+    tile.request_illegal_instruction();
+    return;
+  }
+  tile.resume_from_trap();
+}
+
+void exec_mret(Tile1& tile, const Instruction& /*instr*/) {
+  if (tile.priv_mode() != Tile1::PrivMode::Machine) {
+    tile.request_illegal_instruction();
+    return;
+  }
+  tile.resume_from_trap(); // reuse shared plumbing
+}
+
+void exec_lui(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.u;
+  tile.write_reg(op.rd, static_cast<uint32_t>(op.imm));
+}
+
+void exec_auipc(Tile1& tile, const Instruction& instr, uint32_t curr_pc) {
+  const auto& op = instr.u;
+  const int64_t sum = static_cast<int64_t>(curr_pc) + static_cast<int64_t>(op.imm);
+  tile.write_reg(op.rd, static_cast<uint32_t>(sum));
+}
+
+void exec_lw(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.i;  // alias for I-type decoded fields
+  auto* mem = tile.memory(); // get a pointer to attached memory port
+  if (!mem) return;
+  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1)); // read rs1, cast to signed
+  const uint32_t addr = static_cast<uint32_t>(base + op.imm);        // add imm to base for mem addr
+  const uint32_t data = mem->read32(addr);                           // load from mem
+  tile.write_reg(op.rd, data);                                       // write to reg
+}
+
+void exec_sw(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.s; // alias for S-type decoded fields
+  auto* mem = tile.memory();
+  if (!mem) return;
+  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+  const uint32_t data = tile.read_reg(op.rs2);                       // read data to store from reg
+  mem->write32(addr, data);                                          // write to mem
+}
+
+bool exec_beq(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.b;
+  return tile.read_reg(op.rs1) == tile.read_reg(op.rs2);
+}
+
+bool exec_bne(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.b;
+  return tile.read_reg(op.rs1) != tile.read_reg(op.rs2);
+}
+
+bool exec_blt(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.b;
+  const int32_t lhs = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const int32_t rhs = static_cast<int32_t>(tile.read_reg(op.rs2));
+  return lhs < rhs;
+}
+
+uint32_t exec_jal(Tile1& tile, const Instruction& instr, uint32_t curr_pc) {
+  const auto& op = instr.j;
+  tile.write_reg(op.rd, curr_pc + 4u);
+  const int64_t sum = static_cast<int64_t>(curr_pc) + static_cast<int64_t>(op.imm);
+  return static_cast<uint32_t>(sum);
+}
+
+uint32_t exec_jalr(Tile1& tile, const Instruction& instr, uint32_t curr_pc) {
+  const auto& op = instr.i;
+  const uint32_t base = tile.read_reg(op.rs1);
+  const int64_t sum = static_cast<int64_t>(base) + static_cast<int64_t>(op.imm);
+  const uint32_t target = static_cast<uint32_t>(sum) & ~1u;
+  tile.write_reg(op.rd, curr_pc + 4u);
+  return target;
+}
+
+void exec_csrrw(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.c;
+  const uint32_t old = tile.read_csr(op.csr);
+  if (op.rd != 0) tile.write_reg(op.rd, old);
+  tile.write_csr(op.csr, tile.read_reg(op.rs1));
+}
+
+void exec_csrrs(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.c;
+  const uint32_t old = tile.read_csr(op.csr);
+  if (op.rd != 0) tile.write_reg(op.rd, old);
+  if (op.rs1 != 0) {
+    const uint32_t mask = tile.read_reg(op.rs1);
+    tile.write_csr(op.csr, old | mask);
+  }
+}
+
+void exec_csrrc(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.c;
+  const uint32_t old = tile.read_csr(op.csr);
+  if (op.rd != 0) tile.write_reg(op.rd, old);
+  if (op.rs1 != 0) {
+    const uint32_t mask = tile.read_reg(op.rs1);
+    tile.write_csr(op.csr, old & ~mask);
+  }
+}
+
+void exec_csrrwi(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.ci;
+  const uint32_t old = tile.read_csr(op.csr);
+  if (op.rd != 0) tile.write_reg(op.rd, old);
+  tile.write_csr(op.csr, op.zimm);
+}
+
+void exec_csrrsi(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.ci;
+  const uint32_t old = tile.read_csr(op.csr);
+  if (op.rd != 0) tile.write_reg(op.rd, old);
+  if (op.zimm != 0) {
+    tile.write_csr(op.csr, old | op.zimm);
+  }
+}
+
+void exec_csrrci(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.ci;
+  const uint32_t old = tile.read_csr(op.csr);
+  if (op.rd != 0) tile.write_reg(op.rd, old);
+  if (op.zimm != 0) {
+    tile.write_csr(op.csr, old & ~op.zimm);
+  }
+}

@@ -1,0 +1,37 @@
+# Simulation outputs
+*.vcd
+*.fst
+*.vpd
+*.fsdb
+*.out
+*.log
+
+# Other
+AGENTS.md
+*/plans/
+*/build/
+compile_commands.json
+cmake-build-debug/
+cmake-build-release/
+
+# Tool artifacts
+*.daidir/
+*simv*
+*.key
+
+# Synthesis outputs
+*.ddc
+*.sdc
+*.sdf
+*.mapped.v
+*.svf
+
+# Build directories
+build*/
+*-syn/
+*-par/
+
+# OS
+.DS_Store
+
+
