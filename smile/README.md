@@ -4,20 +4,20 @@ smile
 
 A sequential machines tile.
 
-## Configure & Build (from root, i.e., cedar)
+## Configure & Build
 ```bash
 # Configure, 1st time you check out project (or when changing toolchains, compilers, or options)
-# The compile argument makes cedar/build/compile_commands.json, if your VSC has CMake Tools that 
+# The compile argument makes smarc/build/compile_commands.json, if your VSC has CMake Tools that 
 # should allow it to understand locations of files and avoid un-needed error squiggles.
-/cedar $ cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+/smarc $ cmake -S . -B build -DCEDAR_DIR=/Users/seb/Research/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 # Build smile
-/cedar $ cmake --build build --target tb_tile1 -j
+/smarc $ cmake --build build --target tb_tile1 -j
 ```
 
 # Run
 ```bash
 # Basic
-/cedar $ ./build/smile/tb_tile1
+/smarc $ ./build/smile/tb_tile1
 # Show the parts (and do nothing else)
 ./tb_tile1 -showcontexts
 # Show tile's traces
