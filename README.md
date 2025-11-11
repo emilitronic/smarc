@@ -9,3 +9,5 @@
 # smarc | Computer architectures
 
 ---
+
+If you're feeling down, just SMile.

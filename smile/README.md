@@ -1,3 +1,4 @@
+@ -1,59 +1,166 @@
 smile
 =====
 
@@ -48,12 +49,20 @@ riscv64-unknown-elf-readelf -h prog.elf | egrep 'Class|Machine|Flags'
 riscv64-unknown-elf-objdump -dr prog.elf
 ```
 
+## Running Programs on SMile
 We should then be able to run `prog.bin` as follows
 ```bash
-./build/smile/tb_tile1 -prog=/Users/seb/cedar/smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=200
+./build/smile/tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=200
 # Show trace
 ./build/smile/tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=200 -trace "Tile1"
 # Run compiled (as prog.bin) smurf_debug.c
 ./build/smile/tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0
+# And debug the program as needed, for example
+smile> step 3
+smile> regs
+smile> mem 0x100 4
+smile> break 0x14
+smile> cont
+smile> quit
 ```
 where `start_pc` 
