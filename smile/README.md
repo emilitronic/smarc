@@ -66,4 +66,31 @@ smile> break 0x14  # set breakpoint at PC 0x14
 smile> cont        # run until breakpoint or exit
 smile> quit        # exit debugger
 ```
- 
+
+## Debugger
+- set/clear breakpoints and interrogate registers and memory
+- persist breakpoints between sessions
+- process debugs session files enables: repeatable setup, batch/regression testing, more complex test "macros", etc.
+
+### Notes
+- By default, .smile_dbg is loaded (if present).
+  - ignore_bpfile=1 gives you a “clean” session but still saves whatever breakpoints you set during the run back to .smile_dbg at exit. That means you can: Ignore old state for this run, but Still evolve the persistent file from this run onward.
+- handling source <file> hook
+  - leading white space is stripped
+  - comments starting with \# are ignored
+```bash
+cat > myscript.dbg <<EOF
+# simple script
+break 0x14
+trace on
+cont
+regs 0:10
+quit
+EOF
+
+./build/smile/tb_tile1 -prog=... -load_addr=0x0 -start_pc=0x0 <<EOF
+source myscript.dbg
+EOF
+# or
+smile> myscript.dbg
+```

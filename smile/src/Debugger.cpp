@@ -341,6 +341,259 @@ static CycleInfo execute_cycle(DebuggerState& state, bool honor_breakpoints) {
   return info;
 }
 
+/* source <file> hook, recursively called by each script line 
+Note: no protection agains self-recursion (e.g., me.dbg contains source me.dbg)
+*/
+static bool handle_command_line(DebuggerState& state, const std::string& raw_line) {
+  const std::size_t first = raw_line.find_first_not_of(" \t\r");
+  if (first == std::string::npos) {
+    return true;
+  }
+  if (raw_line[first] == '#') {
+    return true;
+  }
+
+  std::istringstream iss(raw_line.substr(first));
+  std::string command;
+  iss >> command;
+  if (command.empty()) {
+    return true;
+  }
+
+  const std::string cmd = to_lower(command);
+  if (cmd == "step") {
+    uint32_t count = 1;
+    std::string count_token;
+    if (iss >> count_token) {
+      if (!parse_u32(count_token, &count) || count == 0) {
+        std::cout << COLOR_ERR << "Invalid step count" << COLOR_RESET << std::endl;
+        return true;
+      }
+    }
+    for (uint32_t i = 0; i < count; ++i) {
+      CycleInfo info = execute_cycle(state, false);
+      if (!info.executed) {
+        if (!has_active_threads(state)) {
+          std::cout << "No active threads remain." << std::endl;
+        }
+        break;
+      }
+      print_cycle_trace(state, info);
+      if (info.log_breakpoint_snapshot) {
+        print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
+      }
+      if (info.executed_breakpoint_instr) {
+        std::cout << COLOR_BP
+                  << "[BP] Software breakpoint executed at 0x"
+                  << hex32(info.begin_pc)
+                  << COLOR_RESET << std::endl;
+        break;
+      }
+      if (info.program_exited) {
+        break;
+      }
+    }
+  } else if (cmd == "cont" || cmd == "continue") {
+    while (has_active_threads(state)) {
+      CycleInfo info = execute_cycle(state, true);
+      if (!info.executed) {
+        if (info.user_breakpoint_hit) {
+          std::cout << COLOR_BP
+                    << "[BP] Hit breakpoint at 0x"
+                    << hex32(info.begin_pc)
+                    << COLOR_RESET << std::endl;
+          print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
+        }
+        break;
+      }
+      if (state.trace_enabled) {
+        print_cycle_trace(state, info);
+      }
+      if (info.log_breakpoint_snapshot) {
+        print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
+        break;
+      }
+      if (info.executed_breakpoint_instr) {
+        std::cout << COLOR_BP
+                  << "[BP] Software breakpoint executed at 0x"
+                  << hex32(info.begin_pc)
+                  << COLOR_RESET << std::endl;
+        break;
+      }
+      if (info.program_exited) {
+        break;
+      }
+    }
+  } else if (cmd == "break" || cmd == "br") {
+    std::string addr_token;
+    if (!(iss >> addr_token)) {
+      if (state.breakpoints.empty()) {
+        std::cout << "No breakpoints set" << std::endl;
+      } else {
+        std::cout << "Breakpoints:" << std::endl;
+        for (uint32_t addr : state.breakpoints) {
+          std::cout << "  0x" << hex32(addr) << std::endl;
+        }
+      }
+      return true;
+    }
+    uint32_t addr = 0;
+    if (!parse_u32(addr_token, &addr)) {
+      std::cout << COLOR_ERR << "Invalid address" << COLOR_RESET << std::endl;
+      return true;
+    }
+    if (std::find(state.breakpoints.begin(), state.breakpoints.end(), addr) == state.breakpoints.end()) {
+      state.breakpoints.push_back(addr);
+      save_breakpoints_to_file(state);
+      std::cout << "Breakpoint added at 0x"
+                << hex32(addr) << std::endl;
+    } else {
+      std::cout << "Breakpoint already exists at 0x"
+                << hex32(addr) << std::endl;
+    }
+  } else if (cmd == "delete" || cmd == "del") {
+    std::string addr_token;
+    if (!(iss >> addr_token)) {
+      std::cout << "Usage: delete <addr>" << std::endl;
+      return true;
+    }
+    uint32_t addr = 0;
+    if (!parse_u32(addr_token, &addr)) {
+      std::cout << COLOR_ERR << "Invalid address" << COLOR_RESET << std::endl;
+      return true;
+    }
+    auto it = std::find(state.breakpoints.begin(), state.breakpoints.end(), addr);
+    if (it != state.breakpoints.end()) {
+      state.breakpoints.erase(it);
+      save_breakpoints_to_file(state);
+      std::cout << "Breakpoint removed at 0x" << hex32(addr) << std::endl;
+    } else {
+      std::cout << "No breakpoint at 0x" << hex32(addr) << std::endl;
+    }
+  } else if (cmd == "clear") {
+    if (!state.breakpoints.empty()) {
+      state.breakpoints.clear();
+      save_breakpoints_to_file(state);
+    }
+    std::cout << "All breakpoints cleared" << std::endl;
+  } else if (cmd == "regs") {
+    std::string token;
+    if (!(iss >> token)) {
+      print_registers(state);
+    } else {
+      const std::size_t colon = token.find(':');
+      if (colon == std::string::npos) {
+        uint32_t thread_idx = 0;
+        if (!parse_u32(token, &thread_idx)) {
+          std::cout << COLOR_ERR << "Invalid thread index" << COLOR_RESET << std::endl;
+          return true;
+        }
+        print_registers_for_thread(state, static_cast<int>(thread_idx));
+      } else {
+        const std::string t_str = token.substr(0, colon);
+        const std::string reg_str = token.substr(colon + 1);
+        uint32_t thread_idx = 0;
+        uint32_t reg_idx = 0;
+        if (!parse_u32(t_str, &thread_idx)) {
+          std::cout << COLOR_ERR << "Invalid thread index" << COLOR_RESET << std::endl;
+          return true;
+        }
+        if (!parse_u32(reg_str, &reg_idx)) {
+          std::cout << COLOR_ERR << "Invalid register index" << COLOR_RESET << std::endl;
+          return true;
+        }
+        print_single_register(state, static_cast<int>(thread_idx),
+                              static_cast<int>(reg_idx));
+      }
+    }
+  } else if (cmd == "mem") {
+    std::string addr_token;
+    if (!(iss >> addr_token)) {
+      std::cout << "Usage: mem <addr> [count]" << std::endl;
+      return true;
+    }
+    uint32_t addr = 0;
+    if (!parse_u32(addr_token, &addr)) {
+      std::cout << COLOR_ERR << "Invalid address" << COLOR_RESET << std::endl;
+      return true;
+    }
+    std::string count_token;
+    std::size_t count = 4;
+    if (iss >> count_token) {
+      uint32_t parsed = 0;
+      if (!parse_u32(count_token, &parsed)) {
+        std::cout << COLOR_ERR << "Invalid count" << COLOR_RESET << std::endl;
+        return true;
+      }
+      count = static_cast<std::size_t>(parsed);
+    }
+    if (count == 0) {
+      std::cout << "Count must be greater than zero" << std::endl;
+      return true;
+    }
+    dump_memory(state.mem, addr, count);
+  } else if (cmd == "trace") {
+    std::string mode;
+    if (iss >> mode) {
+      mode = to_lower(mode);
+      if (mode == "on") {
+        state.trace_enabled = true;
+      } else if (mode == "off") {
+        state.trace_enabled = false;
+      } else {
+        std::cout << "Usage: trace [on|off]" << std::endl;
+        return true;
+      }
+    } else {
+      state.trace_enabled = !state.trace_enabled;
+    }
+    std::cout << "Trace " << (state.trace_enabled ? "enabled" : "disabled") << std::endl;
+  } else if (cmd == "quit" || cmd == "q") {
+    state.user_quit = true;
+    return false;
+  } else if (cmd == "help") {
+    std::cout << COLOR_HINT << "Commands:" << COLOR_RESET << "\n"
+              << "  step [N]           - advance N cycles (default 1)\n"
+              << "  cont               - run until breakpoint or exit\n"
+              << "  break <addr>       - set breakpoint at PC address\n"
+              << "  delete <addr>      - remove breakpoint at PC address\n"
+              << "  clear              - remove all breakpoints\n"
+              << "  regs               - dump all registers for both threads\n"
+              << "  regs <t>           - dump registers for thread t (0 or 1)\n"
+              << "  regs <t>:<reg>     - dump register x<reg> for thread t\n"
+              << "  mem <addr> [count] - dump memory words\n"
+              << "  trace [on|off]     - toggle per-cycle tracing\n"
+              << "  source <file>      - execute commands from file\n"
+              << "  quit               - exit debugger\n";
+  } else if (cmd == "source") {
+    std::string path;
+    if (!(iss >> path)) {
+      std::cout << "Usage: source <file>" << std::endl;
+      return true;
+    }
+    std::ifstream script(path);
+    if (!script) {
+      std::cout << COLOR_ERR
+                << "Error: could not open script file '" << path << "'"
+                << COLOR_RESET << std::endl;
+      return true;
+    }
+    std::string script_line;
+    while (std::getline(script, script_line)) {
+      if (!handle_command_line(state, script_line)) {
+        return false;
+      }
+      if (state.user_quit || state.program_exited) {
+        return false;
+      }
+    }
+  } else {
+    std::cout << "Unknown command: " << command << std::endl;
+  }
+
+  return true;
+}
+
 } // namespace
 
 DebuggerState::DebuggerState(Tile1& t, MemoryPort& m)
@@ -403,221 +656,9 @@ void run_debugger(DebuggerState& state, bool ignore_bpfile) {
       break;
     }
 
-    std::istringstream iss(line);
-    std::string command;
-    iss >> command;
-    if (command.empty()) {
-      continue;
-    }
-
-    const std::string cmd = to_lower(command);
-    if (cmd == "step") {
-      uint32_t count = 1;
-      std::string count_token;
-      if (iss >> count_token) {
-        if (!parse_u32(count_token, &count) || count == 0) {
-          std::cout << COLOR_ERR << "Invalid step count" << COLOR_RESET << std::endl;
-          continue;
-        }
-      }
-      for (uint32_t i = 0; i < count; ++i) {
-        CycleInfo info = execute_cycle(state, false);
-        if (!info.executed) {
-          if (!has_active_threads(state)) {
-            std::cout << "No active threads remain." << std::endl;
-          }
-          break;
-        }
-        print_cycle_trace(state, info);
-        if (info.log_breakpoint_snapshot) {
-          print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
-        }
-        if (info.executed_breakpoint_instr) {
-          std::cout << COLOR_BP
-                    << "[BP] Software breakpoint executed at 0x"
-                    << hex32(info.begin_pc)
-                    << COLOR_RESET << std::endl;
-          break;
-        }
-        if (info.program_exited) {
-          break;
-        }
-      }
-    } else if (cmd == "cont" || cmd == "continue") {
-      while (has_active_threads(state)) {
-        CycleInfo info = execute_cycle(state, true);
-        if (!info.executed) {
-          if (info.user_breakpoint_hit) {
-            std::cout << COLOR_BP
-                      << "[BP] Hit breakpoint at 0x"
-                      << hex32(info.begin_pc)
-                      << COLOR_RESET << std::endl;
-            print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
-          }
-          break;
-        }
-        if (state.trace_enabled) {
-          print_cycle_trace(state, info);
-        }
-        if (info.log_breakpoint_snapshot) {
-          print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
-          break;
-        }
-        if (info.executed_breakpoint_instr) {
-          std::cout << COLOR_BP
-                    << "[BP] Software breakpoint executed at 0x"
-                    << hex32(info.begin_pc)
-                    << COLOR_RESET << std::endl;
-          break;
-        }
-        if (info.program_exited) {
-          break;
-        }
-      }
-    } else if (cmd == "break" || cmd == "br") {
-      std::string addr_token;
-      if (!(iss >> addr_token)) {
-        if (state.breakpoints.empty()) {
-          std::cout << "No breakpoints set" << std::endl;
-        } else {
-          std::cout << "Breakpoints:" << std::endl;
-          for (uint32_t addr : state.breakpoints) {
-            std::cout << "  0x" << hex32(addr) << std::endl;
-          }
-        }
-        continue;
-      }
-      uint32_t addr = 0;
-      if (!parse_u32(addr_token, &addr)) {
-        std::cout << COLOR_ERR << "Invalid address" << COLOR_RESET << std::endl;
-        continue;
-      }
-      if (std::find(state.breakpoints.begin(), state.breakpoints.end(), addr) == state.breakpoints.end()) {
-        state.breakpoints.push_back(addr);
-        save_breakpoints_to_file(state);
-        std::cout << "Breakpoint added at 0x"
-                  << hex32(addr) << std::endl;
-      } else {
-        std::cout << "Breakpoint already exists at 0x"
-                  << hex32(addr) << std::endl;
-      }
-    } else if (cmd == "delete" || cmd == "del") {
-      std::string addr_token;
-      if (!(iss >> addr_token)) {
-        std::cout << "Usage: delete <addr>" << std::endl;
-        continue;
-      }
-      uint32_t addr = 0;
-      if (!parse_u32(addr_token, &addr)) {
-        std::cout << COLOR_ERR << "Invalid address" << COLOR_RESET << std::endl;
-        continue;
-      }
-      auto it = std::find(state.breakpoints.begin(), state.breakpoints.end(), addr);
-      if (it != state.breakpoints.end()) {
-        state.breakpoints.erase(it);
-        save_breakpoints_to_file(state);
-        std::cout << "Breakpoint removed at 0x" << hex32(addr) << std::endl;
-      } else {
-        std::cout << "No breakpoint at 0x" << hex32(addr) << std::endl;
-      }
-    } else if (cmd == "clear") {
-      if (!state.breakpoints.empty()) {
-        state.breakpoints.clear();
-        save_breakpoints_to_file(state);
-      }
-      std::cout << "All breakpoints cleared" << std::endl;
-    } else if (cmd == "regs") {
-      std::string token;
-      if (!(iss >> token)) {
-        print_registers(state);
-      } else {
-        const std::size_t colon = token.find(':');
-        if (colon == std::string::npos) {
-          uint32_t thread_idx = 0;
-          if (!parse_u32(token, &thread_idx)) {
-            std::cout << COLOR_ERR << "Invalid thread index" << COLOR_RESET << std::endl;
-            continue;
-          }
-          print_registers_for_thread(state, static_cast<int>(thread_idx));
-        } else {
-          const std::string t_str = token.substr(0, colon);
-          const std::string reg_str = token.substr(colon + 1);
-          uint32_t thread_idx = 0;
-          uint32_t reg_idx = 0;
-          if (!parse_u32(t_str, &thread_idx)) {
-            std::cout << COLOR_ERR << "Invalid thread index" << COLOR_RESET << std::endl;
-            continue;
-          }
-          if (!parse_u32(reg_str, &reg_idx)) {
-            std::cout << COLOR_ERR << "Invalid register index" << COLOR_RESET << std::endl;
-            continue;
-          }
-          print_single_register(state, static_cast<int>(thread_idx),
-                                static_cast<int>(reg_idx));
-        }
-      }
-    } else if (cmd == "mem") {
-      std::string addr_token;
-      if (!(iss >> addr_token)) {
-        std::cout << "Usage: mem <addr> [count]" << std::endl;
-        continue;
-      }
-      uint32_t addr = 0;
-      if (!parse_u32(addr_token, &addr)) {
-        std::cout << COLOR_ERR << "Invalid address" << COLOR_RESET << std::endl;
-        continue;
-      }
-      std::string count_token;
-      std::size_t count = 4;
-      if (iss >> count_token) {
-        uint32_t parsed = 0;
-        if (!parse_u32(count_token, &parsed)) {
-          std::cout << COLOR_ERR << "Invalid count" << COLOR_RESET << std::endl;
-          continue;
-        }
-        count = static_cast<std::size_t>(parsed);
-      }
-      if (count == 0) {
-        std::cout << "Count must be greater than zero" << std::endl;
-        continue;
-      }
-      dump_memory(state.mem, addr, count);
-    } else if (cmd == "trace") {
-      std::string mode;
-      if (iss >> mode) {
-        mode = to_lower(mode);
-        if (mode == "on") {
-          state.trace_enabled = true;
-        } else if (mode == "off") {
-          state.trace_enabled = false;
-        } else {
-          std::cout << "Usage: trace [on|off]" << std::endl;
-          continue;
-        }
-      } else {
-        state.trace_enabled = !state.trace_enabled;
-      }
-      std::cout << "Trace " << (state.trace_enabled ? "enabled" : "disabled") << std::endl;
-    } else if (cmd == "quit" || cmd == "q") {
-      state.user_quit = true;
+    if (!handle_command_line(state, line)) {
       break;
-    } else if (cmd == "help") {
-      std::cout << COLOR_HINT << "Commands:" << COLOR_RESET << "\n"
-                << "  step [N]           - advance N cycles (default 1)\n"
-                << "  cont               - run until breakpoint or exit\n"
-                << "  break <addr>       - set breakpoint at PC address\n"
-                << "  delete <addr>      - remove breakpoint at PC address\n"
-                << "  clear              - remove all breakpoints\n"
-                << "  regs               - dump all registers for both threads\n"
-                << "  regs <t>           - dump registers for thread t (0 or 1)\n"
-                << "  regs <t>:<reg>     - dump register x<reg> for thread t\n"
-                << "  mem <addr> [count] - dump memory words\n"
-                << "  trace [on|off]     - toggle per-cycle tracing\n"
-                << "  quit               - exit debugger\n";
-    } else {
-      std::cout << "Unknown command: " << command << std::endl;
     }
-
     if (state.program_exited) {
       break;
     }

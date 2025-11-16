@@ -1,0 +1,6 @@
+# simple script
+break 0x14
+trace on
+cont
+regs 0:10
+quit
