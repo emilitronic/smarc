@@ -214,7 +214,7 @@ namespace
     std::cout.flags(old_flags);
   }
 
-  /* dump architectural registers for both threads in hex */
+  /* dump all architectural registers for both threads in hex */
   static void print_registers(const DebuggerState &state) {
     std::ios_base::fmtflags old_flags = std::cout.flags();
     char old_fill = std::cout.fill('0');
@@ -243,11 +243,67 @@ namespace
     }
 
     std::cout.fill(old_fill);
-    std::cout.flags(old_flags);
+  std::cout.flags(old_flags);
+}
+
+/* dump registers for one specified thread */
+static void print_registers_for_thread(const DebuggerState &state, int t) {
+  if (t < 0 || t > 1) {
+    std::cout << "Invalid thread index (expected 0 or 1)" << std::endl;
+    return;
   }
 
-  /* raw memory viewer that prints N consecutive words */
-  static void dump_memory(DramMemoryPort &dram_port, uint32_t addr, std::size_t count){
+  std::ios_base::fmtflags old_flags = std::cout.flags();
+  char old_fill = std::cout.fill('0');
+
+  std::cout << "[T" << t << "] pc=0x"
+            << std::hex << std::setw(8) << state.threads[t].pc
+            << std::dec << " active=" << (state.threads[t].active ? "yes" : "no")
+            << std::endl;
+  for (int r = 0; r < 32; ++r) {
+    std::cout << "  x" << std::setw(2) << r << "=0x"
+              << std::hex << std::setw(8) << state.threads[t].regs[r]
+              << std::dec;
+    if ((r % 4) == 3) {
+      std::cout << std::endl;
+    } else {
+      std::cout << ' ';
+    }
+  }
+  std::cout << std::endl;
+
+  std::cout.fill(old_fill);
+  std::cout.flags(old_flags);
+}
+
+/* dump a single register of a thread (plus context) */
+static void print_single_register(const DebuggerState &state, int t, int r) {
+  if (t < 0 || t > 1) {
+    std::cout << "Invalid thread index (expected 0 or 1)" << std::endl;
+    return;
+  }
+  if (r < 0 || r >= 32) {
+    std::cout << "Invalid register index (expected 0-31)" << std::endl;
+    return;
+  }
+
+  std::ios_base::fmtflags old_flags = std::cout.flags();
+  char old_fill = std::cout.fill('0');
+
+  std::cout << "[T" << t << "] x" << r
+            << "=0x" << std::hex << std::setw(8) << state.threads[t].regs[r]
+            << std::dec
+            << " (pc=0x" << std::hex << std::setw(8) << state.threads[t].pc
+            << std::dec << " active=" << (state.threads[t].active ? "yes" : "no")
+            << ")"
+            << std::endl;
+
+  std::cout.fill(old_fill);
+  std::cout.flags(old_flags);
+}
+
+/* raw memory viewer that prints N consecutive words */
+static void dump_memory(DramMemoryPort &dram_port, uint32_t addr, std::size_t count){
     std::ios_base::fmtflags old_flags = std::cout.flags();
     char old_fill = std::cout.fill('0');
 
@@ -511,8 +567,38 @@ namespace
         }
         std::cout << "All breakpoints cleared" << std::endl;
       }
-      else if (cmd == "regs") {
-        print_registers(state);
+      else if (cmd == "regs") {                        
+        std::string token;
+        if (!(iss >> token)) {               // dump all threads & registers
+          print_registers(state);
+        }
+        else {                         
+          const std::size_t colon = token.find(':');
+          if (colon == std::string::npos) {  // dump all registers for one thread
+            uint32_t thread_idx = 0;
+            if (!parse_u32(token, &thread_idx)) {
+              std::cout << "Invalid thread index" << std::endl;
+              continue;
+            }
+            print_registers_for_thread(state, static_cast<int>(thread_idx));
+          }
+          else {                             // dump one register for one thread
+            const std::string t_str   = token.substr(0, colon);
+            const std::string reg_str = token.substr(colon + 1);
+            uint32_t thread_idx = 0;
+            uint32_t reg_idx = 0;
+            if (!parse_u32(t_str, &thread_idx)) {
+              std::cout << "Invalid thread index" << std::endl;
+              continue;
+            }
+            if (!parse_u32(reg_str, &reg_idx)) {
+              std::cout << "Invalid register index" << std::endl;
+              continue;
+            }
+            print_single_register(state, static_cast<int>(thread_idx),
+                                  static_cast<int>(reg_idx));
+          }
+        }
       }
       else if (cmd == "mem") {
         std::string addr_token;
@@ -567,15 +653,17 @@ namespace
       }
       else if (cmd == "help") {
         std::cout << "Commands:\n"
-                  << "  step [N]      - advance N cycles (default 1)\n"
-                  << "  cont          - run until breakpoint or exit\n"
-                  << "  break <addr>  - set breakpoint at PC address\n"
-                  << "  delete <addr> - remove breakpoint at PC address\n"
-                  << "  clear         - remove all breakpoints\n"
-                  << "  regs          - dump all registers and PCs\n"
+                  << "  step [N]           - advance N cycles (default 1)\n"
+                  << "  cont               - run until breakpoint or exit\n"
+                  << "  break <addr>       - set breakpoint at PC address\n"
+                  << "  delete <addr>      - remove breakpoint at PC address\n"
+                  << "  clear              - remove all breakpoints\n"
+                  << "  regs               - dump all registers for both threads\n"
+                  << "  regs <t>           - dump registers for thread t (0 or 1)\n"
+                  << "  regs <t>:<reg>     - dump register x<reg> for thread t\n"
                   << "  mem <addr> [count] - dump memory words\n"
-                  << "  trace [on|off]- toggle per-cycle tracing\n"
-                  << "  quit          - exit debugger\n";
+                  << "  trace [on|off]     - toggle per-cycle tracing\n"
+                  << "  quit               - exit debugger\n";
       }
       else {
         std::cout << "Unknown command: " << command << std::endl;
