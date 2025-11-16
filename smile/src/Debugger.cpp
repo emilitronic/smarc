@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <fstream> // for breakpoint persistence
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -35,6 +36,7 @@ static constexpr const char* COLOR_BP    = "\033[33m";
 static constexpr const char* COLOR_EXIT  = "\033[32m";
 static constexpr const char* COLOR_ERR   = "\033[31m";
 static constexpr const char* COLOR_HINT  = "\033[36m";
+static constexpr const char* BREAKPOINT_FILE = ".smile_dbg";
 
 static bool has_active_threads(const DebuggerState& state) {
   return state.threads[0].active || state.threads[1].active;
@@ -64,6 +66,53 @@ static std::string hex32(uint32_t value) {
   std::ostringstream oss;
   oss << std::hex << std::setw(8) << std::setfill('0') << value;
   return oss.str();
+}
+
+/* breakpoint persistence: writes current set after every add/delete/clear/quit */
+static void save_breakpoints_to_file(const DebuggerState& state) {
+  std::ofstream out(BREAKPOINT_FILE, std::ios::trunc);
+  if (!out) {
+    std::cout << COLOR_ERR
+              << "Warning: unable to write breakpoint file "
+              << BREAKPOINT_FILE
+              << COLOR_RESET << std::endl;
+    return;
+  }
+
+  for (uint32_t addr : state.breakpoints) {
+    out << "0x" << hex32(addr) << "\n";
+  }
+}
+
+/* repopulates state.breakpoints on REPL entry (w/ cyan status line) */
+static void load_breakpoints_from_file(DebuggerState& state) {
+  std::ifstream in(BREAKPOINT_FILE);
+  if (!in) {
+    return;
+  }
+
+  state.breakpoints.clear();
+  std::string line;
+  while (std::getline(in, line)) {
+    std::string token;
+    std::istringstream iss(line);
+    if (!(iss >> token)) {
+      continue;
+    }
+    uint32_t addr = 0;
+    if (parse_u32(token, &addr)) {
+      if (std::find(state.breakpoints.begin(), state.breakpoints.end(), addr) == state.breakpoints.end()) {
+        state.breakpoints.push_back(addr);
+      }
+    }
+  }
+
+  if (!state.breakpoints.empty()) {
+    std::cout << COLOR_HINT
+              << "Loaded " << state.breakpoints.size()
+              << " breakpoint(s) from " << BREAKPOINT_FILE
+              << COLOR_RESET << std::endl;
+  }
 }
 
 static void print_breakpoint_snapshot(DebuggerState& state, int thread_index,
@@ -341,6 +390,7 @@ void auto_run(DebuggerState& state, int max_cycles) {
 }
 
 void run_debugger(DebuggerState& state) {
+  load_breakpoints_from_file(state); // e.g. .smile_dbg 
   std::cout << "Entering Tile1 debugger. Type 'help' for commands." << std::endl;
   std::string line;
 
@@ -442,6 +492,7 @@ void run_debugger(DebuggerState& state) {
       }
       if (std::find(state.breakpoints.begin(), state.breakpoints.end(), addr) == state.breakpoints.end()) {
         state.breakpoints.push_back(addr);
+        save_breakpoints_to_file(state);
         std::cout << "Breakpoint added at 0x"
                   << hex32(addr) << std::endl;
       } else {
@@ -462,6 +513,7 @@ void run_debugger(DebuggerState& state) {
       auto it = std::find(state.breakpoints.begin(), state.breakpoints.end(), addr);
       if (it != state.breakpoints.end()) {
         state.breakpoints.erase(it);
+        save_breakpoints_to_file(state);
         std::cout << "Breakpoint removed at 0x" << hex32(addr) << std::endl;
       } else {
         std::cout << "No breakpoint at 0x" << hex32(addr) << std::endl;
@@ -469,6 +521,7 @@ void run_debugger(DebuggerState& state) {
     } else if (cmd == "clear") {
       if (!state.breakpoints.empty()) {
         state.breakpoints.clear();
+        save_breakpoints_to_file(state);
       }
       std::cout << "All breakpoints cleared" << std::endl;
     } else if (cmd == "regs") {
@@ -567,6 +620,8 @@ void run_debugger(DebuggerState& state) {
       break;
     }
   }
+
+  save_breakpoints_to_file(state);
 }
 
 } // namespace smile

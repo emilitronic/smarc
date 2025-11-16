@@ -17,14 +17,14 @@ constexpr uint32_t ECALL_FLAG_VALUE     = 0xDEADu;
 constexpr uint32_t BREAKPOINT_FLAG_VALUE= 0xBEEFu;
 
 void verify_and_report_postmortem(
-    Tile1& tile,
-    MemoryPort& mem_port,
-    const ThreadContext threads[2],
-    const bool saw_breakpoint_trap[2],
-    const bool saw_ecall_trap[2],
-    const uint32_t breakpoint_mepc[2],
-    const uint32_t ecall_mepc[2],
-    int cycle)
+  Tile1& tile,
+  MemoryPort& mem_port,
+  const ThreadContext threads[2],
+  const bool saw_breakpoint_trap[2],
+  const bool saw_ecall_trap[2],
+  const uint32_t breakpoint_mepc[2],
+  const uint32_t ecall_mepc[2],
+  int cycle)
 {
   // === 1) Trap coverage ===
   // if no thread performed exit(), check if at least 1 thread hit ebreak trap or executed an ecall
