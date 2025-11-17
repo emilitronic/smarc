@@ -13,12 +13,15 @@ Testbench for a RV tile.
 #include "Diagnostics.hpp"
 #include "util/FlatBinLoader.hpp"
 #include "../../smicro/src/Dram.hpp"
+#include "AccelPort.hpp"
 
 #include <cascade/Clock.hpp>
 #include <cascade/SimDefs.hpp>
 #include <cascade/SimGlobals.hpp>
 
 #include <string>
+#include <iostream>
+#include <iomanip>
 
 // **************
 // Parameters (CLI flags): name, default value, help text
@@ -52,6 +55,44 @@ private:
   Dram& dram_;
 };
 
+/* A basic accelerator on issue it logs and returns rs1 + rs2 */
+class LoggingAccelPort : public AccelPort {
+public:
+  void issue(uint32_t raw_inst,
+             uint32_t pc,
+             uint32_t rs1_val,
+             uint32_t rs2_val) override {
+    std::ios_base::fmtflags old_flags = std::cout.flags();
+    char old_fill = std::cout.fill('0');
+
+    std::cout << "[ACCEL] pc=0x"
+              << std::hex << std::setw(8) << pc
+              << " inst=0x" << std::setw(8) << raw_inst
+              << " rs1=0x" << std::setw(8) << rs1_val
+              << " rs2=0x" << std::setw(8) << rs2_val
+              << std::dec << std::endl;
+
+    std::cout.fill(old_fill);
+    std::cout.flags(old_flags);
+
+    resp_ = rs1_val + rs2_val;
+    has_resp_ = true;
+  }
+
+  bool has_response() const override {
+    return has_resp_;
+  }
+
+  uint32_t read_response() override {
+    has_resp_ = false;
+    return resp_;
+  }
+
+private:
+  bool has_resp_ = false;
+  uint32_t resp_ = 0;
+};
+
 int main(int argc, char* argv[]) {
   // **************
   // Step 1: Parse tracing, parameters, and dump options
@@ -66,7 +107,9 @@ int main(int argc, char* argv[]) {
   Tile1 tile("tile1");
   Dram dram("dram", 0);
   DramMemoryPort dram_port(dram);
+  LoggingAccelPort accel_port;
   tile.attach_memory(&dram_port);
+  tile.attach_accelerator(&accel_port); // attach accelerator (attach_accelerator in Tile1.hpp)
   dram.s_req.wireToZero();
   dram.s_resp.sendToBitBucket();
 

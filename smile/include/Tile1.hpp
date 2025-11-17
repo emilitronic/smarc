@@ -27,6 +27,7 @@ public:
   virtual uint32_t read32(uint32_t addr)                  = 0;
   virtual void     write32(uint32_t addr, uint32_t value) = 0;
 };
+class AccelPort;
 
 // Define the tile
 class Tile1 : public Component { // inherit from Component, 
@@ -36,6 +37,7 @@ public:
   Tile1(std::string name, COMPONENT_CTOR); // constructor medthod declaration
   Clock(clk);
   void attach_memory(MemoryPort* mem); // assigns pointer to a memory port
+  void attach_accelerator(AccelPort* accel) { accel_port_ = accel; } // how the testbench tells Tile1 what to talk to
   void tick();
   void reset();
 
@@ -114,6 +116,8 @@ public:
   // overloaded fns. based on constness for load/store memory ops (accessors for private mem_port_ in Tile1)
   MemoryPort* memory()                   { return mem_port_; } // non-const ver.: used on non-const Tile1 obj. (so can update memory)
   const MemoryPort* memory()       const { return mem_port_; } // const ver. used on const Tile1 obj. (so debug code won't accidetally change things)
+  AccelPort* accelerator()               { return accel_port_; }
+  const AccelPort* accelerator()   const { return accel_port_; }
 
 private:
   struct TrapCsrState { // CSR states for trap handler to read/write
@@ -141,8 +145,9 @@ private:
     }
   }
 
-  MemoryPort* mem_port_ = nullptr;  // tile's pointer to external mem port (let's it fetch instr & read/write data)
-  uint32_t pc_ = 0;                 // 32b PC
+  MemoryPort* mem_port_ = nullptr;   // tile's pointer to external mem port   (lets it fetch instr & read/write data)
+  AccelPort*  accel_port_ = nullptr; // currently attached accelerator, seen through the AccelPort interface
+  uint32_t pc_ = 0;                  // 32b PC
   uint32_t last_pc_ = 0;            // book-keeping
   uint32_t last_instr_ = 0;         // book-keeping
   std::array<uint32_t, 32> regs_{}; // 32b RF

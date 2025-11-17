@@ -32,6 +32,7 @@ struct Instruction {
     JUMP,
     CSR,
     CSR_IMM,
+    CUSTOM,
     Unknown,
   };
 

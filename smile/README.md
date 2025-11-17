@@ -92,5 +92,5 @@ EOF
 source myscript.dbg
 EOF
 # or
-smile> myscript.dbg
+smile> source myscript.dbg
 ```

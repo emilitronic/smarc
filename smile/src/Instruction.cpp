@@ -169,6 +169,14 @@ Instruction::Instruction(uint32_t raw_instr) : raw(raw_instr) { // initializer l
       }
       break;
     }
+    case 0x0b: { // CUSTOM-0
+      type     = Type::R;
+      category = Category::CUSTOM;
+      r.rd  = rd;
+      r.rs1 = rs1;
+      r.rs2 = rs2;
+      break;
+    }
     default:
       break;
   }

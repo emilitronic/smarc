@@ -8,6 +8,7 @@ How to execute RISC-V commands.
  
 #include "Tile1_exec.hpp"
 #include "Tile1.hpp"
+#include "AccelPort.hpp"
 #include <cstdint>
 
 void exec_addi(Tile1& tile, const Instruction& instr) {
@@ -183,4 +184,27 @@ void exec_csrrci(Tile1& tile, const Instruction& instr) {
   if (op.zimm != 0) {
     tile.write_csr(op.csr, old & ~op.zimm);
   }
+}
+
+void exec_custom0(Tile1& tile, const Instruction& instr) {
+  AccelPort* accel = tile.accelerator(); // call Tile1's accessor to get accel pointer accel_port_
+  if (!accel) {
+    tile.request_illegal_instruction();  // trap if nullptr
+    return;
+  }
+
+  const auto& op = instr.r;                       // treat instr as R-type
+  const uint32_t rs1_val = tile.read_reg(op.rs1); // read rs1
+  const uint32_t rs2_val = tile.read_reg(op.rs2); // read rs2
+
+  accel->issue(instr.raw, tile.pc(), rs1_val, rs2_val); // issue custom instruction to accel
+
+  if (accel->has_response() && op.rd != 0) {      // if accel has response & rd != x0
+    const uint32_t resp = accel->read_response(); // read rd result from accel
+    tile.write_reg(op.rd, resp);
+  }
+}
+
+void exec_custom1(Tile1& tile, const Instruction& /*instr*/) { // stubbed to trap for now
+  tile.request_illegal_instruction();
 }

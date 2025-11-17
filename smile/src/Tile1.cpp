@@ -7,6 +7,7 @@ How the tile process instructions and talks to memory.
 */
 #include "Tile1.hpp"
 #include "Tile1_exec.hpp"
+#include "AccelPort.hpp"
 #include <cstdint>
 
 Tile1::Tile1(std::string /*name*/, IMPL_CTOR) {
@@ -134,6 +135,10 @@ void Tile1::tick() {
           next_pc = static_cast<uint32_t>(static_cast<int32_t>(curr_pc) + offset);
         }
       }
+      break;
+    // CUSTOM
+    case Instruction::Category::CUSTOM:
+      exec_custom0(*this, decoded); // execute the custom instruction (Tile1_exec.cpp)
       break;
     default:
       break;

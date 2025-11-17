@@ -33,3 +33,6 @@ void exec_csrrc(Tile1& tile, const Instruction& instr);
 void exec_csrrwi(Tile1& tile, const Instruction& instr);
 void exec_csrrsi(Tile1& tile, const Instruction& instr);
 void exec_csrrci(Tile1& tile, const Instruction& instr);
+// New: accelerator hooks
+void exec_custom0(Tile1& tile, const Instruction& instr);
+void exec_custom1(Tile1& tile, const Instruction& instr); // optional, future
