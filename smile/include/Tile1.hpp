@@ -148,11 +148,11 @@ private:
   MemoryPort* mem_port_ = nullptr;   // tile's pointer to external mem port   (lets it fetch instr & read/write data)
   AccelPort*  accel_port_ = nullptr; // currently attached accelerator, seen through the AccelPort interface
   uint32_t pc_ = 0;                  // 32b PC
-  uint32_t last_pc_ = 0;            // book-keeping
-  uint32_t last_instr_ = 0;         // book-keeping
-  std::array<uint32_t, 32> regs_{}; // 32b RF
-  bool halted_ = false;             // has core stopped (due to some interrupt or exit)
-  bool exited_ = false;             // has core's program intentionally finished
+  uint32_t last_pc_ = 0;             // book-keeping
+  uint32_t last_instr_ = 0;          // book-keeping
+  std::array<uint32_t, 32> regs_{};  // 32b RF
+  bool halted_ = false;              // has core stopped (due to some interrupt or exit)
+  bool exited_ = false;              // has core's program intentionally finished
   uint32_t exit_code_ = 0;
   TrapCsrState trap_csrs_{};
   bool trap_pending_ = false;

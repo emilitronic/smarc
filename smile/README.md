@@ -1,4 +1,3 @@
-@ -1,59 +1,166 @@
 smile
 =====
 
@@ -50,13 +49,16 @@ riscv64-unknown-elf-objdump -dr prog.elf
 ```
 
 ## Running Programs on SMile
-We should then be able to run `prog.bin` as follows
+We should then be able to run `prog.bin` as follows, from `smarc` use `./build/smile/tb_tile1` to run
 ```bash
-./build/smile/tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=200
+# Run the default program
+./build/smile/tb_tile1 -load_addr=0x0 -start_pc=0x0
+# Run some program for 200 steps
+tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=200
 # Show trace
-./build/smile/tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=200 -trace "Tile1"
+tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=200 -trace "Tile1"
 # Run compiled (as prog.bin) smurf_debug.c
-./build/smile/tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0
+tb_tile1 -prog=./smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0
 # And debug the program as needed, for example
 smile> help        # lists commands
 smile> step 3      # advance 3 cycles
@@ -94,3 +96,4 @@ EOF
 # or
 smile> source myscript.dbg
 ```
+- Exiting a program? On `ecall` want x17=a7==93 means 'this ecall is the exit syscall' and x10=a0==<code> denotes the program's exit status (0 means clean termination !0 denotes some kind of problem).

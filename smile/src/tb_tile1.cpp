@@ -145,10 +145,12 @@ int main(int argc, char* argv[]) {
     }
   } else {
     const uint32_t program[] = {
-      0x00500093u,
-      0x00308113u,
-      0x002081B3u,
-      0x00000073u
+      0x00500093u, // addi x1, x0, 5
+      0x00308113u, // addi x2, x1, 3
+      0x002081B3u, // add  x3, x1, x2
+      0x05D00893u, // addi x17(a7), x0, 93  -> ecall exit syscall
+      0x00000513u, // addi x10(a0), x0, 0   -> exit code 0
+      0x00000073u  // ecall
     };
     uint32_t addr = static_cast<uint32_t>(load_addr);
     for (size_t i = 0; i < sizeof(program) / sizeof(program[0]); ++i, addr += 4) {
