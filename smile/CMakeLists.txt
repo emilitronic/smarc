@@ -16,6 +16,7 @@ target_link_libraries(tile1
 )
 
 add_executable(tb_tile1
+  src/ArraySumAccel.cpp
   src/DemoAddAccel.cpp
   src/Debugger.cpp
   src/tb_tile1.cpp
