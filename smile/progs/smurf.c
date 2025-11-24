@@ -6,15 +6,16 @@
 Minimal freestanding RV32I, no libc stuff.  Works as a flat .bin
 Does SUM(0…9)=45; & writes SUM=45 at 0x100; & if sum==45 sets FLAG=1 at 0x104; then ECALLs so tile sim (which looks for this) can halt.
 Create the following memory distribution:
-0x0000  --------- <- start of our text (as per our compile instruction)
+0x0000  --------- <- CODE (.text, .rodata): start of our text (as per our compile instruction)
        |         |
 0x????  --------- <- our entry point called _start, location depends on size of program
        |         |
+       |         |   DATA (stratch, .data):
 0x0100  --------- <- SUM_ADDR (where a result will go, clearly this is dangerous in case our program above is too big)
 0x0104  --------- <- FLAG_ADDR (where another result will go, also dangerous as noted above)
        |         |
        |         |
-0x4000  --------- <- stack ptr (sp) (so, our stack better not go all they way down to 0x0104)
+0x4000  --------- <- STACK TOP: stack ptr (sp) (so, our stack better not go all they way down to 0x0104)
 */
 #include <stdint.h> // gives fixed-width int types like uint32_t
 
@@ -24,18 +25,25 @@ Create the following memory distribution:
 #define SUM_ADDR  ((volatile uint32_t*)SUM_ADDR_VALUE)  // assign name to mem addr, you'll be able to read/write from/to this addr by the name
 #define FLAG_ADDR ((volatile uint32_t*)FLAG_ADDR_VALUE) // assign name to mem addr, voltatile prevents compiler from optimizing this out
 #define BREAK_FLAG_ADDR ((volatile uint32_t*)BREAK_FLAG_ADDR_VALUE)
-#define TRAP_FLAG_VALUE   0xDEADu
-#define BREAK_FLAG_VALUE  0xBEEFu
+#define TRAP_FLAG_VALUE       0xDEADu
+#define BREAK_FLAG_VALUE      0xBEEFu
 
 // Correct CSR setup
 static inline void write_mtvec(void (*handler)(void)) { // takes pointer to a fn (handler)
   __asm__ volatile("csrw mtvec, %0" :: "r"(handler));   // writes given addr into mtvec
 }
 
-// Make entry point fn., (linker & runtime expect it to be named _start), for baremetal program (where we go to after reset, need this if we don't use OS)
-// naked attribute tells compiler not to generate any prologue/epilogue (we're responsible for setting up register state, stack ptr, etc.)
+// Tag your _start function so it lands in .text.start and thus becomes the entry point
+/* Make entry point fn., (linker & runtime expect it to be named _start), for baremetal program 
+  (where we go to after reset, need this if we don't use OS) naked attribute tells compiler not 
+  to generate any prologue/epilogue (we're responsible for setting up register state, stack ptr, 
+  etc.) 
+  TODO: to grow _start towards a full crt0 that sets up data/bss sections, etc. you'll want to add
+  basics like zeroing .bss, copying .data, setting gp, installing mtvec, calling C++ constructors, 
+  passing args, handling return, etc.  For now, keep it minimal.
+*/
 __attribute__((naked, section(".text.start"))) 
-void _start(void) { // declare _start, a function that takes no arguments and returns nothing
+void _start(void) {           // declare _start, a function that takes no arguments and returns nothing
   __asm__ volatile(
     "li   sp, 0x00004000\n"   // set stack ptr to addr 0x4000, you have given yourself a 16 KiB stack
     "j    main\n"             // after _start and main are compiled, a linker will fill in the correct addr for main

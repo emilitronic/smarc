@@ -20,6 +20,7 @@ cmake-build-release/
 *.daidir/
 *simv*
 *.key
+*.cache/
 
 # Synthesis outputs
 *.ddc

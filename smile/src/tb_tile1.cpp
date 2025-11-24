@@ -105,17 +105,40 @@ int main(int argc, char* argv[]) {
       tile.set_pc(static_cast<uint32_t>(start_pc));
     }
   } else {
+    // const uint32_t program[] = {
+    //   0x00500093u, // addi x1, x0, 5
+    //   0x00308113u, // addi x2, x1, 3
+    //   0x002081B3u, // add  x3, x1, x2
+    //   0x05D00893u, // addi x17(a7), x0, 93  -> ecall exit syscall
+    //   0x00000513u, // addi x10(a0), x0, 0   -> exit code 0
+    //   0x00000073u  // ecall
+    // };  
+    // Preload a small test array in DRAM at 0x100
+    const uint32_t array_base = 0x00000100u;
+    const uint32_t array[] = {
+      1u,
+      2u,
+      3u,
+      4u
+    }; // sum = 10
+    uint32_t addr = array_base;
+    for (size_t i = 0; i < sizeof(array) / sizeof(array[0]); ++i, addr += 4) {
+      dram_port.write32(addr, array[i]);
+    }
+    // Program that calls AccelArraySum via CUSTOM-0:
+    //   rs1 = base (0x100), rs2 = len (4), rd = x3
     const uint32_t program[] = {
-      0x00500093u, // addi x1, x0, 5
-      0x00308113u, // addi x2, x1, 3
-      0x002081B3u, // add  x3, x1, x2
-      0x05D00893u, // addi x17(a7), x0, 93  -> ecall exit syscall
-      0x00000513u, // addi x10(a0), x0, 0   -> exit code 0
-      0x00000073u  // ecall
+      0x10000093u, // addi x1, x0, 256     ; x1 = 0x00000100 (array_base)
+      0x00400113u, // addi x2, x0, 4       ; x2 = 4 (length in words)
+      0x0020818bu, // custom0 x3, x1, x2   ; x3 = sum(arr[0..3]) = 10
+      0x00018533u, // add   x10, x3, x0    ; a0 = x3 (exit code = sum)
+      0x05D00893u, // addi  x17, x0, 93    ; a7 = 93 (exit syscall)
+      0x00000073u  // ecall                ; exit(a0)
     };
-    uint32_t addr = static_cast<uint32_t>(load_addr);
+    // uint32_t addr = static_cast<uint32_t>(load_addr);
+    addr = static_cast<uint32_t>(load_addr);
     for (size_t i = 0; i < sizeof(program) / sizeof(program[0]); ++i, addr += 4) {
-      dram_port.write32(addr, program[i]);
+      dram_port.write32(addr, program[i]); // write program to dram_port
     }
     if (static_cast<uint32_t>(start_pc) != 0u) {
       tile.set_pc(static_cast<uint32_t>(start_pc));

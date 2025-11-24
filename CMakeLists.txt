@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(smarc LANGUAGES CXX)
 
+# Reduce CMake/Ninja rule chatter: hide "Building CXX object..." lines.
+set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "suppress per-rule build messages" FORCE)
+
 # Cedar still carries very old cmake_minimum_required() values which trip
 # deprecation warnings on newer hosts. Disable those warnings locally so our
 # configure step stays clean without patching upstream Cedar.
