@@ -1,7 +1,7 @@
 // **********************************************************************
 // smicro/src/RvCore.cpp
 // **********************************************************************
-// S Magierowski Aug 16 2025
+// Sebastian Claudiusz Magierowski Aug 16 2025
 /*
 Write -> readback smoke: store pattern to test_addr_, wait for ack,
 then issue a read, check resp against pattern, and park.
@@ -10,8 +10,8 @@ then issue a read, check resp against pattern, and park.
 #include "RvCore.hpp"
 
 RvCore::RvCore(std::string /*name*/, IMPL_CTOR) { // constructor registers two update fns. so req/resp paths can be 0-delay w/o comp loops
-  UPDATE(update_req).writes(m_req);
-  UPDATE(update_resp).reads(m_resp);
+  UPDATE(update_req).writes(m_req);  // register update_req with Cascade's scheduler
+  UPDATE(update_resp).reads(m_resp); // register update_resp with Cascade's scheduler
 }
 
 void RvCore::update_req() { // issue requests

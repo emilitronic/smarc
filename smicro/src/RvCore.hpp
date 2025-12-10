@@ -1,15 +1,16 @@
 // **********************************************************************
 // smicro/src/RvCore.hpp
 // **********************************************************************
-// S Magierowski Aug 16 2025
+// Sebastian Claudiusz Magierowski Aug 16 2025
 /*
-------- RVCore ---------+   
- update_req() ->  m_req |==>
-                        |   
-update_resp() <- m_resp |<==
-------------------------+   
-*/
+Just a tiny finte state-machine (FSM) that exercises MemCtrl protocol.
 
+----------- RVCore ----------+   
+F -> update_req()  ->  m_req |==>
+S                            |   
+M <- update_resp() <- m_resp |<==
+-----------------------------+   
+*/
 #pragma once
 #include <cascade/Cascade.hpp>
 #include "MemTypes.hpp" // mem req/resp packet types

@@ -7,7 +7,7 @@ SoC test harness with a single-switch suite to avoid ambiguity.
 Suites: hal_* run only DRAM HAL at t=0 (no driver traffic). proto_* run protocol timing via core or tester.
 
 to configure, build, and run:
-cedar % cmake -S . -B build
+cedar % cmake -S . -B build  -DCEDAR_DIR=/Users/seb/Research/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cedar % cmake --build build --target smicro -j
 cedar/build/smicro % ./smicro <options>
 */
@@ -30,7 +30,7 @@ cedar/build/smicro % ./smicro <options>
 #include <descore/Parameter.hpp>
 #include <iostream>
 #include "SoC.hpp"
-#include "AccelCmd.hpp"
+#include "AccelCmd.hpp" 
 
 using namespace std;
 

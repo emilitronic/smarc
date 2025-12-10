@@ -10,7 +10,7 @@ A scaffold for a RISC-V SoC + NN accelerator in Cascade.  We're just methodicall
 ## Configure & Build
 ```bash
 # Configure from repo root (i.e., from smarc)
-cmake -S . -B build
+cmake -S . -B build -DCEDAR_DIR=/Users/seb/Research/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 # Build smicro
 cmake --build build --target smicro -j
 # from VS Code
@@ -18,7 +18,8 @@ Command + Shift + B
 ```
 
 ## Test Structure
-A layered test structure is used to decouple test failure causes and keep tests fast.  There are two main types of tests * Hardware Abstraction Layer (HAL) tests and 
+A layered test structure is used to decouple test failure causes and keep tests fast.  There are two main types of tests 
+* Hardware Abstraction Layer (HAL) tests and 
 * Protocol tests.<br>
 HAL tests: direct component pokes (e.g., DRAM). No clocking. No MemCtrl. Content/bounds only.<br>
 Protocol tests: traffic over the real path: Source → MemCtrl → DRAM, with latency, posted-acks, RAW, etc.
@@ -36,12 +37,14 @@ Value: if this fails, the bug is in DRAM or the map, not the controller or timin
 Purpose: prove latency, ordering, posted-ack policy, RAW forwarding.<br>
 Scope: MemTester drives real requests through MemCtrl.<br>
 Value: if this fails, the bug is in MemCtrl/plumbing, not storage, use this to validate timing/order guarantees or MemCtrl behaviour.
+
 ### Where it’s going
 * Broaden L2: posted_on/off suites, WAW last-wins + fence, backpressure, burst sizes, byte-enable forwarding.
 * Layer 3 (later): multiple masters (add accelerator), tags/IDs, arbitration fairness, OoO completion.
 * Cache reintegration: reinsert L2 then L1; keep L1/L2 tests separate from DRAM HAL tests.
 * CI matrix: run L0+L1 on every commit; run L2/L3 nightly with latency sweeps and randomized scripts.
 * Single entrypoint: optionally unify flags to -suite=hal_* | proto_* to reduce confusion.
+
 ### Invocation
 Single switch `-suite` selects what runs. HAL suites operate at t=0 via DRAM HAL only (no driver traffic). Protocol suites exercise timing over cycles.
 
@@ -50,7 +53,6 @@ Single switch `-suite` selects what runs. HAL suites operate at t=0 via DRAM HAL
 - Protocol (tester): `proto_raw | proto_no_raw | proto_rar | proto_lat`
 
 ## Mode Matrix (Cheat Sheet)
-
 Quick view of `-suite` and what runs. Contexts refer to component instance names for `-trace`.
 
 - HAL: `hal_none|hal_multi|hal_bounds` → DRAM HAL at t=0 only (no protocol traffic).
@@ -63,7 +65,6 @@ Recommended traces:
 - Full path: `-trace "SoC;SoC.RvCore;SoC.mem;SoC.Dram"`.
 
 ## Quickstart Recipes
-
 - Watch latency N on no-RAW path:
   - `./smicro -suite=proto_no_raw -mem_latency=2 -trace "SoC;SoC.mem" -steps=12`
 - RAW forward (store→load same addr same tick):
@@ -74,7 +75,6 @@ Recommended traces:
   - `./smicro -suite=proto_core -trace "SoC;SoC.RvCore"`
 
 ## Flags → Code Path
-
 - `-suite` is parsed in `smicro/src/tb_smicro.cpp` and normalized (legacy flags map to new suites).
   - HAL tests: `run_hal(S, soc)` executes at t=0 via `Dram::read/write` (no MemCtrl timing).
   - Protocol suites: `run_suite(S, soc, mem_lat)` issue MemTester ops over cycles (except `proto_core`, which uses RvCore).
@@ -85,7 +85,6 @@ Recommended traces:
   - DRAM storage+HAL: `smicro/src/Dram.cpp`.
 
 ## Timing Clarification
-
 - MemCtrl owns latency (`-mem_latency`), DRAM is zero-latency, FIFOs are 0/0 delay.
 - With the current update ordering (age → issue → accept within one tick), loads see one staging cycle when `mem_latency` would otherwise be 0.
   - For `mem_latency = 0`: `t_got − t_sent ≈ 1`.

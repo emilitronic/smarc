@@ -2,7 +2,7 @@
 // **********************************************************************
 // smicro/src/SoC.cpp
 // **********************************************************************
-// S Magierowski Aug 16 2025
+// Sebastian Claudiusz Magierowski Aug 16 2025
 /*
 Smoke-test path (no caches)
 
@@ -79,8 +79,8 @@ SoC::SoC(AttachMode mode, bool use_test_driver, IMPL_CTOR)
   }
 
   // MemCtrl <-> DRAM (DRAM is zero-latency storage) 
-  dram_->s_req        << mem_->s_req;                //           mem ctrl -> dram
-  mem_->s_resp        << dram_->s_resp;              //           mem ctrl <- dram
+  dram_->s_req        << mem_->s_req;      //           mem ctrl -> dram
+  mem_->s_resp        << dram_->s_resp;    //           mem ctrl <- dram
   // 0/0 delays end-to-end; MemCtrl owns timing
   mem_->in_core_req.setDelay(0);
   mem_->out_core_resp.setDelay(0);

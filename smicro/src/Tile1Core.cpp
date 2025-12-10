@@ -7,7 +7,9 @@
 
 using namespace Cascade;
 
-// Simple adapter/shim class that exposes smicro's Dram as a MemoryPort for Tile1 (only viewable in this .cpp)
+// Define the nested DramMemoryPort adapter helper class
+// Simple adapter/shim class that turns Tile1's read32/write32 into Dram::read/write
+// i.e., exposes smicro's Dram as a MemoryPort for Tile1 (only viewable in this .cpp)
 class Tile1Core::DramMemoryPort : public MemoryPort {
 public:
   explicit DramMemoryPort(Dram& dram) : dram_(dram) {}
@@ -32,11 +34,11 @@ private:
 Tile1Core::Tile1Core(std::string name, IMPL_CTOR) // Tile1Core constructor implementation
   : tile_("tile1")  // Tile1 has a convenience ctor taking just a name
 {
-  tile_.clk << clk; // Forward the smicro clock into Tile1 so it can tick with the rest of the system.
+  tile_.clk << clk; // connect Tile1's clock to Tile1Core wrapper clock
 }
 
 void Tile1Core::attach_dram(Dram* dram) { // to tell Tile1Core which DRAM instance to use, 
-  dram_ = dram;   // remember the DRAM pointer
+  dram_ = dram;   // remembers which DRAM instance we're using
 
   // Clean up any existing adapter
   if (dram_port_) {
@@ -47,7 +49,7 @@ void Tile1Core::attach_dram(Dram* dram) { // to tell Tile1Core which DRAM instan
   // If a valid DRAM is provided, create a new adapter and hook Tile1 to it
   if (dram_) {
     dram_port_ = new DramMemoryPort(*dram_); // re-uses DramMemoryPort defined above, so tick() sees a synchronous memory just like tb_tile1.cpp
-    tile_.attach_memory(dram_port_);
+    tile_.attach_memory(dram_port_);         // gives DramMemoryPort pointer to Tile1 so it can do memory accesses
   }
 }
 
