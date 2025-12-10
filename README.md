@@ -10,4 +10,4 @@
 
 ---
 
-If you're feeling down, just SMile.
+If you're feeling down, just SMile.  Also, click [here](https://emilitronic.github.io/smarc/).
