@@ -35,14 +35,33 @@ static inline void exit_with_code(uint32_t code) {
 }
 
 int main(void) {
-  uint32_t i;
-  for (i = 0; i < N; ++i) {
-    LPV_BASE[i] = i + 1;
+  uint32_t addr = 0x00000200u;
+  uint32_t count = N;
+  uint32_t val = 1;
+  while (count--) {
+    __asm__ volatile(
+      "sw %1, 0(%0)\n"
+      "addi %0, %0, 4\n"
+      : "+r"(addr)
+      : "r"(val)
+      : "memory"
+    );
+    ++val;
   }
 
   uint32_t acc = 0;
-  for (i = 0; i < N; ++i) {
-    acc += LPV_BASE[i];
+  addr = 0x00000200u;
+  count = N;
+  while (count--) {
+    uint32_t tmp;
+    __asm__ volatile(
+      "lw %0, 0(%1)\n"
+      "addi %1, %1, 4\n"
+      : "=r"(tmp), "+r"(addr)
+      :
+      : "memory"
+    );
+    acc += tmp;
   }
 
   *SUM_ADDR = acc;
