@@ -92,7 +92,7 @@ void trap_handler(void) {
     "li   t1, %[ecall_val]\n"
     "sw   t1, 0(t0)\n"
     "j    5f\n"
-  "3:\n"                 // mret from break (pop registers)
+  "3:\n"                 // mret from break at 1 (pop registers)
     "lw   t0, 0(sp)\n"
     "lw   t1, 4(sp)\n"
     "lw   t2, 8(sp)\n"
@@ -104,7 +104,7 @@ void trap_handler(void) {
     "lw   t2, 8(sp)\n"
     "addi sp, sp, 24\n"
     "mret\n"
-  "5:\n"                 // from ecall spin (TB will notice this and terminate) 
+  "5:\n"                 // from ecall at 2 spin (TB will notice this and terminate) 
     "lw   t0, 0(sp)\n"
     "lw   t1, 4(sp)\n"
     "lw   t2, 8(sp)\n"

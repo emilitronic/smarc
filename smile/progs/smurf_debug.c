@@ -3,7 +3,21 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Nov 2 2025
 /*
-Just to help us exercise the debugger REPL.  
+Debugger-focused test program for SMile.  Simple state patterns to spot so its easy to verify whther we have a working debugger REPL.
+
+Sequence:
+1. `_start` sets up a small stack at 0x4000 and jumps into `main`.
+2. `main` initializes two “scratch” memory locations at 0x0100 and 0x0104 with known patterns.
+3. It then loads recognizable constants into a few registers (t0, t1, s0, a0).
+4. It executes an `ebreak`, giving the debugger a natural place to stop so you can inspect
+   registers and memory via the REPL.
+5. After you continue from the breakpoint, it issues an `ecall` with a7=93 and a0=0x2A so
+   the core takes the “exit” path and halts with exit code 42.
+
+Use this program to:
+- exercise the debugger REPL (step, regs, mem, break/cont),
+- verify that the scratch memory locations hold the expected values at the breakpoint,
+- confirm that the exit syscall (93) and exit code (0x2A) are being reported correctly.
 */
 #include <stdint.h>
 
@@ -20,6 +34,7 @@ static inline void trigger_exit(uint32_t code) {
   __asm__ volatile("ecall" : : "r"(a0), "r"(a7));
 }
 
+// set up small stack and jump to main
 __attribute__((naked, section(".text.start")))
 void _start(void) {
   __asm__ volatile(
@@ -32,9 +47,10 @@ int main(void) {
   volatile uint32_t* scratch0 = (volatile uint32_t*)SCRATCH0_ADDR;
   volatile uint32_t* scratch1 = (volatile uint32_t*)SCRATCH1_ADDR;
 
-  *scratch0 = 0x11112222u;
-  *scratch1 = 0x33334444u;
+  *scratch0 = 0x11112222u; // easy val in mem for debugger to spot
+  *scratch1 = 0x33334444u; // easy val in mem for debugger to spot
 
+  // load recognizable constants into some registers
   __asm__ volatile(
     "li t0, 0xABCDEF00\n"
     "li t1, 0x12345678\n"
@@ -42,8 +58,8 @@ int main(void) {
     "li a0, 0x1F\n"
   );
 
-  trigger_break();
-  trigger_exit(0x2Au);
+  trigger_break(); // debugger regs, mem 0x100 should see state set by this command
+  trigger_exit(0x2Au); // debugger should report exit code 42 (0x2A)
 
   for (;;) {
   }
