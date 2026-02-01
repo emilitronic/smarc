@@ -1,5 +1,5 @@
 // **********************************************************************
-// smile/progs/smurf_threads.c
+// smile/progs/core/smurf_threads.c
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Nov 1 2025 
 /*

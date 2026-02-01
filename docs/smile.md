@@ -99,9 +99,9 @@ smile/
 └── CMakeLists.txt      # build rules for the smile binary
 ```
 
-## Current test programs (`smile/progs/`)
+## Current core test programs (`smile/progs/core/`)
 
-These are the small, freestanding RV32 programs that are currently used with `smile`:
+These are the small, freestanding RV32 programs that are currently used with `smile` for micro-architectural and debugger testing.
 
 - **`smexit.c`** – minimal exit sanity check  
   Issues an `ecall` with syscall ID 93 (put in a7 so system knows how to interpret this `ecall`) and an exit code (e.g., 7 in a0) almost immediately. Used to verify that:
@@ -136,6 +136,13 @@ These are the small, freestanding RV32 programs that are currently used with `sm
   - watching how shared memory updates show up in the debugger
 
 All of these programs are linked with `progs/link_rv32.ld`, which places `_start` at address `0x00000000` so Tile1 can begin execution by simply starting at PC=0 after reset.
+
+## Current scientific programs (`smile/progs/sci/`)
+
+These are small scientific kernels.
+
+- **`sum_lpv.c`** – LPV-style reduction
+  Initializes an array of `N` 32-bit values at `0x0200` (`1,2,…,N`), computes their sum, stores the result at `0x0100`, and exits via ECALL 93 with the sum as the exit code.  Intended as a first “LPV-like” scalar kernel to study instruction mix and memory access patterns on `Tile1`.
 
 ## Core Pieces
 - `Tile1` (`Tile1.hpp/cpp`): the RV32 core implementation
