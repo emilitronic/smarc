@@ -64,6 +64,27 @@ void exec_sltiu(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, lhs < rhs ? 1u : 0u);
 }
 
+void exec_xori(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.i; // alias for I-type decoded fields
+  const uint32_t src = tile.read_reg(op.rs1);
+  const uint32_t imm = static_cast<uint32_t>(op.imm);
+  tile.write_reg(op.rd, src ^ imm);
+}
+
+void exec_ori(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.i; // alias for I-type decoded fields
+  const uint32_t src = tile.read_reg(op.rs1);
+  const uint32_t imm = static_cast<uint32_t>(op.imm);
+  tile.write_reg(op.rd, src | imm);
+}
+
+void exec_andi(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.i; // alias for I-type decoded fields
+  const uint32_t src = tile.read_reg(op.rs1);
+  const uint32_t imm = static_cast<uint32_t>(op.imm);
+  tile.write_reg(op.rd, src & imm);
+}
+
 void exec_ecall(Tile1& tile, const Instruction& /*instr*/) { // raise a trap
   const uint32_t syscall = tile.read_reg(17); // a7=x17 holds syscall id
   if (syscall == 93u) {                       // is a7 = 93 when we ecall then exit()
