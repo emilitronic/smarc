@@ -30,7 +30,10 @@ Instruction::Instruction(uint32_t raw_instr) : raw(raw_instr) { // initializer l
 
   switch (opcode) {
     case 0x33: { // R-type ALU, 011_0011
-      if (funct3 == 0x0 && funct7 == 0x00) {
+      if ((funct3 == 0x0 && (funct7 == 0x00 || funct7 == 0x20)) || // ADD/SUB
+          (funct3 == 0x4 && funct7 == 0x00) ||                     // XOR
+          (funct3 == 0x6 && funct7 == 0x00) ||                     // OR
+          (funct3 == 0x7 && funct7 == 0x00)) {                     // AND
         type     = Type::R;
         category = Category::ALU;
         r.rd  = rd;

@@ -26,6 +26,35 @@ void exec_add(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, result);
 }
 
+void exec_sub(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  const uint32_t result = lhs - rhs;
+  tile.write_reg(op.rd, result);
+}
+
+void exec_xor(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  tile.write_reg(op.rd, lhs ^ rhs);
+}
+
+void exec_or(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  tile.write_reg(op.rd, lhs | rhs);
+}
+
+void exec_and(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  tile.write_reg(op.rd, lhs & rhs);
+}
+
 void exec_slli(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.i; // alias for I-type decoded fields
   const uint32_t src = tile.read_reg(op.rs1);

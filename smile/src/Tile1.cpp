@@ -83,7 +83,21 @@ void Tile1::tick() {
           exec_addi(*this, decoded);
         }
       } else if (decoded.type == Instruction::Type::R) {
-        exec_add(*this, decoded);
+        if (decoded.opcode == 0x33) {
+          if (decoded.funct3 == 0x0 && decoded.funct7 == 0x20) {
+            exec_sub(*this, decoded);
+          } else if (decoded.funct3 == 0x4 && decoded.funct7 == 0x00) {
+            exec_xor(*this, decoded);
+          } else if (decoded.funct3 == 0x6 && decoded.funct7 == 0x00) {
+            exec_or(*this, decoded);
+          } else if (decoded.funct3 == 0x7 && decoded.funct7 == 0x00) {
+            exec_and(*this, decoded);
+          } else {
+            exec_add(*this, decoded);
+          }
+        } else {
+          exec_add(*this, decoded);
+        }
       } else if (decoded.type == Instruction::Type::U) {
         if (decoded.opcode == 0x37) {
           exec_lui(*this, decoded);
