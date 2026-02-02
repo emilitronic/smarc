@@ -276,6 +276,38 @@ void exec_sw(Tile1& tile, const Instruction& instr) {
   mem->write32(addr, data);                                          // write to mem
 }
 
+void exec_sb(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.s;
+  auto* mem = tile.memory();
+  if (!mem) return;
+  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+  const uint32_t data = tile.read_reg(op.rs2);
+  const uint32_t aligned = addr & ~0x3u;
+  const uint32_t shift = (addr & 0x3u) * 8u;
+  const uint32_t mask = 0xffu << shift;
+  const uint32_t word = mem->read32(aligned);
+  const uint32_t merged = (word & ~mask) | ((data & 0xffu) << shift);
+  // MemoryPort is word-only, so SB is a read-modify-write of the containing word.
+  mem->write32(aligned, merged);
+}
+
+void exec_sh(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.s;
+  auto* mem = tile.memory();
+  if (!mem) return;
+  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+  const uint32_t data = tile.read_reg(op.rs2);
+  const uint32_t aligned = addr & ~0x3u;
+  const uint32_t shift = (addr & 0x2u) * 8u;
+  const uint32_t mask = 0xffffu << shift;
+  const uint32_t word = mem->read32(aligned);
+  const uint32_t merged = (word & ~mask) | ((data & 0xffffu) << shift);
+  // MemoryPort is word-only, so SH is a read-modify-write of the containing word.
+  mem->write32(aligned, merged);
+}
+
 bool exec_beq(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.b;
   return tile.read_reg(op.rs1) == tile.read_reg(op.rs2);

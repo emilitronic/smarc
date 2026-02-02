@@ -11,6 +11,7 @@ Regression tests (exit code 1 on pass, 0 on fail):
 - rtype_shift_test.c: SLL/SRL/SRA sanity check
 - branch_bxx_test.c: BGE/BLTU/BGEU sanity check
 - load_bh_test.c: LB/LH/LBU/LHU sanity check
+- store_bh_test.c: SB/SH sanity check
 
 Build/run snippet (from repo root, replace <test>.c):
 ```

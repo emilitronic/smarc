@@ -148,7 +148,13 @@ void Tile1::tick() {
       break;
     case Instruction::Category::STORE:
       if (decoded.type == Instruction::Type::S) {
-        exec_sw(*this, decoded);
+        if (decoded.funct3 == 0x0) {
+          exec_sb(*this, decoded);
+        } else if (decoded.funct3 == 0x1) {
+          exec_sh(*this, decoded);
+        } else if (decoded.funct3 == 0x2) {
+          exec_sw(*this, decoded);
+        }
       }
       break;
     // JUMP

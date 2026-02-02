@@ -94,8 +94,8 @@ Instruction::Instruction(uint32_t raw_instr) : raw(raw_instr) { // initializer l
       }
       break;
     }
-    case 0x23: { // S-type Stores 010_0011 (SW, etc.)
-      if (funct3 == 0x2) { // SW
+    case 0x23: { // S-type Stores 010_0011 (SB/SH/SW)
+      if (funct3 == 0x0 || funct3 == 0x1 || funct3 == 0x2) {
         type     = Type::S;
         category = Category::STORE;
         s.rs1 = rs1;

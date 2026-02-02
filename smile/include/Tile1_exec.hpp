@@ -41,6 +41,8 @@ void exec_lh(Tile1& tile, const Instruction& instr);
 void exec_lbu(Tile1& tile, const Instruction& instr);
 void exec_lhu(Tile1& tile, const Instruction& instr);
 void exec_sw(Tile1& tile, const Instruction& instr);
+void exec_sb(Tile1& tile, const Instruction& instr);
+void exec_sh(Tile1& tile, const Instruction& instr);
 bool exec_beq(Tile1& tile, const Instruction& instr);
 bool exec_bne(Tile1& tile, const Instruction& instr);
 bool exec_blt(Tile1& tile, const Instruction& instr);
