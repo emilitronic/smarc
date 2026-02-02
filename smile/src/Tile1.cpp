@@ -58,6 +58,10 @@ void Tile1::tick() {
         if (decoded.opcode == 0x13) {
           if (decoded.funct3 == 0x1) {
             exec_slli(*this, decoded);
+          } else if (decoded.funct3 == 0x2) {
+            exec_slti(*this, decoded);
+          } else if (decoded.funct3 == 0x3) {
+            exec_sltiu(*this, decoded);
           } else if (decoded.funct3 == 0x5) {
             if (decoded.funct7 == 0x00) {
               exec_srli(*this, decoded);

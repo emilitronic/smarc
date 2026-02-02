@@ -16,6 +16,8 @@ void exec_add(Tile1& tile, const Instruction& instr);
 void exec_slli(Tile1& tile, const Instruction& instr);
 void exec_srli(Tile1& tile, const Instruction& instr);
 void exec_srai(Tile1& tile, const Instruction& instr);
+void exec_slti(Tile1& tile, const Instruction& instr);
+void exec_sltiu(Tile1& tile, const Instruction& instr);
 void exec_ecall(Tile1& tile, const Instruction& instr);
 void exec_ebreak(Tile1& tile, const Instruction& instr);
 void exec_uret(Tile1& tile, const Instruction& instr);
