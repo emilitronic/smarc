@@ -25,6 +25,8 @@ void exec_sub(Tile1& tile, const Instruction& instr);
 void exec_xor(Tile1& tile, const Instruction& instr);
 void exec_or(Tile1& tile, const Instruction& instr);
 void exec_and(Tile1& tile, const Instruction& instr);
+void exec_slt(Tile1& tile, const Instruction& instr);
+void exec_sltu(Tile1& tile, const Instruction& instr);
 void exec_ecall(Tile1& tile, const Instruction& instr);
 void exec_ebreak(Tile1& tile, const Instruction& instr);
 void exec_uret(Tile1& tile, const Instruction& instr);

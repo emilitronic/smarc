@@ -86,6 +86,10 @@ void Tile1::tick() {
         if (decoded.opcode == 0x33) {
           if (decoded.funct3 == 0x0 && decoded.funct7 == 0x20) {
             exec_sub(*this, decoded);
+          } else if (decoded.funct3 == 0x2 && decoded.funct7 == 0x00) {
+            exec_slt(*this, decoded);
+          } else if (decoded.funct3 == 0x3 && decoded.funct7 == 0x00) {
+            exec_sltu(*this, decoded);
           } else if (decoded.funct3 == 0x4 && decoded.funct7 == 0x00) {
             exec_xor(*this, decoded);
           } else if (decoded.funct3 == 0x6 && decoded.funct7 == 0x00) {

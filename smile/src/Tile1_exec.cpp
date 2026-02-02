@@ -55,6 +55,20 @@ void exec_and(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, lhs & rhs);
 }
 
+void exec_slt(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const int32_t lhs = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const int32_t rhs = static_cast<int32_t>(tile.read_reg(op.rs2));
+  tile.write_reg(op.rd, lhs < rhs ? 1u : 0u);
+}
+
+void exec_sltu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  tile.write_reg(op.rd, lhs < rhs ? 1u : 0u);
+}
+
 void exec_slli(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.i; // alias for I-type decoded fields
   const uint32_t src = tile.read_reg(op.rs1);
