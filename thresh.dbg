@@ -1,0 +1,11 @@
+# debugger script for threshold_lpv.c
+step 10
+mem 0x200
+step 10
+mem 0x200
+step 10
+mem 0x200
+step 10
+mem 0x200
+cont
+quit

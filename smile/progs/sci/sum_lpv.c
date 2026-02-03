@@ -38,15 +38,18 @@ static inline void exit_with_code(uint32_t code) {
 // main sum kernel
 int main(void) {
   uint32_t i;
+  // crate your array of LPV data
   for (i = 0; i < N; ++i) {
     LPV_BASE[i] = i + 1;
   }
 
+  // now sum it up
   uint32_t acc = 0;
   for (i = 0; i < N; ++i) {
     acc += LPV_BASE[i];
   }
 
+  // write sum result in specified addr and exit with sum as code
   *SUM_ADDR = acc;
   exit_with_code(acc);
   return 0;
