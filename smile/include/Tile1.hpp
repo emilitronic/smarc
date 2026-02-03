@@ -37,13 +37,17 @@ class Tile1 : public Component { // inherit from Component,
   DECLARE_COMPONENT(Tile1);      // macro boilerplate to plug Component into sim engine
 
 public:
+  // Construction and lifecycle
   Tile1(std::string name, COMPONENT_CTOR); // constructor medthod declaration
   Clock(clk);
-  void attach_memory(MemoryPort* mem); // assigns pointer to a memory port
-  void attach_accelerator(AccelPort* accel) { accel_port_ = accel; } // how the testbench tells Tile1 what to talk to
   void tick();
   void reset();
 
+  // External interfaces
+  void attach_memory(MemoryPort* mem); // assigns pointer to a memory port
+  void attach_accelerator(AccelPort* accel) { accel_port_ = accel; } // how the testbench tells Tile1 what to talk to
+
+  // Trap and privilege enums
   enum class TrapCause : uint32_t {
     EnvironmentCallFromUMode =  8u,
     EnvironmentCallFromSMode =  9u,
@@ -62,6 +66,7 @@ public:
   static constexpr uint32_t CSR_MEPC    = 0x341u;
   static constexpr uint32_t CSR_MCAUSE  = 0x342u;
 
+  // MSTATUS bit masks
   static constexpr uint32_t MSTATUS_MIE         = 1u << 3;
   static constexpr uint32_t MSTATUS_MPIE        = 1u << 7;
   static constexpr uint32_t MSTATUS_MPP_SHIFT   = 11u;
@@ -70,6 +75,7 @@ public:
   static constexpr uint32_t MSTATUS_MPP_MACHINE = 3u << MSTATUS_MPP_SHIFT;
   static constexpr uint32_t MSTATUS_MPP_USER    = 0u << MSTATUS_MPP_SHIFT;
 
+  // Core state accessors
   uint32_t pc()                    const { return pc_; }
   uint32_t last_pc()               const { return last_pc_; }
   uint32_t last_instr()            const { return last_instr_; }
@@ -78,6 +84,8 @@ public:
   uint32_t read_reg(uint32_t idx)  const { return idx < regs_.size() ? regs_[idx] : 0; }
   void     write_reg(uint32_t idx, uint32_t value);
   void     halt();
+
+  // Thread context save/restore and exit control
   void     save_context(ThreadContext &t) const {  // save thread's state
     t.pc = pc_;
     for (int i = 0; i < 32; ++i) {
@@ -103,6 +111,8 @@ public:
   bool     has_exited()            const { return exited_; }
   uint32_t exit_code()             const { return exit_code_; }
   void     set_pc(uint32_t pc);                                         // a way to set the PC
+
+  // CSR accessors
   uint32_t read_csr(uint32_t addr) const;
   void     write_csr(uint32_t addr, uint32_t value);
   uint32_t mstatus()               const { return trap_csrs_.mstatus; } // CSR accessor
@@ -116,6 +126,8 @@ public:
   void     resume_from_trap();                                          // exit trap handler (exec_mret uses this) so mret restores crl flow w/o fighting fetch loop)
   bool     trap_pending()          const { return trap_pending_; }      // trap pending flag
   TrapCause pending_trap_cause()   const { return pending_trap_; }
+
+  // External port accessors
   // overloaded fns. based on constness for load/store memory ops (accessors for private mem_port_ in Tile1)
   MemoryPort* memory()                   { return mem_port_; } // non-const ver.: used on non-const Tile1 obj. (so can update memory)
   const MemoryPort* memory()       const { return mem_port_; } // const ver. used on const Tile1 obj. (so debug code won't accidetally change things)
@@ -123,6 +135,7 @@ public:
   const AccelPort* accelerator()   const { return accel_port_; }
 
 private:
+  // Trap CSRs
   struct TrapCsrState { // CSR states for trap handler to read/write
     uint32_t mstatus = 0;
     uint32_t mtvec   = 0;
@@ -130,7 +143,7 @@ private:
     uint32_t mcause  = 0;
   };
 
-  void reset_trap_csrs();
+  // Privilege mode encoding helpers
   static inline uint32_t encode_mpp(PrivMode mode) {
     switch (mode) {
       case PrivMode::Machine:    return MSTATUS_MPP_MACHINE;
@@ -147,21 +160,31 @@ private:
       default: return PrivMode::User;
     }
   }
+  void reset_trap_csrs();
 
+  // Attached interfaces
   MemoryPort* mem_port_ = nullptr;   // tile's pointer to external mem port   (lets it fetch instr & read/write data)
   AccelPort*  accel_port_ = nullptr; // currently attached accelerator, seen through the AccelPort interface
+
+  // Core execution state
   uint32_t pc_ = 0;                  // 32b PC
   uint32_t last_pc_ = 0;             // book-keeping
   uint32_t last_instr_ = 0;          // book-keeping
   std::array<uint32_t, 32> regs_{};  // 32b RF
+
+  // Halt/exit tracking
   bool halted_ = false;              // has core stopped (due to some interrupt or exit)
   bool exited_ = false;              // has core's program intentionally finished
   uint32_t exit_code_ = 0;
+
+  // Trap/CSR state
   TrapCsrState trap_csrs_{};
+  std::unordered_map<uint32_t, uint32_t> csrs_{};
+
+  // Trap flow control
   bool trap_pending_ = false;
   TrapCause pending_trap_ = TrapCause::EnvironmentCallFromUMode;
   bool pc_override_pending_ = false; // small PC-override queue, set true when ready to resume from trap 
   uint32_t pc_override_value_ = 0;   // small PC-override queue, will hold mepc when ready to resume
   PrivMode priv_mode_ = PrivMode::Machine;
-  std::unordered_map<uint32_t, uint32_t> csrs_{};
 };
