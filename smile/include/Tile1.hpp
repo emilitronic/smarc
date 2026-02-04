@@ -110,6 +110,11 @@ public:
   }
   bool     has_exited()            const { return exited_; }
   uint32_t exit_code()             const { return exit_code_; }
+  uint64_t inst_count()            const { return inst_count_; }
+  uint64_t load_count()            const { return load_count_; }
+  uint64_t store_count()           const { return store_count_; }
+  uint64_t branch_count()          const { return branch_count_; }
+  uint64_t branch_taken_count()    const { return branch_taken_count_; }
   void     set_pc(uint32_t pc);                                         // a way to set the PC
 
   // CSR accessors
@@ -176,6 +181,13 @@ private:
   bool halted_ = false;              // has core stopped (due to some interrupt or exit)
   bool exited_ = false;              // has core's program intentionally finished
   uint32_t exit_code_ = 0;
+
+  // Simple micro-architectural counters
+  uint64_t inst_count_         = 0;
+  uint64_t load_count_         = 0;
+  uint64_t store_count_        = 0;
+  uint64_t branch_count_       = 0;
+  uint64_t branch_taken_count_ = 0;
 
   // Trap/CSR state
   TrapCsrState trap_csrs_{};

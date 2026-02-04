@@ -51,6 +51,7 @@ void Tile1::tick() {
   // ******************
   // 3. EXECUTE
   // ******************
+  inst_count_++;
   switch (decoded.category) { // determine what kind of instruction you're dealing with
     // ALU
     case Instruction::Category::ALU:
@@ -141,6 +142,7 @@ void Tile1::tick() {
     // MEMORY
     case Instruction::Category::LOAD:
       if (decoded.type == Instruction::Type::I) {
+        load_count_++;
         if (decoded.funct3 == 0x0) {
           exec_lb(*this, decoded);
         } else if (decoded.funct3 == 0x1) {
@@ -156,6 +158,7 @@ void Tile1::tick() {
       break;
     case Instruction::Category::STORE:
       if (decoded.type == Instruction::Type::S) {
+        store_count_++;
         if (decoded.funct3 == 0x0) {
           exec_sb(*this, decoded);
         } else if (decoded.funct3 == 0x1) {
@@ -197,6 +200,7 @@ void Tile1::tick() {
     // BRANCH
     case Instruction::Category::BRANCH:
       if (decoded.type == Instruction::Type::B) {
+        branch_count_++;
         bool taken = false;
         switch (decoded.funct3) {
           case 0x0: taken = exec_beq(*this, decoded); break; // BEQ
@@ -208,6 +212,7 @@ void Tile1::tick() {
           default: break;
         }
         if (taken) {
+          branch_taken_count_++;
           const int32_t offset = decoded.b.imm;
           next_pc = static_cast<uint32_t>(static_cast<int32_t>(curr_pc) + offset);
         }
@@ -247,6 +252,11 @@ void Tile1::reset() {
   halted_              = false;
   exited_              = false;
   exit_code_           = 0;
+  inst_count_          = 0;
+  load_count_          = 0;
+  store_count_         = 0;
+  branch_count_        = 0;
+  branch_taken_count_  = 0;
   trap_pending_        = false;
   pc_override_pending_ = false;
   priv_mode_           = PrivMode::Machine; // init priv_mode_ to M

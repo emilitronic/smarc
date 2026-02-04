@@ -20,6 +20,7 @@ Testbench for a RV tile.
 #include <cascade/SimDefs.hpp>
 #include <cascade/SimGlobals.hpp>
 
+#include <cstdio>
 #include <string>
 
 // **************
@@ -164,6 +165,13 @@ int main(int argc, char* argv[]) {
     for (const auto& ctx : dbg.threads) {
       assert_always(ctx.regs[0] == 0, "x0 must remain zero");
     }
+    printf("[EXIT] Program exited with code %u\n", tile.exit_code());
+    printf("[STATS] inst=%llu loads=%llu stores=%llu branches=%llu taken=%llu\n",
+           (unsigned long long)tile.inst_count(),
+           (unsigned long long)tile.load_count(),
+           (unsigned long long)tile.store_count(),
+           (unsigned long long)tile.branch_count(),
+           (unsigned long long)tile.branch_taken_count());
     return 0;
   }
 
