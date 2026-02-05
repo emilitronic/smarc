@@ -24,6 +24,7 @@ Differences vs original file:
 This way, the numerical trellis behavior (forward pass) matches the original
 code, but is runnable as a flat RV32I binary on Tile1.
 */
+
 #include <stdint.h>
 
 #define K_MER    3                  // size of DNA k-mer processed

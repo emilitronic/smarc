@@ -56,8 +56,10 @@ Second we need to convert the ELF into a flat raw binary suitable for our simple
 riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 ```
 
-### Sanity Checks
-Header check (looks at structure, but not actual code)
+### Sanity Checks on ELF
+If you are suspicious of your bin, you can inspect your ELF.  
+
+#### Header check (looks at structure, but not actual code)
 ```bash
 riscv64-unknown-elf-readelf -h prog.elf | egrep 'Class|Machine|Flags'
 ```
@@ -68,7 +70,7 @@ Machine:         RISC-V # correct target
 Flags:           0x0    # no special ISA flags set (e.g., no compressed “C” flag). Plain RV32I as requested
 ```
 
-Disassembly (can append `| head` to show just the first few lines starting at 0x0)
+#### Disassembly (can append `| head` to show just the first few lines starting at 0x0)
 ```bash
 # -d :scans executable sections & converts to annotated assembly
 # -r :displays relocation entries
@@ -131,6 +133,63 @@ Although in this simple case it is ok to start at `-start_pc=0x0`, to begin at `
   44:	000017b7   lui	a5,0x1
   48:	bad78793   addi	a5,a5,-1107 # bad <main+0xba5>
   4c:	fedff06f   j	38 <main+0x30>
+```
+
+#### See sections and their addresses
+```bash
+riscv64-unknown-elf-readelf -W -S prog.elf | egrep 'Name|\.text|\.rodata|\.data|\.bss'
+```
+`.text`: all your code (_start, main, run_trellis, etc.)
+`.rodata`: constants (e.g., neg_log_ptau, mu_over_stdv, event_over_stdv)
+`.data`: initialized globals
+`.bss`: uninitialized globals (my big arrays, e.g., log_post, cur_log_post, last_col)
+
+```bash
+  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
+  [ 1] .text             PROGBITS        00000000 001000 000338 00  AX  0   0  4
+  [ 2] .rodata           PROGBITS        00000338 001338 0001bc 00   A  0   0  4
+  [ 3] .bss              NOBITS          000004f4 0014f4 0003a8 00  WA  0   0  4
+```
+
+#### See where individual symbols live
+```bash
+riscv64-unknown-elf-nm -n prog.elf | egrep 'log_post|cur_log_post|pointers|last_col|_start|main'
+```
+to find which global is at which address
+T = text (code)
+B = bss (zero-initialized data)
+D = data (initialized)
+
+```bash
+00000000 T _start
+0000008c T main
+000004f4 b log_post
+0000069c b cur_log_post
+0000079c b last_col
+```
+
+#### Quick "block-size" view
+```bash
+riscv64-unknown-elf-objdump -h prog.elf | egrep 'text|rodata|data|bss'
+```
+shows section sizes/addresses:
+VMA (address)
+LMA
+size (in bytes)
+
+```bash
+  0 .text         00000338  00000000  00000000  00001000  2**2
+  1 .rodata       000001bc  00000338  00000338  00001338  2**2
+  2 .bss          000003a8  000004f4  000004f4  000014f4  2**2
+```
+
+#### Sanity: ELF entry + start PC
+```bash
+riscv64-unknown-elf-readelf -h prog.elf | grep 'Entry point'
+```
+Should see:   
+```bash
+Entry point address:               0x0
 ```
 
 ## Running Programs on SMile
