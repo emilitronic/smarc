@@ -3,13 +3,26 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Feb 3 2026
 /*
-- Minimal HMM-style basecalling kernel for Tile1 / smile.
-- Computes a Viterbi-like DP in fixed-point and returns a simple checksum:
-  result = (sum(final_column) ^ (end_state << 16))
-  The program:
-  * writes result to 0x0100
-  * exits via ECALL 93 with exit code = (result & 0xff)
-- No malloc, no stdlib, no I/O.
+Minimal HMM-style basecalling trellis kernel for Tile1 / smile.
+
+This is a direct, malloc-free adaptation of the original basecaller_trellis()
+forward pass:
+
+- Same K_MER, NUM_PATH, M (=64) and N (=26)
+- Same Neg_log_prob_fxd, mu_over_stdv_fxd, event_over_stdv_fxd
+- Same picker() mapping from destination state -> 21 predecessor states
+- Same Viterbi-style recurrence and per-column normalization
+
+Differences vs original file:
+- No malloc / free: all arrays are static with fixed M, N
+- No printf / I/O
+- No traceback / suffix() / basecall string assembly
+- The result is summarized as a simple 32-bit checksum:
+    result = sum(final_column) ^ (end_state << 16)
+  which is written to 0x0100 and also used as the ECALL exit code (low 8 bits).
+
+This way, the numerical trellis behavior (forward pass) matches the original
+code, but is runnable as a flat RV32I binary on Tile1.
 */
 #include <stdint.h>
 
@@ -51,13 +64,10 @@ static const int32_t event_over_stdv_fxd[N] = {
 // ---------------------------------------------------------------------
 
 // Software 32-bit signed multiply used by GCC on RV32I (no M extension).
-// Implements: (int32_t)a * (int32_t)b without using hardware MUL or libgcc.
-// This is because our simple compilation uses -march=rv32i_zicsr meaning
-// we're compiling RV32I without M (multiply/divide) extension.  But our HMM code has some multiplies.  So this defines __mulsi3() with only shifts/adds
-// GCC will generate call to __mulsi3() for each multiply it sees in the code and we'll use this software implementation.
+// GCC will generate a call to __mulsi3 for "a * b" when compiling for rv32i.
+// We provide it here in pure shifts/adds so we don't need libgcc.
 int __mulsi3(int a, int b)
 {
-  // Work in unsigned for the core loop, track sign separately.
   unsigned ua = (a < 0) ? (unsigned)(-a) : (unsigned)a;
   unsigned ub = (b < 0) ? (unsigned)(-b) : (unsigned)b;
   unsigned res = 0;
@@ -70,7 +80,6 @@ int __mulsi3(int a, int b)
     ub >>= 1;
   }
 
-  // Apply sign
   if ((a < 0) ^ (b < 0)) {
     return -(int)res;
   }
@@ -78,49 +87,52 @@ int __mulsi3(int a, int b)
 }
 
 // Simple emission: squared distance in mean/stdv space
-static inline int32_t log_emission(int32_t ev, int32_t mu)
+static inline int32_t Log_em_probs_fxd(int32_t event_mean_over_stdv_fxd,
+                                       int32_t level_mean_over_stdv_fxd)
 {
-  int32_t d = ev - mu;
-  return d * d; // now we explicitly use our __mulsi3
+  int32_t dist = event_mean_over_stdv_fxd - level_mean_over_stdv_fxd;
+  return dist * dist; // uses __mulsi3 under the hood on RV32I
 }
 
-// Prefix over k-mer index, using your original convention
-// k = 1 -> x**  (i >> 4), k = 2 -> xy* (i >> 2)
-static inline int prefix(int idx, int k)
+// Prefix over k-mer index, using original convention:
+// k = 1 -> x** (i >> 4), k = 2 -> xy* (i >> 2)
+static inline int prefix(int i, int k)
 {
-  return idx >> (2 * (K_MER - k));
+  return i >> (2 * (K_MER - k));
 }
 
-// Arrays for DP
-static int32_t Post_prev[M];
-static int32_t Post_curr[M];
-static int32_t temp_paths[NUM_PATH];
-static int32_t Trans_path[NUM_PATH];
+// Arrays for DP and transitions (malloc-free versions of original locals)
+static int32_t Post_seq_probs_fxd[M];          // normalized previous posteriors
+static int32_t Cur_seq_probs_fxd[M];           // current event posteriors
+static int32_t temp[NUM_PATH];                 // 21 transition candidates
+static int32_t Trans_path[NUM_PATH];           // indices of 21 predecessor states
+static int32_t pointers[M][N - 1];             // backpointer table (kept for fidelity)
+static int32_t last_col[M];                    // final column snapshot
 
-static int find_min_loc(const int32_t *A, int len)
+static int find_min_location(const int32_t *A, int len)
 {
-  int32_t best = 0x7fffffff;
-  int     loc  = -1;
-  for (int i = 0; i < len; ++i) {
-    if (A[i] < best) {
-      best = A[i];
-      loc  = i;
+  int32_t U   = 0x7fffffff;
+  int     loc = -1;
+  for (int i = 0; i < len; i++) {
+    if (A[i] < U) {
+      U   = A[i];
+      loc = i;
     }
   }
   return loc;
 }
 
 // Fill Trans_path[0..20] with the indices of the 21 predecessor states
-// for a given destination state "state", same mapping as original picker().
+// for a given destination state "state" (direct port of original picker()).
 static void picker(int state)
 {
-  int first_two_bases = prefix(state, 2); // xy*
-  int first_base      = prefix(state, 1); // x**
+  int first_two_bases = prefix(state, 2); // k=2: xy*
+  int first_base      = prefix(state, 1); // k=1: x**
 
   // stay: xyz -> xyz
-  Trans_path[0] = state;
+  Trans_path[0] = state;                // prev stay state
 
-  // step: *xy -> xy* (A**, C**, G**, T**)
+  // step: prev:*xy -> curr:xy* (new bases from the right)
   Trans_path[1] = 0*16 + first_two_bases; // A**
   Trans_path[2] = 1*16 + first_two_bases; // C**
   Trans_path[3] = 2*16 + first_two_bases; // G**
@@ -149,51 +161,67 @@ static void picker(int state)
   Trans_path[20] = 3*16 + 3*4 + first_base; // TT*
 }
 
-// Run the trellis and return a small checksum summarizing the result
+// ---------------------------------------------------------------------
+// Trellis (forward pass) – direct port of basecaller_trellis()
+// ---------------------------------------------------------------------
 static uint32_t run_trellis(void)
 {
-  // Initial column (event 0)
-  for (int j = 0; j < M; ++j) {
-    Post_prev[j] = log_emission(event_over_stdv_fxd[0], mu_over_stdv_fxd[j]);
+  int i, j, h, v;
+  int path_index;
+  int index;
+  int col_min;
+  int col_min_index;
+  int end_state;
+
+  // Initial probabilities (for event 0)
+  for (j = 0; j < M; j++) {
+    Post_seq_probs_fxd[j] =
+      Log_em_probs_fxd(event_over_stdv_fxd[0], mu_over_stdv_fxd[j]);
   }
 
-  // Iterate over events 1..N-1
-  for (int i = 1; i < N; ++i) {
-    for (int j = 0; j < M; ++j) {
-      // Populate predecessors of state j
-      picker(j);
+  // Create the trellis iteratively, events 1..N-1
+  for (i = 1; i < N; i++) {        // events loop
+    for (j = 0; j < M; j++) {      // states loop
+      picker(j);                   // fill Trans_path with 21 predecessors of state j
 
-      // First adder: previous column + transition costs
-      for (int v = 0; v < NUM_PATH; ++v) {
-        int path_idx = Trans_path[v];
-        temp_paths[v] = Post_prev[path_idx] + Neg_log_prob_fxd[v];
+      // First adder: compute the 21 possible transitions for state j
+      for (v = 0; v < NUM_PATH; v++) {
+        path_index = Trans_path[v];
+        temp[v] = Post_seq_probs_fxd[path_index] + Neg_log_prob_fxd[v];
       }
 
-      // Take best of 21 transitions
-      int best_v = find_min_loc(temp_paths, NUM_PATH);
+      // Comparator: choose the min log(alpha) + log(tau)
+      index = find_min_location(temp, NUM_PATH); // index 0..20
+      pointers[j][i - 1] = index;               // keep backpointer, as original did
 
-      // Second adder: add emission for this state/time
-      Post_curr[j] =
-        log_emission(event_over_stdv_fxd[i], mu_over_stdv_fxd[j]) +
-        temp_paths[best_v];
+      // Second adder: emission + chosen transition
+      Cur_seq_probs_fxd[j] =
+        Log_em_probs_fxd(event_over_stdv_fxd[i], mu_over_stdv_fxd[j]) +
+        temp[index];
     }
 
-    // Normalize column by subtracting its minimum (avoid blow-up)
-    int     col_min_idx = find_min_loc(Post_curr, M);
-    int32_t col_min     = Post_curr[col_min_idx];
-    for (int j = 0; j < M; ++j) {
-      Post_prev[j] = Post_curr[j] - col_min;
+    // Normalize the posterior probs (avoid overflow)
+    col_min_index = find_min_location(Cur_seq_probs_fxd, M);
+    col_min       = Cur_seq_probs_fxd[col_min_index];
+    for (h = 0; h < M; h++) {
+      Post_seq_probs_fxd[h] = Cur_seq_probs_fxd[h] - col_min;
     }
   }
 
-  // Final column: choose end state and build checksum
-  int end_state = find_min_loc(Post_prev, M);
-  int32_t sum   = 0;
-  for (int j = 0; j < M; ++j) {
-    sum += Post_prev[j];
+  // Optimal end state – as in original
+  for (j = 0; j < M; j++) {
+    last_col[j] = Post_seq_probs_fxd[j];
+  }
+  end_state = find_min_location(last_col, M);
+
+  // Build a cheap checksum combining last column and end_state.
+  // This is not part of the original C, but gives us a scalar to
+  // compare between host (gcc) and Tile1 runs.
+  int32_t sum = 0;
+  for (j = 0; j < M; j++) {
+    sum += last_col[j];
   }
 
-  // Cheap 32-bit checksum: combine sum + end_state
   uint32_t u_sum = (uint32_t)sum;
   uint32_t res   = u_sum ^ ((uint32_t)end_state << 16);
   return res;
