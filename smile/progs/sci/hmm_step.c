@@ -2,27 +2,21 @@
 // smile/progs/sci/hmm_step.c
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Feb 3 2026
-
-// Minimal HMM-style trellis kernel for Tile1 / smile.
-// - K_MER = 3  ->  M = 64 states
-// - NUM_PATH = 21 transitions per state (stay/step/skip)
-// - N = 26 events (same as original toy)
-// Computes a Viterbi-like DP in fixed-point and returns a simple checksum:
-//
-//   result = (sum(final_column) ^ (end_state << 16))
-//
-// The program:
-//   * writes result to 0x0100
-//   * exits via ECALL 93 with exit code = (result & 0xff)
-//
-// No malloc, no stdlib, no I/O.
-
+/*
+- Minimal HMM-style basecalling kernel for Tile1 / smile.
+- Computes a Viterbi-like DP in fixed-point and returns a simple checksum:
+  result = (sum(final_column) ^ (end_state << 16))
+  The program:
+  * writes result to 0x0100
+  * exits via ECALL 93 with exit code = (result & 0xff)
+- No malloc, no stdlib, no I/O.
+*/
 #include <stdint.h>
 
-#define K_MER    3
-#define NUM_PATH 21
-#define M        (1 << (2 * K_MER))   // 64 states
-#define N        26                  // number of events (matches toy data)
+#define K_MER    3                  // size of DNA k-mer processed
+#define NUM_PATH 21                 // number of transitions per state (stay/step/skip)
+#define M        (1 << (2 * K_MER)) // 64 states
+#define N        26                 // number of events (matches toy data)
 
 // Where to write a result so you can inspect from the debugger
 #define OUT_ADDR 0x0100u
@@ -155,7 +149,7 @@ static void picker(int state)
   Trans_path[20] = 3*16 + 3*4 + first_base; // TT*
 }
 
-// Run the trellis and return a small checksum summarizing the result.
+// Run the trellis and return a small checksum summarizing the result
 static uint32_t run_trellis(void)
 {
   // Initial column (event 0)
@@ -232,6 +226,9 @@ void _start(void)
   );
 }
 
+// ---------------------------------------------------------------------
+// MAIN
+// ---------------------------------------------------------------------
 int main(void)
 {
   uint32_t result = run_trellis();
