@@ -103,12 +103,12 @@ static inline int prefix(int i, int k)
 }
 
 // Arrays for DP and transitions (malloc-free versions of original locals)
-static int32_t log_post[M];          // normalized previous posteriors
-static int32_t cur_log_post[M];      // current event posteriors
-static int32_t temp[NUM_PATH];       // 21 transition candidates
+static int32_t log_post[M];         // normalized previous posteriors
+static int32_t cur_log_post[M];     // current event posteriors
+static int32_t temp[NUM_PATH];      // 21 transition candidates
 static int32_t tran_prev[NUM_PATH]; // indices of 21 predecessor states
-static int32_t pointers[M][N - 1];   // backpointer table (kept for fidelity)
-static int32_t last_col[M];          // final column snapshot
+static int32_t pointers[M][N - 1];  // backpointer table (kept for fidelity)
+static int32_t last_col[M];         // final column snapshot
 
 static int find_min_location(const int32_t *A, int len)
 {
