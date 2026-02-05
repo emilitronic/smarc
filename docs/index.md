@@ -19,7 +19,7 @@ Alleluia.  Sequentia.
 
 # Intro
 
-`smarc` is a where I prototype RISC-V cores + memory system + accelerators for future **sequencing SoCs** (to handle workloads on molecule chains like DNA, streaming sensors, path planners, etc.). It consists of two main parts.  `smile` checks what the codes does on the core and `smicro` checls how the system moves the data.
+`smarc` is where I prototype RISC-V cores + memory system + accelerators for future **sequencing SoCs**.  Sequence what?  I keep an open-mind, but worklaods of interest include molecules (sequence DNA), pictures (sequence senor streams), path planning (sequence movement).  The project consists of two main parts.  `smile` checks what sequencing code does on the silicon-vectored core and `smicro` checks how efficiently the architecture hardware transforms and moves the data that make up those sequences.
 
 ## Packages
 
