@@ -40,14 +40,14 @@ code, but is runnable as a flat RV32I binary on Tile1.
 // ---------------------------------------------------------------------
 
 // The fixed-point values for -log(p_stay, p_step, p_skip)
-static const int32_t Neg_log_prob_fxd[NUM_PATH] = {
+static const int32_t neg_log_ptau[NUM_PATH] = {
   18,
   12,12,12,12,
   41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41
 };
 
 // The fixed-point values for (level mean/stdv)
-static const int32_t mu_over_stdv_fxd[M] = {
+static const int32_t mu_over_stdv[M] = {
   192,100,158,120, 38,  6, 22, 10,134, 18,138,  0,142,102,110,134,
   188, 68,176,100,148,156,156,140,150, 20,160, 14,196,140,176,152,
   160, 60,134, 90, 34, 14, 24, 16,134, 20,144, 12,128, 84, 78,108,
@@ -55,7 +55,7 @@ static const int32_t mu_over_stdv_fxd[M] = {
 };
 
 // Event features (mean/stdv) for N = 26 events
-static const int32_t event_over_stdv_fxd[N] = {
+static const int32_t event_over_stdv[N] = {
   24,142,164,51,63,50,70,75,136,181,101,13,172,137,133,177,191,29,148,79,94,142,200,97,70,126
 };
 
@@ -87,27 +87,28 @@ int __mulsi3(int a, int b)
 }
 
 // Simple emission: squared distance in mean/stdv space
-static inline int32_t Log_em_probs_fxd(int32_t event_mean_over_stdv_fxd,
-                                       int32_t level_mean_over_stdv_fxd)
+static inline int32_t log_em(int32_t event_mean_over_stdv, int32_t level_mean_over_stdv)
 {
-  int32_t dist = event_mean_over_stdv_fxd - level_mean_over_stdv_fxd;
+  int32_t dist = event_mean_over_stdv - level_mean_over_stdv;
   return dist * dist; // uses __mulsi3 under the hood on RV32I
 }
 
 // Prefix over k-mer index, using original convention:
 // k = 1 -> x** (i >> 4), k = 2 -> xy* (i >> 2)
+// if k=1 return state/16 (i.e., which of  4 positions does prefix-1 have)
+// if k=2 return state/4  (i.e., which of 16 positions does prefix-2 have)
 static inline int prefix(int i, int k)
 {
   return i >> (2 * (K_MER - k));
 }
 
 // Arrays for DP and transitions (malloc-free versions of original locals)
-static int32_t Post_seq_probs_fxd[M];          // normalized previous posteriors
-static int32_t Cur_seq_probs_fxd[M];           // current event posteriors
-static int32_t temp[NUM_PATH];                 // 21 transition candidates
-static int32_t Trans_path[NUM_PATH];           // indices of 21 predecessor states
-static int32_t pointers[M][N - 1];             // backpointer table (kept for fidelity)
-static int32_t last_col[M];                    // final column snapshot
+static int32_t log_post[M];          // normalized previous posteriors
+static int32_t cur_log_post[M];      // current event posteriors
+static int32_t temp[NUM_PATH];       // 21 transition candidates
+static int32_t tran_prev[NUM_PATH]; // indices of 21 predecessor states
+static int32_t pointers[M][N - 1];   // backpointer table (kept for fidelity)
+static int32_t last_col[M];          // final column snapshot
 
 static int find_min_location(const int32_t *A, int len)
 {
@@ -122,51 +123,59 @@ static int find_min_location(const int32_t *A, int len)
   return loc;
 }
 
-// Fill Trans_path[0..20] with the indices of the 21 predecessor states
-// for a given destination state "state" (direct port of original picker()).
-static void picker(int state)
+// transition filter
+// fill tran_prev[0..20] with the indices of the 21 predecessor states
+// for a given destination state "state" xyz (k=3)
+static void tran_filter(int state)
 {
-  int first_two_bases = prefix(state, 2); // k=2: xy*
+  int first_two_bases = prefix(state, 2); // k=2: xy* 
   int first_base      = prefix(state, 1); // k=1: x**
 
-  // stay: xyz -> xyz
-  Trans_path[0] = state;                // prev stay state
+  // stay: prv:xyz -> curr:xyz
+  tran_prev[0]  = state;                   // xyz
 
-  // step: prev:*xy -> curr:xy* (new bases from the right)
-  Trans_path[1] = 0*16 + first_two_bases; // A**
-  Trans_path[2] = 1*16 + first_two_bases; // C**
-  Trans_path[3] = 2*16 + first_two_bases; // G**
-  Trans_path[4] = 3*16 + first_two_bases; // T**
+  // step: prev:*xy -> curr:xy* (new bases come from the right)
+  tran_prev[1]  = 0*16 + first_two_bases;  // Axy
+  tran_prev[2]  = 1*16 + first_two_bases;  // Cxy
+  tran_prev[3]  = 2*16 + first_two_bases;  // Gxy
+  tran_prev[4]  = 3*16 + first_two_bases;  // Txy
 
-  // skip: **x -> x**
+  // skip: prev:**x -> curr:x**
   // A**
-  Trans_path[5]  = 0*16 + 0*4 + first_base; // AA*
-  Trans_path[6]  = 0*16 + 1*4 + first_base; // AC*
-  Trans_path[7]  = 0*16 + 2*4 + first_base; // AG*
-  Trans_path[8]  = 0*16 + 3*4 + first_base; // AT*
+  tran_prev[5]  = 0*16 + 0*4 + first_base; // AAx
+  tran_prev[6]  = 0*16 + 1*4 + first_base; // ACx
+  tran_prev[7]  = 0*16 + 2*4 + first_base; // AGx
+  tran_prev[8]  = 0*16 + 3*4 + first_base; // ATx
   // C**
-  Trans_path[9]  = 1*16 + 0*4 + first_base; // CA*
-  Trans_path[10] = 1*16 + 1*4 + first_base; // CC*
-  Trans_path[11] = 1*16 + 2*4 + first_base; // CG*
-  Trans_path[12] = 1*16 + 3*4 + first_base; // CT*
+  tran_prev[9]  = 1*16 + 0*4 + first_base; // CAx
+  tran_prev[10] = 1*16 + 1*4 + first_base; // CCx
+  tran_prev[11] = 1*16 + 2*4 + first_base; // CGx
+  tran_prev[12] = 1*16 + 3*4 + first_base; // CTx
   // G**
-  Trans_path[13] = 2*16 + 0*4 + first_base; // GA*
-  Trans_path[14] = 2*16 + 1*4 + first_base; // GC*
-  Trans_path[15] = 2*16 + 2*4 + first_base; // GG*
-  Trans_path[16] = 2*16 + 3*4 + first_base; // GT*
+  tran_prev[13] = 2*16 + 0*4 + first_base; // GAx
+  tran_prev[14] = 2*16 + 1*4 + first_base; // GCx
+  tran_prev[15] = 2*16 + 2*4 + first_base; // GGx
+  tran_prev[16] = 2*16 + 3*4 + first_base; // GTx
   // T**
-  Trans_path[17] = 3*16 + 0*4 + first_base; // TA*
-  Trans_path[18] = 3*16 + 1*4 + first_base; // TC*
-  Trans_path[19] = 3*16 + 2*4 + first_base; // TG*
-  Trans_path[20] = 3*16 + 3*4 + first_base; // TT*
+  tran_prev[17] = 3*16 + 0*4 + first_base; // TAx
+  tran_prev[18] = 3*16 + 1*4 + first_base; // TCx
+  tran_prev[19] = 3*16 + 2*4 + first_base; // TGx
+  tran_prev[20] = 3*16 + 3*4 + first_base; // TTx
 }
 
 // ---------------------------------------------------------------------
 // Trellis (forward pass) – direct port of basecaller_trellis()
 // ---------------------------------------------------------------------
+// run_trellis:
+//  - builds Viterbi-style trellis over N events × M states
+//  - keeps only previous and current columns in log_post/cur_log_post
+//  - returns checksum of final column + best end state
 static uint32_t run_trellis(void)
 {
-  int i, j, h, v;
+  int i; // event index
+  int j; // state index
+  int v; // transition index
+  int h; // state index for normalization loop
   int path_index;
   int index;
   int col_min;
@@ -175,42 +184,39 @@ static uint32_t run_trellis(void)
 
   // Initial probabilities (for event 0)
   for (j = 0; j < M; j++) {
-    Post_seq_probs_fxd[j] =
-      Log_em_probs_fxd(event_over_stdv_fxd[0], mu_over_stdv_fxd[j]);
+    log_post[j] = log_em(event_over_stdv[0], mu_over_stdv[j]);
   }
 
   // Create the trellis iteratively, events 1..N-1
   for (i = 1; i < N; i++) {        // events loop
     for (j = 0; j < M; j++) {      // states loop
-      picker(j);                   // fill Trans_path with 21 predecessors of state j
+      tran_filter(j);              // fill tran_prev with 21 predecessors of state j
 
       // First adder: compute the 21 possible transitions for state j
       for (v = 0; v < NUM_PATH; v++) {
-        path_index = Trans_path[v];
-        temp[v] = Post_seq_probs_fxd[path_index] + Neg_log_prob_fxd[v];
+        path_index = tran_prev[v];
+        temp[v] = log_post[path_index] + neg_log_ptau[v];
       }
 
       // Comparator: choose the min log(alpha) + log(tau)
       index = find_min_location(temp, NUM_PATH); // index 0..20
-      pointers[j][i - 1] = index;               // keep backpointer, as original did
+      pointers[j][i - 1] = index;                // ptr vals indexed from 0-20 (NOT by actual state number)
 
       // Second adder: emission + chosen transition
-      Cur_seq_probs_fxd[j] =
-        Log_em_probs_fxd(event_over_stdv_fxd[i], mu_over_stdv_fxd[j]) +
-        temp[index];
-    }
+      cur_log_post[j] = log_em( event_over_stdv[i], mu_over_stdv[j] ) + temp[index];
+    } // states loop
 
     // Normalize the posterior probs (avoid overflow)
-    col_min_index = find_min_location(Cur_seq_probs_fxd, M);
-    col_min       = Cur_seq_probs_fxd[col_min_index];
+    col_min_index = find_min_location(cur_log_post, M);
+    col_min       = cur_log_post[col_min_index];
     for (h = 0; h < M; h++) {
-      Post_seq_probs_fxd[h] = Cur_seq_probs_fxd[h] - col_min;
+      log_post[h] = cur_log_post[h] - col_min;
     }
-  }
+  } // events loop
 
   // Optimal end state – as in original
   for (j = 0; j < M; j++) {
-    last_col[j] = Post_seq_probs_fxd[j];
+    last_col[j] = log_post[j];
   }
   end_state = find_min_location(last_col, M);
 
