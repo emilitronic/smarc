@@ -56,3 +56,4 @@ For more detail, see:
 
 - [smile](./smile.md) – Tile1 core, instruction decode/execute, and how it talks to memory
 - [smicro](./smicro.md) – SoC wiring, memory paths, test suites  
+- [kernels](./kernels.md) – focused microkernel notes and run examples
