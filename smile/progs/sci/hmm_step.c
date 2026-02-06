@@ -189,9 +189,9 @@ static uint32_t run_trellis(void)
   }
 
   // Create the trellis iteratively, events 1..N-1
-  for (i = 1; i < N; i++) {        // events loop
-    for (j = 0; j < M; j++) {      // states loop
-      tran_filter(j);              // fill tran_prev with 21 predecessors of state j
+  for (i = 1; i < N; i++) {    // events loop
+    for (j = 0; j < M; j++) {  // states loop
+      tran_filter(j);          // fill tran_prev with 21 predecessors of state j
 
       // First adder: compute the 21 possible transitions for state j
       for (v = 0; v < NUM_PATH; v++) {

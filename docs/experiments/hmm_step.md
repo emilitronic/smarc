@@ -80,15 +80,18 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
     - alu/event ≈ 20.9k; alu/cell ≈ 0.33k
     - add/event ≈ 8.3k; add/cell ≈ 0.13k
     - mul/event = 0 (all multiplies implemented in software via `__mulsi3`)
-    - loads/event ≈ 5.6k; 
-    - stores/event ≈ 2.8k
+    - loads/event ≈ 5.6k; loads/cell ≈ 0.09k
+    - stores/event ≈ 2.8k; stores/cell ≈ 0.04k
     - bytes/event ≈ 33.6k; bytes/cell ≈ 0.52k
     - branches/event ≈ 5.0k
     - branch taken ratio ≈ 114,354 / 130,897 ≈ 0.87
 
     intensity metrics:
+    - alu/cell = 330
+    - ops/cell = 130 (counting add + mul)
     - alu/byte = 0.33k/0.52k ≈ 0.63 ALU ops per byte
     - add/byte = 0.13k/0.52k ≈ 0.25 adds per byte
+
 
   - RV32IM:
     - inst/event ≈ 28.9k; inst/cell ≈ 0.46k
@@ -96,16 +99,59 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
     - add/event ≈ 8.1k; add/cell ≈ 0.13k
     - mul/event ≈ 0.064k; mul/cell ≈ 0.001k
     - ops/event ≈ 8.14k; ops/cell ≈ 0.13k
-    - loads/event ≈ 5.6k
-    - stores/event ≈ 2.9k
+    - loads/event ≈ 5.6k; loads/cell ≈ 0.09k
+    - stores/event ≈ 2.9k; stores/cell ≈ 0.04k
     - bytes/event ≈ 34.0k; bytes/cell ≈ 0.53k
     - branches/event ≈ 4.1k
     - branch taken ratio ≈ 98,203 / 107,545 ≈ 0.91
-    
+
     intensity metrics:
+    - alu/cell = 250
+    - ops/cell = 130 (counting add + mul)
     - alu/byte = 0.25k/0.53k ≈ 0.47 ALU ops per byte
     - add/byte = 0.13k/0.53k ≈ 0.25 adds per byte
     - ops/byte = 0.13k/0.53k ≈ 0.25 ops per byte (counting add + mul)
+
+    Hand calculations show about 24 add/sub ops + 1 mul per cell. These 25 ops/cell is about 25/130 = 19% of the counted ALU ops/cell. The rest of the ALU ops are likely loop control, address calculations, and other overhead.
+
+  For loads and stores:
+  
+   - Initial column (event 0) loads:
+     - 64: load of even_over_stdv (your main input data, pessimisticly realoaded on every state iteration)
+     - 64: load of mu_over_stdv (model data)
+     - 64: stores of log_post
+   - Per-cell work inside the trellis
+     - 21: stores per cell from tran_filter
+     - 84: 21*3 loads of tran_prev[v], log_post[path_index], neg_log_ptau[v], and 21 stores to temp[v]
+     - 21: loads of temp[v] in find_min_locations(temp, NUM_PATH)
+     - 5: 3 loads (even_over_stdv[i], mu_over_stdv[j], temp[index]) and 2 stores (pointers[j][i-1], cur_log_post[j])
+   - Summary per-cell (before normalization)
+    - loads per cell = 63 (transition adder) + 21 (min over temp) + 3 (emission + temp[index]) = 87 loads/cell
+    - stores per cell = 21 (tran_prev in tran_filter) + 21 (temp in transition adder) + 1 (pointers[j][i]) + 1 (cur_log_post[j]) = 44 stores/cell
+    - over all 1600 cells
+      - loads ≈ 87 × 1600 = 139,200
+      - stores ≈ 44 × 1600 = 70,400
+   - Per-event normalization:
+     - 64: loads in find_min_location(cur_log_post, M)
+     - 1: load col_min = cur_log_post[col_min_index]
+     - 64: loads for each 64 h in cul_log_post[h]
+     - 64: stores for each 64h in log_post[h]
+    - over 25 events:
+      - loads ≈ 129 × 25 = 3,225
+      - stores ≈ 64 × 25 = 1,600
+   - Final column + checksum:
+     - 64: loads of log_post
+     - 64: stores of last_col
+     - 64: loads in find_min_location(last_col, M)
+     - 64: loads of last_col in sum += last_col[j]
+     - Totals: 192 loads, 64 stores
+   - Putting it all together:
+     - Total loads ≈ 128 (initial column) + 139,200 (per-cell inner loops) + 3,225 (normalization) + 192 (final column) ≈ 142,745
+     - Total stores ≈ 64 (initial column) + 70,400 (per-cell inner loops) + 1,600 (normalization) + 64 (final column) ≈ 72,128
+     - Per cell: loads ≈ 142,745 / 1600 ≈ 89 loads/cell; stores ≈ 72,128 / 1600 ≈ 45 stores/cell
+
+   So our estimate is very close to what we measured.
+
 
 - Notes:
 

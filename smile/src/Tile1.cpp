@@ -92,6 +92,7 @@ void Tile1::tick() {
                 add_count_++;
                 exec_add(*this, decoded);
               } else if (decoded.funct7 == 0x20) {
+                add_count_++; // count subs as adds
                 exec_sub(*this, decoded);
               } else if (decoded.funct7 == 0x01) {
                 mul_count_++;
