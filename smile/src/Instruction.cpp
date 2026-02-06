@@ -38,10 +38,11 @@ Instruction::Instruction(uint32_t raw_instr) : raw(raw_instr) { // initializer l
           (funct3 == 0x2 && funct7 == 0x01) ||                     // MULHSU
           (funct3 == 0x3 && funct7 == 0x00) ||                     // SLTU
           (funct3 == 0x3 && funct7 == 0x01) ||                     // MULHU
-          (funct3 == 0x4 && funct7 == 0x00) ||                     // XOR
-          (funct3 == 0x5 && (funct7 == 0x00 || funct7 == 0x20)) || // SRL/SRA
-          (funct3 == 0x6 && funct7 == 0x00) ||                     // OR
-          (funct3 == 0x7 && funct7 == 0x00)) {                     // AND
+          (funct3 == 0x4 && (funct7 == 0x00 || funct7 == 0x01)) || // XOR/DIV
+          (funct3 == 0x5 && (funct7 == 0x00 || funct7 == 0x20 ||
+                             funct7 == 0x01)) ||                    // SRL/SRA/DIVU
+          (funct3 == 0x6 && (funct7 == 0x00 || funct7 == 0x01)) || // OR/REM
+          (funct3 == 0x7 && (funct7 == 0x00 || funct7 == 0x01))) { // AND/REMU
         type     = Type::R;
         category = Category::ALU;
         r.rd  = rd;

@@ -83,6 +83,10 @@ void exec_mulw(Tile1& tile, const Instruction& instr);
 void exec_mulh(Tile1& tile, const Instruction& instr);
 void exec_mulhu(Tile1& tile, const Instruction& instr);
 void exec_mulhsu(Tile1& tile, const Instruction& instr);
+void exec_div(Tile1& tile, const Instruction& instr);
+void exec_divu(Tile1& tile, const Instruction& instr);
+void exec_rem(Tile1& tile, const Instruction& instr);
+void exec_remu(Tile1& tile, const Instruction& instr);
 
 // Custom extension hooks
 void exec_custom0(Tile1& tile, const Instruction& instr);

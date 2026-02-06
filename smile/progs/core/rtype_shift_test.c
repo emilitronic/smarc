@@ -1,3 +1,7 @@
+// **********************************************************************
+// smile/progs/core/rtype_shift_test.c
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Feb 1 2026
 /*
  * Core regression: SLL/SRL/SRA sanity check.
  * Exits with code 1 on success, 0 on failure.

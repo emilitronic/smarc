@@ -467,6 +467,62 @@ void exec_mulhsu(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, static_cast<uint32_t>(static_cast<uint64_t>(prod) >> 32));
 }
 
+void exec_div(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const int32_t lhs = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const int32_t rhs = static_cast<int32_t>(tile.read_reg(op.rs2));
+  uint32_t result = 0;
+  if (rhs == 0) {
+    result = 0xffffffffu;
+  } else if (lhs == static_cast<int32_t>(0x80000000u) && rhs == -1) {
+    result = 0x80000000u;
+  } else {
+    result = static_cast<uint32_t>(lhs / rhs);
+  }
+  tile.write_reg(op.rd, result);
+}
+
+void exec_divu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  uint32_t result = 0;
+  if (rhs == 0u) {
+    result = 0xffffffffu;
+  } else {
+    result = lhs / rhs;
+  }
+  tile.write_reg(op.rd, result);
+}
+
+void exec_rem(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const int32_t lhs = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const int32_t rhs = static_cast<int32_t>(tile.read_reg(op.rs2));
+  uint32_t result = 0;
+  if (rhs == 0) {
+    result = static_cast<uint32_t>(lhs);
+  } else if (lhs == static_cast<int32_t>(0x80000000u) && rhs == -1) {
+    result = 0u;
+  } else {
+    result = static_cast<uint32_t>(lhs % rhs);
+  }
+  tile.write_reg(op.rd, result);
+}
+
+void exec_remu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint32_t lhs = tile.read_reg(op.rs1);
+  const uint32_t rhs = tile.read_reg(op.rs2);
+  uint32_t result = 0;
+  if (rhs == 0u) {
+    result = lhs;
+  } else {
+    result = lhs % rhs;
+  }
+  tile.write_reg(op.rd, result);
+}
+
 // Custom extension hooks
 void exec_custom0(Tile1& tile, const Instruction& instr) {
   AccelPort* accel = tile.accelerator(); // call Tile1's accessor to get accel pointer accel_port_

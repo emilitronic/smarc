@@ -102,14 +102,22 @@ void Tile1::tick() {
             exec_mulhu(*this, decoded);
           } else if (decoded.funct3 == 0x3 && decoded.funct7 == 0x00) {
             exec_sltu(*this, decoded);
+          } else if (decoded.funct3 == 0x4 && decoded.funct7 == 0x01) {
+            exec_div(*this, decoded);
           } else if (decoded.funct3 == 0x4 && decoded.funct7 == 0x00) {
             exec_xor(*this, decoded);
+          } else if (decoded.funct3 == 0x5 && decoded.funct7 == 0x01) {
+            exec_divu(*this, decoded);
           } else if (decoded.funct3 == 0x5 && decoded.funct7 == 0x00) {
             exec_srl(*this, decoded);
           } else if (decoded.funct3 == 0x5 && decoded.funct7 == 0x20) {
             exec_sra(*this, decoded);
+          } else if (decoded.funct3 == 0x6 && decoded.funct7 == 0x01) {
+            exec_rem(*this, decoded);
           } else if (decoded.funct3 == 0x6 && decoded.funct7 == 0x00) {
             exec_or(*this, decoded);
+          } else if (decoded.funct3 == 0x7 && decoded.funct7 == 0x01) {
+            exec_remu(*this, decoded);
           } else if (decoded.funct3 == 0x7 && decoded.funct7 == 0x00) {
             exec_and(*this, decoded);
           } else {

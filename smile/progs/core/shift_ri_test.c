@@ -1,3 +1,7 @@
+// **********************************************************************
+// smile/progs/core/shift_ri_test.c
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Feb 1 2026
 /*
  * Core regression: SRLI/SRAI sanity check.
  * Exits with code 1 on success, 0 on failure.

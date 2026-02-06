@@ -1,3 +1,7 @@
+// **********************************************************************
+// smile/progs/core/store_bh_test.c
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Feb 1 2026
 /*
  * Core regression: SB/SH sanity check.
  * Exits with code 1 on success, 0 on failure.

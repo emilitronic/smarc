@@ -1,3 +1,7 @@
+// **********************************************************************
+// smile/progs/core/bitwise_imm_test.c
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Feb 1 2026
 /*
  * Core regression: XORI/ORI/ANDI sanity check.
  * Exits with code 1 on success, 0 on failure.

@@ -1,3 +1,7 @@
+// **********************************************************************
+// smile/progs/core/rtype_logic_test.c
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Feb 1 2026
 /*
  * Core regression: SUB/XOR/OR/AND sanity check.
  * Exits with code 1 on success, 0 on failure.
