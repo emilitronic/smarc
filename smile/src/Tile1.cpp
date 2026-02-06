@@ -86,42 +86,86 @@ void Tile1::tick() {
         }
       } else if (decoded.type == Instruction::Type::R) {
         if (decoded.opcode == 0x33) {
-          if (decoded.funct3 == 0x0 && decoded.funct7 == 0x01) {
-            exec_mul(*this, decoded);
-          } else if (decoded.funct3 == 0x0 && decoded.funct7 == 0x20) {
-            exec_sub(*this, decoded);
-          } else if (decoded.funct3 == 0x1 && decoded.funct7 == 0x01) {
-            exec_mulh(*this, decoded);
-          } else if (decoded.funct3 == 0x1 && decoded.funct7 == 0x00) {
-            exec_sll(*this, decoded);
-          } else if (decoded.funct3 == 0x2 && decoded.funct7 == 0x01) {
-            exec_mulhsu(*this, decoded);
-          } else if (decoded.funct3 == 0x2 && decoded.funct7 == 0x00) {
-            exec_slt(*this, decoded);
-          } else if (decoded.funct3 == 0x3 && decoded.funct7 == 0x01) {
-            exec_mulhu(*this, decoded);
-          } else if (decoded.funct3 == 0x3 && decoded.funct7 == 0x00) {
-            exec_sltu(*this, decoded);
-          } else if (decoded.funct3 == 0x4 && decoded.funct7 == 0x01) {
-            exec_div(*this, decoded);
-          } else if (decoded.funct3 == 0x4 && decoded.funct7 == 0x00) {
-            exec_xor(*this, decoded);
-          } else if (decoded.funct3 == 0x5 && decoded.funct7 == 0x01) {
-            exec_divu(*this, decoded);
-          } else if (decoded.funct3 == 0x5 && decoded.funct7 == 0x00) {
-            exec_srl(*this, decoded);
-          } else if (decoded.funct3 == 0x5 && decoded.funct7 == 0x20) {
-            exec_sra(*this, decoded);
-          } else if (decoded.funct3 == 0x6 && decoded.funct7 == 0x01) {
-            exec_rem(*this, decoded);
-          } else if (decoded.funct3 == 0x6 && decoded.funct7 == 0x00) {
-            exec_or(*this, decoded);
-          } else if (decoded.funct3 == 0x7 && decoded.funct7 == 0x01) {
-            exec_remu(*this, decoded);
-          } else if (decoded.funct3 == 0x7 && decoded.funct7 == 0x00) {
-            exec_and(*this, decoded);
-          } else {
-            exec_add(*this, decoded);
+          switch (decoded.funct3) {
+            case 0x0:
+              if (decoded.funct7 == 0x00) {
+                exec_add(*this, decoded);
+              } else if (decoded.funct7 == 0x20) {
+                exec_sub(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_mul(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            case 0x1:
+              if (decoded.funct7 == 0x00) {
+                exec_sll(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_mulh(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            case 0x2:
+              if (decoded.funct7 == 0x00) {
+                exec_slt(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_mulhsu(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            case 0x3:
+              if (decoded.funct7 == 0x00) {
+                exec_sltu(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_mulhu(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            case 0x4:
+              if (decoded.funct7 == 0x00) {
+                exec_xor(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_div(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            case 0x5:
+              if (decoded.funct7 == 0x00) {
+                exec_srl(*this, decoded);
+              } else if (decoded.funct7 == 0x20) {
+                exec_sra(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_divu(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            case 0x6:
+              if (decoded.funct7 == 0x00) {
+                exec_or(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_rem(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            case 0x7:
+              if (decoded.funct7 == 0x00) {
+                exec_and(*this, decoded);
+              } else if (decoded.funct7 == 0x01) {
+                exec_remu(*this, decoded);
+              } else {
+                exec_add(*this, decoded);
+              }
+              break;
+            default:
+              exec_add(*this, decoded);
+              break;
           }
         } else if (decoded.opcode == 0x3b) {
           if (decoded.funct3 == 0x0 && decoded.funct7 == 0x01) {
