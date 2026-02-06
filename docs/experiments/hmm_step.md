@@ -28,6 +28,18 @@ The kernel itself:
 - writes it to `0x0100`,
 - exits with `result & 0xff` as the exit code.
 
+### Legend: DP vs scaffolding arrays
+
+- **DP (dynamic-programming) arrays** – core trellis state / model data:
+  - `log_post[M]`, `cur_log_post[M]`, `last_col[M]`
+  - `event_over_stdv[N]`, `mu_over_stdv[M]`
+  - `neg_log_ptau[NUM_PATH]`
+
+- **Scaffolding arrays** – implementation mechanics around the recurrence:
+  - `tran_prev[NUM_PATH]` – indices of the 21 predecessor states
+  - `temp[NUM_PATH]` – candidate transition scores for a given state/event
+  - `pointers[M][N - 1]` – backpointer indices (0..20) per state/event
+
 ---
 
 ## Run 2026-02-04 – baseline `hmm_step.c` (M = 64, N = 26)
@@ -82,7 +94,7 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
     - mul/event = 0 (all multiplies implemented in software via `__mulsi3`)
     - loads/event ≈ 5.6k; loads/cell ≈ 0.09k
     - stores/event ≈ 2.8k; stores/cell ≈ 0.04k
-    - bytes/event ≈ 33.6k; bytes/cell ≈ 0.52k
+    - bytes/event ≈ 33.6k; **bytes/cell ≈ 0.52k**
     - branches/event ≈ 5.0k
     - branch taken ratio ≈ 114,354 / 130,897 ≈ 0.87
 
@@ -92,7 +104,6 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
     - alu/byte = 0.33k/0.52k ≈ 0.63 ALU ops per byte
     - add/byte = 0.13k/0.52k ≈ 0.25 adds per byte
 
-
   - RV32IM:
     - inst/event ≈ 28.9k; inst/cell ≈ 0.46k
     - alu/event ≈ 16.1k; alu/cell ≈ 0.25k
@@ -101,7 +112,7 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
     - ops/event ≈ 8.14k; ops/cell ≈ 0.13k
     - loads/event ≈ 5.6k; loads/cell ≈ 0.09k
     - stores/event ≈ 2.9k; stores/cell ≈ 0.04k
-    - bytes/event ≈ 34.0k; bytes/cell ≈ 0.53k
+    - bytes/event ≈ 34.0k; **bytes/cell ≈ 0.53k**
     - branches/event ≈ 4.1k
     - branch taken ratio ≈ 98,203 / 107,545 ≈ 0.91
 
@@ -114,44 +125,70 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 
     Hand calculations show about 24 add/sub ops + 1 mul per cell. These 25 ops/cell is about 25/130 = 19% of the counted ALU ops/cell. The rest of the ALU ops are likely loop control, address calculations, and other overhead.
 
-  For loads and stores:
-  
-   - Initial column (event 0) loads:
-     - 64: load of even_over_stdv (your main input data, pessimisticly realoaded on every state iteration)
-     - 64: load of mu_over_stdv (model data)
-     - 64: stores of log_post
-   - Per-cell work inside the trellis
-     - 21: stores per cell from tran_filter
-     - 84: 21*3 loads of tran_prev[v], log_post[path_index], neg_log_ptau[v], and 21 stores to temp[v]
-     - 21: loads of temp[v] in find_min_locations(temp, NUM_PATH)
-     - 5: 3 loads (even_over_stdv[i], mu_over_stdv[j], temp[index]) and 2 stores (pointers[j][i-1], cur_log_post[j])
-   - Summary per-cell (before normalization)
-    - loads per cell = 63 (transition adder) + 21 (min over temp) + 3 (emission + temp[index]) = 87 loads/cell
-    - stores per cell = 21 (tran_prev in tran_filter) + 21 (temp in transition adder) + 1 (pointers[j][i]) + 1 (cur_log_post[j]) = 44 stores/cell
-    - over all 1600 cells
-      - loads ≈ 87 × 1600 = 139,200
-      - stores ≈ 44 × 1600 = 70,400
-   - Per-event normalization:
-     - 64: loads in find_min_location(cur_log_post, M)
-     - 1: load col_min = cur_log_post[col_min_index]
-     - 64: loads for each 64 h in cul_log_post[h]
-     - 64: stores for each 64h in log_post[h]
-    - over 25 events:
-      - loads ≈ 129 × 25 = 3,225
-      - stores ≈ 64 × 25 = 1,600
-   - Final column + checksum:
-     - 64: loads of log_post
-     - 64: stores of last_col
-     - 64: loads in find_min_location(last_col, M)
-     - 64: loads of last_col in sum += last_col[j]
-     - Totals: 192 loads, 64 stores
-   - Putting it all together:
-     - Total loads ≈ 128 (initial column) + 139,200 (per-cell inner loops) + 3,225 (normalization) + 192 (final column) ≈ 142,745
-     - Total stores ≈ 64 (initial column) + 70,400 (per-cell inner loops) + 1,600 (normalization) + 64 (final column) ≈ 72,128
-     - Per cell: loads ≈ 142,745 / 1600 ≈ 89 loads/cell; stores ≈ 72,128 / 1600 ≈ 45 stores/cell
+- For loads and stores:
 
-   So our estimate is very close to what we measured.
+In what follows, "DP arrays" and "scaffolding arrays" are used exactly as defined in the legend above.
 
+  We can decompose the memory traffic into four phases and then separate “DP-array” traffic (the actual trellis state and model/input data) from “scaffolding” traffic (helper arrays and backpointers).
+
+  **Analytical breakdown by phase (approximate counts)**
+
+  Here M = 64, N = 26, so there are (N − 1) × M = 25 × 64 = 1600 inner trellis cells.
+
+  | Phase                  | Description                                           | Loads (approx) | Stores (approx) |
+  |------------------------|-------------------------------------------------------|----------------|-----------------|
+  | Initial column         | Event 0 emission into `log_post`                     | 128            | 64              |
+  | Trellis cells          | Events 1…N−1, all states (1600 cells)                | 139,200        | 70,400          |
+  | Per-event normalization| 25 columns, normalize `cur_log_post` into `log_post` | 3,225          | 1,600           |
+  | Final column + checksum| Snapshot to `last_col`, end-state + checksum         | 192            | 64              |
+  | **Total (analytic)**   |                                                       | **142,745**    | **72,128**      |
+
+  Comparing with the measured Tile1 stats (RV32IM run: `loads=145,906`, `stores=75,342`) gives per-cell numbers:
+
+  - measured loads/cell ≈ 145,906 / 1600 ≈ 91.2  
+  - measured stores/cell ≈ 75,342 / 1600 ≈ 47.1  
+
+  versus the analytic estimate:
+
+  - estimated loads/cell ≈ 142,745 / 1600 ≈ 89.2  
+  - estimated stores/cell ≈ 72,128 / 1600 ≈ 45.1  
+
+  The small gap is expected (prologue/epilogue, exit glue, a bit of extra compiler scaffolding), but the match is close enough to validate the hand-count.
+
+  **Per-cell split: DP arrays vs. scaffolding**
+
+  Within each trellis cell, the memory ops break down roughly as follows:
+
+  - DP arrays (true algorithmic state/data):
+    - `log_post[j]`, `cur_log_post[j]`, `last_col[j]`
+    - `event_over_stdv[i]`, `mu_over_stdv[j]`
+    - `neg_log_ptau[v]`
+  - Scaffolding:
+    - `tran_prev[v]` (21 predecessor indices)
+    - `temp[v]` (21 candidate transition scores)
+    - `pointers[j][i-1]` (backpointer index 0…20)
+
+  Ignoring the initial column, normalization, and final checksum, the inner trellis cell loads/stores look like this:
+
+  | Category        | Arrays                                      | Loads/cell | Stores/cell |
+  |-----------------|---------------------------------------------|-----------:|------------:|
+  | **DP arrays**   | `log_post`, `event_over_stdv`, `mu_over_stdv`, `neg_log_ptau` | 44         | 1           |
+  | **Scaffolding** | `tran_prev`, `temp`, `pointers`             | 43         | 43          |
+  | **Total (per cell)** |                                        | **87**     | **44**      |
+
+  Over all 1600 cells:
+
+  - DP loads ≈ 44 × 1600 = 70,400  
+  - scaffolding loads ≈ 43 × 1600 = 68,800  
+  - DP stores ≈ 1 × 1600 = 1,600  
+  - scaffolding stores ≈ 43 × 1600 = 68,800  
+
+  Adding the initial column, per-column normalization, and final-column checksum (all of which touch only DP arrays) gives the earlier phase totals:
+
+  - DP loads ≈ 73,945, scaffolding loads ≈ 68,800  → total ≈ 142,745  
+  - DP stores ≈ 3,328, scaffolding stores ≈ 68,800 → total ≈ 72,128  
+
+  So the hand-count says that **most loads are split roughly 50/50 between DP state and scaffolding**, while **almost all stores go into scaffolding arrays** (mainly `tran_prev`, `temp`, and `pointers`). This matches the intuition that the DP state itself is relatively compact, and a large chunk of the memory traffic is due to how we implement the trellis mechanics in C rather than the bare Viterbi recurrence.
 
 - Notes:
 
