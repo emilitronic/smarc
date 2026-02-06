@@ -31,13 +31,27 @@ Instruction::Instruction(uint32_t raw_instr) : raw(raw_instr) { // initializer l
   switch (opcode) {
     case 0x33: { // R-type ALU, 011_0011
       if ((funct3 == 0x0 && (funct7 == 0x00 || funct7 == 0x20)) || // ADD/SUB
+          (funct3 == 0x0 && funct7 == 0x01) ||                     // MUL
           (funct3 == 0x1 && funct7 == 0x00) ||                     // SLL
+          (funct3 == 0x1 && funct7 == 0x01) ||                     // MULH
           (funct3 == 0x2 && funct7 == 0x00) ||                     // SLT
+          (funct3 == 0x2 && funct7 == 0x01) ||                     // MULHSU
           (funct3 == 0x3 && funct7 == 0x00) ||                     // SLTU
+          (funct3 == 0x3 && funct7 == 0x01) ||                     // MULHU
           (funct3 == 0x4 && funct7 == 0x00) ||                     // XOR
           (funct3 == 0x5 && (funct7 == 0x00 || funct7 == 0x20)) || // SRL/SRA
           (funct3 == 0x6 && funct7 == 0x00) ||                     // OR
           (funct3 == 0x7 && funct7 == 0x00)) {                     // AND
+        type     = Type::R;
+        category = Category::ALU;
+        r.rd  = rd;
+        r.rs1 = rs1;
+        r.rs2 = rs2;
+      }
+      break;
+    }
+    case 0x3B: { // R-type ALU-32 in RV64 (accept MULW for compatibility testing)
+      if (funct3 == 0x0 && funct7 == 0x01) { // MULW
         type     = Type::R;
         category = Category::ALU;
         r.rd  = rd;

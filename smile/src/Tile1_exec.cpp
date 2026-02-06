@@ -34,6 +34,42 @@ void exec_sub(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, result);
 }
 
+void exec_mul(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint64_t lhs = static_cast<uint64_t>(tile.read_reg(op.rs1));
+  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
+  tile.write_reg(op.rd, static_cast<uint32_t>(lhs * rhs));
+}
+
+void exec_mulw(Tile1& tile, const Instruction& instr) {
+  // RV64 MULW semantics collapse to 32-bit low product on this RV32 core.
+  exec_mul(tile, instr);
+}
+
+void exec_mulh(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const int64_t lhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs1)));
+  const int64_t rhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs2)));
+  const int64_t prod = lhs * rhs;
+  tile.write_reg(op.rd, static_cast<uint32_t>(static_cast<uint64_t>(prod) >> 32));
+}
+
+void exec_mulhu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint64_t lhs = static_cast<uint64_t>(tile.read_reg(op.rs1));
+  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
+  const uint64_t prod = lhs * rhs;
+  tile.write_reg(op.rd, static_cast<uint32_t>(prod >> 32));
+}
+
+void exec_mulhsu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const int64_t lhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs1)));
+  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
+  const int64_t prod = lhs * static_cast<int64_t>(rhs);
+  tile.write_reg(op.rd, static_cast<uint32_t>(static_cast<uint64_t>(prod) >> 32));
+}
+
 void exec_xor(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.r; // alias for R-type decoded fields
   const uint32_t lhs = tile.read_reg(op.rs1);

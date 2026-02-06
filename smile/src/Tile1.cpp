@@ -86,12 +86,20 @@ void Tile1::tick() {
         }
       } else if (decoded.type == Instruction::Type::R) {
         if (decoded.opcode == 0x33) {
-          if (decoded.funct3 == 0x0 && decoded.funct7 == 0x20) {
+          if (decoded.funct3 == 0x0 && decoded.funct7 == 0x01) {
+            exec_mul(*this, decoded);
+          } else if (decoded.funct3 == 0x0 && decoded.funct7 == 0x20) {
             exec_sub(*this, decoded);
+          } else if (decoded.funct3 == 0x1 && decoded.funct7 == 0x01) {
+            exec_mulh(*this, decoded);
           } else if (decoded.funct3 == 0x1 && decoded.funct7 == 0x00) {
             exec_sll(*this, decoded);
+          } else if (decoded.funct3 == 0x2 && decoded.funct7 == 0x01) {
+            exec_mulhsu(*this, decoded);
           } else if (decoded.funct3 == 0x2 && decoded.funct7 == 0x00) {
             exec_slt(*this, decoded);
+          } else if (decoded.funct3 == 0x3 && decoded.funct7 == 0x01) {
+            exec_mulhu(*this, decoded);
           } else if (decoded.funct3 == 0x3 && decoded.funct7 == 0x00) {
             exec_sltu(*this, decoded);
           } else if (decoded.funct3 == 0x4 && decoded.funct7 == 0x00) {
@@ -104,6 +112,12 @@ void Tile1::tick() {
             exec_or(*this, decoded);
           } else if (decoded.funct3 == 0x7 && decoded.funct7 == 0x00) {
             exec_and(*this, decoded);
+          } else {
+            exec_add(*this, decoded);
+          }
+        } else if (decoded.opcode == 0x3b) {
+          if (decoded.funct3 == 0x0 && decoded.funct7 == 0x01) {
+            exec_mulw(*this, decoded);
           } else {
             exec_add(*this, decoded);
           }
