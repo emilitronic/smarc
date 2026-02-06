@@ -54,7 +54,7 @@ riscv64-unknown-elf-gcc -Os -march=rv32im_zicsr -mabi=ilp32 \
 riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 
 # From smarc:
-./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=2000000
+./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=2000000 -sw_threads=1
 ```
 
 - Program exit:
@@ -67,37 +67,42 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 
 ```bash
 # RV32I (no M extension: software mul via __mulsi3)
-[STATS] inst=1819089 alu=1084762 loads=291812 stores=147534 branches=261794 taken=228708
+[STATS] inst=909545 alu=542381 add=215546 mul=0 loads=145906 stores=73767 branches=130897 taken=114354
 
 # RV32IM (with M extension: mul/div/rem in hardware)
-[STATS] inst=1503631 alu=839538 loads=291812 stores=150684 branches=215090 taken=196406
+[STATS] inst=751816 alu=419769 add=210009 mul=1664 loads=145906 stores=75342 branches=107545 taken=98203
 ```
 
 - Quick per-event metrics (N = 26 events, M = 64 states):
 
   - RV32I:
-    - inst/event ≈ 69.9k
-    - alu/event ≈ 41.7k
-    - loads/event ≈ 11.2k
-    - stores/event ≈ 5.7k
-    - branches/event ≈ 10.1k
-    - branch taken ratio ≈ 228,708 / 261,794 ≈ 0.87
+    - inst/event ≈ 35.0k
+    - alu/event ≈ 20.9k
+    - loads/event ≈ 5.6k
+    - stores/event ≈ 2.8k
+    - branches/event ≈ 5.0k
+    - branch taken ratio ≈ 114,354 / 130,897 ≈ 0.87
 
   - RV32IM:
-    - inst/event ≈ 57.8k
-    - alu/event ≈ 32.3k
-    - loads/event ≈ 11.2k
-    - stores/event ≈ 5.8k
-    - branches/event ≈ 8.3k
-    - branch taken ratio ≈ 196,406 / 215,090 ≈ 0.91
+    - inst/event ≈ 28.9k
+    - alu/event ≈ 16.1k
+    - loads/event ≈ 5.6k
+    - stores/event ≈ 2.9k
+    - branches/event ≈ 4.1k
+    - branch taken ratio ≈ 98,203 / 107,545 ≈ 0.91
 
 - Notes:
 
   - The only intentional difference between the two builds is how `log_em()` computes `dist * dist`:
     - RV32I: GCC lowers the multiply to a call to `__mulsi3`, which is implemented here as a shift–add loop in C.
     - RV32IM: GCC emits a single `mul` instruction per call (plus surrounding code).
-  - The delta between the two runs (~3.2e5 fewer instructions and ~2.5e5 fewer ALU ops when using `mul`) is consistent with replacing ~1664 software multiplies with single-cycle hardware multiplies (on the order of hundreds of instructions saved per multiply, including the call/return overhead and loop body).
-  - Loads are identical across both builds, which is a useful sanity check that the DP structure and memory access pattern are unchanged.
+  - The delta between the two runs (now measured with `-sw_threads=1`) is:
+    - Δinst ≈ 1.58×10^5 fewer instructions when using hardware `mul`
+    - Δalu ≈ 1.23×10^5 fewer ALU-category ops
+    - Δbranches ≈ 2.34×10^4 fewer branches  
+    Loads are identical across both builds, which is a useful sanity check that the DP structure and memory access pattern are unchanged. Stores differ slightly because of small scheduling/code-gen changes. The explicit `add`/`mul` counters show:
+    - RV32I: `add=215,546`, `mul=0` (all multiplies implemented in software via `__mulsi3`)
+    - RV32IM: `add=210,009`, `mul=1,664` (each trellis multiply maps to a single `mul` instruction)
   - This pair of runs serves as a small but realistic data point for “software vs hardware multiply” in an HMM-style basecalling kernel. Future experiments can scale M/N or modify the transition structure while reusing the same measurement setup.
 
   - Back-of-the-envelope per-multiply cost:
@@ -109,9 +114,11 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 
     - Using the measured deltas between RV32I (software mul) and RV32IM (hardware mul) runs:
 
-      - Δinst ≈ 315,458 / 1664 ≈ 190 instructions per multiply
-      - Δalu  ≈ 245,224 / 1664 ≈ 147 ALU ops per multiply
-      - Δbranches ≈ 46,704 / 1664 ≈ 28 branches per multiply
+      - Δinst ≈ 157,729 / 1664 ≈ 95 instructions per multiply
+      - Δalu  ≈ 122,612 / 1664 ≈ 74 ALU ops per multiply
+      - Δbranches ≈ 23,352 / 1664 ≈ 14 branches per multiply
+
+      - The measured `mul=1664` in the RV32IM run matches the analytical estimate for trellis multiplies (one emission multiply per state/event, plus a small number of extras for initialization/checksum), which reinforces that this kernel is behaving as intended.
 
     - This is very much a back-of-the-envelope estimate:
       - The code evolved slightly between runs.
