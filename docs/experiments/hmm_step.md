@@ -99,3 +99,22 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
   - The delta between the two runs (~3.2e5 fewer instructions and ~2.5e5 fewer ALU ops when using `mul`) is consistent with replacing ~1664 software multiplies with single-cycle hardware multiplies (on the order of hundreds of instructions saved per multiply, including the call/return overhead and loop body).
   - Loads are identical across both builds, which is a useful sanity check that the DP structure and memory access pattern are unchanged.
   - This pair of runs serves as a small but realistic data point for “software vs hardware multiply” in an HMM-style basecalling kernel. Future experiments can scale M/N or modify the transition structure while reusing the same measurement setup.
+
+  - Back-of-the-envelope per-multiply cost:
+
+    - Each trellis cell does one emission multiply: `dist * dist`.
+    - There are `N - 1 = 25` non-initial events, and `M = 64` states, so:
+      - ~25 × 64 = 1600 multiplies in the main loop.
+      - Including a few extra multiplies (initial column, checksum, etc.), total multiplies ≈ 1664.
+
+    - Using the measured deltas between RV32I (software mul) and RV32IM (hardware mul) runs:
+
+      - Δinst ≈ 315,458 / 1664 ≈ 190 instructions per multiply
+      - Δalu  ≈ 245,224 / 1664 ≈ 147 ALU ops per multiply
+      - Δbranches ≈ 46,704 / 1664 ≈ 28 branches per multiply
+
+    - This is very much a back-of-the-envelope estimate:
+      - The code evolved slightly between runs.
+      - GCC may schedule or inline things differently across builds.
+
+    - Still, it gives a good ballpark intuition: each software multiply was costing on the order of a few hundred instructions; with the M extension, each multiply collapses to a single `mul` plus minimal surrounding overhead.
