@@ -44,9 +44,7 @@ riscv64-unknown-elf-gcc -Os -march=rv32i_zicsr -mabi=ilp32 \
 riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 
 # From smarc:
-./build/smile/tb_tile1 \
-  -prog=smile/progs/prog.bin \
-  -load_addr=0x0 -start_pc=0x0 -steps=2000000
+./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=2000000
 ```
 
 - Program exit:

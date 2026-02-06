@@ -55,6 +55,7 @@ void Tile1::tick() {
   switch (decoded.category) { // determine what kind of instruction you're dealing with
     // ALU
     case Instruction::Category::ALU:
+      arith_count_++; // increment arithmetic (ALU category) count
       if (decoded.type == Instruction::Type::I) {
         if (decoded.opcode == 0x13) {
           if (decoded.funct3 == 0x1) {
@@ -253,6 +254,7 @@ void Tile1::reset() {
   exited_              = false;
   exit_code_           = 0;
   inst_count_          = 0;
+  arith_count_         = 0;
   load_count_          = 0;
   store_count_         = 0;
   branch_count_        = 0;
