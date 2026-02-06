@@ -26,3 +26,5 @@ You should see something like
 [EXIT] Program exited with code 253
 [STATS] inst=1819089 loads=291812 stores=147534 branches=261794 taken=228708
 ```
+
+For a chronological list of runs and stats, see [hmm_step experiment log](experiments/hmm_step.md).
