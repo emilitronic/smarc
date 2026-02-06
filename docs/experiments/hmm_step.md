@@ -76,20 +76,36 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 - Quick per-event metrics (N = 26 events, M = 64 states):
 
   - RV32I:
-    - inst/event ≈ 35.0k
-    - alu/event ≈ 20.9k
-    - loads/event ≈ 5.6k
+    - inst/event ≈ 35.0k; inst/cell ≈ 0.54k
+    - alu/event ≈ 20.9k; alu/cell ≈ 0.33k
+    - add/event ≈ 8.3k; add/cell ≈ 0.13k
+    - mul/event = 0 (all multiplies implemented in software via `__mulsi3`)
+    - loads/event ≈ 5.6k; 
     - stores/event ≈ 2.8k
+    - bytes/event ≈ 33.6k; bytes/cell ≈ 0.52k
     - branches/event ≈ 5.0k
     - branch taken ratio ≈ 114,354 / 130,897 ≈ 0.87
 
+    intensity metrics:
+    - alu/byte = 0.33k/0.52k ≈ 0.63 ALU ops per byte
+    - add/byte = 0.13k/0.52k ≈ 0.25 adds per byte
+
   - RV32IM:
-    - inst/event ≈ 28.9k
-    - alu/event ≈ 16.1k
+    - inst/event ≈ 28.9k; inst/cell ≈ 0.46k
+    - alu/event ≈ 16.1k; alu/cell ≈ 0.25k
+    - add/event ≈ 8.1k; add/cell ≈ 0.13k
+    - mul/event ≈ 0.064k; mul/cell ≈ 0.001k
+    - ops/event ≈ 8.14k; ops/cell ≈ 0.13k
     - loads/event ≈ 5.6k
     - stores/event ≈ 2.9k
+    - bytes/event ≈ 34.0k; bytes/cell ≈ 0.53k
     - branches/event ≈ 4.1k
     - branch taken ratio ≈ 98,203 / 107,545 ≈ 0.91
+    
+    intensity metrics:
+    - alu/byte = 0.25k/0.53k ≈ 0.47 ALU ops per byte
+    - add/byte = 0.13k/0.53k ≈ 0.25 adds per byte
+    - ops/byte = 0.13k/0.53k ≈ 0.25 ops per byte (counting add + mul)
 
 - Notes:
 
