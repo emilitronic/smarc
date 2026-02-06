@@ -183,7 +183,7 @@ cmake --build build --target tb_tile1 -j
 ```
 Run with the default hard-coded program:
 ```bash
-./build/smile/tb_tile1 -steps=50
+./build/smile/tb_tile1 -steps=50 -sw_threads=1
 ```
 Run a compiled program:
 ```bash
@@ -195,11 +195,11 @@ riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 \
 riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 
 cd ../..
-./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=100
+./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=100 -sw_threads=1
 ```
 Launch the interactive debugger:
 ```bash
-./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0
+./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -sw_threads=1
 # then in the REPL:
 smile> step
 smile> regs
@@ -208,6 +208,24 @@ smile> break 0x10
 smile> cont
 smile> exit
 ```
+
+### Software thread scheduling (`-sw_threads`)
+
+`tb_tile1` can schedule one or two software thread contexts in the debugger loop:
+
+- `-sw_threads=1` (default): single-context execution (recommended for performance and instruction counting).
+- `-sw_threads=2`: round-robin two contexts; useful for multithread/debug experiments.
+
+Example:
+
+```bash
+# Single-thread (baseline perf counters)
+./build/smile/tb_tile1 -prog=smile/progs/prog.bin -steps=2000000 -sw_threads=1
+
+# Two software contexts (typically doubles instruction/counter totals if both run same program)
+./build/smile/tb_tile1 -prog=smile/progs/prog.bin -steps=2000000 -sw_threads=2
+```
+
 ## Relationship to smicro
 - smile focuses on
   - a single core (`Tile1`)

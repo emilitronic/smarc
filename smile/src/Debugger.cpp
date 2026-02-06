@@ -266,17 +266,28 @@ static CycleInfo execute_cycle(DebuggerState& state, bool honor_breakpoints) {
     return info;
   }
 
-  int attempts = 0;
-  do {
-    state.current_thread = (state.current_thread + 1) & 1;
-    ++attempts;
-    if (state.threads[state.current_thread].active) {
-      break;
+  // Fast path for the common case:
+  // with -sw_threads=1 we always execute thread 0 and skip round-robin selection.
+  // This avoids extra per-cycle scheduler work and prevents accidental dual-context
+  // execution from inflating instruction/counter totals.
+  if (state.configured_threads == 1) {
+    state.current_thread = 0;
+    if (!state.threads[0].active) {
+      return info;
     }
-  } while (attempts < 2);
+  } else {
+    int attempts = 0;
+    do {
+      state.current_thread = (state.current_thread + 1) & 1;
+      ++attempts;
+      if (state.threads[state.current_thread].active) {
+        break;
+      }
+    } while (attempts < 2);
 
-  if (!state.threads[state.current_thread].active) {
-    return info;
+    if (!state.threads[state.current_thread].active) {
+      return info;
+    }
   }
 
   ThreadContext& context = state.threads[state.current_thread];
@@ -596,14 +607,15 @@ static bool handle_command_line(DebuggerState& state, const std::string& raw_lin
 
 } // namespace
 
-DebuggerState::DebuggerState(Tile1& t, MemoryPort& m)
-  : tile(t), mem(m) {
+DebuggerState::DebuggerState(Tile1& t, MemoryPort& m, int thread_count)
+  : tile(t), mem(m),
+    configured_threads((thread_count >= 2) ? 2 : 1) {
   reset();
 }
 
 void DebuggerState::reset() {
   for (int thread = 0; thread < 2; ++thread) {
-    threads[thread].active = true;
+    threads[thread].active = (thread < configured_threads);
     threads[thread].pc = tile.pc();
     for (int r = 0; r < 32; ++r) {
       threads[thread].regs[r] = 0;

@@ -31,6 +31,7 @@ StringParameter(prog, "", "Path to flat binary file (.bin) to load");
 IntParameter(load_addr, 0x0, "Physical load address for the flat binary");
 IntParameter(start_pc, 0x0, "Initial PC (set core's PC before run)");
 IntParameter(steps, 0, "Cycles to auto-run; <=0 enters interactive debugger");
+IntParameter(sw_threads, 1, "Software thread contexts to schedule (1 or 2). Default: 1");
 BoolParameter(ignore_bpfile, false,
   "Do not load .smile_dbg breakpoint file on startup");
 
@@ -151,7 +152,10 @@ int main(int argc, char* argv[]) {
   // Step 6: Run simulation
   // **************
   int max_cycles = static_cast<int>(steps);
-  smile::DebuggerState dbg(tile, dram_port);
+  int num_threads = static_cast<int>(sw_threads); // we pass tread count to debugger state
+  if (num_threads < 1) num_threads = 1;
+  if (num_threads > 2) num_threads = 2;
+  smile::DebuggerState dbg(tile, dram_port, num_threads); 
   if (max_cycles > 0) {
     smile::auto_run(dbg, max_cycles);
   } else {
