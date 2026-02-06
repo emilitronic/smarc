@@ -11,13 +11,7 @@ How to execute RISC-V commands.
 #include "AccelPort.hpp"
 #include <cstdint>
 
-void exec_addi(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.i; // alias for I-type decoded fields
-  const uint32_t src = tile.read_reg(op.rs1);
-  const uint32_t result = static_cast<uint32_t>(static_cast<int32_t>(src) + op.imm);
-  tile.write_reg(op.rd, result);
-}
-
+// RV32I base - R-type
 void exec_add(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.r; // alias for R-type decoded fields
   const uint32_t lhs = tile.read_reg(op.rs1);
@@ -32,42 +26,6 @@ void exec_sub(Tile1& tile, const Instruction& instr) {
   const uint32_t rhs = tile.read_reg(op.rs2);
   const uint32_t result = lhs - rhs;
   tile.write_reg(op.rd, result);
-}
-
-void exec_mul(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.r; // alias for R-type decoded fields
-  const uint64_t lhs = static_cast<uint64_t>(tile.read_reg(op.rs1));
-  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
-  tile.write_reg(op.rd, static_cast<uint32_t>(lhs * rhs));
-}
-
-void exec_mulw(Tile1& tile, const Instruction& instr) {
-  // RV64 MULW semantics collapse to 32-bit low product on this RV32 core.
-  exec_mul(tile, instr);
-}
-
-void exec_mulh(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.r; // alias for R-type decoded fields
-  const int64_t lhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs1)));
-  const int64_t rhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs2)));
-  const int64_t prod = lhs * rhs;
-  tile.write_reg(op.rd, static_cast<uint32_t>(static_cast<uint64_t>(prod) >> 32));
-}
-
-void exec_mulhu(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.r; // alias for R-type decoded fields
-  const uint64_t lhs = static_cast<uint64_t>(tile.read_reg(op.rs1));
-  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
-  const uint64_t prod = lhs * rhs;
-  tile.write_reg(op.rd, static_cast<uint32_t>(prod >> 32));
-}
-
-void exec_mulhsu(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.r; // alias for R-type decoded fields
-  const int64_t lhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs1)));
-  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
-  const int64_t prod = lhs * static_cast<int64_t>(rhs);
-  tile.write_reg(op.rd, static_cast<uint32_t>(static_cast<uint64_t>(prod) >> 32));
 }
 
 void exec_xor(Tile1& tile, const Instruction& instr) {
@@ -130,6 +88,14 @@ void exec_sra(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, static_cast<uint32_t>(result));
 }
 
+// RV32I base - I-type
+void exec_addi(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.i; // alias for I-type decoded fields
+  const uint32_t src = tile.read_reg(op.rs1);
+  const uint32_t result = static_cast<uint32_t>(static_cast<int32_t>(src) + op.imm);
+  tile.write_reg(op.rd, result);
+}
+
 void exec_slli(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.i; // alias for I-type decoded fields
   const uint32_t src = tile.read_reg(op.rs1);
@@ -189,69 +155,6 @@ void exec_andi(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, src & imm);
 }
 
-void exec_ecall(Tile1& tile, const Instruction& /*instr*/) { // raise a trap
-  const uint32_t syscall = tile.read_reg(17); // a7=x17 holds syscall id
-  if (syscall == 93u) {                       // is a7 = 93 when we ecall then exit()
-    const uint32_t code = tile.read_reg(10);  // a0=x10 holds exit code
-    tile.request_exit(code);                  // set exit_code & flags: exited_ & halted_
-    return;
-  }                                           // if we don't have this a7 setting (not a special "exit" syscall)…
-  Tile1::TrapCause cause = Tile1::TrapCause::EnvironmentCallFromMMode;
-  switch (tile.priv_mode()) { // respect the active privilege mode
-    case Tile1::PrivMode::User:        cause = Tile1::TrapCause::EnvironmentCallFromUMode; break;
-    case Tile1::PrivMode::Supervisor:  cause = Tile1::TrapCause::EnvironmentCallFromSMode; break;
-    case Tile1::PrivMode::Machine:     cause = Tile1::TrapCause::EnvironmentCallFromMMode; break;
-  }
-  tile.request_trap(cause);                   // …treat ecall as real trap, set trap_pending_ = true
-}                                             // on next tick, Tile1.cpp enters trap pipeline (raise_trap)
-
-void exec_ebreak(Tile1& tile, const Instruction& /*instr*/) {
-  tile.request_trap(Tile1::TrapCause::Breakpoint);
-}
-
-void exec_uret(Tile1& tile, const Instruction& /*instr*/) {
-  if (tile.priv_mode() != Tile1::PrivMode::User) { // validate active privilege mode before proceeding
-    tile.request_illegal_instruction();            // fall back to illegal-instruction trap if invoked from wrong level
-    return;
-  }
-  tile.resume_from_trap();
-}
-
-void exec_sret(Tile1& tile, const Instruction& /*instr*/) {
-  if (tile.priv_mode() != Tile1::PrivMode::Supervisor) {
-    tile.request_illegal_instruction();
-    return;
-  }
-  tile.resume_from_trap();
-}
-
-void exec_mret(Tile1& tile, const Instruction& /*instr*/) {
-  if (tile.priv_mode() != Tile1::PrivMode::Machine) {
-    tile.request_illegal_instruction();
-    return;
-  }
-  tile.resume_from_trap(); // reuse shared plumbing
-}
-
-void exec_fence(Tile1& /*tile*/, const Instruction& /*instr*/) {
-  // No-op in this single-core, in-order Tile1 model.
-}
-
-void exec_fence_i(Tile1& /*tile*/, const Instruction& /*instr*/) {
-  // No-op in this single-core, in-order Tile1 model.
-}
-
-void exec_lui(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.u;
-  tile.write_reg(op.rd, static_cast<uint32_t>(op.imm));
-}
-
-void exec_auipc(Tile1& tile, const Instruction& instr, uint32_t curr_pc) {
-  const auto& op = instr.u;
-  const int64_t sum = static_cast<int64_t>(curr_pc) + static_cast<int64_t>(op.imm);
-  tile.write_reg(op.rd, static_cast<uint32_t>(sum));
-}
-
 void exec_lw(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.i;  // alias for I-type decoded fields
   auto* mem = tile.memory(); // get a pointer to attached memory port
@@ -274,18 +177,6 @@ void exec_lb(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, static_cast<uint32_t>(byte));
 }
 
-void exec_lbu(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.i;
-  auto* mem = tile.memory();
-  if (!mem) return;
-  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1));
-  const uint32_t addr = static_cast<uint32_t>(base + op.imm);
-  const uint32_t word = mem->read32(addr & ~0x3u);
-  const uint32_t shift = (addr & 0x3u) * 8u;
-  const uint32_t byte = (word >> shift) & 0xffu;
-  tile.write_reg(op.rd, byte);
-}
-
 void exec_lh(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.i;
   auto* mem = tile.memory();
@@ -296,6 +187,18 @@ void exec_lh(Tile1& tile, const Instruction& instr) {
   const uint32_t shift = (addr & 0x2u) * 8u;
   const int16_t  half = static_cast<int16_t>((word >> shift) & 0xffffu);
   tile.write_reg(op.rd, static_cast<uint32_t>(half));
+}
+
+void exec_lbu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.i;
+  auto* mem = tile.memory();
+  if (!mem) return;
+  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1));
+  const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+  const uint32_t word = mem->read32(addr & ~0x3u);
+  const uint32_t shift = (addr & 0x3u) * 8u;
+  const uint32_t byte = (word >> shift) & 0xffu;
+  tile.write_reg(op.rd, byte);
 }
 
 void exec_lhu(Tile1& tile, const Instruction& instr) {
@@ -310,6 +213,7 @@ void exec_lhu(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, half);
 }
 
+// RV32I base - S-type
 void exec_sw(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.s; // alias for S-type decoded fields
   auto* mem = tile.memory();
@@ -352,6 +256,19 @@ void exec_sh(Tile1& tile, const Instruction& instr) {
   mem->write32(aligned, merged);
 }
 
+// RV32I base - U-type
+void exec_lui(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.u;
+  tile.write_reg(op.rd, static_cast<uint32_t>(op.imm));
+}
+
+void exec_auipc(Tile1& tile, const Instruction& instr, uint32_t curr_pc) {
+  const auto& op = instr.u;
+  const int64_t sum = static_cast<int64_t>(curr_pc) + static_cast<int64_t>(op.imm);
+  tile.write_reg(op.rd, static_cast<uint32_t>(sum));
+}
+
+// RV32I base - B-type
 bool exec_beq(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.b;
   return tile.read_reg(op.rs1) == tile.read_reg(op.rs2);
@@ -390,6 +307,7 @@ bool exec_bgeu(Tile1& tile, const Instruction& instr) {
   return lhs >= rhs;
 }
 
+// RV32I base - J-type
 uint32_t exec_jal(Tile1& tile, const Instruction& instr, uint32_t curr_pc) {
   const auto& op = instr.j;
   tile.write_reg(op.rd, curr_pc + 4u);
@@ -404,6 +322,51 @@ uint32_t exec_jalr(Tile1& tile, const Instruction& instr, uint32_t curr_pc) {
   const uint32_t target = static_cast<uint32_t>(sum) & ~1u;
   tile.write_reg(op.rd, curr_pc + 4u);
   return target;
+}
+
+// System / trap / CSR
+void exec_ecall(Tile1& tile, const Instruction& /*instr*/) { // raise a trap
+  const uint32_t syscall = tile.read_reg(17); // a7=x17 holds syscall id
+  if (syscall == 93u) {                       // is a7 = 93 when we ecall then exit()
+    const uint32_t code = tile.read_reg(10);  // a0=x10 holds exit code
+    tile.request_exit(code);                  // set exit_code & flags: exited_ & halted_
+    return;
+  }                                           // if we don't have this a7 setting (not a special "exit" syscall)…
+  Tile1::TrapCause cause = Tile1::TrapCause::EnvironmentCallFromMMode;
+  switch (tile.priv_mode()) { // respect the active privilege mode
+    case Tile1::PrivMode::User:        cause = Tile1::TrapCause::EnvironmentCallFromUMode; break;
+    case Tile1::PrivMode::Supervisor:  cause = Tile1::TrapCause::EnvironmentCallFromSMode; break;
+    case Tile1::PrivMode::Machine:     cause = Tile1::TrapCause::EnvironmentCallFromMMode; break;
+  }
+  tile.request_trap(cause);                   // …treat ecall as real trap, set trap_pending_ = true
+}                                             // on next tick, Tile1.cpp enters trap pipeline (raise_trap)
+
+void exec_ebreak(Tile1& tile, const Instruction& /*instr*/) {
+  tile.request_trap(Tile1::TrapCause::Breakpoint);
+}
+
+void exec_uret(Tile1& tile, const Instruction& /*instr*/) {
+  if (tile.priv_mode() != Tile1::PrivMode::User) { // validate active privilege mode before proceeding
+    tile.request_illegal_instruction();            // fall back to illegal-instruction trap if invoked from wrong level
+    return;
+  }
+  tile.resume_from_trap();
+}
+
+void exec_sret(Tile1& tile, const Instruction& /*instr*/) {
+  if (tile.priv_mode() != Tile1::PrivMode::Supervisor) {
+    tile.request_illegal_instruction();
+    return;
+  }
+  tile.resume_from_trap();
+}
+
+void exec_mret(Tile1& tile, const Instruction& /*instr*/) {
+  if (tile.priv_mode() != Tile1::PrivMode::Machine) {
+    tile.request_illegal_instruction();
+    return;
+  }
+  tile.resume_from_trap(); // reuse shared plumbing
 }
 
 void exec_csrrw(Tile1& tile, const Instruction& instr) {
@@ -458,6 +421,53 @@ void exec_csrrci(Tile1& tile, const Instruction& instr) {
   }
 }
 
+// Fence
+void exec_fence(Tile1& /*tile*/, const Instruction& /*instr*/) {
+  // No-op in this single-core, in-order Tile1 model.
+}
+
+void exec_fence_i(Tile1& /*tile*/, const Instruction& /*instr*/) {
+  // No-op in this single-core, in-order Tile1 model.
+}
+
+// M extension
+void exec_mul(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint64_t lhs = static_cast<uint64_t>(tile.read_reg(op.rs1));
+  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
+  tile.write_reg(op.rd, static_cast<uint32_t>(lhs * rhs));
+}
+
+void exec_mulw(Tile1& tile, const Instruction& instr) {
+  // RV64 MULW semantics collapse to 32-bit low product on this RV32 core.
+  exec_mul(tile, instr);
+}
+
+void exec_mulh(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const int64_t lhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs1)));
+  const int64_t rhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs2)));
+  const int64_t prod = lhs * rhs;
+  tile.write_reg(op.rd, static_cast<uint32_t>(static_cast<uint64_t>(prod) >> 32));
+}
+
+void exec_mulhu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const uint64_t lhs = static_cast<uint64_t>(tile.read_reg(op.rs1));
+  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
+  const uint64_t prod = lhs * rhs;
+  tile.write_reg(op.rd, static_cast<uint32_t>(prod >> 32));
+}
+
+void exec_mulhsu(Tile1& tile, const Instruction& instr) {
+  const auto& op = instr.r; // alias for R-type decoded fields
+  const int64_t lhs = static_cast<int64_t>(static_cast<int32_t>(tile.read_reg(op.rs1)));
+  const uint64_t rhs = static_cast<uint64_t>(tile.read_reg(op.rs2));
+  const int64_t prod = lhs * static_cast<int64_t>(rhs);
+  tile.write_reg(op.rd, static_cast<uint32_t>(static_cast<uint64_t>(prod) >> 32));
+}
+
+// Custom extension hooks
 void exec_custom0(Tile1& tile, const Instruction& instr) {
   AccelPort* accel = tile.accelerator(); // call Tile1's accessor to get accel pointer accel_port_
   if (!accel) {
