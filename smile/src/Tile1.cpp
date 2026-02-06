@@ -89,10 +89,12 @@ void Tile1::tick() {
           switch (decoded.funct3) {
             case 0x0:
               if (decoded.funct7 == 0x00) {
+                add_count_++;
                 exec_add(*this, decoded);
               } else if (decoded.funct7 == 0x20) {
                 exec_sub(*this, decoded);
               } else if (decoded.funct7 == 0x01) {
+                mul_count_++;
                 exec_mul(*this, decoded);
               } else {
                 exec_add(*this, decoded);
@@ -321,6 +323,8 @@ void Tile1::reset() {
   exit_code_           = 0;
   inst_count_          = 0;
   arith_count_         = 0;
+  add_count_           = 0;
+  mul_count_           = 0;
   load_count_          = 0;
   store_count_         = 0;
   branch_count_        = 0;

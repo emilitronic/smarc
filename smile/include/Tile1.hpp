@@ -112,6 +112,8 @@ public:
   uint32_t exit_code()             const { return exit_code_; }
   uint64_t inst_count()            const { return inst_count_; }
   uint64_t arith_count()           const { return arith_count_; }
+  uint64_t add_count()             const { return add_count_; }
+  uint64_t mul_count()             const { return mul_count_; }
   uint64_t load_count()            const { return load_count_; }
   uint64_t store_count()           const { return store_count_; }
   uint64_t branch_count()          const { return branch_count_; }
@@ -186,6 +188,8 @@ private:
   // Simple micro-architectural counters
   uint64_t inst_count_         = 0;
   uint64_t arith_count_        = 0;
+  uint64_t add_count_          = 0;
+  uint64_t mul_count_          = 0;
   uint64_t load_count_         = 0;
   uint64_t store_count_        = 0;
   uint64_t branch_count_       = 0;

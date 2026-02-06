@@ -166,9 +166,11 @@ int main(int argc, char* argv[]) {
       assert_always(ctx.regs[0] == 0, "x0 must remain zero");
     }
     printf("[EXIT] Program exited with code %u\n", tile.exit_code());
-    printf("[STATS] inst=%llu alu=%llu loads=%llu stores=%llu branches=%llu taken=%llu\n",
+    printf("[STATS] inst=%llu alu=%llu add=%llu mul=%llu loads=%llu stores=%llu branches=%llu taken=%llu\n",
            (unsigned long long)tile.inst_count(),
            (unsigned long long)tile.arith_count(),
+           (unsigned long long)tile.add_count(),
+           (unsigned long long)tile.mul_count(),
            (unsigned long long)tile.load_count(),
            (unsigned long long)tile.store_count(),
            (unsigned long long)tile.branch_count(),
