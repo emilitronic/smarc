@@ -52,8 +52,39 @@ public:
     dram_.write(phys, &value, sizeof(value));
   }
 
+  void cycle() override {}
+
+  bool can_request() const override {
+    return !resp_valid_;
+  }
+
+  void request_read32(uint32_t addr) override {
+    resp_data_ = read32(addr);
+    resp_valid_ = true;
+  }
+
+  void request_write32(uint32_t addr, uint32_t value) override {
+    write32(addr, value);
+    resp_data_ = 0;
+    resp_valid_ = true;
+  }
+
+  bool resp_valid() const override {
+    return resp_valid_;
+  }
+
+  uint32_t resp_data() const override {
+    return resp_data_;
+  }
+
+  void resp_consume() override {
+    resp_valid_ = false;
+  }
+
 private:
   Dram& dram_;
+  bool resp_valid_ = false; // for more realistic memory port behavior
+  uint32_t resp_data_ = 0;  // for more realistic memory port behavior
 };
 
 int main(int argc, char* argv[]) {
