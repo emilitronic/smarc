@@ -30,8 +30,8 @@ public:
   virtual void     write32(uint32_t addr, uint32_t value) = 0;
   virtual void     cycle()                                = 0;
   virtual bool     can_request() const                    = 0; // returns true when no pending response
-  virtual void     request_read32(uint32_t addr)          = 0; 
-  virtual void     request_write32(uint32_t addr, uint32_t value) = 0;
+  virtual void     request_read32(uint32_t addr)          = 0; // enque read request
+  virtual void     request_write32(uint32_t addr, uint32_t value) = 0; // enque write request
   virtual bool     resp_valid() const                     = 0;
   virtual uint32_t resp_data() const                      = 0;
   virtual void     resp_consume()                         = 0;
@@ -186,6 +186,9 @@ private:
   uint32_t last_pc_ = 0;             // book-keeping
   uint32_t last_instr_ = 0;          // book-keeping
   std::array<uint32_t, 32> regs_{};  // 32b RF
+  bool ifetch_wait_ = false;         // are we waiting on an instr fetch response? (stalls fetch until resp arrives)
+  bool ifetch_valid_ = false;        // do we have a valid buffered instr? (if so, fetch can proceed without requesting from memory)
+  uint32_t ifetch_word_ = 0;         // buffered instr word for fetch stage (holds fetched instr until fetch stage consumes it)
 
   // Halt/exit tracking
   bool halted_ = false;              // has core stopped (due to some interrupt or exit)

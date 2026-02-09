@@ -28,7 +28,7 @@ public:
     const uint64_t phys = dram_.get_base() + static_cast<uint64_t>(addr);
     dram_.write(phys, &value, sizeof(value));
   }
-
+  
   void cycle() override {}
   
   bool can_request() const override {

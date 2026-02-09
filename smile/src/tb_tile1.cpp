@@ -52,6 +52,9 @@ public:
     dram_.write(phys, &value, sizeof(value));
   }
 
+  // not doing anything yet
+  // but will ultimately be used to simulate memory latency more realistically 
+  // by enqueuing requests and returning responses after some cycles
   void cycle() override {}
 
   bool can_request() const override {
@@ -78,7 +81,7 @@ public:
   }
 
   void resp_consume() override {
-    resp_valid_ = false;
+    resp_valid_ = false; // allow new requests after consuming response
   }
 
 private:

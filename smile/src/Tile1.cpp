@@ -32,11 +32,32 @@ void Tile1::tick() {
     return;
   }
 
+  mem_port_->cycle(); // advance mem model by CPU cycle (to simulate latency)
+
+  // If we're waiting on an instr fetch response, stall until it arrives
+  if (ifetch_wait_) {
+    if (!mem_port_->resp_valid()) return;   // stall until mem has valid resp
+    ifetch_word_  = mem_port_->resp_data(); // if it has valid resp: copy resp into ifetch buffer
+    mem_port_->resp_consume();              // tell mem we've consumed response (it can now accept new requests)
+    ifetch_valid_ = true;                   // mark the ifetch buffer valid
+    ifetch_wait_  = false;                  // clear the fetch-wait flag
+  }
+
   // ******************
   // 1. FETCH
   // ******************
   const uint32_t curr_pc = pc_;
-  const uint32_t instr   = mem_port_->read32(curr_pc); // load current instr
+  // If no buffered instruction is available, request one from memory
+  if (!ifetch_valid_) {
+    if (!mem_port_->can_request()) return; // check can_request() before requesting to avoid overwriting pending requests
+    mem_port_->request_read32(curr_pc);    
+    ifetch_wait_ = true;
+    last_pc_ = curr_pc;
+    last_instr_ = 0;
+    return;                                // return right after request issue, so core consumes resp in next cycle
+  }
+  const uint32_t instr = ifetch_word_;
+  ifetch_valid_ = false;
   last_pc_    = curr_pc;
   last_instr_ = instr;
   trace("pc=0x%08x instr=0x%08x\n", curr_pc, instr);
@@ -319,6 +340,9 @@ void Tile1::reset() {
   last_instr_          = 0;
   regs_.fill(0);
   regs_[0]             = 0;
+  ifetch_wait_         = false;
+  ifetch_valid_        = false;
+  ifetch_word_         = 0;
   halted_              = false;
   exited_              = false;
   exit_code_           = 0;
