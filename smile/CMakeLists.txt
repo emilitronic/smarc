@@ -19,6 +19,7 @@ add_executable(tb_tile1
   src/AccelArraySum.cpp
   src/AccelDemoAdd.cpp
   src/Debugger.cpp
+  src/MemCtrlTimedPort.cpp
   src/tb_tile1.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../smicro/src/Dram.cpp
 )

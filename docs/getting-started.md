@@ -16,7 +16,7 @@ $ cd smarc
 # Make a place for the executables
 smarc $ mkdir build
 # Configure (set CEDAR_DIR to your Cascade build/install)
-smarc $ cmake -S . -B build -DCEDAR_DIR=/pat/to/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+smarc $ cmake -S . -B build -DCEDAR_DIR=/path/to/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 # Build it
 smarc $ cmake --build build -j
 # See it
