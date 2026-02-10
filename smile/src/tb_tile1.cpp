@@ -12,6 +12,7 @@ Testbench for a RV tile.
 #include "Debugger.hpp"
 #include "Diagnostics.hpp"
 #include "util/FlatBinLoader.hpp"
+#include "MemCtrlTimedPort.hpp"
 #include "../../smicro/src/Dram.hpp"
 #include "AccelPort.hpp"
 #include "AccelArraySum.hpp"
@@ -30,6 +31,7 @@ BoolParameter(showcontexts, false, "List component instance names (contexts) and
 StringParameter(prog, "", "Path to flat binary file (.bin) to load");
 IntParameter(load_addr, 0x0, "Physical load address for the flat binary");
 IntParameter(start_pc, 0x0, "Initial PC (set core's PC before run)");
+IntParameter(mem_latency, 0, "Fixed memory latency (cycles) for MemCtrlTimedPort");
 IntParameter(steps, 0, "Cycles to auto-run; <=0 enters interactive debugger");
 IntParameter(sw_threads, 1, "Software thread contexts to schedule (1 or 2). Default: 1");
 BoolParameter(ignore_bpfile, false,
@@ -104,8 +106,9 @@ int main(int argc, char* argv[]) {
   Tile1 tile("tile1");
   Dram dram("dram", 0);
   DramMemoryPort dram_port(dram);
+  MemCtrlTimedPort memctrl(&dram_port, (int)mem_latency);
   AccelArraySum accel_port(dram_port);  // array-sum accelerator, backed by dram_port for mem ops
-  tile.attach_memory(&dram_port);
+  tile.attach_memory(&memctrl);
   tile.attach_accelerator(&accel_port); // attach accelerator (attach_accelerator in Tile1.hpp)
   dram.s_req.wireToZero();
   dram.s_resp.sendToBitBucket();
@@ -204,7 +207,8 @@ int main(int argc, char* argv[]) {
       assert_always(ctx.regs[0] == 0, "x0 must remain zero");
     }
     printf("[EXIT] Program exited with code %u\n", tile.exit_code());
-    printf("[STATS] inst=%llu alu=%llu add=%llu mul=%llu loads=%llu stores=%llu branches=%llu taken=%llu\n",
+    printf("[STATS] cycles=%llu inst=%llu alu=%llu add=%llu mul=%llu loads=%llu stores=%llu branches=%llu taken=%llu\n",
+           (unsigned long long)dbg.cycle,
            (unsigned long long)tile.inst_count(),
            (unsigned long long)tile.arith_count(),
            (unsigned long long)tile.add_count(),
