@@ -47,7 +47,7 @@ void Tile1::tick() {
     if (!mem_port_->resp_valid()) return;  // stall until mem has valid data resp
     const uint32_t resp = mem_port_->resp_data();
     mem_port_->resp_consume();
-    complete_dmem(resp);
+    complete_dmem(resp);                   // finishes load/store op and advances PC
     return;
   }
 
@@ -246,16 +246,16 @@ void Tile1::tick() {
           const auto& op = decoded.i;
           const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
           const uint32_t addr = static_cast<uint32_t>(base + op.imm);
-          assert_always((addr & 0x3u) == 0u, "Timed data path supports aligned LW only");
+          assert_always((addr & 0x3u) == 0u, "Timed data path supports aligned LW only"); // reject non-word-aligned
           if (!mem_port_->can_request()) return; // before issue check that mem port can accept request
-          mem_port_->request_read32(addr);
-          dmem_wait_ = true;
-          dmem_is_load_ = true;
-          dmem_rd_ = op.rd;
-          dmem_addr_ = addr;
-          dmem_wdata_ = 0;
-          dmem_next_pc_ = next_pc;
-          return;
+          mem_port_->request_read32(addr);       // issue load request to memory port
+          dmem_wait_ = true;                     // we're now waiting on data mem
+          dmem_is_load_ = true;                  // this is a load (not store)
+          dmem_rd_ = op.rd;                      // which reg to W when load resp arrives
+          dmem_addr_ = addr;                     // bookkeeping/debug
+          dmem_wdata_ = 0;                       // bookkeeping/debug
+          dmem_next_pc_ = next_pc;               // at completion, resume at next instr
+          return;                                // jump out of Tile1::tick() => so core doesn't advance PC
         }
         assert_always(false, "only LW supported in timed data path");
       }
