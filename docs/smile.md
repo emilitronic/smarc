@@ -188,9 +188,7 @@ Run with the default hard-coded program:
 Run a compiled program:
 ```bash
 cd smile/progs
-riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 \
-  -nostartfiles -nostdlib -T link_rv32.ld \
-  smurf.c -o prog.elf
+riscv64-unknown-elf-gcc -march=rv32i_zicsr -mabi=ilp32 -nostartfiles -nostdlib -T link_rv32.ld core/smurf.c -o prog.elf
 
 riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 

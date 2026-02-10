@@ -4,8 +4,11 @@
 // Sebastian Claudiusz Magierowski Oct 14 2025 
 /*
 Minimal freestanding RV32I, no libc stuff.  Works as a flat .bin
-Does SUM(0…9)=45; & writes SUM=45 at 0x100; & if sum==45 sets FLAG=1 at 0x104; 
-then ECALLs so tile sim (which looks for this) can halt.
+1) Does SUM(0…9)=45;
+2_ writes SUM=45 at 0x100;
+3) if sum==45 sets FLAG=1 at 0x104; 
+4) then EBREAKs causing trap handler to write 0xBEEF at 0x0108 and ret to main
+5) then ECALLs causing trap handler to write 0xDEAD at 0x0104 so tile sim (which looks for this) can halt.
 
 smurf.c makes ecall invoke a trap handler. Rather than using a special "exit" syscall (a7=93).
 (As coded in Tile1_exec.cpp exec_ecall()).  smurf.c writes trap handler's address into mtvec

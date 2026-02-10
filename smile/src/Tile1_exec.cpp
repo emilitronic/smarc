@@ -155,16 +155,6 @@ void exec_andi(Tile1& tile, const Instruction& instr) {
   tile.write_reg(op.rd, src & imm);
 }
 
-void exec_lw(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.i;  // alias for I-type decoded fields
-  auto* mem = tile.memory(); // get a pointer to attached memory port
-  if (!mem) return;
-  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1)); // read rs1, cast to signed
-  const uint32_t addr = static_cast<uint32_t>(base + op.imm);        // add imm to base for mem addr
-  const uint32_t data = mem->read32(addr);                           // load from mem
-  tile.write_reg(op.rd, data);                                       // write to reg
-}
-
 void exec_lb(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.i;
   auto* mem = tile.memory();
@@ -214,16 +204,6 @@ void exec_lhu(Tile1& tile, const Instruction& instr) {
 }
 
 // RV32I base - S-type
-void exec_sw(Tile1& tile, const Instruction& instr) {
-  const auto& op = instr.s; // alias for S-type decoded fields
-  auto* mem = tile.memory();
-  if (!mem) return;
-  const int32_t  base = static_cast<int32_t>(tile.read_reg(op.rs1));
-  const uint32_t addr = static_cast<uint32_t>(base + op.imm);
-  const uint32_t data = tile.read_reg(op.rs2);                       // read data to store from reg
-  mem->write32(addr, data);                                          // write to mem
-}
-
 void exec_sb(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.s;
   auto* mem = tile.memory();

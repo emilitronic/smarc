@@ -36,11 +36,19 @@ void Tile1::tick() {
 
   // If we're waiting on an instr fetch response, stall until it arrives
   if (ifetch_wait_) {
-    if (!mem_port_->resp_valid()) return;   // stall until mem has valid resp
+    if (!mem_port_->resp_valid()) return;   // stall until mem has valid instr resp
     ifetch_word_  = mem_port_->resp_data(); // if it has valid resp: copy resp into ifetch buffer
     mem_port_->resp_consume();              // tell mem we've consumed response (it can now accept new requests)
     ifetch_valid_ = true;                   // mark the ifetch buffer valid
     ifetch_wait_  = false;                  // clear the fetch-wait flag
+  }
+  // If we're waiting on a data memory access, stall until it completes
+  if (dmem_wait_) {
+    if (!mem_port_->resp_valid()) return;  // stall until mem has valid data resp
+    const uint32_t resp = mem_port_->resp_data();
+    mem_port_->resp_consume();
+    complete_dmem(resp);
+    return;
   }
 
   // ******************
@@ -234,29 +242,44 @@ void Tile1::tick() {
     case Instruction::Category::LOAD:
       if (decoded.type == Instruction::Type::I) {
         load_count_++;
-        if (decoded.funct3 == 0x0) {
-          exec_lb(*this, decoded);
-        } else if (decoded.funct3 == 0x1) {
-          exec_lh(*this, decoded);
-        } else if (decoded.funct3 == 0x2) {
-          exec_lw(*this, decoded);
-        } else if (decoded.funct3 == 0x4) {
-          exec_lbu(*this, decoded);
-        } else if (decoded.funct3 == 0x5) {
-          exec_lhu(*this, decoded);
+        if (decoded.funct3 == 0x2) {
+          const auto& op = decoded.i;
+          const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
+          const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+          assert_always((addr & 0x3u) == 0u, "Timed data path supports aligned LW only");
+          if (!mem_port_->can_request()) return; // before issue check that mem port can accept request
+          mem_port_->request_read32(addr);
+          dmem_wait_ = true;
+          dmem_is_load_ = true;
+          dmem_rd_ = op.rd;
+          dmem_addr_ = addr;
+          dmem_wdata_ = 0;
+          dmem_next_pc_ = next_pc;
+          return;
         }
+        assert_always(false, "only LW supported in timed data path");
       }
       break;
     case Instruction::Category::STORE:
       if (decoded.type == Instruction::Type::S) {
         store_count_++;
-        if (decoded.funct3 == 0x0) {
-          exec_sb(*this, decoded);
-        } else if (decoded.funct3 == 0x1) {
-          exec_sh(*this, decoded);
-        } else if (decoded.funct3 == 0x2) {
-          exec_sw(*this, decoded);
+        if (decoded.funct3 == 0x2) {
+          const auto& op = decoded.s;
+          const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
+          const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+          const uint32_t data = read_reg(op.rs2);
+          assert_always((addr & 0x3u) == 0u, "Timed data path supports aligned SW only");
+          if (!mem_port_->can_request()) return; // before issue check that mem port can accept request
+          mem_port_->request_write32(addr, data);
+          dmem_wait_ = true;
+          dmem_is_load_ = false;
+          dmem_rd_ = 0;
+          dmem_addr_ = addr;
+          dmem_wdata_ = data;
+          dmem_next_pc_ = next_pc;
+          return;
         }
+        assert_always(false, "only SW supported in timed data path");
       }
       break;
     // JUMP
@@ -343,6 +366,12 @@ void Tile1::reset() {
   ifetch_wait_         = false;
   ifetch_valid_        = false;
   ifetch_word_         = 0;
+  dmem_wait_           = false;
+  dmem_is_load_        = false;
+  dmem_rd_             = 0;
+  dmem_addr_           = 0;
+  dmem_wdata_          = 0;
+  dmem_next_pc_        = 0;
   halted_              = false;
   exited_              = false;
   exit_code_           = 0;
@@ -359,6 +388,21 @@ void Tile1::reset() {
   priv_mode_           = PrivMode::Machine; // init priv_mode_ to M
   reset_trap_csrs();
   csrs_.clear();
+}
+// Helper for completing a data memory access after a stall: 
+// updates RF for loads, clears dmem-related fields, and applies next PC
+void Tile1::complete_dmem(uint32_t resp_data) {
+  if (dmem_is_load_ && dmem_rd_ != 0) {
+    write_reg(dmem_rd_, resp_data);
+  }
+  pc_ = dmem_next_pc_;
+  dmem_wait_ = false;
+  dmem_is_load_ = false;
+  dmem_rd_ = 0;
+  dmem_addr_ = 0;
+  dmem_wdata_ = 0;
+  dmem_next_pc_ = 0;
+  regs_[0] = 0;
 }
 
 void Tile1::write_reg(uint32_t idx, uint32_t value) {

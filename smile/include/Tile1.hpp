@@ -176,12 +176,13 @@ private:
     }
   }
   void reset_trap_csrs();
+  void complete_dmem(uint32_t resp_data); // helper for completing dmem access after stall (update RF, clear fields)
 
   // Attached interfaces
   MemoryPort* mem_port_ = nullptr;   // tile's pointer to external mem port   (lets it fetch instr & read/write data)
   AccelPort*  accel_port_ = nullptr; // currently attached accelerator, seen through the AccelPort interface
 
-  // Core execution state
+  // Private state for core execution state
   uint32_t pc_ = 0;                  // 32b PC
   uint32_t last_pc_ = 0;             // book-keeping
   uint32_t last_instr_ = 0;          // book-keeping
@@ -190,7 +191,15 @@ private:
   bool ifetch_valid_ = false;        // do we have a valid buffered instr? (if so, fetch can proceed without requesting from memory)
   uint32_t ifetch_word_ = 0;         // buffered instr word for fetch stage (holds fetched instr until fetch stage consumes it)
 
-  // Halt/exit tracking
+  // Private state for data stalling (separate from IFetch)
+  bool dmem_wait_ = false;
+  bool dmem_is_load_ = false;
+  uint32_t dmem_rd_ = 0;
+  uint32_t dmem_addr_ = 0;    // optional for debug
+  uint32_t dmem_wdata_ = 0;   // optional for debug
+  uint32_t dmem_next_pc_ = 0; // PC to apply after completion
+
+  // Private state for halt/exit tracking
   bool halted_ = false;              // has core stopped (due to some interrupt or exit)
   bool exited_ = false;              // has core's program intentionally finished
   uint32_t exit_code_ = 0;
