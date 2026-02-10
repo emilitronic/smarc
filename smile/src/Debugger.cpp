@@ -25,7 +25,7 @@ struct CycleInfo {
   uint32_t instruction = 0;
   uint32_t mcause = 0;
   bool executed = false;
-  bool executed_breakpoint_instr = false;
+  bool breakpoint_trap_observed = false;
   bool log_breakpoint_snapshot = false;
   bool user_breakpoint_hit = false;
   bool program_exited = false;
@@ -304,9 +304,9 @@ static CycleInfo execute_cycle(DebuggerState& state, bool honor_breakpoints) {
   }
 
   const uint32_t begin_pc = context.pc;
-  state.tile.load_context(context);
-  Sim::run();
-  state.tile.save_context(context);
+  state.tile.load_context(context); // load thread context into tile (sets tile's PC and RF to thread's saved state)
+  Sim::run();                       // run one simulated cycle (executes one instruction and updates tile state, including PC/RF)
+  state.tile.save_context(context); // save context back out
   state.cycle++;
 
   info.executed = true;
@@ -329,19 +329,29 @@ static CycleInfo execute_cycle(DebuggerState& state, bool honor_breakpoints) {
     info.program_exited = true;
     return info;
   }
-
-  const bool executed_breakpoint = info.instruction == 0x00100073u;
-  info.executed_breakpoint_instr = executed_breakpoint;
-  if (executed_breakpoint && begin_pc != state.last_breakpoint_log_mepc[state.current_thread]) {
-    info.log_breakpoint_snapshot = true;
-    state.last_breakpoint_log_mepc[state.current_thread] = begin_pc;
-  }
-  if (executed_breakpoint) {
+  
+  // if causes says breakpoint…
+  const bool breakpoint_cause = info.mcause == static_cast<uint32_t>(Tile1::TrapCause::Breakpoint);
+  // …or we see pc jump to trap vector (don't treat startup, where pc=mtvec=0, as a trap)
+  const bool vector_taken = (state.tile.pc() == state.tile.mtvec()) && (state.tile.pc() != begin_pc);
+  const bool breakpoint_trap_observed = breakpoint_cause || vector_taken; // form one flag
+  info.breakpoint_trap_observed = breakpoint_trap_observed;
+  // do debugger bookkeeping for breakpoint trap
+  if (breakpoint_trap_observed) {
+    const uint32_t trap_mepc = state.tile.mepc(); // get addr of breakpoint instr
+    // if its a new breakpoint (new trap_mepc) then log it
+    if (trap_mepc != state.last_breakpoint_log_mepc[state.current_thread]) {
+      info.log_breakpoint_snapshot = true;
+      state.last_breakpoint_log_mepc[state.current_thread] = trap_mepc;
+    }
+    // mark that we saw the breakpoint trap (so we don't log again until we see a different trap_mepc) and save the trap mepc for potential later use (e.g., in a breakpoint snapshot)
     if (!state.saw_breakpoint_trap[state.current_thread]) {
       state.saw_breakpoint_trap[state.current_thread] = true;
-      state.breakpoint_mepc[state.current_thread] = begin_pc;
+      state.breakpoint_mepc[state.current_thread] = trap_mepc;
     }
-    state.threads[state.current_thread].pc = begin_pc + 4u;
+    // EBREAK is an architectural trap; Tile1 vectors to mtvec.
+    // The debugger must not skip it by forcing PC += 4.
+    // Debugger now OBSERVING traps, not EDITING execution by skipping over breakpoint instructions.
   }
   if (!state.saw_ecall_trap[state.current_thread] &&
       info.mcause == static_cast<uint32_t>(Tile1::TrapCause::EnvironmentCallFromMMode)) {
@@ -393,9 +403,9 @@ static bool handle_command_line(DebuggerState& state, const std::string& raw_lin
       if (info.log_breakpoint_snapshot) {
         print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
       }
-      if (info.executed_breakpoint_instr) {
+      if (info.breakpoint_trap_observed) {
         std::cout << COLOR_BP
-                  << "[BP] Software breakpoint executed at 0x"
+                  << "[BP] Breakpoint trap observed at 0x"
                   << hex32(info.begin_pc)
                   << COLOR_RESET << std::endl;
         break;
@@ -424,9 +434,9 @@ static bool handle_command_line(DebuggerState& state, const std::string& raw_lin
         print_breakpoint_snapshot(state, info.thread, info.begin_pc, info.mcause);
         break;
       }
-      if (info.executed_breakpoint_instr) {
+      if (info.breakpoint_trap_observed) {
         std::cout << COLOR_BP
-                  << "[BP] Software breakpoint executed at 0x"
+                  << "[BP] Breakpoint trap observed at 0x"
                   << hex32(info.begin_pc)
                   << COLOR_RESET << std::endl;
         break;
