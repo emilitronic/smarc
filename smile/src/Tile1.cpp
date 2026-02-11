@@ -242,44 +242,92 @@ void Tile1::tick() {
     case Instruction::Category::LOAD:
       if (decoded.type == Instruction::Type::I) {
         load_count_++;
-        if (decoded.funct3 == 0x2) {
-          const auto& op = decoded.i;
-          const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
-          const uint32_t addr = static_cast<uint32_t>(base + op.imm);
-          assert_always((addr & 0x3u) == 0u, "Timed data path supports aligned LW only"); // reject non-word-aligned
-          if (!mem_port_->can_request()) return; // before issue check that mem port can accept request
-          mem_port_->request_read32(addr);       // issue load request to memory port
-          dmem_wait_ = true;                     // we're now waiting on data mem
-          dmem_is_load_ = true;                  // this is a load (not store)
-          dmem_rd_ = op.rd;                      // which reg to W when load resp arrives
-          dmem_addr_ = addr;                     // bookkeeping/debug
-          dmem_wdata_ = 0;                       // bookkeeping/debug
-          dmem_next_pc_ = next_pc;               // at completion, resume at next instr
-          return;                                // jump out of Tile1::tick() => so core doesn't advance PC
+        const auto& op = decoded.i;
+        const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
+        const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+        DmemOp dmem_op = DmemOp::None;
+        switch (decoded.funct3) {
+          case 0x0: dmem_op = DmemOp::LB; break;
+          case 0x1:
+            assert_always((addr & 0x1u) == 0u, "LH requires 2-byte alignment");
+            dmem_op = DmemOp::LH;
+            break;
+          case 0x2:
+            assert_always((addr & 0x3u) == 0u, "LW requires 4-byte alignment");
+            dmem_op = DmemOp::LW;
+            break;
+          case 0x4: dmem_op = DmemOp::LBU; break;
+          case 0x5:
+            assert_always((addr & 0x1u) == 0u, "LHU requires 2-byte alignment");
+            dmem_op = DmemOp::LHU;
+            break;
+          default:
+            assert_always(false, "Unsupported load funct3 in timed data path");
+            break;
         }
-        assert_always(false, "only LW supported in timed data path");
+        if (!mem_port_->can_request()) return;   // before issue, check that we can make new request
+        mem_port_->request_read32(addr & ~0x3u); // if we can, issue load request
+        dmem_wait_ = true;                       // we're no waiting on data mem
+        dmem_op_ = dmem_op;                      // load flavour
+        dmem_rmw_write_issued_ = false;         
+        dmem_rd_ = op.rd;                        // which reg to write
+        dmem_addr_ = addr;                       // bookkeeping/debug
+        dmem_store_data_ = 0;
+        dmem_store_mask_ = 0;
+        dmem_store_shift_ = 0;
+        dmem_next_pc_ = next_pc;
+        return;                                  // jump out of Tile1::tick()
       }
       break;
     case Instruction::Category::STORE:
       if (decoded.type == Instruction::Type::S) {
         store_count_++;
-        if (decoded.funct3 == 0x2) {
-          const auto& op = decoded.s;
-          const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
-          const uint32_t addr = static_cast<uint32_t>(base + op.imm);
-          const uint32_t data = read_reg(op.rs2);
-          assert_always((addr & 0x3u) == 0u, "Timed data path supports aligned SW only");
-          if (!mem_port_->can_request()) return; // before issue check that mem port can accept request
-          mem_port_->request_write32(addr, data);
-          dmem_wait_ = true;
-          dmem_is_load_ = false;
-          dmem_rd_ = 0;
-          dmem_addr_ = addr;
-          dmem_wdata_ = data;
-          dmem_next_pc_ = next_pc;
-          return;
+        const auto& op = decoded.s;
+        const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
+        const uint32_t addr = static_cast<uint32_t>(base + op.imm);
+        const uint32_t data = read_reg(op.rs2);
+        const uint32_t aligned = addr & ~0x3u;
+        if (!mem_port_->can_request()) return;
+
+        dmem_wait_ = true;
+        dmem_rd_ = 0;
+        dmem_addr_ = addr;
+        dmem_next_pc_ = next_pc;
+        dmem_rmw_write_issued_ = false;
+
+        switch (decoded.funct3) {
+          case 0x0: {
+            // Word-only memory port: SB is implemented as timed read-modify-write (2 requests).
+            dmem_op_ = DmemOp::SB;
+            dmem_store_data_ = data & 0xffu;
+            dmem_store_shift_ = (addr & 0x3u) * 8u;
+            dmem_store_mask_ = 0xffu << dmem_store_shift_;
+            mem_port_->request_read32(aligned); // transaction 1: READ in what you want to modify
+            return;                             // jump out of Tile1::tick()
+          }
+          case 0x1: {
+            assert_always((addr & 0x1u) == 0u, "SH requires 2-byte alignment");
+            // Word-only memory port: SH is implemented as timed read-modify-write (2 requests).
+            // Transaction 1: READ request
+            dmem_op_ = DmemOp::SH;
+            dmem_store_data_ = data & 0xffffu;
+            dmem_store_shift_ = (addr & 0x2u) * 8u;
+            dmem_store_mask_ = 0xffffu << dmem_store_shift_;
+            mem_port_->request_read32(aligned); // transaction 1: READ in what you want to modify
+            return;                             // jump out of Tile1::tick()
+          }
+          case 0x2:
+            assert_always((addr & 0x3u) == 0u, "SW requires 4-byte alignment");
+            dmem_op_ = DmemOp::SW;
+            dmem_store_data_ = data;
+            dmem_store_shift_ = 0;
+            dmem_store_mask_ = 0xffffffffu;
+            mem_port_->request_write32(aligned, data); // WRITE in what you want to modify
+            return;                                    // jump out of Tile1::tick()
+          default:
+            assert_always(false, "Unsupported store funct3 in timed data path");
+            break;
         }
-        assert_always(false, "only SW supported in timed data path");
       }
       break;
     // JUMP
@@ -367,10 +415,13 @@ void Tile1::reset() {
   ifetch_valid_        = false;
   ifetch_word_         = 0;
   dmem_wait_           = false;
-  dmem_is_load_        = false;
+  dmem_op_             = DmemOp::None;
+  dmem_rmw_write_issued_ = false;
   dmem_rd_             = 0;
   dmem_addr_           = 0;
-  dmem_wdata_          = 0;
+  dmem_store_data_     = 0;
+  dmem_store_mask_     = 0;
+  dmem_store_shift_    = 0;
   dmem_next_pc_        = 0;
   halted_              = false;
   exited_              = false;
@@ -389,18 +440,67 @@ void Tile1::reset() {
   reset_trap_csrs();
   csrs_.clear();
 }
+
 // Helper for completing a data memory access after a stall: 
 // updates RF for loads, clears dmem-related fields, and applies next PC
 void Tile1::complete_dmem(uint32_t resp_data) {
-  if (dmem_is_load_ && dmem_rd_ != 0) {
-    write_reg(dmem_rd_, resp_data);
+  switch (dmem_op_) {
+    case DmemOp::LW:
+      if (dmem_rd_ != 0) write_reg(dmem_rd_, resp_data);
+      break;
+    case DmemOp::LB: {
+      const uint32_t shift = (dmem_addr_ & 0x3u) * 8u;
+      const int8_t byte = static_cast<int8_t>((resp_data >> shift) & 0xffu);
+      if (dmem_rd_ != 0) write_reg(dmem_rd_, static_cast<uint32_t>(byte));
+      break;
+    }
+    case DmemOp::LBU: {
+      const uint32_t shift = (dmem_addr_ & 0x3u) * 8u;
+      const uint32_t byte = (resp_data >> shift) & 0xffu;
+      if (dmem_rd_ != 0) write_reg(dmem_rd_, byte);
+      break;
+    }
+    case DmemOp::LH: {
+      const uint32_t shift = (dmem_addr_ & 0x2u) * 8u;
+      const int16_t half = static_cast<int16_t>((resp_data >> shift) & 0xffffu);
+      if (dmem_rd_ != 0) write_reg(dmem_rd_, static_cast<uint32_t>(half));
+      break;
+    }
+    case DmemOp::LHU: {
+      const uint32_t shift = (dmem_addr_ & 0x2u) * 8u;
+      const uint32_t half = (resp_data >> shift) & 0xffffu;
+      if (dmem_rd_ != 0) write_reg(dmem_rd_, half);
+      break;
+    }
+    case DmemOp::SW:
+      break;
+    // Transaction 2: WRITE request
+    case DmemOp::SB:
+    case DmemOp::SH:
+      if (!dmem_rmw_write_issued_) {
+        const uint32_t merged = (resp_data & ~dmem_store_mask_) |
+          ((dmem_store_data_ << dmem_store_shift_) & dmem_store_mask_);
+        assert_always(mem_port_->can_request(), "Timed SB/SH RMW write phase requires request slot");
+        mem_port_->request_write32(dmem_addr_ & ~0x3u, merged); // transaction 2: WRITE in what you want to modify
+        dmem_rmw_write_issued_ = true; // read-modify-write (RMW) for sub-word stores
+        dmem_store_data_ = merged;
+        return;                        // jump out of Tile1::tick() 
+      }
+      break;
+    case DmemOp::None:
+      assert_always(false, "complete_dmem called with no active dmem op");
+      break;
   }
+
   pc_ = dmem_next_pc_;
   dmem_wait_ = false;
-  dmem_is_load_ = false;
+  dmem_op_ = DmemOp::None;
+  dmem_rmw_write_issued_ = false;
   dmem_rd_ = 0;
   dmem_addr_ = 0;
-  dmem_wdata_ = 0;
+  dmem_store_data_ = 0;
+  dmem_store_mask_ = 0;
+  dmem_store_shift_ = 0;
   dmem_next_pc_ = 0;
   regs_[0] = 0;
 }

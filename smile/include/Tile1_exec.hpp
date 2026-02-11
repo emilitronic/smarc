@@ -33,14 +33,6 @@ void exec_sltiu(Tile1& tile, const Instruction& instr);
 void exec_xori(Tile1& tile, const Instruction& instr);
 void exec_ori(Tile1& tile, const Instruction& instr);
 void exec_andi(Tile1& tile, const Instruction& instr);
-void exec_lb(Tile1& tile, const Instruction& instr);
-void exec_lh(Tile1& tile, const Instruction& instr);
-void exec_lbu(Tile1& tile, const Instruction& instr);
-void exec_lhu(Tile1& tile, const Instruction& instr);
-
-// RV32I base - S-type
-void exec_sb(Tile1& tile, const Instruction& instr);
-void exec_sh(Tile1& tile, const Instruction& instr);
 
 // RV32I base - U-type
 void exec_lui(Tile1& tile, const Instruction& instr);

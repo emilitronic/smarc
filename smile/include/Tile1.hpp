@@ -150,6 +150,18 @@ public:
   const AccelPort* accelerator()   const { return accel_port_; }
 
 private:
+  enum class DmemOp : uint8_t {
+    None = 0,
+    LW,
+    LB,
+    LBU,
+    LH,
+    LHU,
+    SW,
+    SB,
+    SH
+  };
+
   // Trap CSRs
   struct TrapCsrState { // CSR states for trap handler to read/write
     uint32_t mstatus = 0;
@@ -193,11 +205,14 @@ private:
 
   // Private state for data stalling (separate from IFetch)
   bool dmem_wait_ = false;
-  bool dmem_is_load_ = false;
+  DmemOp dmem_op_ = DmemOp::None;
+  bool dmem_rmw_write_issued_ = false; // for SB/SH two-phase timed read-modify-write
   uint32_t dmem_rd_ = 0;
-  uint32_t dmem_addr_ = 0;    // optional for debug
-  uint32_t dmem_wdata_ = 0;   // optional for debug
-  uint32_t dmem_next_pc_ = 0; // PC to apply after completion
+  uint32_t dmem_addr_ = 0;      // original effective byte address
+  uint32_t dmem_store_data_ = 0;
+  uint32_t dmem_store_mask_ = 0;
+  uint32_t dmem_store_shift_ = 0;
+  uint32_t dmem_next_pc_ = 0;   // PC to apply after completion
 
   // Private state for halt/exit tracking
   bool halted_ = false;              // has core stopped (due to some interrupt or exit)
