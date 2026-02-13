@@ -49,6 +49,8 @@ target_sources(tile1
 # Look for riscv64-unknown-elf toolchain
 find_program(SMILE_RISCV_GCC riscv64-unknown-elf-gcc)
 find_program(SMILE_RISCV_OBJCOPY riscv64-unknown-elf-objcopy)
+find_program(SMILE_RISCV_GCC NAMES riscv64-unknown-elf-gcc riscv64-elf-gcc riscv-none-embed-gcc)
+find_program(SMILE_RISCV_OBJCOPY NAMES riscv64-unknown-elf-objcopy riscv64-elf-objcopy riscv-none-embed-objcopy)
 
 if (SMILE_RISCV_GCC AND SMILE_RISCV_OBJCOPY)
   set(SMILE_PROGS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/progs)
@@ -100,5 +102,10 @@ if (SMILE_RISCV_GCC AND SMILE_RISCV_OBJCOPY)
   add_custom_target(smile_progs DEPENDS ${SMILE_PROG_BINS})
 else()
   message(STATUS "riscv64-unknown-elf toolchain not found; skipping smile_progs target")
+  message(STATUS "riscv64-unknown-elf toolchain not found; smile_progs target will fail if invoked")
+  add_custom_target(smile_progs
+    COMMAND ${CMAKE_COMMAND} -E echo "Error: Toolchain not found. Install riscv64-unknown-elf-gcc to build smile_progs."
+    COMMAND ${CMAKE_COMMAND} -E false
+  )
 endif()
 # ------- End of bare metal program build for smile_progs target -------

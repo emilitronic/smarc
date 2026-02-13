@@ -178,7 +178,7 @@ These are small scientific kernels.
 Build:
 ```bash
 cd smarc
-cmake -S . -B build -DCEDAR_DIR=/path/to/Cascade/cedar
+cmake -S . -B build -DCEDAR_DIR=/path/to/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build --target tb_tile1 -j
 ```
 Run with the default hard-coded program:
