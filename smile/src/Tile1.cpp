@@ -19,6 +19,7 @@ Tile1::Tile1(std::string /*name*/, IMPL_CTOR) {
 void Tile1::attach_memory(MemoryPort* mem) {
   mem_port_ = mem; // tile stores pointer (mem_port_) to memory port to fetch instr and read/write data
 }                  // will allow us to access a memory port class's methods for mem read/write
+
 // Tile's execution sequence, fetch/decode/etc.
 void Tile1::tick() {
 
@@ -55,17 +56,26 @@ void Tile1::tick() {
   // 1. FETCH
   // ******************
   const uint32_t curr_pc = pc_;
-  // If no buffered instruction is available, request one from memory
-  if (!ifetch_valid_) {
-    if (!mem_port_->can_request()) return; // check can_request() before requesting to avoid overwriting pending requests
-    mem_port_->request_read32(curr_pc);    
-    ifetch_wait_ = true;
-    last_pc_ = curr_pc;
-    last_instr_ = 0;
-    return;                                // return right after request issue, so core consumes resp in next cycle
+  uint32_t instr = 0;
+  if (mem_model_ == MemModel::Ideal) { // ideal mem…
+    // Ideal mem is a functional sanity mode: synchronous read32/write32, no stalls.
+    ifetch_wait_ = false;
+    ifetch_valid_ = false;
+    instr = mem_port_->read32(curr_pc);
+  } else {                             // …or timed mem (default), sims realistic mem latency with req/resp and stalling
+    // Timed mem is the cycle-accurate mode using request/resp.
+    // If no buffered instruction is available, request one from memory.
+    if (!ifetch_valid_) {
+      if (!mem_port_->can_request()) return; // check can_request() before requesting to avoid overwriting pending requests
+      mem_port_->request_read32(curr_pc);
+      ifetch_wait_ = true;
+      last_pc_ = curr_pc;
+      last_instr_ = 0;
+      return;                                // return right after request issue, so core consumes resp in next cycle
+    }
+    instr = ifetch_word_;
+    ifetch_valid_ = false;
   }
-  const uint32_t instr = ifetch_word_;
-  ifetch_valid_ = false;
   last_pc_    = curr_pc;
   last_instr_ = instr;
   trace("pc=0x%08x instr=0x%08x\n", curr_pc, instr);
@@ -245,38 +255,79 @@ void Tile1::tick() {
         const auto& op = decoded.i;
         const int32_t base = static_cast<int32_t>(read_reg(op.rs1));
         const uint32_t addr = static_cast<uint32_t>(base + op.imm);
-        DmemOp dmem_op = DmemOp::None;
-        switch (decoded.funct3) {
-          case 0x0: dmem_op = DmemOp::LB; break;
-          case 0x1:
-            assert_always((addr & 0x1u) == 0u, "LH requires 2-byte alignment");
-            dmem_op = DmemOp::LH;
-            break;
-          case 0x2:
-            assert_always((addr & 0x3u) == 0u, "LW requires 4-byte alignment");
-            dmem_op = DmemOp::LW;
-            break;
-          case 0x4: dmem_op = DmemOp::LBU; break;
-          case 0x5:
-            assert_always((addr & 0x1u) == 0u, "LHU requires 2-byte alignment");
-            dmem_op = DmemOp::LHU;
-            break;
-          default:
-            assert_always(false, "Unsupported load funct3 in timed data path");
-            break;
+        // Ideal mem is a functional sanity mode: synchronous read32/write32, no stalls.
+        if (mem_model_ == MemModel::Ideal) { // if ideal mem…
+          const uint32_t word = mem_port_->read32(addr & ~0x3u);
+          uint32_t value = 0;
+          switch (decoded.funct3) {
+            case 0x0: {
+              const uint32_t shift = (addr & 0x3u) * 8u;
+              const int8_t byte = static_cast<int8_t>((word >> shift) & 0xffu);
+              value = static_cast<uint32_t>(byte);
+              break;
+            }
+            case 0x1: {
+              assert_always((addr & 0x1u) == 0u, "LH requires 2-byte alignment");
+              const uint32_t shift = (addr & 0x2u) * 8u;
+              const int16_t half = static_cast<int16_t>((word >> shift) & 0xffffu);
+              value = static_cast<uint32_t>(half);
+              break;
+            }
+            case 0x2:
+              assert_always((addr & 0x3u) == 0u, "LW requires 4-byte alignment");
+              value = word;
+              break;
+            case 0x4: {
+              const uint32_t shift = (addr & 0x3u) * 8u;
+              value = (word >> shift) & 0xffu;
+              break;
+            }
+            case 0x5: {
+              assert_always((addr & 0x1u) == 0u, "LHU requires 2-byte alignment");
+              const uint32_t shift = (addr & 0x2u) * 8u;
+              value = (word >> shift) & 0xffffu;
+              break;
+            }
+            default:
+              assert_always(false, "Unsupported load funct3 in ideal data path");
+              break;
+          }
+          if (op.rd != 0) write_reg(op.rd, value);
+        } else {                             // …or timed mem (default), sims realistic mem latency with req/resp and stalling
+          // Timed mem is the cycle-accurate mode using request/resp.
+          DmemOp dmem_op = DmemOp::None;
+          switch (decoded.funct3) {
+            case 0x0: dmem_op = DmemOp::LB; break;
+            case 0x1:
+              assert_always((addr & 0x1u) == 0u, "LH requires 2-byte alignment");
+              dmem_op = DmemOp::LH;
+              break;
+            case 0x2:
+              assert_always((addr & 0x3u) == 0u, "LW requires 4-byte alignment");
+              dmem_op = DmemOp::LW;
+              break;
+            case 0x4: dmem_op = DmemOp::LBU; break;
+            case 0x5:
+              assert_always((addr & 0x1u) == 0u, "LHU requires 2-byte alignment");
+              dmem_op = DmemOp::LHU;
+              break;
+            default:
+              assert_always(false, "Unsupported load funct3 in timed data path");
+              break;
+          }
+          if (!mem_port_->can_request()) return;   // before issue, check that we can make new request
+          mem_port_->request_read32(addr & ~0x3u); // if we can, issue load request
+          dmem_wait_ = true;                       // we're no waiting on data mem
+          dmem_op_ = dmem_op;                      // load flavour
+          dmem_rmw_write_issued_ = false;
+          dmem_rd_ = op.rd;                        // which reg to write
+          dmem_addr_ = addr;                       // bookkeeping/debug
+          dmem_store_data_ = 0;
+          dmem_store_mask_ = 0;
+          dmem_store_shift_ = 0;
+          dmem_next_pc_ = next_pc;
+          return;                                  // jump out of Tile1::tick()
         }
-        if (!mem_port_->can_request()) return;   // before issue, check that we can make new request
-        mem_port_->request_read32(addr & ~0x3u); // if we can, issue load request
-        dmem_wait_ = true;                       // we're no waiting on data mem
-        dmem_op_ = dmem_op;                      // load flavour
-        dmem_rmw_write_issued_ = false;         
-        dmem_rd_ = op.rd;                        // which reg to write
-        dmem_addr_ = addr;                       // bookkeeping/debug
-        dmem_store_data_ = 0;
-        dmem_store_mask_ = 0;
-        dmem_store_shift_ = 0;
-        dmem_next_pc_ = next_pc;
-        return;                                  // jump out of Tile1::tick()
       }
       break;
     case Instruction::Category::STORE:
@@ -287,46 +338,77 @@ void Tile1::tick() {
         const uint32_t addr = static_cast<uint32_t>(base + op.imm);
         const uint32_t data = read_reg(op.rs2);
         const uint32_t aligned = addr & ~0x3u;
-        if (!mem_port_->can_request()) return;
-
-        dmem_wait_ = true;
-        dmem_rd_ = 0;
-        dmem_addr_ = addr;
-        dmem_next_pc_ = next_pc;
-        dmem_rmw_write_issued_ = false;
-
-        switch (decoded.funct3) {
-          case 0x0: {
-            // Word-only memory port: SB is implemented as timed read-modify-write (2 requests).
-            dmem_op_ = DmemOp::SB;
-            dmem_store_data_ = data & 0xffu;
-            dmem_store_shift_ = (addr & 0x3u) * 8u;
-            dmem_store_mask_ = 0xffu << dmem_store_shift_;
-            mem_port_->request_read32(aligned); // transaction 1: READ in what you want to modify
-            return;                             // jump out of Tile1::tick()
+        // Ideal mem is a functional sanity mode: synchronous read32/write32, no stalls.
+        if (mem_model_ == MemModel::Ideal) { // if ideal mem…
+          switch (decoded.funct3) {
+            case 0x0: {
+              const uint32_t shift = (addr & 0x3u) * 8u;
+              const uint32_t mask = 0xffu << shift;
+              const uint32_t prior = mem_port_->read32(aligned);
+              const uint32_t merged = (prior & ~mask) | ((data << shift) & mask);
+              mem_port_->write32(aligned, merged);
+              break;
+            }
+            case 0x1: {
+              assert_always((addr & 0x1u) == 0u, "SH requires 2-byte alignment");
+              const uint32_t shift = (addr & 0x2u) * 8u;
+              const uint32_t mask = 0xffffu << shift;
+              const uint32_t prior = mem_port_->read32(aligned);
+              const uint32_t merged = (prior & ~mask) | ((data << shift) & mask);
+              mem_port_->write32(aligned, merged);
+              break;
+            }
+            case 0x2:
+              assert_always((addr & 0x3u) == 0u, "SW requires 4-byte alignment");
+              mem_port_->write32(aligned, data);
+              break;
+            default:
+              assert_always(false, "Unsupported store funct3 in ideal data path");
+              break;
           }
-          case 0x1: {
-            assert_always((addr & 0x1u) == 0u, "SH requires 2-byte alignment");
-            // Word-only memory port: SH is implemented as timed read-modify-write (2 requests).
-            // Transaction 1: READ request
-            dmem_op_ = DmemOp::SH;
-            dmem_store_data_ = data & 0xffffu;
-            dmem_store_shift_ = (addr & 0x2u) * 8u;
-            dmem_store_mask_ = 0xffffu << dmem_store_shift_;
-            mem_port_->request_read32(aligned); // transaction 1: READ in what you want to modify
-            return;                             // jump out of Tile1::tick()
+        } else {                             // …or timed mem (default), sims realistic mem latency with req/resp and stalling
+          // Timed mem is the cycle-accurate mode using request/resp.
+          if (!mem_port_->can_request()) return;
+
+          dmem_wait_ = true;
+          dmem_rd_ = 0;
+          dmem_addr_ = addr;
+          dmem_next_pc_ = next_pc;
+          dmem_rmw_write_issued_ = false;
+
+          switch (decoded.funct3) {
+            case 0x0: {
+              // Word-only memory port: SB is implemented as timed read-modify-write (2 requests).
+              dmem_op_ = DmemOp::SB;
+              dmem_store_data_ = data & 0xffu;
+              dmem_store_shift_ = (addr & 0x3u) * 8u;
+              dmem_store_mask_ = 0xffu << dmem_store_shift_;
+              mem_port_->request_read32(aligned); // transaction 1: READ in what you want to modify
+              return;                             // jump out of Tile1::tick()
+            }
+            case 0x1: {
+              assert_always((addr & 0x1u) == 0u, "SH requires 2-byte alignment");
+              // Word-only memory port: SH is implemented as timed read-modify-write (2 requests).
+              // Transaction 1: READ request
+              dmem_op_ = DmemOp::SH;
+              dmem_store_data_ = data & 0xffffu;
+              dmem_store_shift_ = (addr & 0x2u) * 8u;
+              dmem_store_mask_ = 0xffffu << dmem_store_shift_;
+              mem_port_->request_read32(aligned); // transaction 1: READ in what you want to modify
+              return;                             // jump out of Tile1::tick()
+            }
+            case 0x2:
+              assert_always((addr & 0x3u) == 0u, "SW requires 4-byte alignment");
+              dmem_op_ = DmemOp::SW;
+              dmem_store_data_ = data;
+              dmem_store_shift_ = 0;
+              dmem_store_mask_ = 0xffffffffu;
+              mem_port_->request_write32(aligned, data); // WRITE in what you want to modify
+              return;                                    // jump out of Tile1::tick()
+            default:
+              assert_always(false, "Unsupported store funct3 in timed data path");
+              break;
           }
-          case 0x2:
-            assert_always((addr & 0x3u) == 0u, "SW requires 4-byte alignment");
-            dmem_op_ = DmemOp::SW;
-            dmem_store_data_ = data;
-            dmem_store_shift_ = 0;
-            dmem_store_mask_ = 0xffffffffu;
-            mem_port_->request_write32(aligned, data); // WRITE in what you want to modify
-            return;                                    // jump out of Tile1::tick()
-          default:
-            assert_always(false, "Unsupported store funct3 in timed data path");
-            break;
         }
       }
       break;

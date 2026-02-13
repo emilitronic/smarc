@@ -67,6 +67,7 @@ public:
     Supervisor  = 1u,
     Machine     = 3u,
   };
+  enum class MemModel : uint8_t { Timed = 0, Ideal = 1 }; // for switching between ideal/timed mem models
   // public CSR addres constants
   static constexpr uint32_t CSR_MSTATUS = 0x300u;
   static constexpr uint32_t CSR_MTVEC   = 0x305u;
@@ -125,7 +126,9 @@ public:
   uint64_t store_count()           const { return store_count_; }
   uint64_t branch_count()          const { return branch_count_; }
   uint64_t branch_taken_count()    const { return branch_taken_count_; }
-  void     set_pc(uint32_t pc);                                         // a way to set the PC
+  void     set_pc(uint32_t pc);                           // a way to set the PC
+  void     set_mem_model(MemModel m) { mem_model_ = m; }  // a way to set ideal or timed mem model…
+  MemModel mem_model() const { return mem_model_; }       // …(currently used by testbench cmdline args)
 
   // CSR accessors
   uint32_t read_csr(uint32_t addr) const;
@@ -202,6 +205,7 @@ private:
   bool ifetch_wait_ = false;         // are we waiting on an instr fetch response? (stalls fetch until resp arrives)
   bool ifetch_valid_ = false;        // do we have a valid buffered instr? (if so, fetch can proceed without requesting from memory)
   uint32_t ifetch_word_ = 0;         // buffered instr word for fetch stage (holds fetched instr until fetch stage consumes it)
+  MemModel mem_model_ = MemModel::Timed; // for setting ideal vs. timed mem model
 
   // Private state for data stalling (separate from IFetch)
   bool dmem_wait_ = false;

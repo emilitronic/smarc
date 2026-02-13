@@ -23,6 +23,8 @@ Testbench for a RV tile.
 
 #include <cstdio>
 #include <string>
+#include <algorithm>
+#include <cctype>
 
 // **************
 // Parameters (CLI flags): name, default value, help text
@@ -32,6 +34,8 @@ StringParameter(prog, "", "Path to flat binary file (.bin) to load");
 IntParameter(load_addr, 0x0, "Physical load address for the flat binary");
 IntParameter(start_pc, 0x0, "Initial PC (set core's PC before run)");
 IntParameter(mem_latency, 0, "Fixed memory latency (cycles) for MemCtrlTimedPort");
+BoolParameter(ideal_mem, false, "Use ideal memory model in Tile1 (sync read32/write32, no stalls)");
+StringParameter(mem_model, "timed", "Tile1 memory model: timed|ideal");
 IntParameter(steps, 0, "Cycles to auto-run; <=0 enters interactive debugger");
 IntParameter(sw_threads, 1, "Software thread contexts to schedule (1 or 2). Default: 1");
 BoolParameter(ignore_bpfile, false,
@@ -110,6 +114,15 @@ int main(int argc, char* argv[]) {
   AccelArraySum accel_port(dram_port);  // array-sum accelerator, backed by dram_port for mem ops
   tile.attach_memory(&memctrl);
   tile.attach_accelerator(&accel_port); // attach accelerator (attach_accelerator in Tile1.hpp)
+  std::string mem_model_flag = std::string(mem_model);
+  std::transform(mem_model_flag.begin(), mem_model_flag.end(), mem_model_flag.begin(),
+    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  if (ideal_mem || mem_model_flag == "ideal") {
+    tile.set_mem_model(Tile1::MemModel::Ideal);
+  } else {
+    assert_always(mem_model_flag == "timed", "mem_model must be 'timed' or 'ideal'");
+    tile.set_mem_model(Tile1::MemModel::Timed);
+  }
   dram.s_req.wireToZero();
   dram.s_resp.sendToBitBucket();
 
