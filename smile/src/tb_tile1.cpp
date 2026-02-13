@@ -238,7 +238,22 @@ int main(int argc, char* argv[]) {
   }
 
   // **************
-  // Step 7B: Sim stop NOT on exit(): post-mortem sanity check
+  // Step 7B (non-exit): Print stats even if the program did not call exit(93)
+  // (e.g., smurf stops via breakpoint/trap and is validated by postmortem checks).
+  // **************
+  printf("[STATS] cycles=%llu inst=%llu alu=%llu add=%llu mul=%llu loads=%llu stores=%llu branches=%llu taken=%llu\n",
+         (unsigned long long)dbg.cycle,
+         (unsigned long long)tile.inst_count(),
+         (unsigned long long)tile.arith_count(),
+         (unsigned long long)tile.add_count(),
+         (unsigned long long)tile.mul_count(),
+         (unsigned long long)tile.load_count(),
+         (unsigned long long)tile.store_count(),
+         (unsigned long long)tile.branch_count(),
+         (unsigned long long)tile.branch_taken_count());
+
+  // **************
+  // Step 7C: Sim stop NOT on exit(): post-mortem sanity check
   // **************
   smile::verify_and_report_postmortem(tile, dram_port, dbg.threads,
     dbg.saw_breakpoint_trap, dbg.saw_ecall_trap,
