@@ -57,7 +57,7 @@ void Tile1::tick() {
   if (accel_wait_) { // If we're waiting on an accelerator response, stall until it arrives
     if (!accel_port_) { // defensive missing accelerator check
       if (accel_rd_ != 0) {
-        write_reg(accel_rd_, 1u); // ACCEL_E_UNSUPPORTED
+        write_reg(accel_rd_, AccelPort::ACCEL_E_UNSUPPORTED);
       }
       pc_ = accel_next_pc_;
       accel_wait_ = false;

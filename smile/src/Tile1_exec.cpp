@@ -429,7 +429,7 @@ void exec_custom0(Tile1& tile, const Instruction& instr) {
   if (!accel) { // no trap on missing accelerator, just return unsupported code if rd != x0
     // v1 contract: missing accelerator returns ACCEL_E_UNSUPPORTED (see smile/docs/accel_port.md).
     if (op.rd != 0) {
-      tile.write_reg(op.rd, 1u); // ACCEL_E_UNSUPPORTED
+      tile.write_reg(op.rd, AccelPort::ACCEL_E_UNSUPPORTED);
     }
     return;
   }
