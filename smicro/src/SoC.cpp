@@ -158,6 +158,10 @@ void SoC::reset() {
   // No state yet
 }
 
+void SoC::attach_accelerator(AccelPort* accel) {
+  if (core_) core_->attach_accelerator(accel);
+}
+
 SoC::~SoC() {
   g_soc = nullptr;    // invalidate global first to avoid dangling global during child deletes
   delete accel_;

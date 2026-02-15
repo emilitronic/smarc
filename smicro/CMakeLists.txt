@@ -47,6 +47,7 @@ add_executable(test_vectadd
 target_include_directories(test_vectadd
   PUBLIC
     include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../smile/include
 )
 
 target_link_libraries(test_vectadd cascade -lz -ltermcap -lpthread)

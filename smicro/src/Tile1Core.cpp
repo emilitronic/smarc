@@ -7,6 +7,7 @@ Minimal wrapper to host Tile1 in smicro as a Component.  See Tile1Core.hpp for d
 */
 
 #include "Tile1Core.hpp"
+#include "AccelPort.hpp"
 
 using namespace Cascade;
 
@@ -85,6 +86,10 @@ void Tile1Core::attach_dram(Dram* dram) { // to tell Tile1Core which DRAM instan
     dram_port_ = new DramMemoryPort(*dram_); // re-uses DramMemoryPort defined above, so tick() sees a synchronous memory just like tb_tile1.cpp
     tile_.attach_memory(dram_port_);         // gives DramMemoryPort pointer to Tile1 so it can do memory accesses
   }
+}
+
+void Tile1Core::attach_accelerator(AccelPort* accel) {
+  tile_.attach_accelerator(accel);
 }
 
 void Tile1Core::update() {

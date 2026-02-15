@@ -25,6 +25,8 @@ update_resp() <- m_resp |<==| out_core_resp update_retire() s_resp |<==| s_resp
 #include "Tile1Core.hpp" // wrapper for Tile1 RISC-V core
 #include <string>
 
+class AccelPort;
+
 using namespace Cascade; // ok in project headers (macros expect it), but avoid in sub-component headers
 
 class SoC : public Component {
@@ -50,6 +52,7 @@ public:
   void set_dram_latency(int v) { set_mem_latency(v); }
   // TB hook: enable/disable posted write acks
   void set_posted_writes(bool en) { if (mem_) mem_->set_posted_writes(en); }
+  void attach_accelerator(AccelPort* accel);
 
   // Submodules (owned by SoC)
   // RvCore  *core_ = nullptr;
