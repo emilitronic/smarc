@@ -4,6 +4,7 @@ file(GLOB SMICRO_BASE_SRCS
   src/RvCore.cpp
   src/Tile1Core.cpp
   src/AccelMemBridge.cpp
+  src/AccelArraySumSoc.cpp
   src/MemCtrl.cpp
   src/L1.cpp
   src/L2.cpp

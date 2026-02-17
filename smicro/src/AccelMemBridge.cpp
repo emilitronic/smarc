@@ -62,6 +62,7 @@ void AccelMemBridge::resp_consume() {
 }
 
 void AccelMemBridge::update() {
+  // emit aligned 8B load request (for LOAD32 or STORE32-RMW) and advance to waiting
   if (phase_ == Phase::ISSUE_LOAD64 && !m_req.full()) {
     MemReq req{};
     req.addr  = static_cast<u64>(aligned_addr_);
@@ -73,7 +74,7 @@ void AccelMemBridge::update() {
     m_req.push(req);
     phase_ = Phase::WAIT_LOAD64_RESP;
   }
-
+  // consume load response; either finish LOAD32 (select lane) or compute merged word for STORE32
   if (phase_ == Phase::WAIT_LOAD64_RESP && !m_resp.empty()) {
     const MemResp resp         = m_resp.pop();
     const uint64_t loaded_word = static_cast<uint64_t>(resp.rdata);
@@ -96,7 +97,7 @@ void AccelMemBridge::update() {
       assert_always(false, "AccelMemBridge internal error: WAIT_LOAD64_RESP without active op");
     }
   }
-
+  // emit aligned 8B store request with merged RMW payload and advance to waiting for ACK
   if (phase_ == Phase::ISSUE_STORE64 && !m_req.full()) {
     MemReq req{};
     req.addr  = static_cast<u64>(aligned_addr_);
@@ -108,7 +109,7 @@ void AccelMemBridge::update() {
     m_req.push(req);
     phase_ = Phase::WAIT_STORE64_ACK;
   }
-
+  // consume store ACK response and publish completion to host via sticky resp_valid_
   if (phase_ == Phase::WAIT_STORE64_ACK && !m_resp.empty()) {
     (void)m_resp.pop(); // ACK response (payload ignored for store completion)
     resp_data_  = 0;

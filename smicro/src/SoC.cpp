@@ -52,6 +52,7 @@ Planned evolution:
 */
 #include "SoC.hpp"
 #include "AccelMemBridge.hpp"
+#include "AccelArraySumSoc.hpp"
 
 using namespace Cascade;
 
@@ -66,6 +67,7 @@ SoC::SoC(AttachMode mode, bool use_test_driver, IMPL_CTOR)
   // core_   = new RvCore("core");
   core_   = new Tile1Core("core");    // Tile1Core: minimal wrapper to host Tile1 in smicro
   ab_     = new AccelMemBridge("ab"); // bridge between accelerator and MemCtrl (implements MemReq/MemResp ifc on one side, and a custom accelerator-friendly ifc on the other)
+  array_sum_ = new AccelArraySumSoc(*ab_);
   tester_ = new MemTester("tester");
   l1_     = new L1("l1");
   l2_     = new L2("l2");
@@ -96,6 +98,7 @@ SoC::SoC(AttachMode mode, bool use_test_driver, IMPL_CTOR)
   
   // ---- Connect Tile1Core directly to DRAM via its internal MemoryPort shim ----
   core_->attach_dram(dram_); // let Tile1Core know which DRAM to talk to
+  attach_accelerator(array_sum_);
 
   // ---- Smoke-test wiring: bypass caches/accel; wire core & tester ----
   // Core/TestMaster <-> MemCtrl
@@ -171,6 +174,7 @@ void SoC::attach_accelerator(AccelPort* accel) {
 SoC::~SoC() {
   g_soc = nullptr;    // invalidate global first to avoid dangling global during child deletes
   delete accel_;
+  delete array_sum_;
   delete ab_;
   delete mem_;
   delete dram_;
