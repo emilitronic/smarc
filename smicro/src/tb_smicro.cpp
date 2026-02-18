@@ -57,6 +57,11 @@ static AttachMode parse_mode(const std::string& topo) {
   if (topo == "priv")   return PrivateDRAM;
   return ViaL2;
 }
+// helper to translate CPU address to DRAM physical address (DRAM base + offset)
+static inline uint64_t cpu_to_phys(const SoC& soc, uint32_t cpu_addr) {
+  assert_always(soc.dram_ != nullptr, "cpu_to_phys: missing DRAM");
+  return soc.dram_->get_base() + static_cast<uint64_t>(cpu_addr);
+}
 
 int main (int argc, char *argv[]) {
   // **************
@@ -203,19 +208,18 @@ int main (int argc, char *argv[]) {
       // PC set to prog_base (because Tile1Core::DramMemoryPort maps CPU address addr → DRAM dram_base + addr)
       // Mailbox is a CPU addr 0x100 that program stores into, and TB reads it back physically at dram_base + 0x100
       // Array base passed to CUSTOM-0 is also a CPU address; AccelMemBridge adds dram_base for MemCtrl requests.
-      const uint64_t dram_base    = soc.dram_->get_base();
       const uint32_t prog_base    = 0x200u;
       const uint32_t mailbox_addr = 0x100u;  // Tile1 CPU byte address; maps to DRAM base + 0x100 via DramMemoryPort
       const uint32_t array_addr   = 0x4000u; // Tile1 CPU byte address for array base
       const uint32_t len_words    = 16u;
-      const uint64_t mailbox_phys = dram_base + static_cast<uint64_t>(mailbox_addr);
-      const uint64_t prog_phys    = dram_base + static_cast<uint64_t>(prog_base);
+      const uint64_t mailbox_phys = cpu_to_phys(soc, mailbox_addr);
+      const uint64_t prog_phys    = cpu_to_phys(soc, prog_base);
       // 6) initialize test data array in DRAM
       uint32_t expected = 0;
       for (uint32_t i = 0; i < len_words; ++i) {
         const uint32_t v = i + 1u;
         expected += v;
-        const uint64_t phys = dram_base + static_cast<uint64_t>(array_addr) + static_cast<uint64_t>(4u * i);
+        const uint64_t phys = cpu_to_phys(soc, array_addr + (4u * i));
         soc.dram_->write(phys, &v, sizeof(v));
       }
       
