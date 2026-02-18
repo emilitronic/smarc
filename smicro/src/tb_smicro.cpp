@@ -4,7 +4,12 @@
 // S Magierowski Aug 16 2025
 /*
 SoC test harness with a single-switch suite to avoid ambiguity.
-Suites: hal_* run only DRAM HAL at t=0 (no driver traffic). proto_* run protocol timing via core or tester.
+Suites: 
+hal_* run only DRAM HAL at t=0 (no driver traffic). 
+proto_* run protocol timing via core or tester.
+some details
+proto_accel_sum_altaddr: same test as proto_accel_sum but with alt addr mapping to verify addr translation in accelerator memory bridge (AccelMemBridge) and its interaction with DRAM base address.
+proto_accel_sum_badarg: sets array_addr = 0x4002 (not 4-byte aligned) and verifies return to mailbox of error code ACCEL_E_BADARG
 
 to configure, build, and run:
 cedar % cmake -S . -B build  -DCEDAR_DIR=/Users/seb/Research/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -43,7 +48,7 @@ using namespace std;
 StringParameter(topo,       "via_l2", "Topology: via_l1|via_l2|dram|priv"); // defaults topo is via_l2
 IntParameter(steps,          0,      "Batch steps; 0=interactive");
 // New single-switch suite
-StringParameter(suite,      "proto_core", "Suite: hal_none|hal_multi|hal_bounds|proto_core|proto_accel_sum|proto_accel_sum_altaddr|proto_raw|proto_no_raw|proto_rar|proto_lat");
+StringParameter(suite,      "proto_core", "Suite: hal_none|hal_multi|hal_bounds|proto_core|proto_accel_sum|proto_accel_sum_altaddr|proto_accel_sum_badarg|proto_raw|proto_no_raw|proto_rar|proto_lat");
 IntParameter(mem_latency,     3, "MemCtrl latency (cycles)");
 IntParameter(dram_latency,   -1, "[deprecated] use -mem_latency; if >=0 overrides mem_latency");
 BoolParameter(drain,         false, "After run, fence: keep stepping until posted stores drain");
@@ -78,7 +83,7 @@ int main (int argc, char *argv[]) {
   bool is_hal   = S.rfind("hal_",   0) == 0;         // search backward up to index 0; if matches return 0
   bool is_proto = S.rfind("proto_", 0) == 0;
   assert_always(is_hal || is_proto, "unknown -suite"); // descore assertion that's never compiled-out, if cond fails prints message & aborts 
-  bool use_tester = is_proto && (S != "proto_core") && (S != "proto_accel_sum") && (S != "proto_accel_sum_altaddr"); // tester for proto_* except core-driven suites
+  bool use_tester = is_proto && (S != "proto_core") && (S != "proto_accel_sum") && (S != "proto_accel_sum_altaddr") && (S != "proto_accel_sum_badarg"); // tester for proto_* except core-driven suites
   SoC soc(parse_mode(topo), use_tester);             // invoke SoC object in desired config
   
   // **************
@@ -163,7 +168,7 @@ int main (int argc, char *argv[]) {
     }
     // 1) Proto_accel_sum: core-driven test of accelerator sum protocol 
     // exercises: Tile1 issues CUSTOM-0 → AccelArraySumSoc runs → AccelMemBridge talks to MemCtrl → Dram
-    if ((s == "proto_accel_sum") || (s == "proto_accel_sum_altaddr")) {
+    if ((s == "proto_accel_sum") || (s == "proto_accel_sum_altaddr") || (s == "proto_accel_sum_badarg")) {
       // enforce the right topology
       assert_always(!use_tester, "proto_accel_sum requires core driver (use_test_driver=false)");
       assert_always(soc.dram_ != nullptr, "proto_accel_sum: missing DRAM");
@@ -210,16 +215,18 @@ int main (int argc, char *argv[]) {
       // Array base passed to CUSTOM-0 is also a CPU address; AccelMemBridge adds dram_base for MemCtrl requests.
       const uint32_t prog_base    = 0x200u;
       const uint32_t mailbox_addr = 0x100u;  // Tile1 CPU byte address; maps to DRAM base + 0x100 via DramMemoryPort
-      const uint32_t array_addr   = (s == "proto_accel_sum_altaddr") ? 0x6000u : 0x4000u; // Tile1 CPU byte address for array base
+      const uint32_t array_addr   = (s == "proto_accel_sum_altaddr") ? 0x6000u :
+                                    ((s == "proto_accel_sum_badarg") ? 0x4002u : 0x4000u); // Tile1 CPU byte address for array base
+      const uint32_t init_base_cpu = (s == "proto_accel_sum_badarg") ? 0x4000u : array_addr; // keep DRAM test-data init aligned for badarg suite
       const uint32_t len_words    = 16u;
       const uint64_t mailbox_phys = cpu_to_phys(soc, mailbox_addr);
       const uint64_t prog_phys    = cpu_to_phys(soc, prog_base);
       // 6) initialize test data array in DRAM
-      uint32_t expected = 0;
+      uint32_t expected_sum = 0;
       for (uint32_t i = 0; i < len_words; ++i) {
         const uint32_t v = i + 1u;
-        expected += v;
-        const uint64_t phys = cpu_to_phys(soc, array_addr + (4u * i));
+        expected_sum += v;
+        const uint64_t phys = cpu_to_phys(soc, init_base_cpu + (4u * i));
         soc.dram_->write(phys, &v, sizeof(v));
       }
       
@@ -254,7 +261,13 @@ int main (int argc, char *argv[]) {
 
       uint32_t got = 0;
       soc.dram_->read(mailbox_phys, &got, sizeof(got));
-      assert_always(got == expected, "proto_accel_sum: mailbox mismatch");
+      if (s == "proto_accel_sum_badarg") {
+        assert_always(got == 3u, "proto_accel_sum_badarg: expected ACCEL_E_BADARG");
+        assert_always(got != expected_sum, "proto_accel_sum_badarg: unexpectedly matched valid sum");
+      } else {
+        assert_always(got == expected_sum, "proto_accel_sum: mailbox mismatch");
+      }
+      const uint32_t expected = (s == "proto_accel_sum_badarg") ? 3u : expected_sum;
       std::cout << s << ": PASS got=0x" << std::hex << got
                 << " expected=0x" << expected << std::dec << std::endl;
       return true;
