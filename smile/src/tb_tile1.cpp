@@ -28,6 +28,7 @@ Testbench for a RV tile.
 #include <algorithm>
 #include <cctype>
 #include <memory>
+#include <vector>
 
 // **************
 // Parameters (CLI flags): name, default value, help text
@@ -40,6 +41,7 @@ IntParameter(mem_latency, 0, "Fixed memory latency (cycles) for MemCtrlTimedPort
 BoolParameter(ideal_mem, false, "Use ideal memory model in Tile1 (sync read32/write32, no stalls)");
 StringParameter(mem_model, "timed", "Tile1 memory model: timed|ideal");
 StringParameter(accel, "array_sum", "Accelerator: none|demo_add|array_sum|array_sum_mc");
+StringParameter(suite, "proto_accel_sum", "Built-in suite when -prog is empty: proto_accel_sum|proto_accel_sum_altaddr|proto_accel_sum_badarg|proto_accel_sum_unsupported|proto_accel_sum_twice");
 IntParameter(steps, 0, "Cycles to auto-run; <=0 enters interactive debugger");
 IntParameter(sw_threads, 1, "Software thread contexts to schedule (1 or 2). Default: 1");
 BoolParameter(ignore_bpfile, false,
@@ -169,6 +171,11 @@ int main(int argc, char* argv[]) {
   // **************
   std::string prog_path = std::string(prog);
   const bool using_default_program = prog_path.empty();
+  bool suite_active = false;
+  bool suite_twice  = false;
+  std::string suite_name;
+  uint32_t suite_expected_exit = 0;
+  uint32_t suite_expected_sum  = 0;
   if (!prog_path.empty()) {
     uint32_t nbytes = 0;
     bool ok = load_flat_bin(prog_path, &dram_port, static_cast<uint32_t>(load_addr), &nbytes);
@@ -176,44 +183,124 @@ int main(int argc, char* argv[]) {
     if (static_cast<uint32_t>(start_pc) != 0u) {
       tile.set_pc(static_cast<uint32_t>(start_pc));
     }
-  } else {
-    // const uint32_t program[] = {
-    //   0x00500093u, // addi x1, x0, 5
-    //   0x00308113u, // addi x2, x1, 3
-    //   0x002081B3u, // add  x3, x1, x2
-    //   0x05D00893u, // addi x17(a7), x0, 93  -> ecall exit syscall
-    //   0x00000513u, // addi x10(a0), x0, 0   -> exit code 0
-    //   0x00000073u  // ecall
-    // };  
-    // Preload a small test array in DRAM at 0x100
-    const uint32_t array_base = 0x00000100u;
-    const uint32_t array[] = {
-      1u,
-      2u,
-      3u,
-      4u
-    }; // sum = 10
-    uint32_t addr = array_base;
-    for (size_t i = 0; i < sizeof(array) / sizeof(array[0]); ++i, addr += 4) {
-      dram_port.write32(addr, array[i]);
-    }
-    // Program that calls AccelArraySum via CUSTOM-0:
-    //   rs1 = base (0x100), rs2 = len (4), rd = x3
-    const uint32_t program[] = {
-      0x10000093u, // addi x1, x0, 256     ; x1 = 0x00000100 (array_base)
-      0x00400113u, // addi x2, x0, 4       ; x2 = 4 (length in words)
-      0x0020818bu, // custom0 x3, x1, x2   ; x3 = sum(arr[0..3]) = 10
-      0x00018533u, // add   x10, x3, x0    ; a0 = x3 (exit code = sum)
-      0x05D00893u, // addi  x17, x0, 93    ; a7 = 93 (exit syscall)
-      0x00000073u  // ecall                ; exit(a0)
+  } else { // if no program specified, inject a simple test program based on the suite parameter
+    auto encode_lui = [](uint32_t rd, uint32_t imm20) -> uint32_t {
+      return ((imm20 & 0xfffffu) << 12) | ((rd & 0x1fu) << 7) | 0x37u;
     };
-    // uint32_t addr = static_cast<uint32_t>(load_addr);
-    addr = static_cast<uint32_t>(load_addr);
-    for (size_t i = 0; i < sizeof(program) / sizeof(program[0]); ++i, addr += 4) {
-      dram_port.write32(addr, program[i]); // write program to dram_port
+    auto encode_addi = [](uint32_t rd, uint32_t rs1, int32_t imm12) -> uint32_t {
+      const uint32_t imm = static_cast<uint32_t>(imm12) & 0xfffu;
+      return (imm << 20) | ((rs1 & 0x1fu) << 15) | (0x0u << 12) | ((rd & 0x1fu) << 7) | 0x13u;
+    };
+    auto encode_sw = [](uint32_t rs2, uint32_t rs1, int32_t imm12) -> uint32_t {
+      const uint32_t imm = static_cast<uint32_t>(imm12) & 0xfffu;
+      const uint32_t imm_lo = (imm & 0x1fu) << 7;
+      const uint32_t imm_hi = ((imm >> 5) & 0x7fu) << 25;
+      return imm_hi | ((rs2 & 0x1fu) << 20) | ((rs1 & 0x1fu) << 15) | (0x2u << 12) | imm_lo | 0x23u;
+    };
+    auto encode_ecall = []() -> uint32_t {
+      return 0x00000073u;
+    };
+    auto encode_custom0 = [](uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t funct3) -> uint32_t {
+      return (0x00u << 25) | ((rs2 & 0x1fu) << 20) | ((rs1 & 0x1fu) << 15) |
+             ((funct3 & 0x7u) << 12) | ((rd & 0x1fu) << 7) | 0x0bu;
+    };
+    auto emit_li = [&](std::vector<uint32_t>& out, uint32_t rd, uint32_t value) {
+      const uint32_t hi = (value + 0x800u) >> 12;
+      const int32_t lo = static_cast<int32_t>(value) - static_cast<int32_t>(hi << 12);
+      assert_always(lo >= -2048 && lo <= 2047, "suite li immediate out of range");
+      out.push_back(encode_lui(rd, hi));
+      out.push_back(encode_addi(rd, rd, lo));
+    };
+
+    std::string suite_flag = std::string(suite);
+    std::transform(suite_flag.begin(), suite_flag.end(), suite_flag.begin(),
+      [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    suite_name = suite_flag;
+    suite_active = true;
+
+    uint32_t array_addr = 0x00000100u; // preserve historical default behavior for proto_accel_sum
+    uint32_t init_base = array_addr;
+    uint32_t len_words = 4u;
+    uint32_t funct3 = 0u;
+
+    if (suite_flag == "proto_accel_sum") {
+      // preserved default behavior: base=0x100, len=4, expect sum=10
+    } else if (suite_flag == "proto_accel_sum_altaddr") {
+      array_addr = 0x00006000u;
+      init_base = array_addr;
+      len_words = 16u;
+    } else if (suite_flag == "proto_accel_sum_badarg") {
+      array_addr = 0x00004002u; // pass misaligned base to accelerator
+      init_base = 0x00004000u;  // initialize backing data at aligned address
+      len_words = 16u;
+    } else if (suite_flag == "proto_accel_sum_unsupported") {
+      array_addr = 0x00004000u;
+      init_base = array_addr;
+      len_words = 16u;
+      funct3 = 1u; // unsupported verb id
+    } else if (suite_flag == "proto_accel_sum_twice") {
+      array_addr = 0x00004000u;
+      init_base = array_addr;
+      len_words = 16u;
+      suite_twice = true;
+    } else {
+      assert_always(false, "unknown suite for injected program path");
     }
+
+    uint32_t expected_sum = 0;
+    for (uint32_t i = 0; i < len_words; ++i) {
+      const uint32_t value = i + 1u;
+      expected_sum += value;
+      dram_port.write32(init_base + 4u * i, value);
+    }
+    suite_expected_sum = expected_sum;
+
+    const uint32_t mailbox0 = 0x00000100u;
+    const uint32_t mailbox1 = 0x00000104u;
+    if (suite_twice) {
+      dram_port.write32(mailbox0, 0u);
+      dram_port.write32(mailbox1, 0u);
+    }
+
+    std::vector<uint32_t> program;
+    program.reserve(suite_twice ? 24u : 16u);
+    if (suite_twice) {
+      emit_li(program, 1u, mailbox0);                       // x1 = mailbox base
+      emit_li(program, 2u, array_addr);                     // x2 = array base
+      emit_li(program, 4u, len_words);                      // x4 = len
+      program.push_back(encode_custom0(3u, 2u, 4u, 0u));    // x3 = sum
+      program.push_back(encode_sw(3u, 1u, 0));              // sw x3, 0(x1)
+      program.push_back(encode_custom0(3u, 2u, 4u, 0u));    // x3 = sum again
+      program.push_back(encode_sw(3u, 1u, 4));              // sw x3, 4(x1)
+      program.push_back(encode_addi(10u, 0u, 0));           // a0 = exit code 0
+    } else {
+      emit_li(program, 2u, array_addr);                     // x2 = array base
+      emit_li(program, 4u, len_words);                      // x4 = len
+      program.push_back(encode_custom0(3u, 2u, 4u, funct3));// x3 = accel result
+      program.push_back(encode_addi(10u, 3u, 0));           // a0 = x3
+    }
+    program.push_back(encode_addi(17u, 0u, 93));            // a7 = 93
+    program.push_back(encode_ecall());                      // ecall exit
+
+    uint32_t addr = static_cast<uint32_t>(load_addr);
+    for (size_t i = 0; i < program.size(); ++i, addr += 4u) {
+      dram_port.write32(addr, program[i]);
+    }
+
     if (static_cast<uint32_t>(start_pc) != 0u) {
       tile.set_pc(static_cast<uint32_t>(start_pc));
+    } else {
+      tile.set_pc(static_cast<uint32_t>(load_addr));
+    }
+
+    if (suite_twice) {
+      suite_expected_exit = 0u;
+    } else if (suite_flag == "proto_accel_sum_badarg") {
+      suite_expected_exit = AccelPort::ACCEL_E_BADARG;
+    } else if (suite_flag == "proto_accel_sum_unsupported") {
+      suite_expected_exit = AccelPort::ACCEL_E_UNSUPPORTED;
+    } else {
+      suite_expected_exit = expected_sum;
     }
   }
   (void)using_default_program;
@@ -236,6 +323,22 @@ int main(int argc, char* argv[]) {
   // Step 7A: Sim stop on exit() via ecall 93
   // **************
   if (dbg.program_exited) {
+    if (suite_active) {
+      if (suite_twice) {
+        const uint32_t got0 = dram_port.read32(0x00000100u);
+        const uint32_t got1 = dram_port.read32(0x00000104u);
+        assert_always(got0 == suite_expected_sum, "suite twice mailbox0 mismatch");
+        assert_always(got1 == suite_expected_sum, "suite twice mailbox1 mismatch");
+        assert_always(tile.exit_code() == suite_expected_exit, "suite twice exit code mismatch");
+        printf("[SUITE] %s PASS mailbox0=0x%x mailbox1=0x%x expected=0x%x\n",
+               suite_name.c_str(), got0, got1, suite_expected_sum);
+      } else {
+        const uint32_t got = tile.exit_code();
+        assert_always(got == suite_expected_exit, "suite exit code mismatch");
+        printf("[SUITE] %s PASS expected=0x%x got=0x%x\n",
+               suite_name.c_str(), suite_expected_exit, got);
+      }
+    }
     for (const auto& ctx : dbg.threads) {
       assert_always(ctx.regs[0] == 0, "x0 must remain zero");
     }
