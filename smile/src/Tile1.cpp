@@ -491,7 +491,7 @@ void Tile1::tick() {
       break;
     // CUSTOM
     case Instruction::Category::CUSTOM:
-      exec_custom0(*this, decoded); // execute the custom instruction (Tile1_exec.cpp)
+      exec_custom0(*this, decoded); // execute custom instr (Tile1_exec.cpp)
       break;
     default:
       break;

@@ -51,8 +51,8 @@ public:
   void reset();
 
   // External interfaces
-  void attach_memory(MemoryPort* mem); // assigns pointer to a memory port
-  void attach_accelerator(AccelPort* accel) { accel_port_ = accel; } // how the testbench tells Tile1 what to talk to
+  void attach_memory(MemoryPort* mem); // assigns Tile1 ptr to a mem port
+  void attach_accelerator(AccelPort* accel) { accel_port_ = accel; } // assigns Tile1 ptr to an accel port
 
   // Trap and privilege enums
   enum class TrapCause : uint32_t {
@@ -94,14 +94,14 @@ public:
   void     halt();
 
   // Thread context save/restore and exit control
-  void     save_context(ThreadContext &t) const {  // save thread's state
+  void save_context(ThreadContext &t) const {  // save thread's state
     t.pc = pc_;
     for (int i = 0; i < 32; ++i) {
       t.regs[i] = regs_[static_cast<size_t>(i)];
     }
     t.regs[0] = 0;
   }
-  void     load_context(const ThreadContext &t) {  // load thread's state
+  void load_context(const ThreadContext &t) {  // load thread's state
     pc_ = t.pc;
     for (int i = 0; i < 32; ++i) {
       regs_[static_cast<size_t>(i)] = t.regs[i];
@@ -111,7 +111,7 @@ public:
     exited_ = false;
     exit_code_ = 0;
   }
-  void     request_exit(uint32_t code) { // what to set when an exit scenario is reached
+  void request_exit(uint32_t code) { // what to set when an exit scenario is reached
     exit_code_ = code;
     exited_ = true;
     halted_ = true;
@@ -146,11 +146,11 @@ public:
   TrapCause pending_trap_cause()   const { return pending_trap_; }
 
   // External port accessors
-  // overloaded fns. based on constness for load/store memory ops (accessors for private mem_port_ in Tile1)
-  MemoryPort* memory()                   { return mem_port_; } // non-const ver.: used on non-const Tile1 obj. (so can update memory)
-  const MemoryPort* memory()       const { return mem_port_; } // const ver. used on const Tile1 obj. (so debug code won't accidetally change things)
-  AccelPort* accelerator()               { return accel_port_; }
-  const AccelPort* accelerator()   const { return accel_port_; }
+  // overloaded fns. based on constness for ld/st mem ops (accessors for private mem_port_ in Tile1)
+  MemoryPort*       memory()            { return mem_port_; } // non-const ver.: used on non-const Tile1 obj. (so can update memory)
+  const MemoryPort* memory()      const { return mem_port_; } // const ver. used on const Tile1 obj. (so debug code won't accidetally change things)
+  AccelPort*        accelerator()       { return accel_port_; }
+  const AccelPort*  accelerator() const { return accel_port_; }
 
 private:
   friend void exec_custom0(Tile1& tile, const Instruction& instr);
@@ -200,13 +200,13 @@ private:
   AccelPort*  accel_port_ = nullptr; // currently attached accelerator, seen through the AccelPort interface
 
   // Private state for core execution state
-  uint32_t pc_ = 0;                  // 32b PC
-  uint32_t last_pc_ = 0;             // book-keeping
-  uint32_t last_instr_ = 0;          // book-keeping
-  std::array<uint32_t, 32> regs_{};  // 32b RF
-  bool ifetch_wait_ = false;         // are we waiting on an instr fetch response? (stalls fetch until resp arrives)
-  bool ifetch_valid_ = false;        // do we have a valid buffered instr? (if so, fetch can proceed without requesting from memory)
-  uint32_t ifetch_word_ = 0;         // buffered instr word for fetch stage (holds fetched instr until fetch stage consumes it)
+  uint32_t pc_ = 0;                 // 32b PC
+  uint32_t last_pc_ = 0;            // book-keeping
+  uint32_t last_instr_ = 0;         // book-keeping
+  std::array<uint32_t, 32> regs_{}; // 32b RF
+  bool ifetch_wait_ = false;        // are we waiting on an instr fetch response? (stalls fetch until resp arrives)
+  bool ifetch_valid_ = false;       // do we have a valid buffered instr? (if so, fetch can proceed without requesting from memory)
+  uint32_t ifetch_word_ = 0;        // buffered instr word for fetch stage (holds fetched instr until fetch stage consumes it)
   MemModel mem_model_ = MemModel::Timed; // for setting ideal vs. timed mem model
 
   // Private state for data stalling (separate from IFetch)

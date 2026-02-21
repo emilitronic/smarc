@@ -3,8 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Feb 17 2026
 /*
-AccelArraySumSoc: a toy accelerator model for smicro that implements the shared
-AccelPort (CUSTOM-0) contract using the real SoC memory path.
+AccelArraySumSoc: a toy accelerator model for smicro that implements the
+shared AccelPort (CUSTOM-0) contract using the real SoC memory path.
 
 Purpose:
 - Acts like a small “device” attached to Tile1: Tile1 issues CUSTOM-0 (funct3=0)
@@ -64,29 +64,29 @@ public:
   explicit AccelArraySumSoc(AccelMemBridge& ab);
 
   void tick() override;
-
+  // AccelPort interface: issue() captures req (from Tile1_exec.cpp) and starts accel FSM… 
   void issue(uint32_t raw_inst,
              uint32_t pc,
              uint32_t rs1_val,
              uint32_t rs2_val) override;
-
-  bool has_response() const override;
+  // …has_response()/read_response() publish the result when ready.
+  bool     has_response() const override;
   uint32_t read_response() override;
 
   uint32_t mem_load32(uint32_t addr) override;
-  void mem_store32(uint32_t addr, uint32_t data) override;
+  void     mem_store32(uint32_t addr, uint32_t data) override;
 
 private:
   AccelMemBridge& ab_;
 
-  bool busy_ = false;
+  bool busy_     = false;
   bool has_resp_ = false;
   uint32_t resp_ = 0;
 
-  uint32_t base_ = 0;
-  uint32_t len_ = 0;
-  uint32_t idx_ = 0;
-  uint32_t sum_ = 0;
+  uint32_t base_     = 0;
+  uint32_t len_      = 0;
+  uint32_t idx_      = 0;
+  uint32_t sum_      = 0;
   bool waiting_load_ = false;
 };
 

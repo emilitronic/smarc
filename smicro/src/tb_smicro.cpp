@@ -74,9 +74,9 @@ int main (int argc, char *argv[]) {
   // **************
   // Step 1: Parse tracing, parameters, and dump options
   // **************
-  descore::parseTraces(argc, argv);        // scans argv for trace options
-  Parameter::parseCommandLine(argc, argv); // parses cmd line flags and fills *Parameter() globals (above)
-  Sim::parseDumps(argc, argv);             // dump signals, denote what to write to VCD waves
+  descore::parseTraces(argc, argv);          // scans argv for trace options
+  Parameter::parseCommandLine(argc, argv);   // parses cmd line flags and fills *Parameter() globals (above)
+  Sim::parseDumps(argc, argv);               // dump signals, denote what to write to VCD waves
 
   // **************
   // Step 2: Resolve suite and select traffic source; then build SoC
@@ -166,7 +166,7 @@ int main (int argc, char *argv[]) {
   }
 
   // **************
-  // Step 8: Layer 2 — protocol/timing suites (MemTester drives MemCtrl)
+  // Step 8: Layer 2 — protocol/timing suites (MemTester  or AccelMemBridge drives MemCtrl)
   // Requires -driver=test
   // **************
   auto run_suite = [&](const std::string& s, SoC& soc, int mem_lat) -> bool {
@@ -176,9 +176,13 @@ int main (int argc, char *argv[]) {
     }
     // 1) Proto_accel_sum: core-driven test of accelerator sum protocol 
     // exercises: Tile1 issues CUSTOM-0 → AccelArraySumSoc runs → AccelMemBridge talks to MemCtrl → Dram
-    if ((s == "proto_accel_sum") || (s == "proto_accel_sum_altaddr") || (s == "proto_accel_sum_badarg") || (s == "proto_accel_sum_unsupported") || (s == "proto_accel_sum_twice")) {
+    if ((s == "proto_accel_sum") || 
+        (s == "proto_accel_sum_altaddr") || 
+        (s == "proto_accel_sum_badarg") || 
+        (s == "proto_accel_sum_unsupported") || 
+        (s == "proto_accel_sum_twice")) {
       // enforce the right topology
-      assert_always(!use_tester, "proto_accel_sum requires core driver (use_test_driver=false)");
+      assert_always(!use_tester,          "proto_accel_sum requires core driver (use_test_driver=false)");
       assert_always(soc.dram_ != nullptr, "proto_accel_sum: missing DRAM");
       assert_always(soc.core_ != nullptr, "proto_accel_sum: missing Tile1Core");
       assert_always(soc.mem_  != nullptr, "proto_accel_sum: missing MemCtrl");

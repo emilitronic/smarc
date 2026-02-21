@@ -425,8 +425,8 @@ void exec_remu(Tile1& tile, const Instruction& instr) {
 // Custom extension hooks
 void exec_custom0(Tile1& tile, const Instruction& instr) {
   const auto& op = instr.r;              // treat instr as R-type
-  AccelPort* accel = tile.accelerator(); // call Tile1's accessor to get accel pointer accel_port_
-  if (!accel) { // no trap on missing accelerator, just return unsupported code if rd != x0
+  AccelPort* accel = tile.accelerator(); // call Tile1's accessor to get accel ptr accel_port_
+  if (!accel) { // no trap on missing accel, just return unsupported code if rd != x0
     // v1 contract: missing accelerator returns ACCEL_E_UNSUPPORTED (see smile/docs/accel_port.md).
     if (op.rd != 0) {
       tile.write_reg(op.rd, AccelPort::ACCEL_E_UNSUPPORTED);

@@ -11,14 +11,15 @@ converts those 32-bit operations into MemCtrl-compatible 8-byte MemReq traffic.
 Load32 issues one aligned 64-bit load and selects a 32-bit lane.
 Store32 performs an internal RMW sequence (load64 -> merge lane -> store64).
 
-host API
+  host API 
+  (how AccelArraySumSoc.cpp talks to this bridge)
   +-------------------- AccelMemBridge --------------------+
-->| start_load32()                                         |
-->| start_store32()                                        |
-->| resp_consume()    update() pushes one MemReq -> m_req  |==>                           |
-<-| can_accept()      update() pops one MemResp <- m_resp  |<==                                  |
-<-| resp_valid()                                           |
-<-| resp_data()                                            |
+->| start_load32()  |                                      |
+->| start_store32() |                                      |
+->| resp_consume()  | update() pushes one MemReq -> m_req  |==>
+<-| can_accept()    | update() pops one MemResp <- m_resp  |<==
+<-| resp_valid()    |                                      |
+<-| resp_data()     | update() communicates w/ host API    |
   +--------------------------------------------------------+
 
 Typical smicro wiring today (SoC.cpp, use_test_driver_ == false):
@@ -60,7 +61,6 @@ public:
 
   void start_load32(uint32_t addr);
   void start_store32(uint32_t addr, uint32_t data);
-  void set_addr_base(uint64_t base) { addr_base_ = base; }
 
   bool     resp_valid() const;
   uint32_t resp_data() const;
@@ -92,7 +92,6 @@ private:
   bool upper_lane_       = false; // false: [31:0], true: [63:32]
   uint32_t store_data32_ = 0;     // used for STORE32
   uint64_t rmw_word64_   = 0;     // merged store payload after RMW load
-  uint64_t addr_base_    = 0;     // CPU->physical translation base for emitted MemReq::addr
 
   // Sticky response latch (must be consumed explicitly)
   bool resp_valid_    = false;
