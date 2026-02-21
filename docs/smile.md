@@ -67,36 +67,40 @@ On each cycle:
 
 ```bash
 smile/
-├── include/         # Public headers for the core, accels, debugger
-│   ├── AccelArraySum.hpp   # array-sum accelerator interface
-│   ├── AccelDemoAdd.hpp    # demo accelerator interface
-│   ├── AccelPort.hpp       # abstract accelerator port interface
-│   ├── Debugger.hpp        # debugger REPL interface
-│   ├── Diagnostics.hpp     # diagnostics/tracing helpers
-│   ├── Instruction.hpp     # RV32I instruction decode interface
-│   ├── Tile1_exec.hpp      # exec_* helper declarations
-│   └── Tile1.hpp           # Tile1 core interface + MemoryPort API
+├── include/                # Public headers for core, memory shim, accelerators, debugger
+│   ├── AccelArraySum.hpp     # single-cycle array-sum accelerator interface
+│   ├── AccelArraySumMc.hpp   # multi-cycle array-sum accelerator interface
+│   ├── AccelDemoAdd.hpp      # demo add accelerator interface
+│   ├── AccelPort.hpp         # abstract accelerator contract + ACCEL_E_* codes
+│   ├── Debugger.hpp          # debugger REPL interface
+│   ├── Diagnostics.hpp       # postmortem diagnostics helpers
+│   ├── Instruction.hpp       # RV32 decoder interface
+│   ├── MemCtrlTimedPort.hpp  # fixed-latency MemoryPort wrapper
+│   ├── Tile1_exec.hpp        # exec_* helper declarations
+│   └── Tile1.hpp             # Tile1 core interface + MemoryPort API
 ├── src/
-│   ├── AccelArraySum.cpp    # array-sum accelerator implementation
-│   ├── AccelDemoAdd.cpp     # trivial demo accelerator
-│   ├── Debugger.cpp         # debugger REPL + stepping logic
-│   ├── Diagnostics.cpp      # helper traces/asserts
-│   ├── Instruction.cpp      # RV32I decoder
-│   ├── tb_tile1.cpp         # testbench main() for Tile1 + Dram + debugger
-│   ├── Tile1_exec.cpp       # exec_* helpers (ALU, loads, branches, CSR, custom0)
-│   ├── Tile1.cpp            # core pipeline: fetch/decode/execute/trap
+│   ├── AccelArraySum.cpp     # single-cycle array-sum accelerator
+│   ├── AccelArraySumMc.cpp   # multi-cycle array-sum accelerator
+│   ├── AccelDemoAdd.cpp      # trivial demo accelerator
+│   ├── Debugger.cpp          # debugger REPL + stepping logic
+│   ├── Diagnostics.cpp       # helper traces/asserts
+│   ├── Instruction.cpp       # RV32 decoder
+│   ├── MemCtrlTimedPort.cpp  # fixed-latency MemoryPort implementation
+│   ├── tb_tile1.cpp          # testbench main() + suite injection
+│   ├── Tile1_exec.cpp        # exec_* helpers (ALU, load/store, branch, CSR, custom0)
+│   ├── Tile1.cpp             # core fetch/decode/execute/trap + stall logic
 │   └── util/
-│       ├── FlatBinLoader.cpp  # load flat .bin into MemoryPort
-│       └── FlatBinLoader.hpp  # loader interface for flat binaries
-├── progs/              # example programs + linker script
-│   ├── link_rv32.ld    # minimal RV32 linker script (places _start at 0x0)
-│   ├── smexit.c        # simplest “exit via ecall 93” program
-│   ├── smurf.c         # core test program
-│   ├── smurf_debug.c   # debugger-focused tests
-│   ├── smurf_threads.c # multithread-flavoured tests (for future)
-│   ├── prog.elf        # built ELF (from smurf.c or similar)
-│   └── prog.bin        # flat binary image (for tb_tile1)
-└── CMakeLists.txt      # build rules for the smile binary
+│       ├── FlatBinLoader.cpp # load flat .bin into MemoryPort
+│       └── FlatBinLoader.hpp # loader interface for flat binaries
+├── progs/                   # RV32 test programs + generated binaries
+│   ├── link_rv32.ld         # linker script (places _start at 0x0)
+│   ├── core/                # core bring-up / ISA tests (smurf, smexit, etc.)
+│   ├── sci/                 # small scientific kernels
+│   ├── *.elf / *.bin        # generated outputs (e.g., smurf.bin, hmm_step.bin)
+│   └── .smile_dbg           # optional debugger breakpoint file
+├── docs/
+│   └── accel_port.md        # shared v1 accelerator contract
+└── CMakeLists.txt           # build rules for tile1/tb_tile1 + smile_progs
 ```
 
 ## Current core test programs (`smile/progs/core/`)
@@ -174,18 +178,60 @@ These are small scientific kernels.
     - loads a flat binary program into memory
     - runs the simulation loop, calling `Tile1::tick()` and `Debugger::run()`
 
+## `tb_tile1` quick reference
+
+`tb_tile1` is the standalone runner for `smile`: it constructs `Tile1`, memory (`DramMemoryPort` + `MemCtrlTimedPort`), optional accelerator, and the debugger loop.  
+If `-prog` is provided, it loads that flat binary and runs it. If `-prog` is empty, it injects a built-in suite program selected by `-suite`.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `-showcontexts` | `0` | Print Cascade component contexts and exit. |
+| `-prog=<path>` | `""` | Path to flat `.bin` to load. When set, suite injection is skipped. |
+| `-load_addr=<hex/int>` | `0x0` | Address where the program image is written. |
+| `-start_pc=<hex/int>` | `0x0` | Initial PC override. If `0`, injected suites start at `load_addr`. |
+| `-mem_latency=<n>` | `0` | Fixed latency (cycles) used by `MemCtrlTimedPort`. |
+| `-ideal_mem=<0/1>` | `0` | Force Tile1 ideal memory mode (sync read/write, no request/response stalls). |
+| `-mem_model=timed\|ideal` | `timed` | Tile1 memory model selection. |
+| `-accel=none\|demo_add`<br>`\|array_sum`<br>`\|array_sum_mc` | `array_sum` | Accelerator attached to CUSTOM-0. |
+| `-suite=proto_accel_sum`<br>`\|proto_accel_sum_altaddr`<br>`\|proto_accel_sum_badarg`<br>`\|proto_accel_sum_unsupported`<br>`\|proto_accel_sum_twice` | `proto_accel_sum` | Built-in injected test suite used only when `-prog` is empty. |
+| `-steps=<n>` | `0` | Auto-run for `n` cycles; `<=0` enters interactive debugger REPL. |
+| `-sw_threads=<1|2>` | `1` | Number of software thread contexts scheduled by the debugger. |
+| `-ignore_bpfile=<0/1>` | `0` | Do not load `.smile_dbg` breakpoints on startup. |
+
 ## Example usage
-Build:
+
+### Build `tb_tile1`
+
 ```bash
 cd smarc
 cmake -S . -B build -DCEDAR_DIR=/path/to/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build --target tb_tile1 -j
 ```
-Run with the default hard-coded program:
+
+### Run Built-In Suites (No `-prog`)
+
+Run the default injected suite (`proto_accel_sum`):
 ```bash
 ./build/smile/tb_tile1 -steps=50 -sw_threads=1
 ```
-Run a compiled program:
+
+Run an explicit injected suite:
+```bash
+./build/smile/tb_tile1 -suite=proto_accel_sum_twice -accel=array_sum_mc -mem_latency=5 -steps=800
+```
+
+Recent validated proto runs:
+```bash
+./build/smile/tb_tile1 -accel=array_sum -suite=proto_accel_sum -steps=200
+./build/smile/tb_tile1 -accel=array_sum_mc -mem_latency=5 -suite=proto_accel_sum -steps=400
+./build/smile/tb_tile1 -accel=array_sum_mc -mem_latency=5 -suite=proto_accel_sum_twice -steps=800
+./build/smile/tb_tile1 -accel=array_sum_mc -mem_latency=5 -suite=proto_accel_sum_badarg -steps=200
+./build/smile/tb_tile1 -accel=array_sum_mc -mem_latency=5 -suite=proto_accel_sum_unsupported -steps=200
+```
+
+### Run External Program (`-prog`)
+
+Build a flat binary and run it:
 ```bash
 cd smile/progs
 riscv64-unknown-elf-gcc -march=rv32i_zicsr -mabi=ilp32 -nostartfiles -nostdlib -T link_rv32.ld core/smurf.c -o prog.elf
@@ -195,7 +241,10 @@ riscv64-unknown-elf-objcopy -O binary prog.elf prog.bin
 cd ../..
 ./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -steps=100 -sw_threads=1
 ```
-Launch the interactive debugger:
+
+### Interactive Debugger REPL
+
+Launch the debugger (no `-steps`):
 ```bash
 ./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_pc=0x0 -sw_threads=1
 # then in the REPL:
@@ -207,7 +256,7 @@ smile> cont
 smile> exit
 ```
 
-### Software thread scheduling (`-sw_threads`)
+### Multithread Scheduling (`-sw_threads`)
 
 `tb_tile1` can schedule one or two software thread contexts in the debugger loop:
 
