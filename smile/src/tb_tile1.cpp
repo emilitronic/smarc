@@ -16,6 +16,8 @@ Testbench for a RV tile.
 #include "../../smicro/src/Dram.hpp"
 #include "AccelPort.hpp"
 #include "AccelArraySum.hpp"
+#include "AccelArraySumMc.hpp"
+#include "AccelDemoAdd.hpp"
 
 #include <cascade/Clock.hpp>
 #include <cascade/SimDefs.hpp>
@@ -25,6 +27,7 @@ Testbench for a RV tile.
 #include <string>
 #include <algorithm>
 #include <cctype>
+#include <memory>
 
 // **************
 // Parameters (CLI flags): name, default value, help text
@@ -36,6 +39,7 @@ IntParameter(start_pc, 0x0, "Initial PC (set core's PC before run)");
 IntParameter(mem_latency, 0, "Fixed memory latency (cycles) for MemCtrlTimedPort");
 BoolParameter(ideal_mem, false, "Use ideal memory model in Tile1 (sync read32/write32, no stalls)");
 StringParameter(mem_model, "timed", "Tile1 memory model: timed|ideal");
+StringParameter(accel, "array_sum", "Accelerator: none|demo_add|array_sum|array_sum_mc");
 IntParameter(steps, 0, "Cycles to auto-run; <=0 enters interactive debugger");
 IntParameter(sw_threads, 1, "Software thread contexts to schedule (1 or 2). Default: 1");
 BoolParameter(ignore_bpfile, false,
@@ -111,9 +115,25 @@ int main(int argc, char* argv[]) {
   Dram dram("dram", 0);
   DramMemoryPort dram_port(dram);
   MemCtrlTimedPort memctrl(&dram_port, (int)mem_latency);
-  AccelArraySum accel_port(dram_port);  // array-sum accelerator, backed by dram_port for mem ops
   tile.attach_memory(&memctrl);
-  tile.attach_accelerator(&accel_port); // attach accelerator (attach_accelerator in Tile1.hpp)
+  // Configure accelerator based on accel parameter (none/demo_add/array_sum/array_sum_mc)
+  std::unique_ptr<AccelPort> accel_ptr;
+  std::string accel_flag = std::string(accel);
+  std::transform(accel_flag.begin(), accel_flag.end(), accel_flag.begin(),
+    [](unsigned char c) { return static_cast<char>(std::tolower(c)); }); // lowercase accel flag
+  if (accel_flag == "none") {
+    accel_ptr.reset();
+  } else if (accel_flag == "demo_add") {
+    accel_ptr = std::make_unique<AccelDemoAdd>(memctrl);
+  } else if (accel_flag == "array_sum") {
+    accel_ptr = std::make_unique<AccelArraySum>(memctrl);
+  } else if (accel_flag == "array_sum_mc") {
+    accel_ptr = std::make_unique<AccelArraySumMc>(memctrl);
+  } else {
+    assert_always(false, "accel must be 'none', 'demo_add', 'array_sum', or 'array_sum_mc'");
+  }
+  tile.attach_accelerator(accel_ptr.get());
+  
   std::string mem_model_flag = std::string(mem_model);
   std::transform(mem_model_flag.begin(), mem_model_flag.end(), mem_model_flag.begin(),
     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });

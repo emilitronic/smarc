@@ -18,6 +18,7 @@ target_link_libraries(tile1
 
 add_executable(tb_tile1
   src/AccelArraySum.cpp
+  src/AccelArraySumMc.cpp
   src/AccelDemoAdd.cpp
   src/Debugger.cpp
   src/MemCtrlTimedPort.cpp

@@ -2,13 +2,13 @@
 // smile/src/AccelArraySum.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Nov 22 2025
-//
-// Array-sum accelerator implementation used by tb_tile1.
-// CUSTOM-0 is interpreted as:
-//   rs1 = base address (byte address, 4-byte aligned)
-//   rs2 = length in 32-bit elements
-//   rd  = destination for the sum
-
+/*
+Array-sum accelerator implementation used by tb_tile1.
+CUSTOM-0 is interpreted as:
+  rs1 = base address (byte address, 4-byte aligned)
+  rs2 = length in 32-bit elements
+  rd  = destination for the sum
+*/
 #include "AccelArraySum.hpp"
 #include "Tile1.hpp"
 
