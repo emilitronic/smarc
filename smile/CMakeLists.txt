@@ -62,6 +62,7 @@ if (SMILE_RISCV_GCC AND SMILE_RISCV_OBJCOPY)
     -ffreestanding
     -nostdlib
     -nostartfiles
+    -I${SMILE_PROGS_DIR}/include
     -Wl,-T${SMILE_PROGS_DIR}/link_rv32.ld
     -Wl,-e,_start
     -Wl,--no-relax
