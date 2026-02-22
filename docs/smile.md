@@ -205,8 +205,8 @@ If `-prog` is provided, it loads that flat binary and runs it. If `-prog` is emp
 
 ```bash
 cd smarc
-cmake -S . -B build -DCEDAR_DIR=/path/to/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-cmake --build build --target tb_tile1 -j
+smarc $ cmake -S . -B build -DCEDAR_DIR=/path/to/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+smarc $ cmake --build build --target tb_tile1 -j
 ```
 
 ### Run Built-In Suites (No `-prog`)
@@ -250,7 +250,8 @@ smarc $ ./build/smile/tb_tile1 -prog=smile/progs/prog.bin -load_addr=0x0 -start_
 
 Build and run the accelerator smoke test (`accel_sum_test`) via `smile_progs`:
 ```bash
-smarc $ cmake --build build --target smile_progs -j -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+# You don't have to build .bin one-by-one; the smile_progs target builds them all.
+smarc $ cmake --build build --target smile_progs -j
 smarc $ ./build/smile/tb_tile1 -prog=smile/progs/accel_sum_test.bin -accel=array_sum_mc -mem_latency=5 -steps=5000
 smarc $ ./build/smile/tb_tile1 -prog=smile/progs/accel_sum_test.bin -accel=array_sum -steps=2000
 ```

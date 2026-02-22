@@ -23,6 +23,9 @@ void AccelArraySum::issue(uint32_t raw_inst,
                           uint32_t pc,
                           uint32_t rs1_val,
                           uint32_t rs2_val) {
+  // v1 verb select: funct3
+  const uint32_t funct3 = (raw_inst >> 12) & 0x7u;
+
   std::ios_base::fmtflags old_flags = std::cout.flags();
   char old_fill = std::cout.fill('0');
 
@@ -31,10 +34,32 @@ void AccelArraySum::issue(uint32_t raw_inst,
             << " inst=0x" << std::setw(8) << raw_inst
             << " base=0x" << std::setw(8) << rs1_val
             << " len="    << std::dec << rs2_val
+            << " f3="     << funct3
             << std::endl;
 
   std::cout.fill(old_fill);
   std::cout.flags(old_flags);
+
+  // If a previous response is still pending, refuse the new command.
+  if (has_resp_) {
+    resp_ = ACCEL_E_BUSY;
+    has_resp_ = true;
+    return;
+  }
+
+  // Only funct3=0 is supported by this accelerator.
+  if (funct3 != 0u) {
+    resp_ = ACCEL_E_UNSUPPORTED;
+    has_resp_ = true;
+    return;
+  }
+
+  // Sum is defined on 32-bit aligned words.
+  if ((rs1_val & 0x3u) != 0u) {
+    resp_ = ACCEL_E_BADARG;
+    has_resp_ = true;
+    return;
+  }
 
   const uint32_t base = rs1_val;
   const uint32_t len  = rs2_val;

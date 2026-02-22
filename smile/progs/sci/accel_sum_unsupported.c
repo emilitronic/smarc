@@ -37,12 +37,12 @@ static inline void sys_exit(uint32_t code) {
 }
 
 int main(void) {
-  volatile uint32_t* arr = (volatile uint32_t*)ARRAY_BASE;
+  volatile uint32_t* arr = (volatile uint32_t*)ARRAY_BASE; // init array at base addr 0x4000
   for (uint32_t i = 0; i < LEN_WORDS; ++i) {
     arr[i] = i + 1u;
   }
 
-  uint32_t out = accel_custom0_r(1u, ARRAY_BASE, LEN_WORDS);
+  uint32_t out = accel_custom0_r(1u, ARRAY_BASE, LEN_WORDS); // funct3=1 currently unsupported by our accel, should return ACCEL_E_UNSUPPORTED (1)
   *(volatile uint32_t*)MAILBOX0 = out;
   sys_exit(out);
 }
