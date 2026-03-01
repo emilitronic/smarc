@@ -17,19 +17,21 @@ $ cd smarc
 smarc $ mkdir build
 # Configure (set CEDAR_DIR to your Cascade build/install)
 smarc $ cmake -S . -B build -DCEDAR_DIR=/path/to/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-# Build it
+# Build (almost) all targets
 smarc $ cmake --build build -j
 # See it
 smarc $ ls build/smile build/smicro
+# Build some programs for Tile1
+smarc $ cmake --build build --target smile_progs -j
 ```
 
 # Run It
 ```bash
 # Minimal Tile1 run (runs 200 steps with Tile1 traces)
-smarc $ ./build/smile/tb_tile1 -prog=smile/progs/prog.bin -steps=200 -trace "Tile1"
+smarc $ ./build/smile/tb_tile1 -prog=smile/progs/core/smurf.bin -steps=200 -trace "Tile1"
 
 # Enter the Tile1 debugger REPL (starts the interactive debugger REPL if you don't pass -steps)
-smarc $ ./build/smile/tb_tile1 -prog=smile/progs/prog.bin
+smarc $ ./build/smile/tb_tile1 -prog=smile/progs/core/smurf.bin
 
 # SoC interactive (step manually; runs the SoC test suite with top-level tracing)
 smarc $ ./build/smicro/smicro -suite=proto_core -trace "SoC"

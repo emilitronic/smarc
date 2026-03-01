@@ -65,6 +65,8 @@ public:
   bool     resp_valid() const;
   uint32_t resp_data() const;
   void     resp_consume();
+  void     set_addr_base(uint64_t base) { addr_base_ = base; }
+  uint64_t addr_base() const { return addr_base_; }
 
   void update();
   void reset();
@@ -88,6 +90,7 @@ private:
   Phase phase_    = Phase::IDLE;
 
   // Captured host request context.
+  uint64_t addr_base_    = 0;     // physical base added to CPU-style byte addresses
   uint64_t aligned_addr_ = 0;
   bool upper_lane_       = false; // false: [31:0], true: [63:32]
   uint32_t store_data32_ = 0;     // used for STORE32
