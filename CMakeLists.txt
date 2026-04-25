@@ -22,3 +22,4 @@ add_subdirectory(${CEDAR_DIR} cedar_build EXCLUDE_FROM_ALL)
 # --- Now add your subprojects ---
 add_subdirectory(smicro)
 add_subdirectory(smile)
+add_subdirectory(smystolic)
