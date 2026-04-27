@@ -37,7 +37,7 @@ void SmeshState::reset() {
   output_acc_row = 0;
   preload_shape = {};
   output_shape = {};
-  load_stride_bytes = kDim * sizeof(Elem);
+  load_stride_bytes.fill(kDim * sizeof(Elem));
   store_stride_bytes = kDim * sizeof(Acc);
 }
 
@@ -55,7 +55,9 @@ std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem,
     case SmeshFunct::Config: {
       const auto kind = static_cast<ConfigKind>(rs1 & 0x3u);
       if (kind == ConfigKind::Load) {
-        state_.load_stride_bytes = static_cast<std::uint32_t>(rs2);
+        const auto state_id = static_cast<std::size_t>((rs1 >> 3) & 0x3u);
+        require(state_id < state_.load_stride_bytes.size(), "invalid mvin state id");
+        state_.load_stride_bytes.at(state_id) = static_cast<std::uint32_t>(rs2);
       } else if (kind == ConfigKind::Store) {
         state_.store_stride_bytes = static_cast<std::uint32_t>(rs2);
       } else if (kind != ConfigKind::Execute) {
@@ -63,9 +65,19 @@ std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem,
       }
       return 0;
     }
+    case SmeshFunct::Mvin2: {
+      const auto dst = unpackLocal(rs2);
+      mvin(mem, rs1, dst.row, dst.shape, state_.load_stride_bytes.at(1));
+      return 0;
+    }
     case SmeshFunct::Mvin: {
       const auto dst = unpackLocal(rs2);
-      mvin(mem, rs1, dst.row, dst.shape, state_.load_stride_bytes);
+      mvin(mem, rs1, dst.row, dst.shape, state_.load_stride_bytes.at(0));
+      return 0;
+    }
+    case SmeshFunct::Mvin3: {
+      const auto dst = unpackLocal(rs2);
+      mvin(mem, rs1, dst.row, dst.shape, state_.load_stride_bytes.at(2));
       return 0;
     }
     case SmeshFunct::Mvout: {

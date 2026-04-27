@@ -22,6 +22,7 @@ using MatrixAcc = std::array<std::array<smesh::Acc, smesh::kDim>, smesh::kDim>;
 constexpr std::uint64_t kAAddr = 0x1000;
 constexpr std::uint64_t kBAddr = 0x2000;
 constexpr std::uint64_t kCAddr = 0x3000;
+constexpr std::size_t kBStridePadBytes = 3;
 
 MatrixAcc referenceMatmul(const MatrixElem& a, const MatrixElem& b) {
   MatrixAcc out{};
@@ -41,6 +42,17 @@ void writeElemMatrix(smesh::SmeshMemory& mem, std::uint64_t base, const MatrixEl
   for (std::size_t r = 0; r < smesh::kDim; ++r) {
     for (std::size_t c = 0; c < smesh::kDim; ++c) {
       mem.writeElem(base + r * smesh::kDim + c, matrix[r][c]);
+    }
+  }
+}
+
+void writeElemMatrix(smesh::SmeshMemory& mem,
+                     std::uint64_t base,
+                     std::uint32_t stride,
+                     const MatrixElem& matrix) {
+  for (std::size_t r = 0; r < smesh::kDim; ++r) {
+    for (std::size_t c = 0; c < smesh::kDim; ++c) {
+      mem.writeElem(base + r * stride + c, matrix[r][c]);
     }
   }
 }
@@ -67,19 +79,25 @@ bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
   dev.reset();
 
   writeElemMatrix(mem, kAAddr, a);
-  writeElemMatrix(mem, kBAddr, b);
 
   // Set up command parameters
   constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
   constexpr std::uint32_t elem_stride = smesh::kDim * sizeof(smesh::Elem); // bytes between consecutive source rows in DRAM when doing mvin
+  constexpr std::uint32_t b_elem_stride = elem_stride + kBStridePadBytes;
   constexpr std::uint32_t acc_stride = smesh::kDim * sizeof(smesh::Acc); // bytes between consecutive destination rows in DRAM when doing mvout
   constexpr std::uint32_t a_spad_row = 0;
   constexpr std::uint32_t b_spad_row = smesh::kDim;
   constexpr std::uint32_t c_acc_row = 0;
 
+  writeElemMatrix(mem, kBAddr, b_elem_stride, b);
+
   // sending decoded low-level commands
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
-                    smesh::packConfig(smesh::ConfigKind::Load), elem_stride); // set load stride
+                    smesh::packConfig(smesh::ConfigKind::Load, 0), elem_stride); // set mvin load-state 0 stride
+  dev.executeCustom(mem, smesh::SmeshFunct::Config,
+                    smesh::packConfig(smesh::ConfigKind::Load, 1), b_elem_stride); // set mvin2 load-state 1 stride
+  dev.executeCustom(mem, smesh::SmeshFunct::Config,
+                    smesh::packConfig(smesh::ConfigKind::Load, 2), elem_stride); // set mvin3 load-state 2 stride
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
                     smesh::packConfig(smesh::ConfigKind::Store), acc_stride); // set store stride
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
@@ -87,8 +105,8 @@ bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
 
   dev.executeCustom(mem, smesh::SmeshFunct::Mvin, kAAddr,
                     smesh::packLocal(a_spad_row, shape)); // move A from DRAM to SP
-  dev.executeCustom(mem, smesh::SmeshFunct::Mvin, kBAddr,
-                    smesh::packLocal(b_spad_row, shape)); // move B from DRAM to SP
+  dev.executeCustom(mem, smesh::SmeshFunct::Mvin2, kBAddr,
+                    smesh::packLocal(b_spad_row, shape)); // move B from DRAM to SP using load-state 1
   dev.executeCustom(mem, smesh::SmeshFunct::Preload,
                     smesh::packLocal(b_spad_row, shape),
                     smesh::packLocal(c_acc_row, shape));  // preload B into PE and set up C accum row

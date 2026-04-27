@@ -16,12 +16,14 @@ namespace smesh {
 // Enumerates the available functions for the custom command interface.
 enum class SmeshFunct : std::uint32_t {
   Config = 0,
+  Mvin2 = 1,
   Mvin = 2,
   Mvout = 3,
   ComputePreloaded = 4,
   ComputeAccumulated = 5,
   Preload = 6,
   Flush = 7,
+  Mvin3 = 14,
 };
 
 // Sub-kinds of configuration commands.
@@ -40,6 +42,10 @@ struct LocalMatrix {
 constexpr std::uint32_t kLocalAddrBits = 32;
 constexpr std::uint64_t kLocalAddrMask = 0xffffffffull;
 
+// Note packed matrix operand form:
+// bits [31:0]   local address / row
+// bits [47:32]  cols
+// bits [63:48]  rows
 // Packs row (where matrix starts locally), cols (no. of cols), rows (no. of rows) into a 64-bit value for passing in rs2 = (rows << 48) | (cols << 32) | row (local addr)
 inline std::uint64_t packLocal(std::uint32_t row, MatrixShape shape) {
   return (static_cast<std::uint64_t>(shape.rows) << (kLocalAddrBits + 16)) |
@@ -56,8 +62,9 @@ inline LocalMatrix unpackLocal(std::uint64_t packed) {
   };
 }
 
-inline std::uint64_t packConfig(ConfigKind kind) {
-  return static_cast<std::uint64_t>(kind);
+inline std::uint64_t packConfig(ConfigKind kind, std::uint32_t state_id = 0) {
+  return static_cast<std::uint64_t>(kind) |
+         (static_cast<std::uint64_t>(state_id & 0x3u) << 3);
 }
 
 } // namespace smesh
