@@ -14,43 +14,31 @@ Initial development priorities:
 - Add complexity only when the previous behavior is easy to explain and verify.
 
 ## Build
-
 Configure from the repository root:
-
 ```bash
-cmake -S . -B build -DCEDAR_DIR=/Users/seb/Research/Cascade/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake -S . -B build -DCEDAR_DIR=your/path/to/cedar -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
-
 Build only the M0 smesh testbench:
-
 ```bash
 cmake --build build --target tb_smesh_m0 -j
 ```
-
 Or build all smarc targets:
-
 ```bash
 cmake --build build -j
 ```
 
 ## Run
-
 Run the M0 functional testbench from the repository root:
-
 ```bash
 ./build/smesh/tb_smesh_m0
 ```
-
 Expected output:
-
 ```text
 [SMESH_M0] PASS identity
 [SMESH_M0] PASS matmul
 ```
-
 The M0 testbench is pure C++ and does not use Cascade ports yet. It verifies the
 first functional data path:
-
 ```text
 host memory A/B -> scratchpad -> preload B into PE state -> accumulator C -> host memory
 ```

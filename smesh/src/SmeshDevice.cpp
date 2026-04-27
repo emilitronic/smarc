@@ -41,6 +41,7 @@ void SmeshDevice::reset() {
   state_.reset();
 }
 
+// mvin: move a matrix from host memory into the scratchpad
 void SmeshDevice::mvin(SmeshMemory& mem,
                        std::uint64_t dram_addr,
                        std::uint32_t spad_row,
@@ -57,6 +58,7 @@ void SmeshDevice::mvin(SmeshMemory& mem,
   }
 }
 
+// preload: move a matrix from the scratchpad into the PE state and set up for compute
 void SmeshDevice::preload(std::uint32_t b_spad_row,
                           std::uint32_t c_acc_row,
                           MatrixShape b_shape,
@@ -74,7 +76,7 @@ void SmeshDevice::preload(std::uint32_t b_spad_row,
   for (auto& row : state_.pe_state) {
     row.fill(0);
   }
-
+  // preload B into the PE state
   for (std::size_t r = 0; r < b_shape.rows; ++r) {
     for (std::size_t c = 0; c < b_shape.cols; ++c) {
       state_.pe_state.at(r).at(c) = state_.spad.at(b_spad_row + r).at(c);
@@ -82,6 +84,7 @@ void SmeshDevice::preload(std::uint32_t b_spad_row,
   }
 }
 
+// run A against what is currently in the PE state, and write the result into the accumulator
 void SmeshDevice::computePreloaded(std::uint32_t a_spad_row, MatrixShape a_shape) {
   checkSpadRange(a_spad_row, a_shape);
   checkDimShape(a_shape);
@@ -107,6 +110,7 @@ void SmeshDevice::computePreloaded(std::uint32_t a_spad_row, MatrixShape a_shape
   }
 }
 
+// mvout: move a matrix from the accumulator into host memory
 void SmeshDevice::mvout(SmeshMemory& mem,
                         std::uint64_t dram_addr,
                         std::uint32_t acc_row,
@@ -123,6 +127,7 @@ void SmeshDevice::mvout(SmeshMemory& mem,
   }
 }
 
+// Can matrix tile of size rows x cols fit in SP starting at row?
 void SmeshDevice::checkSpadRange(std::uint32_t row, MatrixShape shape) {
   checkDimShape(shape);
   require(row + shape.rows <= kScratchpadRows, "scratchpad row range out of bounds");

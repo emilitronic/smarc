@@ -2,6 +2,9 @@
 // smesh/include/SmeshDevice.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Apr 26 2026
+/*
+Actual functional smesh device model.
+*/
 #pragma once
 
 #include "SmeshMemory.hpp"
@@ -38,7 +41,7 @@ class SmeshDevice {
   const SmeshState& state() const { return state_; }
 
  private:
-  static void checkSpadRange(std::uint32_t row, MatrixShape shape);
+  static void checkSpadRange(std::uint32_t row, MatrixShape shape); // starting row, and shape
   static void checkAccRange(std::uint32_t row, MatrixShape shape);
   static void checkDimShape(MatrixShape shape);
 

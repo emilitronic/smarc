@@ -2,6 +2,9 @@
 // smesh/include/SmeshMemory.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Apr 26 2026
+/*
+Tiny fake host memory.
+*/
 #pragma once
 
 #include "SmeshTypes.hpp"

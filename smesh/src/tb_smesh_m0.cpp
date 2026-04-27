@@ -57,8 +57,9 @@ bool checkAccMatrix(const smesh::SmeshMemory& mem, std::uint64_t base, const Mat
   return ok;
 }
 
+// Run one test case of multiplying two 4x4 matrices and checking the result
 bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
-  smesh::SmeshMemory mem;
+  smesh::SmeshMemory mem; // 
   smesh::SmeshDevice dev;
   dev.reset();
 
@@ -72,11 +73,11 @@ bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
   constexpr std::uint32_t b_spad_row = smesh::kDim;
   constexpr std::uint32_t c_acc_row = 0;
 
-  dev.mvin(mem, kAAddr, a_spad_row, shape, elem_stride);
-  dev.mvin(mem, kBAddr, b_spad_row, shape, elem_stride);
-  dev.preload(b_spad_row, c_acc_row, shape, shape);
-  dev.computePreloaded(a_spad_row, shape);
-  dev.mvout(mem, kCAddr, c_acc_row, shape, acc_stride);
+  dev.mvin(mem, kAAddr, a_spad_row, shape, elem_stride); // host mem A -> sp rows 0..3
+  dev.mvin(mem, kBAddr, b_spad_row, shape, elem_stride); // host mem B -> sp rows 4..7
+  dev.preload(b_spad_row, c_acc_row, shape, shape);      // sp B -> PE state, set up for compute
+  dev.computePreloaded(a_spad_row, shape);               // sp A * PE-state B -> acc C rows 0..3
+  dev.mvout(mem, kCAddr, c_acc_row, shape, acc_stride);  // acc C rows 0..3 -> host mem C
 
   const auto expected = referenceMatmul(a, b);
   const bool ok = checkAccMatrix(mem, kCAddr, expected);
