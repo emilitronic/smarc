@@ -15,3 +15,12 @@ target_link_libraries(tb_smesh_m0
   PRIVATE
     smesh_model
 )
+
+add_executable(tb_smesh_m1
+  src/tb_smesh_m1.cpp
+)
+
+target_link_libraries(tb_smesh_m1
+  PRIVATE
+    smesh_model
+)

@@ -2,7 +2,9 @@
 // smesh/src/SmeshDevice.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Apr 26 2026
-
+/*
+Actual functional smesh device model.
+*/
 #include "SmeshDevice.hpp"
 
 #include <stdexcept>
@@ -35,10 +37,60 @@ void SmeshState::reset() {
   output_acc_row = 0;
   preload_shape = {};
   output_shape = {};
+  load_stride_bytes = kDim * sizeof(Elem);
+  store_stride_bytes = kDim * sizeof(Acc);
 }
 
 void SmeshDevice::reset() {
   state_.reset();
+}
+
+// executeCustom provides a generic command interface.  
+// The semantics of rs1 and rs2 depend on the command (funct).
+std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem,
+                                         SmeshFunct funct,
+                                         std::uint64_t rs1,
+                                         std::uint64_t rs2) {
+  switch (funct) {
+    case SmeshFunct::Config: {
+      const auto kind = static_cast<ConfigKind>(rs1 & 0x3u);
+      if (kind == ConfigKind::Load) {
+        state_.load_stride_bytes = static_cast<std::uint32_t>(rs2);
+      } else if (kind == ConfigKind::Store) {
+        state_.store_stride_bytes = static_cast<std::uint32_t>(rs2);
+      } else if (kind != ConfigKind::Execute) {
+        throw std::runtime_error("unsupported config kind");
+      }
+      return 0;
+    }
+    case SmeshFunct::Mvin: {
+      const auto dst = unpackLocal(rs2);
+      mvin(mem, rs1, dst.row, dst.shape, state_.load_stride_bytes);
+      return 0;
+    }
+    case SmeshFunct::Mvout: {
+      const auto src = unpackLocal(rs2);
+      mvout(mem, rs1, src.row, src.shape, state_.store_stride_bytes);
+      return 0;
+    }
+    case SmeshFunct::Preload: {
+      const auto b = unpackLocal(rs1);
+      const auto c = unpackLocal(rs2);
+      preload(b.row, c.row, b.shape, c.shape);
+      return 0;
+    }
+    case SmeshFunct::ComputePreloaded: {
+      const auto a = unpackLocal(rs1);
+      computePreloaded(a.row, a.shape);
+      return 0;
+    }
+    case SmeshFunct::Flush:
+      return 0;
+    case SmeshFunct::ComputeAccumulated:
+      throw std::runtime_error("compute_accumulated is not implemented yet");
+  }
+
+  throw std::runtime_error("unsupported smesh funct");
 }
 
 // mvin: move a matrix from host memory into the scratchpad

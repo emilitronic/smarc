@@ -22,6 +22,10 @@ Build only the M0 smesh testbench:
 ```bash
 cmake --build build --target tb_smesh_m0 -j
 ```
+Build only the M1 low-level command-surface testbench:
+```bash
+cmake --build build --target tb_smesh_m1 -j
+```
 Or build all smarc targets:
 ```bash
 cmake --build build -j
@@ -42,3 +46,16 @@ first functional data path:
 ```text
 host memory A/B -> scratchpad -> preload B into PE state -> accumulator C -> host memory
 ```
+
+Run the M1 low-level command-surface testbench:
+```bash
+./build/smesh/tb_smesh_m1
+```
+Expected output:
+```text
+[SMESH_M1] PASS identity
+[SMESH_M1] PASS matmul
+```
+The M1 testbench drives the same functional data path through decoded
+`funct/rs1/rs2` command fields instead of direct method calls. It does not parse
+raw RISC-V/RoCC instruction words yet.

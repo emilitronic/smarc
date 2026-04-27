@@ -1,12 +1,13 @@
 // **********************************************************************
-// smesh/src/tb_smesh_m0.cpp
+// smesh/src/tb_smesh_m1.cpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Apr 26 2026
+// Sebastian Claudiusz Magierowski Apr 27 2026
 /*
-Testbench for functional device skeleton (M0).  Runs one test case of multiplying two 4x4 matrices and checking the result.
+Testbench to exercise the command API.  Runs the same matmul test as M0, but through the command API instead of direct state manipulation.  This is a more realistic test of how software will interact with the device, and also serves as a sanity check for the command encoding/decoding logic in SmeshDevice::executeCustom().
 */
 
-#include "SmeshDevice.hpp"
+#include "SmeshCommand.hpp" // for command encoding helpers
+#include "SmeshDevice.hpp"  // for SmeshDevice and SmeshMemory
 
 #include <array>
 #include <cstdint>
@@ -60,31 +61,45 @@ bool checkAccMatrix(const smesh::SmeshMemory& mem, std::uint64_t base, const Mat
   return ok;
 }
 
-// Run one test case of multiplying two 4x4 matrices and checking the result
 bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
-  smesh::SmeshMemory mem; // 
+  smesh::SmeshMemory mem;
   smesh::SmeshDevice dev;
   dev.reset();
 
   writeElemMatrix(mem, kAAddr, a);
   writeElemMatrix(mem, kBAddr, b);
 
+  // Set up command parameters
   constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
-  constexpr std::uint32_t elem_stride = smesh::kDim * sizeof(smesh::Elem);
-  constexpr std::uint32_t acc_stride = smesh::kDim * sizeof(smesh::Acc);
+  constexpr std::uint32_t elem_stride = smesh::kDim * sizeof(smesh::Elem); // bytes between consecutive source rows in DRAM when doing mvin
+  constexpr std::uint32_t acc_stride = smesh::kDim * sizeof(smesh::Acc); // bytes between consecutive destination rows in DRAM when doing mvout
   constexpr std::uint32_t a_spad_row = 0;
   constexpr std::uint32_t b_spad_row = smesh::kDim;
   constexpr std::uint32_t c_acc_row = 0;
 
-  dev.mvin(mem, kAAddr, a_spad_row, shape, elem_stride); // host mem A -> sp rows 0..3
-  dev.mvin(mem, kBAddr, b_spad_row, shape, elem_stride); // host mem B -> sp rows 4..7
-  dev.preload(b_spad_row, c_acc_row, shape, shape);      // sp B -> PE state, set up for compute
-  dev.computePreloaded(a_spad_row, shape);               // sp A * PE-state B -> acc C rows 0..3
-  dev.mvout(mem, kCAddr, c_acc_row, shape, acc_stride);  // acc C rows 0..3 -> host mem C
+  // sending decoded low-level commands
+  dev.executeCustom(mem, smesh::SmeshFunct::Config,
+                    smesh::packConfig(smesh::ConfigKind::Load), elem_stride); // set load stride
+  dev.executeCustom(mem, smesh::SmeshFunct::Config,
+                    smesh::packConfig(smesh::ConfigKind::Store), acc_stride); // set store stride
+  dev.executeCustom(mem, smesh::SmeshFunct::Config,
+                    smesh::packConfig(smesh::ConfigKind::Execute), 0);
+
+  dev.executeCustom(mem, smesh::SmeshFunct::Mvin, kAAddr,
+                    smesh::packLocal(a_spad_row, shape)); // move A from DRAM to SP
+  dev.executeCustom(mem, smesh::SmeshFunct::Mvin, kBAddr,
+                    smesh::packLocal(b_spad_row, shape)); // move B from DRAM to SP
+  dev.executeCustom(mem, smesh::SmeshFunct::Preload,
+                    smesh::packLocal(b_spad_row, shape),
+                    smesh::packLocal(c_acc_row, shape));  // preload B into PE and set up C accum row
+  dev.executeCustom(mem, smesh::SmeshFunct::ComputePreloaded,
+                    smesh::packLocal(a_spad_row, shape), 0);  // compute A*B using preloaded B
+  dev.executeCustom(mem, smesh::SmeshFunct::Mvout, kCAddr,
+                    smesh::packLocal(c_acc_row, shape));  // move C from acc to DRAM
 
   const auto expected = referenceMatmul(a, b);
   const bool ok = checkAccMatrix(mem, kCAddr, expected);
-  std::printf("[SMESH_M0] %s %s\n", ok ? "PASS" : "FAIL", name);
+  std::printf("[SMESH_M1] %s %s\n", ok ? "PASS" : "FAIL", name);
   return ok;
 }
 
@@ -117,7 +132,7 @@ int main() {
     const bool ok_matmul = runCase("matmul", a, b);
     return (ok_identity && ok_matmul) ? 0 : 1;
   } catch (const std::exception& e) {
-    std::printf("[SMESH_M0] FAIL exception: %s\n", e.what());
+    std::printf("[SMESH_M1] FAIL exception: %s\n", e.what());
     return 1;
   }
 }

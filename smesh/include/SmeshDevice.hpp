@@ -7,6 +7,7 @@ Actual functional smesh device model.
 */
 #pragma once
 
+#include "SmeshCommand.hpp" // for SmeshFunct and command encoding helpers
 #include "SmeshMemory.hpp"
 #include "SmeshState.hpp"
 #include "SmeshTypes.hpp"
@@ -18,6 +19,13 @@ namespace smesh {
 class SmeshDevice {
  public:
   void reset();
+
+  // executeCustom provides a generic command interface.  
+  // The semantics of rs1 and rs2 depend on the command (funct).
+  std::uint64_t executeCustom(SmeshMemory& mem,
+                              SmeshFunct funct,
+                              std::uint64_t rs1,
+                              std::uint64_t rs2);
 
   void mvin(SmeshMemory& mem,
             std::uint64_t dram_addr,
