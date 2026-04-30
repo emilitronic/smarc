@@ -391,8 +391,8 @@ int main(int argc, char* argv[]) {
   // Configure accelerator based on accel parameter (none/demo_add/array_sum/array_sum_mc)
   std::unique_ptr<AccelPort> accel_ptr;
   std::string accel_flag = std::string(accel);
-  std::transform(accel_flag.begin(), accel_flag.end(), accel_flag.begin(),
-    [](unsigned char c) { return static_cast<char>(std::tolower(c)); }); // lowercase accel flag
+  std::transform(accel_flag.begin(), accel_flag.end(), accel_flag.begin(), [](unsigned char c) { 
+    return static_cast<char>(std::tolower(c)); }); // lowercase accel flag
   if (accel_flag == "none") {
     accel_ptr.reset();
   } else if (accel_flag == "demo_add") {
@@ -407,8 +407,8 @@ int main(int argc, char* argv[]) {
   tile.attach_accelerator(accel_ptr.get());
   
   std::string mem_model_flag = std::string(mem_model);
-  std::transform(mem_model_flag.begin(), mem_model_flag.end(), mem_model_flag.begin(),
-    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  std::transform(mem_model_flag.begin(), mem_model_flag.end(), mem_model_flag.begin(), [](unsigned char c) { 
+    return static_cast<char>(std::tolower(c)); });
   if (ideal_mem || mem_model_flag == "ideal") {
     tile.set_mem_model(Tile1::MemModel::Ideal);
   } else {

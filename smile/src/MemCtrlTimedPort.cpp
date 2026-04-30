@@ -2,21 +2,21 @@
 // smile/src/MemCtrlTimedPort.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Feb 9 2026
-// Timed single-outstanding MemoryPort wrapper.
-
+/*
+Timed single-outstanding MemoryPort wrapper.
+*/
 #include "MemCtrlTimedPort.hpp"
 
-MemCtrlTimedPort::MemCtrlTimedPort(MemoryPort* backing, int latency_cycles)
-  : backing_(backing), latency_(latency_cycles) {
+MemCtrlTimedPort::MemCtrlTimedPort(MemoryPort* backing, int latency_cycles) : backing_(backing), latency_(latency_cycles) {
   assert_always(backing_ != nullptr, "MemCtrlTimedPort requires non-null backing port");
   if (latency_ < 0) latency_ = 0;
 }
-
+// Allows changing latency at runtime (e.g. for self-check regression matrix)
 void MemCtrlTimedPort::set_latency(int v) {
   if (v < 0) v = 0;
   latency_ = v;
 }
-
+// Immediate compatibility path: passthrough to backing port for direct read/write (e.g., for loader/debugger/accels).
 uint32_t MemCtrlTimedPort::read32(uint32_t addr) {
   return backing_->read32(addr);
 }
@@ -44,7 +44,7 @@ void MemCtrlTimedPort::cycle() {
 bool MemCtrlTimedPort::can_request() const {
   return !in_flight_ && !resp_valid_;
 }
-
+// Enqueue a read or write request with the given address (and data for write). The response will be available after latency_cycles have passed and can be checked with resp_valid()/resp_data() and consumed with resp_consume().
 void MemCtrlTimedPort::request_read32(uint32_t addr) {
   assert_always(can_request(), "MemCtrlTimedPort read request issued while busy");
   in_flight_ = true;

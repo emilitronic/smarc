@@ -8,6 +8,12 @@ CUSTOM-0 is interpreted as:
   rs1 = base address (byte address, 4-byte aligned)
   rs2 = length in 32-bit elements
   rd  = destination for the sum
+
+This accelerator does all of its work in issue() and returns the result immediately when issue() completes. 
+This is simpler than the multi-cycle version (AccelArraySumMc) but less realistic as an accelerator model, 
+since it does not allow for any overlap of accelerator execution with other tile work or for modeling of 
+latency while the accelerator is working. The multi-cycle version is also more flexible in how it can be 
+extended to support more complex behaviors (e.g., streaming access patterns, non-blocking command issue, etc.)  
 */
 #include "AccelArraySum.hpp"
 #include "Tile1.hpp"

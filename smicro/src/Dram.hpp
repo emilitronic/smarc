@@ -1,7 +1,7 @@
 // **********************************************************************
 // smicro/src/Dram.hpp
 // **********************************************************************
-// S Magierowski Aug 16 2025
+// Sebastian Claudiusz Magierowski Aug 16 2025
 
 // note: u64 in Cascade is a bitvec<64>, not a built-in integer. 
 // It isn’t a literal type, so you can’t use it in constexpr
