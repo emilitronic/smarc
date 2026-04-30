@@ -22,7 +22,6 @@ add_executable(tb_tile1
   src/AccelArraySumMc.cpp
   src/AccelDemoAdd.cpp
   src/Debugger.cpp
-  src/MemCtrlTimedPort.cpp
   src/tb_tile1.cpp
 )
 

@@ -1,11 +1,11 @@
 // **********************************************************************
-// smile/src/MemCtrlTimedPort.cpp
+// smem/src/MemCtrlTimedPort.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Feb 9 2026
 /*
 Timed single-outstanding MemoryPort wrapper.
 */
-#include "MemCtrlTimedPort.hpp"
+#include "smem/MemCtrlTimedPort.hpp"
 
 #include <cascade/Cascade.hpp>
 

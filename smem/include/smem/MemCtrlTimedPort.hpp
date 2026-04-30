@@ -1,5 +1,5 @@
 // **********************************************************************
-// smile/include/MemCtrlTimedPort.hpp
+// smem/include/smem/MemCtrlTimedPort.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Feb 9 2026
 /*

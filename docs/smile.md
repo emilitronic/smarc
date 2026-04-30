@@ -75,9 +75,8 @@ smile/
 │   ├── Debugger.hpp          # debugger REPL interface
 │   ├── Diagnostics.hpp       # postmortem diagnostics helpers
 │   ├── Instruction.hpp       # RV32 decoder interface
-│   ├── MemCtrlTimedPort.hpp  # fixed-latency MemoryPort wrapper
 │   ├── Tile1_exec.hpp        # exec_* helper declarations
-│   └── Tile1.hpp             # Tile1 core interface + MemoryPort API
+│   └── Tile1.hpp             # Tile1 core interface
 ├── src/
 │   ├── AccelArraySum.cpp     # single-cycle array-sum accelerator
 │   ├── AccelArraySumMc.cpp   # multi-cycle array-sum accelerator
@@ -85,7 +84,6 @@ smile/
 │   ├── Debugger.cpp          # debugger REPL + stepping logic
 │   ├── Diagnostics.cpp       # helper traces/asserts
 │   ├── Instruction.cpp       # RV32 decoder
-│   ├── MemCtrlTimedPort.cpp  # fixed-latency MemoryPort implementation
 │   ├── tb_tile1.cpp          # testbench main() + suite injection
 │   ├── Tile1_exec.cpp        # exec_* helpers (ALU, load/store, branch, CSR, custom0)
 │   ├── Tile1.cpp             # core fetch/decode/execute/trap + stall logic

@@ -1,6 +1,7 @@
 add_library(smem_memory
   src/Dram.cpp
   src/DramMemoryPort.cpp
+  src/MemCtrlTimedPort.cpp
 )
 
 target_include_directories(smem_memory
