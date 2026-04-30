@@ -18,6 +18,7 @@ Testbench for a RV tile.
 #include "AccelArraySum.hpp"
 #include "AccelArraySumMc.hpp"
 #include "AccelDemoAdd.hpp"
+#include "smem/DramMemoryPort.hpp"  // interface to DRAM
 
 #include <cascade/Clock.hpp>
 #include <cascade/SimDefs.hpp>
@@ -48,61 +49,6 @@ IntParameter(sw_threads, 1, "Software thread contexts to schedule (1 or 2). Defa
 BoolParameter(ignore_bpfile, false,
   "Do not load .smile_dbg breakpoint file on startup");
 
-// Simple adapter/shim class that exposes smicro's Dram as a MemoryPort for Tile1.
-class DramMemoryPort : public MemoryPort {
-public:
-  explicit DramMemoryPort(Dram& dram) : dram_(dram) {}
-
-  uint32_t read32(uint32_t addr) override {
-    uint32_t value = 0;
-    const uint64_t phys = dram_.get_base() + static_cast<uint64_t>(addr);
-    dram_.read(phys, &value, sizeof(value));
-    return value;
-  }
-
-  void write32(uint32_t addr, uint32_t value) override {
-    const uint64_t phys = dram_.get_base() + static_cast<uint64_t>(addr);
-    dram_.write(phys, &value, sizeof(value));
-  }
-
-  // not doing anything yet
-  // but will ultimately be used to simulate memory latency more realistically 
-  // by enqueuing requests and returning responses after some cycles
-  void cycle() override {}
-
-  bool can_request() const override {
-    return !resp_valid_;
-  }
-
-  void request_read32(uint32_t addr) override {
-    resp_data_ = read32(addr);
-    resp_valid_ = true;
-  }
-
-  void request_write32(uint32_t addr, uint32_t value) override {
-    write32(addr, value);
-    resp_data_ = 0;
-    resp_valid_ = true;
-  }
-
-  bool resp_valid() const override {
-    return resp_valid_;
-  }
-
-  uint32_t resp_data() const override {
-    return resp_data_;
-  }
-
-  void resp_consume() override {
-    resp_valid_ = false; // allow new requests after consuming response
-  }
-
-private:
-  Dram& dram_;
-  bool resp_valid_ = false; // for more realistic memory port behavior
-  uint32_t resp_data_ = 0;  // for more realistic memory port behavior
-};
-
 struct SuiteMeta {
   bool active = false;
   bool twice = false;
@@ -130,7 +76,7 @@ static std::unique_ptr<AccelPort> make_accel_for_flag(const std::string& accel_f
   return nullptr;
 }
 
-static bool inject_suite_program(DramMemoryPort& dram_port,
+static bool inject_suite_program(smem::DramMemoryPort& dram_port,
                                  Tile1& tile,
                                  uint32_t load_addr_value,
                                  uint32_t start_pc_value,
@@ -267,7 +213,7 @@ static int run_one_case(const std::string& accel_flag,
                         int steps_override) {
   Tile1 tile("tile1");
   Dram dram("dram", 0);
-  DramMemoryPort dram_port(dram);
+  smem::DramMemoryPort dram_port(dram);
   MemCtrlTimedPort memctrl(&dram_port, mem_lat);
   tile.attach_memory(&memctrl);
 
@@ -385,7 +331,7 @@ int main(int argc, char* argv[]) {
   // **************
   Tile1 tile("tile1");
   Dram dram("dram", 0);
-  DramMemoryPort dram_port(dram);
+  smem::DramMemoryPort dram_port(dram);
   MemCtrlTimedPort memctrl(&dram_port, (int)mem_latency);
   tile.attach_memory(&memctrl);
   // Configure accelerator based on accel parameter (none/demo_add/array_sum/array_sum_mc)

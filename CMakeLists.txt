@@ -20,7 +20,7 @@ set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "suppress cedar cmake_minimum warnings"
 add_subdirectory(${CEDAR_DIR} cedar_build EXCLUDE_FROM_ALL)
 
 # --- Now add your subprojects ---
+add_subdirectory(smem)
 add_subdirectory(smicro)
 add_subdirectory(smile)
 add_subdirectory(smesh)
-add_subdirectory(smem)

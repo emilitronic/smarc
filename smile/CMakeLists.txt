@@ -36,6 +36,7 @@ target_include_directories(tb_tile1
 target_link_libraries(tb_tile1
   PRIVATE
     tile1
+    smem_memory
     -lz
     -ltermcap
     -lpthread
