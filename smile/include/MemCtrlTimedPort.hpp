@@ -11,7 +11,7 @@ Also supports immediate read32/write32 passthrough for loader/debugger/accel use
 
 #pragma once
 
-#include "Tile1.hpp"
+#include "smem/MemoryPort.hpp"
 
 class MemCtrlTimedPort : public MemoryPort {
 public:

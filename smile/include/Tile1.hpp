@@ -12,29 +12,11 @@ Define tile processing sequence upon ticks as well as support methods and it's m
 #include <cstdint>
 #include <unordered_map>
 #include "Instruction.hpp"
+#include "smem/MemoryPort.hpp"
 struct ThreadContext {       // structure to hold thread context
   uint32_t pc       = 0;     // what pc to start the thread at
   uint32_t regs[32] = {};    // value of regs for thread
   bool active       = false; // denote whether thread active (or not)
-};
-
-// Software interface (not a simulatable object), just a protocol
-/* Lightweight memory port (sim how CPU talks to memory). Implementation (in tb_tile1.cpp for now)
-can back this with any Cascade component that exposes load/store helpers (e.g., smicro's Dram).
-Note: Tile1's byte/halfword loads (LB/LH/LBU/LHU) are synthesized by reading a 32-bit word
-via read32() and extracting the requested byte/halfword. */
-class MemoryPort {
-public:
-  virtual          ~MemoryPort()                          = default;
-  virtual uint32_t read32(uint32_t addr)                  = 0;
-  virtual void     write32(uint32_t addr, uint32_t value) = 0;
-  virtual void     cycle()                                = 0;
-  virtual bool     can_request() const                    = 0; // returns true when no pending response
-  virtual void     request_read32(uint32_t addr)          = 0; // enque read request
-  virtual void     request_write32(uint32_t addr, uint32_t value) = 0; // enque write request
-  virtual bool     resp_valid() const                     = 0;
-  virtual uint32_t resp_data() const                      = 0;
-  virtual void     resp_consume()                         = 0;
 };
 
 class AccelPort;

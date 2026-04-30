@@ -14,6 +14,7 @@ target_include_directories(tile1
 target_link_libraries(tile1
   PUBLIC
     cascade
+    smem_memory
 )
 
 add_executable(tb_tile1

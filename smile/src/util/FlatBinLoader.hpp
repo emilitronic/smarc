@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <string>
 
-class MemoryPort; // forward decl (Tile1.hpp defines it)
+class MemoryPort; // smem/MemoryPort.hpp defines it
 
 /*
 Load a flat little-endian binary into memory via MemoryPort::write32().

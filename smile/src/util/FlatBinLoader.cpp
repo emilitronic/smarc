@@ -4,7 +4,7 @@
 // Sebastian Claudiusz Magierowski Oct 15 2025 
 
 #include "FlatBinLoader.hpp"
-#include "Tile1.hpp" // for MemoryPort
+#include "smem/MemoryPort.hpp"
 #include <cstdint>
 #include <fstream>
 #include <vector>

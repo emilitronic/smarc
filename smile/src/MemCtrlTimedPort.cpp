@@ -7,6 +7,8 @@ Timed single-outstanding MemoryPort wrapper.
 */
 #include "MemCtrlTimedPort.hpp"
 
+#include <cascade/Cascade.hpp>
+
 MemCtrlTimedPort::MemCtrlTimedPort(MemoryPort* backing, int latency_cycles) : backing_(backing), latency_(latency_cycles) {
   assert_always(backing_ != nullptr, "MemCtrlTimedPort requires non-null backing port");
   if (latency_ < 0) latency_ = 0;
