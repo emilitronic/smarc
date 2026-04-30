@@ -23,7 +23,7 @@ update_resp() <- m_resp |<==| out_core_resp update_retire() s_resp |<==| s_resp
 #include "L1.hpp"
 #include "L2.hpp"
 #include "smem/Dram.hpp"
-#include "MemCtrl.hpp"
+#include "smem/MemCtrl.hpp"
 #include "NnAccel.hpp"
 #include "MemTester.hpp"
 #include "Tile1Core.hpp" // wrapper for Tile1 RISC-V core

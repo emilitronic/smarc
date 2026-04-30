@@ -1,5 +1,5 @@
 // **********************************************************************
-// smicro/src/MemCtrl.cpp
+// smem/src/MemCtrl.cpp
 // **********************************************************************
 // S Magierowski Aug 22 2025
 /*
@@ -18,7 +18,7 @@ Some details:
   - if a LOAD matches a STORE in the queue, return that value to core right away (and still send that STORE to DRAM)
 */
 
-#include "MemCtrl.hpp"
+#include "smem/MemCtrl.hpp"
 
 MemCtrl::MemCtrl(std::string /*name*/, IMPL_CTOR) {  // constructor registers two update fns. & says what they touch
   UPDATE(update_issue).reads(in_core_req).writes(s_req);

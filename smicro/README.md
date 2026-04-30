@@ -81,7 +81,7 @@ Recommended traces:
 - Components and wiring:
   - SoC top: `smicro/src/SoC.hpp` + `smicro/src/SoC.cpp`.
   - Core smoke FSM: `smicro/src/RvCore.cpp`.
-  - MemCtrl timing/ACK/RAW: `smicro/src/MemCtrl.cpp`.
+  - MemCtrl timing/ACK/RAW: `smem/src/MemCtrl.cpp`.
   - DRAM storage+HAL: `smem/src/Dram.cpp`.
 
 ## Timing Clarification

@@ -1,6 +1,7 @@
 add_library(smem_memory
   src/Dram.cpp
   src/DramMemoryPort.cpp
+  src/MemCtrl.cpp
   src/MemCtrlTimedPort.cpp
 )
 
