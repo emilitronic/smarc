@@ -1,7 +1,7 @@
 // smicro/src/L2.hpp
 #pragma once
 #include <cascade/Cascade.hpp>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 
 class L2 : public Component {
   DECLARE_COMPONENT(L2);

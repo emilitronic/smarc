@@ -40,11 +40,11 @@ In the `tb_tile1` testbench, the wiring looks like this:
                     |
                     | MemoryPort::read32 / write32
                     V
-       DramMemoryPort (shim, defined in tb_tile1.cpp)
+       smem::DramMemoryPort (shared shim)
                     |
                     | Dram::read / Dram::write
                     V
-          Dram (pulled in from smicro/src/Dram.hpp)
+          Dram (shared smem DRAM model)
 
           +-------------------+
           | AccelArraySum     |

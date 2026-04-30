@@ -82,7 +82,7 @@ Recommended traces:
   - SoC top: `smicro/src/SoC.hpp` + `smicro/src/SoC.cpp`.
   - Core smoke FSM: `smicro/src/RvCore.cpp`.
   - MemCtrl timing/ACK/RAW: `smicro/src/MemCtrl.cpp`.
-  - DRAM storage+HAL: `smicro/src/Dram.cpp`.
+  - DRAM storage+HAL: `smem/src/Dram.cpp`.
 
 ## Timing Clarification
 - MemCtrl owns latency (`-mem_latency`), DRAM is zero-latency, FIFOs are 0/0 delay.

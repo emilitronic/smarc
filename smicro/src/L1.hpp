@@ -4,7 +4,7 @@
 // S Magierowski Aug 16 2025
 #pragma once
 #include <cascade/Cascade.hpp>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 
 class L1 : public Component {
   DECLARE_COMPONENT(L1);

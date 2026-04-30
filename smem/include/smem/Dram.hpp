@@ -1,5 +1,5 @@
 // **********************************************************************
-// smicro/src/Dram.hpp
+// smem/include/smem/Dram.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 16 2025
 
@@ -16,7 +16,7 @@
 
 #pragma once
 #include <cascade/Cascade.hpp>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 #include <vector>
 
 class Dram : public Component {

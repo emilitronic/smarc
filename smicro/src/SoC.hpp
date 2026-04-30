@@ -16,13 +16,13 @@ update_resp() <- m_resp |<==| out_core_resp update_retire() s_resp |<==| s_resp
 #pragma once
 
 #include <cascade/Cascade.hpp>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 #include "AccelCmd.hpp"
 #include "SmicroTypes.hpp" 
 #include "RvCore.hpp"
 #include "L1.hpp"
 #include "L2.hpp"
-#include "Dram.hpp"
+#include "smem/Dram.hpp"
 #include "MemCtrl.hpp"
 #include "NnAccel.hpp"
 #include "MemTester.hpp"

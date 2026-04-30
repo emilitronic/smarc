@@ -42,7 +42,7 @@ Notes / v1 constraints:
 
 #pragma once
 #include <cascade/Cascade.hpp>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 #include <cstdint>
 
 class AccelMemBridge : public Component {

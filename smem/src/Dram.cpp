@@ -1,5 +1,5 @@
 // **********************************************************************
-// smicro/src/Dram.cpp
+// smem/src/Dram.cpp
 // **********************************************************************
 // S Magierowski Aug 16 2025
 /*
@@ -9,7 +9,7 @@
 <==| s_resp
    +------------
 */
-#include "Dram.hpp"
+#include "smem/Dram.hpp"
 #include <cstring>
 
 Dram::Dram(std::string /*name*/, int latency, IMPL_CTOR) // DRAM constructor

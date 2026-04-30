@@ -8,7 +8,6 @@ file(GLOB SMICRO_BASE_SRCS
   src/MemCtrl.cpp
   src/L1.cpp
   src/L2.cpp
-  src/Dram.cpp
   src/NnAccel.cpp
   src/MemXbar.cpp
   src/MemTester.cpp

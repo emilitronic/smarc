@@ -17,9 +17,9 @@ Tile1Core: minimal wrapper to host Tile1 inside smicro ecosystem.
 #pragma once
 #include <cascade/Cascade.hpp>
 #include <cstdint>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 #include "Tile1.hpp"        // tile from smile
-#include "Dram.hpp"         // if you want to connect DRAM
+#include "smem/Dram.hpp"         // if you want to connect DRAM
 
 class AccelPort;
 namespace smem { class DramMemoryPort; }

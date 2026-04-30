@@ -5,7 +5,7 @@
 
 #pragma once
 #include <cascade/Cascade.hpp>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 #include <vector>
 #include <unordered_map>
 

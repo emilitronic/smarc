@@ -23,14 +23,11 @@ add_executable(tb_tile1
   src/Debugger.cpp
   src/MemCtrlTimedPort.cpp
   src/tb_tile1.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/../smicro/src/Dram.cpp
 )
 
 target_include_directories(tb_tile1
   PRIVATE
     include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../smicro/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../smicro/src
 )
 
 target_link_libraries(tb_tile1

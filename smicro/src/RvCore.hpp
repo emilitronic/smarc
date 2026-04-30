@@ -24,7 +24,7 @@ update_resp() <- m_resp |<==| out_core_resp update_retire() s_resp |<==| s_resp
 */
 #pragma once
 #include <cascade/Cascade.hpp>
-#include "MemTypes.hpp" // mem req/resp packet types
+#include "smem/MemTypes.hpp" // mem req/resp packet types
 
 class RvCore : public Component {
   DECLARE_COMPONENT(RvCore); 

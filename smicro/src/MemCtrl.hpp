@@ -10,7 +10,7 @@
 #pragma once
 #include <cascade/Cascade.hpp>
 #include <deque>
-#include "MemTypes.hpp"
+#include "smem/MemTypes.hpp"
 
 class MemCtrl : public Component {
   DECLARE_COMPONENT(MemCtrl);

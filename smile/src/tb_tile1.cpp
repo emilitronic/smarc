@@ -13,7 +13,7 @@ Testbench for a RV tile.
 #include "Diagnostics.hpp"
 #include "util/FlatBinLoader.hpp"
 #include "MemCtrlTimedPort.hpp"
-#include "../../smicro/src/Dram.hpp"
+#include "smem/Dram.hpp"
 #include "AccelPort.hpp"
 #include "AccelArraySum.hpp"
 #include "AccelArraySumMc.hpp"
