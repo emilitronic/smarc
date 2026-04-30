@@ -3,6 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Apr 30 2026
 #include "smem/DramMemoryPort.hpp"
+#include "Dram.hpp"
 
 namespace smem {
 

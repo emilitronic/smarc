@@ -8,9 +8,10 @@
 #pragma once
 
 #include "Tile1.hpp"
-#include "Dram.hpp"
 
 #include <cstdint>
+
+class Dram;
 
 namespace smem {
 

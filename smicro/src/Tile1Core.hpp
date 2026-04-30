@@ -22,6 +22,7 @@ Tile1Core: minimal wrapper to host Tile1 inside smicro ecosystem.
 #include "Dram.hpp"         // if you want to connect DRAM
 
 class AccelPort;
+namespace smem { class DramMemoryPort; }
 
 class Tile1Core : public Component {
   DECLARE_COMPONENT(Tile1Core);
@@ -48,7 +49,6 @@ public:
 private:
   Tile1 tile_;                  // the actual RISC-V core (in smile)
   Dram* dram_ = nullptr;        // the DRAM to connect to
-  // We'll allocate this in the .cpp once we know the Dram
-  class DramMemoryPort;         // forward declaration of nested adapter helper class
-  DramMemoryPort* dram_port_ = nullptr;
+  // Shared adapter from smem, allocated once DRAM is attached.
+  smem::DramMemoryPort* dram_port_ = nullptr;
 };

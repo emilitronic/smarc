@@ -34,7 +34,7 @@ target_include_directories(smicro
     ${CMAKE_CURRENT_SOURCE_DIR}/../smile/include 
 )
 
-target_link_libraries(smicro cascade -lz -ltermcap -lpthread)
+target_link_libraries(smicro cascade smem_memory -lz -ltermcap -lpthread)
 
 target_compile_options(smicro PRIVATE -Wno-deprecated-builtins) # hide Cascade's depracation warnings
 
@@ -52,4 +52,4 @@ target_include_directories(test_vectadd
     ${CMAKE_CURRENT_SOURCE_DIR}/../smile/include
 )
 
-target_link_libraries(test_vectadd cascade -lz -ltermcap -lpthread)
+target_link_libraries(test_vectadd cascade smem_memory -lz -ltermcap -lpthread)
