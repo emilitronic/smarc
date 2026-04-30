@@ -46,7 +46,7 @@ public:
   void set_pc(uint32_t pc);
 
 private:
-  Tile1 tile_;                  // the actual RISC-V core
+  Tile1 tile_;                  // the actual RISC-V core (in smile)
   Dram* dram_ = nullptr;        // the DRAM to connect to
   // We'll allocate this in the .cpp once we know the Dram
   class DramMemoryPort;         // forward declaration of nested adapter helper class
