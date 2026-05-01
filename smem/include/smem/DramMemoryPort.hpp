@@ -11,9 +11,9 @@
 
 #include <cstdint>
 
-class Dram;
-
 namespace smem {
+
+class Dram;
 
 class DramMemoryPort : public MemoryPort {
 public:

@@ -67,7 +67,7 @@ public:
   MemTester *tester_           = nullptr;
   L1      *l1_                 = nullptr;
   L2      *l2_                 = nullptr;
-  Dram    *dram_               = nullptr;
+  smem::Dram *dram_            = nullptr;
   MemCtrl *mem_                = nullptr;
   NnAccel *accel_              = nullptr;
 

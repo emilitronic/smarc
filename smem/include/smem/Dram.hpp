@@ -19,6 +19,8 @@
 #include "smem/MemTypes.hpp"
 #include <vector>
 
+namespace smem {
+
 class Dram : public Component {
   DECLARE_COMPONENT(Dram);
 public:
@@ -52,3 +54,5 @@ private:
   bool   hold_valid_ = false;
   MemReq hold_{};
 };
+
+} // namespace smem

@@ -42,13 +42,13 @@ public:
   // -----------------------------
   void update();
   void reset();
-  void attach_dram(Dram* dram); // let SoC give Tile1Core a DRAM to talk to
+  void attach_dram(smem::Dram* dram); // let SoC give Tile1Core a DRAM to talk to
   void attach_accelerator(AccelPort* accel);
   void set_pc(uint32_t pc);
 
 private:
   Tile1 tile_;                  // the actual RISC-V core (in smile)
-  Dram* dram_ = nullptr;        // the DRAM to connect to
+  smem::Dram* dram_ = nullptr;  // the DRAM to connect to
   // Shared adapter from smem, allocated once DRAM is attached.
   smem::DramMemoryPort* dram_port_ = nullptr;
 };

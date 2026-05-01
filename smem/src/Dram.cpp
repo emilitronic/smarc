@@ -12,6 +12,8 @@
 #include "smem/Dram.hpp"
 #include <cstring>
 
+namespace smem {
+
 Dram::Dram(std::string /*name*/, int latency, IMPL_CTOR) // DRAM constructor
   : latency_(latency)
 {
@@ -128,3 +130,5 @@ void Dram::reset() {
   uint64_t v = 0x1122334455667788ull;
   std::memcpy(&mem_[0], &v, 8);
 }
+
+} // namespace smem

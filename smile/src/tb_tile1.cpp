@@ -212,7 +212,7 @@ static int run_one_case(const std::string& accel_flag,
                         int mem_lat,
                         int steps_override) {
   Tile1 tile("tile1");
-  Dram dram("dram", 0);
+  smem::Dram dram("dram", 0);
   smem::DramMemoryPort dram_port(dram);
   MemCtrlTimedPort memctrl(&dram_port, mem_lat);
   tile.attach_memory(&memctrl);
@@ -330,7 +330,7 @@ int main(int argc, char* argv[]) {
   // Step 2: Create components
   // **************
   Tile1 tile("tile1");
-  Dram dram("dram", 0);
+  smem::Dram dram("dram", 0);
   smem::DramMemoryPort dram_port(dram);
   MemCtrlTimedPort memctrl(&dram_port, (int)mem_latency);
   tile.attach_memory(&memctrl);

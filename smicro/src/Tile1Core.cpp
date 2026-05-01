@@ -18,7 +18,7 @@ Tile1Core::Tile1Core(std::string name, IMPL_CTOR) // Tile1Core constructor imple
   tile_.clk << clk; // connect Tile1's clock to Tile1Core wrapper clock
 }
 
-void Tile1Core::attach_dram(Dram* dram) { // to tell Tile1Core which DRAM instance to use, 
+void Tile1Core::attach_dram(smem::Dram* dram) { // to tell Tile1Core which DRAM instance to use, 
   dram_ = dram; // remembers which DRAM instance we're using (i.e., save the pointer)
 
   // Clean up any existing adapter
