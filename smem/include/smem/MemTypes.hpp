@@ -8,6 +8,7 @@
 
 // Minimal memory request/response packet types (FIFO-friendly)
 // Team convention: tags and errors are explicit for routing/arbitration.
+
 struct MemReq {
   u64  addr  = 0;     // byte address
   u64  wdata = 0;     // write data (single beat for now)

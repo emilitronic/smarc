@@ -12,6 +12,8 @@
 #include <deque>
 #include "smem/MemTypes.hpp"
 
+namespace smem {
+
 class MemCtrl : public Component {
   DECLARE_COMPONENT(MemCtrl);
 public:
@@ -44,3 +46,5 @@ private:
   bool find_pending_store(u64 addr, u16 size, u64 &val) const;
   bool posted_writes_ = true; // if false, ack store when it drains to DRAM
 };
+
+} // namespace smem

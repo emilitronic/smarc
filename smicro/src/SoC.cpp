@@ -71,7 +71,7 @@ SoC::SoC(AttachMode mode, bool use_test_driver, IMPL_CTOR)
   l1_        = new L1("l1");
   l2_        = new L2("l2");
   dram_      = new smem::Dram("dram", /*latency cycles*/ 0);
-  mem_       = new MemCtrl("mem");
+  mem_       = new smem::MemCtrl("mem");
   accel_     = new NnAccel("accel", mode);
   ab_->set_addr_base(dram_->get_base());
 

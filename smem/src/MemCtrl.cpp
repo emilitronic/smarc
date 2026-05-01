@@ -20,6 +20,8 @@ Some details:
 
 #include "smem/MemCtrl.hpp"
 
+namespace smem {
+
 MemCtrl::MemCtrl(std::string /*name*/, IMPL_CTOR) {  // constructor registers two update fns. & says what they touch
   UPDATE(update_issue).reads(in_core_req).writes(s_req);
   UPDATE(update_retire).reads(s_resp).writes(out_core_resp);
@@ -104,3 +106,5 @@ bool MemCtrl::writes_empty() const {
   for (const auto &q : pipe_) if (q.r.write) return false; // if any queued request is a store, not empty
   return true;                                             // otherwise all stores are drained
 }
+
+} // namespace smem

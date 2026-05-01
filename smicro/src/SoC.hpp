@@ -68,7 +68,7 @@ public:
   L1      *l1_                 = nullptr;
   L2      *l2_                 = nullptr;
   smem::Dram *dram_            = nullptr;
-  MemCtrl *mem_                = nullptr;
+  smem::MemCtrl *mem_          = nullptr;
   NnAccel *accel_              = nullptr;
 
 private:
