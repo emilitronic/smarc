@@ -2,10 +2,6 @@
 // smem/include/smem/Dram.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 16 2025
-
-// note: u64 in Cascade is a bitvec<64>, not a built-in integer. 
-// It isn’t a literal type, so you can’t use it in constexpr
-
 /*
    +--- Dram ---
 ==>| s_req 
@@ -13,6 +9,8 @@
 <==| s_resp
    +------------
 */
+// note: u64 in Cascade is a bitvec<64>, not a built-in integer. 
+// It isn’t a literal type, so you can’t use it in constexpr
 
 #pragma once
 #include <cascade/Cascade.hpp>
@@ -26,9 +24,9 @@ class Dram : public Component {
 public:
   Dram(std::string name, int latency, COMPONENT_CTOR);
   Clock(clk);
-  FifoInput (MemReq,  s_req);
-  FifoOutput(MemResp, s_resp);
-  void set_latency(int v);   // Set DRAM latency in cycles. Applies to the next accepted request (in-flight unaffected).
+  FifoInput (MemReq,  s_req);  // s_req input port
+  FifoOutput(MemResp, s_resp); // s_resp output port
+  void set_latency(int v); // Set DRAM latency in cycles. Applies to next accepted req (in-flight unaffected).
 
   // HAL/test helpers
   uint64_t get_base() const { return base_addr_; }
@@ -39,10 +37,10 @@ public:
   void  read(uint64_t addr, void* dst, uint64_t bytes);
 
 private:
-  int latency_ = 0;
   std::vector<char> mem_;  // storage for simulated DRAM, C++ vector of characters (bytes)
-  u64 next_addr_ = 0;      // counter to keep track of next available memory address
   static constexpr uint64_t base_addr_ = 0x80000000ull; // base address mapped to mem_[0]
+  u64 next_addr_ = 0;      // counter to keep track of next available memory address
+  int latency_ = 0;
 
   void update();
   void reset();

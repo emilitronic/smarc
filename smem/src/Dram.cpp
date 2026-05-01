@@ -1,7 +1,7 @@
 // **********************************************************************
 // smem/src/Dram.cpp
 // **********************************************************************
-// S Magierowski Aug 16 2025
+// Sebastian Claudiusz Magierowski Aug 16 2025
 /*
    +--- Dram ---
 ==>| s_req 
@@ -14,8 +14,7 @@
 
 namespace smem {
 
-Dram::Dram(std::string /*name*/, int latency, IMPL_CTOR) // DRAM constructor
-  : latency_(latency)
+Dram::Dram(std::string /*name*/, int latency, IMPL_CTOR) : latency_(latency) // DRAM constructor
 {
   UPDATE(update).reads(s_req).writes(s_resp); // hint let's Cascade order producer->consumer correctly
   mem_.resize(256 * 1024 * 1024);             // upon construction resizes (allocates) mem_ to 256MB of DRAM
