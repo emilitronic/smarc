@@ -13,6 +13,8 @@ Also supports immediate read32/write32 passthrough for loader/debugger/accel use
 
 #include "smem/MemoryPort.hpp"
 
+namespace smem {
+
 class MemCtrlTimedPort : public MemoryPort {
 public:
   MemCtrlTimedPort(MemoryPort* backing, int latency_cycles); // constructor takes pointer to backing port and fixed latency in cycles
@@ -43,3 +45,5 @@ private:
   bool resp_valid_ = false;
   uint32_t resp_data_ = 0;
 };
+
+} // namespace smem

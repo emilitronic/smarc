@@ -214,7 +214,7 @@ static int run_one_case(const std::string& accel_flag,
   Tile1 tile("tile1");
   smem::Dram dram("dram", 0);
   smem::DramMemoryPort dram_port(dram);
-  MemCtrlTimedPort memctrl(&dram_port, mem_lat);
+  smem::MemCtrlTimedPort memctrl(&dram_port, mem_lat);
   tile.attach_memory(&memctrl);
 
   std::string err;
@@ -332,7 +332,7 @@ int main(int argc, char* argv[]) {
   Tile1 tile("tile1");
   smem::Dram dram("dram", 0);
   smem::DramMemoryPort dram_port(dram);
-  MemCtrlTimedPort memctrl(&dram_port, (int)mem_latency);
+  smem::MemCtrlTimedPort memctrl(&dram_port, (int)mem_latency);
   tile.attach_memory(&memctrl);
   // Configure accelerator based on accel parameter (none/demo_add/array_sum/array_sum_mc)
   std::unique_ptr<AccelPort> accel_ptr;

@@ -9,6 +9,8 @@ Timed single-outstanding MemoryPort wrapper.
 
 #include <cascade/Cascade.hpp>
 
+namespace smem {
+
 MemCtrlTimedPort::MemCtrlTimedPort(MemoryPort* backing, int latency_cycles) : backing_(backing), latency_(latency_cycles) {
   assert_always(backing_ != nullptr, "MemCtrlTimedPort requires non-null backing port");
   if (latency_ < 0) latency_ = 0;
@@ -75,3 +77,5 @@ uint32_t MemCtrlTimedPort::resp_data() const {
 void MemCtrlTimedPort::resp_consume() {
   resp_valid_ = false;
 }
+
+} // namespace smem
