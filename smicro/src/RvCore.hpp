@@ -34,8 +34,8 @@ public:
   Clock(clk);
 
   // Memory master
-  FifoOutput(MemReq,  m_req);  // o/p queue carries req's to mem; push to it & check full() or freeCount()
-  FifoInput (MemResp, m_resp); // i/p queue carries resp's from mem; pop from it & check empty() or popCount()
+  FifoOutput(smem::MemReq,  m_req);  // o/p queue carries req's to mem; push to it & check full() or freeCount()
+  FifoInput (smem::MemResp, m_resp); // i/p queue carries resp's from mem; pop from it & check empty() or popCount()
 
   void update();
   void reset();

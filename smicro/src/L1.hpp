@@ -13,11 +13,11 @@ public:
   Clock(clk);
 
   // Upstream (core-facing)
-  FifoInput (MemReq,  up_req);
-  FifoOutput(MemResp, up_resp);
+  FifoInput (smem::MemReq,  up_req);
+  FifoOutput(smem::MemResp, up_resp);
   // Downstream (L2-facing)
-  FifoOutput(MemReq,  down_req);
-  FifoInput (MemResp, down_resp);
+  FifoOutput(smem::MemReq,  down_req);
+  FifoInput (smem::MemResp, down_resp);
   void update();
   void reset();
 };

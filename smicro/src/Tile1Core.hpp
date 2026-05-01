@@ -34,8 +34,8 @@ public:
   // Interface ports
   // -----------------------------
   Clock(clk);
-  FifoOutput(MemReq,  m_req);   // same interface as RvCore
-  FifoInput (MemResp, m_resp);
+  FifoOutput(smem::MemReq,  m_req);   // same interface as RvCore
+  FifoInput (smem::MemResp, m_resp);
   
   // -----------------------------
   // Simulation methods

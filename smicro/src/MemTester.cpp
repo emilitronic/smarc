@@ -29,7 +29,7 @@ void MemTester::update_issue() {
   // Issue at most one op per cycle if available and downstream can accept
   if (pc_ < script_.size() && !m_req.full()) {
     const Op &op = script_[pc_];
-    MemReq r{};
+    smem::MemReq r{};
     r.addr  = (u64)op.addr;
     r.size  = (u16)op.size;
     r.id    = (u16)next_id_++;

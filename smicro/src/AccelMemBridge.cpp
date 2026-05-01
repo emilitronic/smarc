@@ -64,7 +64,7 @@ void AccelMemBridge::resp_consume() {
 void AccelMemBridge::update() {
   // emit aligned 8B load request (for LOAD32 or STORE32-RMW) and advance to waiting
   if (phase_ == Phase::ISSUE_LOAD64 && !m_req.full()) {
-    MemReq req{};
+    smem::MemReq req{};
     req.addr  = static_cast<u64>(addr_base_ + aligned_addr_);
     req.wdata = static_cast<u64>(0);
     req.size  = static_cast<u16>(8); // MemCtrl requires 8-byte granularity
@@ -76,7 +76,7 @@ void AccelMemBridge::update() {
   }
   // consume load response; either finish LOAD32 (select lane) or compute merged word for STORE32
   if (phase_ == Phase::WAIT_LOAD64_RESP && !m_resp.empty()) {
-    const MemResp resp         = m_resp.pop();
+    const smem::MemResp resp         = m_resp.pop();
     const uint64_t loaded_word = static_cast<uint64_t>(resp.rdata);
 
     if (op_kind_ == OpKind::LOAD32) {
@@ -99,7 +99,7 @@ void AccelMemBridge::update() {
   }
   // emit aligned 8B store request with merged RMW payload and advance to waiting for ACK
   if (phase_ == Phase::ISSUE_STORE64 && !m_req.full()) {
-    MemReq req{};
+    smem::MemReq req{};
     req.addr  = static_cast<u64>(addr_base_ + aligned_addr_);
     req.wdata = static_cast<u64>(rmw_word64_);
     req.size  = static_cast<u16>(8); // MemCtrl requires 8-byte granularity

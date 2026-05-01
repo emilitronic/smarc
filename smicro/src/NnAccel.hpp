@@ -18,8 +18,8 @@ public:
   FifoInput (AccelCmd, cmd_in);
   FifoOutput(bit,      done);
   // Memory master
-  FifoOutput(MemReq,   m_req);
-  FifoInput (MemResp,  m_resp);
+  FifoOutput(smem::MemReq,   m_req);
+  FifoInput (smem::MemResp,  m_resp);
 
   // HAL methods
   void set_src_dst(u64 a, u64 b, u64 c, u32 n); // config accel w/ addrs & size of vectors

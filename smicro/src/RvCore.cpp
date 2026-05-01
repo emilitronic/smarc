@@ -18,7 +18,7 @@ void RvCore::update_req() { // issue requests
   switch (state_) {
     case S_IDLE: {
       if (m_req.full()) break;
-      MemReq w{}; w.addr = (uint64_t)test_addr_; w.write = true; w.size = 8; w.wdata = (uint64_t)pattern_;
+      smem::MemReq w{}; w.addr = (uint64_t)test_addr_; w.write = true; w.size = 8; w.wdata = (uint64_t)pattern_;
       m_req.push(w);
       trace("core: sent store @0x%llx = 0x%llx", (unsigned long long)w.addr, (unsigned long long)w.wdata);
       state_ = S_W_SENT;
@@ -26,7 +26,7 @@ void RvCore::update_req() { // issue requests
     }
     case S_R_REQ: {
       if (m_req.full()) break;
-      MemReq r{}; r.addr = (uint64_t)test_addr_; r.write = false; r.size = 8; r.wdata = 0;
+      smem::MemReq r{}; r.addr = (uint64_t)test_addr_; r.write = false; r.size = 8; r.wdata = 0;
       m_req.push(r);
       trace("core: sent load  @0x%llx", (unsigned long long)r.addr);
       state_ = S_R_WAIT;

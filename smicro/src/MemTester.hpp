@@ -17,8 +17,8 @@ public:
   Clock(clk);
 
   // Memory master ports (same shape as RvCore)
-  FifoOutput(MemReq,  m_req);
-  FifoInput (MemResp, m_resp);
+  FifoOutput(smem::MemReq,  m_req);
+  FifoInput (smem::MemResp, m_resp);
 
   // Scripted ops
   enum Kind : uint8_t { LOAD=0, STORE=1 };

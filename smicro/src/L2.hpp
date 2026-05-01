@@ -10,14 +10,14 @@ public:
   Clock(clk);
 
   // Core-facing
-  FifoInput (MemReq,  core_req);
-  FifoOutput(MemResp, core_resp);
+  FifoInput (smem::MemReq,  core_req);
+  FifoOutput(smem::MemResp, core_resp);
   // DRAM-facing
-  FifoOutput(MemReq,  mem_req);
-  FifoInput (MemResp, mem_resp);
+  FifoOutput(smem::MemReq,  mem_req);
+  FifoInput (smem::MemResp, mem_resp);
   // Accelerator-facing
-  FifoInput (MemReq,  accel_req);
-  FifoOutput(MemResp, accel_resp);
+  FifoInput (smem::MemReq,  accel_req);
+  FifoOutput(smem::MemResp, accel_resp);
   void update();
   void reset();
 };

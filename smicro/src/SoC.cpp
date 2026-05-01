@@ -38,7 +38,7 @@ Smoke-test topologies (no caches; accel off)
        results() <- m_resp    |<==| out_core_resp update_retire() s_resp |<==| s_resp
     --------------------------+   +--------------------------------------+   +------------
 
-    - Tile1Core’s MemReq/MemResp ports are parked:
+    - Tile1Core’s smem::MemReq/smem::MemResp ports are parked:
         core.m_req  -> bit bucket
         core.m_resp <- 0
       so the core is not on the MemCtrl protocol path yet.
@@ -47,7 +47,7 @@ Smoke-test topologies (no caches; accel off)
 
 Planned evolution:
     Later, Tile1Core will grow a small LSU that drives m_req/m_resp directly, replacing
-    MemTester as the MemCtrl client so the real core exercises the same MemReq/MemResp path.
+    MemTester as the MemCtrl client so the real core exercises the same smem::MemReq/smem::MemResp path.
 */
 #include "SoC.hpp"
 #include "AccelMemBridge.hpp"
@@ -65,7 +65,7 @@ SoC::SoC(AttachMode mode, bool use_test_driver, IMPL_CTOR)
   // ---- Allocate blocks ----
   // core_   = new RvCore("core");
   core_      = new Tile1Core("core");      // Tile1Core: minimal wrapper to host Tile1 in smicro
-  ab_        = new AccelMemBridge("ab");   // bridge between accel & MemCtrl (implements MemReq/MemResp ifc on one side, and custom accel-friendly ifc on the other)
+  ab_        = new AccelMemBridge("ab");   // bridge between accel & MemCtrl (implements smem::MemReq/smem::MemResp ifc on one side, and custom accel-friendly ifc on the other)
   array_sum_ = new AccelArraySumSoc(*ab_); // accel model obj (pass bridge for mem ld/st)
   tester_    = new MemTester("tester");
   l1_        = new L1("l1");

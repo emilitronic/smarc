@@ -14,7 +14,7 @@ Purpose:
 How it works:
 - issue(): validates verb/alignment and captures (base,len), then marks the op busy.
 - tick(): repeatedly schedules one 32-bit load at a time using AccelMemBridge
-  (AccelMemBridge emits MemReq/MemResp traffic into MemCtrl), accumulates a
+  (AccelMemBridge emits smem::MemReq/smem::MemResp traffic into MemCtrl), accumulates a
   uint32_t sum, and finally publishes a sticky response (sum) to the core.
 - Completion is reported through has_response()/read_response() per AccelPort v1.
 
@@ -33,7 +33,7 @@ Mini topology (where this block sits in smicro):
                v
         +------------------+
         |  AccelMemBridge  |
-        | (MemReq/MemResp) |
+        | (smem::MemReq/smem::MemResp) |
         +------------------+
                |
                |  MemCtrl protocol FIFOs
