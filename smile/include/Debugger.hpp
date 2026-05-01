@@ -16,7 +16,7 @@ namespace smile {
 
 struct DebuggerState {
   Tile1 &tile;
-  MemoryPort &mem;
+  smem::MemoryPort &mem;
   int configured_threads; // let debugger know if 1 or 2 threads are configured
   ThreadContext threads[2];
   bool saw_breakpoint_trap[2];
@@ -32,7 +32,7 @@ struct DebuggerState {
   bool trace_enabled;
   std::vector<uint32_t> breakpoints;
 
-  DebuggerState(Tile1 &t, MemoryPort &m, int thread_count);
+  DebuggerState(Tile1 &t, smem::MemoryPort &m, int thread_count);
   void reset();
 };
 

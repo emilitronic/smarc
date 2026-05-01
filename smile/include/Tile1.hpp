@@ -33,7 +33,7 @@ public:
   void reset();
 
   // External interfaces
-  void attach_memory(MemoryPort* mem); // assigns Tile1 ptr to a mem port
+  void attach_memory(smem::MemoryPort* mem); // assigns Tile1 ptr to a mem port
   void attach_accelerator(AccelPort* accel) { accel_port_ = accel; } // assigns Tile1 ptr to an accel port
 
   // Trap and privilege enums
@@ -129,8 +129,8 @@ public:
 
   // External port accessors
   // overloaded fns. based on constness for ld/st mem ops (accessors for private mem_port_ in Tile1)
-  MemoryPort*       memory()            { return mem_port_; } // non-const ver.: used on non-const Tile1 obj. (so can update memory)
-  const MemoryPort* memory()      const { return mem_port_; } // const ver. used on const Tile1 obj. (so debug code won't accidetally change things)
+  smem::MemoryPort*       memory()            { return mem_port_; } // non-const ver.: used on non-const Tile1 obj. (so can update memory)
+  const smem::MemoryPort* memory()      const { return mem_port_; } // const ver. used on const Tile1 obj. (so debug code won't accidetally change things)
   AccelPort*        accelerator()       { return accel_port_; }
   const AccelPort*  accelerator() const { return accel_port_; }
 
@@ -178,7 +178,7 @@ private:
   void complete_dmem(uint32_t resp_data); // helper for completing dmem access after stall (update RF, clear fields)
 
   // Attached interfaces
-  MemoryPort* mem_port_ = nullptr;   // tile's pointer to external mem port   (lets it fetch instr & read/write data)
+  smem::MemoryPort* mem_port_ = nullptr;   // tile's pointer to external mem port   (lets it fetch instr & read/write data)
   AccelPort*  accel_port_ = nullptr; // currently attached accelerator, seen through the AccelPort interface
 
   // Private state for core execution state

@@ -9,11 +9,11 @@
 
 #include "AccelPort.hpp"
 
-class MemoryPort;
+namespace smem { class MemoryPort; }
 
 class AccelDemoAdd : public AccelPort {
 public:
-  explicit AccelDemoAdd(MemoryPort& mem);
+  explicit AccelDemoAdd(smem::MemoryPort& mem);
 
   void issue(uint32_t raw_inst,
              uint32_t pc,
@@ -27,7 +27,7 @@ public:
   void mem_store32(uint32_t addr, uint32_t data) override;
 
 private:
-  MemoryPort& mem_;
+  smem::MemoryPort& mem_;
   bool has_resp_ = false;
   uint32_t resp_ = 0;
 };

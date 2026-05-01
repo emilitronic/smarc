@@ -16,7 +16,7 @@ Tile1::Tile1(std::string /*name*/, IMPL_CTOR) {
   reset_trap_csrs();
 }
 // Connects external memory to tile
-void Tile1::attach_memory(MemoryPort* mem) {
+void Tile1::attach_memory(smem::MemoryPort* mem) {
   mem_port_ = mem; // tile stores pointer (mem_port_) to memory port to fetch instr and read/write data
 }                  // will allow us to access a memory port class's methods for mem read/write
 

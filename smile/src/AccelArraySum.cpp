@@ -21,7 +21,7 @@ extended to support more complex behaviors (e.g., streaming access patterns, non
 #include <iomanip>
 #include <iostream>
 
-AccelArraySum::AccelArraySum(MemoryPort& mem)
+AccelArraySum::AccelArraySum(smem::MemoryPort& mem)
   : mem_(mem) {
 }
 

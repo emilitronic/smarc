@@ -65,7 +65,7 @@ static std::string to_lower_copy(const std::string& s) {
 }
 
 static std::unique_ptr<AccelPort> make_accel_for_flag(const std::string& accel_flag_in,
-                                                       MemoryPort& mem,
+                                                       smem::MemoryPort& mem,
                                                        std::string& err) {
   const std::string accel_flag = to_lower_copy(accel_flag_in);
   if (accel_flag == "none") return nullptr;

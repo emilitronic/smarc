@@ -13,13 +13,13 @@ request/response interface and publishes a sticky response once complete.
 
 #include "AccelPort.hpp"
 
-class MemoryPort;
+namespace smem { class MemoryPort; }
 
 // AccelArraySumMc implements the AccelPort protocol by interpreting CUSTOM-0
 // instructions as "sum an array of 32-bit words from memory", one load per tick.
 class AccelArraySumMc : public AccelPort {
 public:
-  explicit AccelArraySumMc(MemoryPort& mem);
+  explicit AccelArraySumMc(smem::MemoryPort& mem);
 
   // Command path: CUSTOM-0 request from Tile1.
   void issue(uint32_t raw_inst,
@@ -38,7 +38,7 @@ public:
   void mem_store32(uint32_t addr, uint32_t data) override;
 
 private:
-  MemoryPort& mem_;
+  smem::MemoryPort& mem_;
 
   // Accelerator command/response state.
   bool busy_ = false;

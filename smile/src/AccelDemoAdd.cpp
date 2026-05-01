@@ -11,7 +11,7 @@
 #include <iomanip>
 #include <iostream>
 
-AccelDemoAdd::AccelDemoAdd(MemoryPort& mem) : mem_(mem) {}
+AccelDemoAdd::AccelDemoAdd(smem::MemoryPort& mem) : mem_(mem) {}
 
 void AccelDemoAdd::issue(uint32_t raw_inst,
                          uint32_t pc,

@@ -17,7 +17,7 @@ issuing one read request at a time and consuming one response at a time.
 #include "AccelArraySumMc.hpp"
 #include "Tile1.hpp"
 
-AccelArraySumMc::AccelArraySumMc(MemoryPort& mem)
+AccelArraySumMc::AccelArraySumMc(smem::MemoryPort& mem)
   : mem_(mem) {
 }
 

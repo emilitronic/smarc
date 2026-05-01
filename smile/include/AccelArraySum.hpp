@@ -14,13 +14,13 @@ and exposes the blocking load/store API so future accelerators can reuse it
 
 #include "AccelPort.hpp"
 
-class MemoryPort;
+namespace smem { class MemoryPort; }
 
 // AccelArraySum implements the AccelPort protocol by interpreting CUSTOM-0
 // instructions as "sum an array of 32-bit words from memory".
 class AccelArraySum : public AccelPort {
 public:
-  explicit AccelArraySum(MemoryPort& mem);
+  explicit AccelArraySum(smem::MemoryPort& mem);
 
   // Command path: CUSTOM-0 request from Tile1.
   void issue(uint32_t raw_inst,
@@ -37,7 +37,7 @@ public:
   void mem_store32(uint32_t addr, uint32_t data) override;
 
 private:
-  MemoryPort& mem_;
+  smem::MemoryPort& mem_;
   bool has_resp_ = false;
   uint32_t resp_ = 0;
 };

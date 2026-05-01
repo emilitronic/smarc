@@ -244,7 +244,7 @@ static void print_single_register(const DebuggerState& state, int t, int r) {
   std::cout.flags(old_flags);
 }
 
-static void dump_memory(MemoryPort& mem, uint32_t addr, std::size_t count) {
+static void dump_memory(smem::MemoryPort& mem, uint32_t addr, std::size_t count) {
   std::ios_base::fmtflags old_flags = std::cout.flags();
   char old_fill = std::cout.fill('0');
 
@@ -617,7 +617,7 @@ static bool handle_command_line(DebuggerState& state, const std::string& raw_lin
 
 } // namespace
 
-DebuggerState::DebuggerState(Tile1& t, MemoryPort& m, int thread_count)
+DebuggerState::DebuggerState(Tile1& t, smem::MemoryPort& m, int thread_count)
   : tile(t), mem(m),
     configured_threads((thread_count >= 2) ? 2 : 1) {
   reset();

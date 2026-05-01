@@ -10,12 +10,12 @@
 #include <vector>
 
 namespace {
-inline void write32(MemoryPort* mem, uint32_t addr, uint32_t word) {
+inline void write32(smem::MemoryPort* mem, uint32_t addr, uint32_t word) {
   mem->write32(addr, word);
 }
 } // namespace
 
-bool load_flat_bin(const std::string& path, MemoryPort* mem, uint32_t base_addr, uint32_t* bytes_loaded_out) {
+bool load_flat_bin(const std::string& path, smem::MemoryPort* mem, uint32_t base_addr, uint32_t* bytes_loaded_out) {
   std::ifstream f(path, std::ios::binary); // open file in binary mode
   if (!f) return false;
 

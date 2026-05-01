@@ -10,6 +10,8 @@ debug tools, and accelerators. This is not a Cascade component by itself.
 
 #include <cstdint>
 
+namespace smem {
+
 class MemoryPort {
 public:
   virtual          ~MemoryPort()                          = default;
@@ -23,3 +25,5 @@ public:
   virtual uint32_t resp_data() const                      = 0;
   virtual void     resp_consume()                         = 0;
 };
+
+} // namespace smem

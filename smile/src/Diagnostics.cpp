@@ -18,7 +18,7 @@ constexpr uint32_t BREAKPOINT_FLAG_VALUE= 0xBEEFu;
 
 void verify_and_report_postmortem(
   Tile1& tile,
-  MemoryPort& mem_port,
+  smem::MemoryPort& mem_port,
   const ThreadContext threads[2],
   const bool saw_breakpoint_trap[2],
   const bool saw_ecall_trap[2],

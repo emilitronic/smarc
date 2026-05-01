@@ -8,11 +8,11 @@
 #include <cstdint>
 #include <string>
 
-class MemoryPort; // smem/MemoryPort.hpp defines it
+namespace smem { class MemoryPort; }
 
 /*
 Load a flat little-endian binary into memory via MemoryPort::write32().
 - Pads the tail with zeros to a full 32-bit word (so no byte writes needed).
 - Returns true on success; optionally writes the number of file bytes loaded.
 */
-bool load_flat_bin(const std::string& path, MemoryPort* mem, uint32_t base_addr, uint32_t* bytes_loaded_out = nullptr);
+bool load_flat_bin(const std::string& path, smem::MemoryPort* mem, uint32_t base_addr, uint32_t* bytes_loaded_out = nullptr);
