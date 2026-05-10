@@ -30,6 +30,10 @@ Build only the M2 Cascade command-shell testbench:
 ```bash
 cmake --build build --target tb_smesh_m2 -j
 ```
+Build only the M3 memory-topology scaffold:
+```bash
+cmake --build build --target tb_smesh_m3 -j
+```
 Or build all smarc targets:
 ```bash
 cmake --build build -j
@@ -76,3 +80,17 @@ Expected output:
 The M2 testbench sends the same command stream through Cascade FIFO ports into a
 small shell component around `SmeshDevice`. Memory is still functional and owned
 by the shell; explicit memory request/response ports are deferred to M3.
+
+Run the M3 memory-topology scaffold:
+```bash
+./build/smesh/tb_smesh_m3
+```
+Expected output:
+```text
+[SMESH_M3] PASS identity
+[SMESH_M3] PASS matmul
+```
+The M3 scaffold wires `SmeshShell` to `smem::MemCtrl` and `smem::Dram` through
+native `MemReq`/`MemResp` FIFO ports. At this checkpoint, `SmeshShell` still
+executes `mvin`/`mvout` through its functional internal memory; moving those
+commands onto the memory ports is the next M3 step.

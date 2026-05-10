@@ -45,3 +45,19 @@ target_link_libraries(tb_smesh_m2
     -ltermcap
     -lpthread
 )
+
+add_executable(tb_smesh_m3
+  src/SmeshCommandDriver.cpp
+  src/SmeshShell.cpp
+  src/tb_smesh_m3.cpp
+)
+
+target_link_libraries(tb_smesh_m3
+  PRIVATE
+    smesh_model
+    smem_memory
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
