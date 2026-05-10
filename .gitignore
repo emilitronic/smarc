@@ -8,10 +8,13 @@
 
 # Other
 AGENTS.md
+CLAUDE.md
 */plans/
 */build/
 */doc/
 doc/
+smesh/doc/
+smesh/doc/design.md
 compile_commands.json
 cmake-build-debug/
 cmake-build-release/
@@ -53,4 +56,3 @@ build*/
 docs/_build/
 # Ignore Jekyll output directory
 docs/_site
-
