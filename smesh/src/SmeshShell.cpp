@@ -14,7 +14,7 @@ Cascade component wrapping the existing SmeshDevice.
 namespace smesh {
 
 SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(cmd_in).writes(resp_out);
+  UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req); // native memory master interface
 }
 
 void SmeshShell::update() {

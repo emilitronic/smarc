@@ -5,6 +5,12 @@ add_library(smesh_model
 target_include_directories(smesh_model
   PUBLIC
     include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
+)
+
+target_link_libraries(smesh_model
+  PUBLIC
+    cascade
 )
 
 add_executable(tb_smesh_m0

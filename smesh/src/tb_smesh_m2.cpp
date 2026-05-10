@@ -115,6 +115,8 @@ bool runCase(const char* name,
 
   shell.cmd_in << driver.cmd_out;
   driver.resp_in << shell.resp_out;
+  shell.m_req.sendToBitBucket();
+  shell.m_resp.wireToZero();
 
   Clock clk;
   shell.clk << clk;

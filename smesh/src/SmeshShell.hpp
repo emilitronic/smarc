@@ -10,6 +10,7 @@
 #include "SmeshDevice.hpp"
 #include "SmeshMemory.hpp"
 #include "SmeshPorts.hpp"
+#include "smem/MemTypes.hpp"
 
 namespace smesh {
 
@@ -23,6 +24,9 @@ class SmeshShell : public Component {
 
   FifoInput(SmeshCmd, cmd_in);
   FifoOutput(SmeshResp, resp_out);
+  // native memory master interface
+  FifoOutput(smem::MemReq, m_req);
+  FifoInput(smem::MemResp, m_resp);
 
   SmeshMemory& memory() { return memory_; }
   const SmeshMemory& memory() const { return memory_; }
