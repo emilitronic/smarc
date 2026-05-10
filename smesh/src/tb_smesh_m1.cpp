@@ -46,10 +46,7 @@ void writeElemMatrix(smesh::SmeshMemory& mem, std::uint64_t base, const MatrixEl
   }
 }
 
-void writeElemMatrix(smesh::SmeshMemory& mem,
-                     std::uint64_t base,
-                     std::uint32_t stride,
-                     const MatrixElem& matrix) {
+void writeElemMatrix(smesh::SmeshMemory& mem, std::uint64_t base, std::uint32_t stride, const MatrixElem& matrix) {
   for (std::size_t r = 0; r < smesh::kDim; ++r) {
     for (std::size_t c = 0; c < smesh::kDim; ++c) {
       mem.writeElem(base + r * stride + c, matrix[r][c]);
