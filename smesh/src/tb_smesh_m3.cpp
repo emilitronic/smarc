@@ -110,7 +110,7 @@ std::vector<smesh::SmeshCmd> makeScript() {
       cmd(smesh::SmeshFunct::Preload,
           smesh::packLocal(b_spad_row, shape),
           smesh::packLocal(c_acc_row, shape)),
-      cmd(smesh::SmeshFunct::ComputePreloaded, smesh::packLocal(a_spad_row, shape), 0),
+      cmd(smesh::SmeshFunct::ComputeFlip, smesh::packLocal(a_spad_row, shape), 0),
       cmd(smesh::SmeshFunct::Mvout, kCAddr, smesh::packLocal(c_acc_row, shape)),
   };
 }

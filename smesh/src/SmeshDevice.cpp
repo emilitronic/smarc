@@ -91,15 +91,15 @@ std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem,
       preload(b.row, c.row, b.shape, c.shape);
       return 0;
     }
-    case SmeshFunct::ComputePreloaded: {
+    case SmeshFunct::ComputeFlip: {
       const auto a = unpackLocal(rs1);
       computePreloaded(a.row, a.shape);
       return 0;
     }
     case SmeshFunct::Flush:
       return 0;
-    case SmeshFunct::ComputeAccumulated:
-      throw std::runtime_error("compute_accumulated is not implemented yet");
+    case SmeshFunct::ComputeStay:
+      throw std::runtime_error("compute_stay is not implemented yet");
   }
 
   throw std::runtime_error("unsupported smesh funct");

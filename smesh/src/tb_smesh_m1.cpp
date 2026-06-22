@@ -107,7 +107,7 @@ bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
   dev.executeCustom(mem, smesh::SmeshFunct::Preload,
                     smesh::packLocal(b_spad_row, shape),
                     smesh::packLocal(c_acc_row, shape));  // preload B into PE and set up C accum row
-  dev.executeCustom(mem, smesh::SmeshFunct::ComputePreloaded,
+  dev.executeCustom(mem, smesh::SmeshFunct::ComputeFlip,
                     smesh::packLocal(a_spad_row, shape), 0);  // compute A*B using preloaded B
   dev.executeCustom(mem, smesh::SmeshFunct::Mvout, kCAddr,
                     smesh::packLocal(c_acc_row, shape));  // move C from acc to DRAM

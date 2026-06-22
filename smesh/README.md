@@ -93,4 +93,4 @@ Expected output:
 The M3 testbench wires `SmeshShell` to `smem::MemCtrl` and `smem::Dram` through
 native `MemReq`/`MemResp` FIFO ports. `mvin` and `mvout` now sequence element
 loads and accumulator stores through that memory path; `preload` and
-`compute_preloaded` still execute functionally inside `SmeshDevice`.
+`compute_flip` still execute functionally inside `SmeshDevice`.
