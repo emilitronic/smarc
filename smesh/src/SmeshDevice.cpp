@@ -100,6 +100,8 @@ std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem,
       return 0;
     case SmeshFunct::ComputeStay:
       throw std::runtime_error("compute_stay is not implemented yet");
+    case SmeshFunct::StoreSpad:
+      throw std::runtime_error("store_spad is not implemented yet");
   }
 
   throw std::runtime_error("unsupported smesh funct");

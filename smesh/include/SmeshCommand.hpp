@@ -24,6 +24,7 @@ enum class SmeshFunct : std::uint32_t {
   Preload = 6,
   Flush = 7,
   Mvin3 = 14,
+  StoreSpad = 23,
 };
 
 // Sub-kinds of configuration commands.
