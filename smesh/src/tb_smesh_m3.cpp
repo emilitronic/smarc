@@ -82,15 +82,16 @@ bool checkAccMatrix(smem::Dram& dram,
   return ok;
 }
 
+// fake program the driver runs, returns a list of commands to execute
 std::vector<smesh::SmeshCmd> makeScript() {
-  constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
-  constexpr std::uint32_t elem_stride = smesh::kDim * sizeof(smesh::Elem);
-  constexpr std::uint32_t b_elem_stride = elem_stride + kBStridePadBytes;
-  constexpr std::uint32_t acc_stride = smesh::kDim * sizeof(smesh::Acc);
-  constexpr std::uint32_t a_spad_row = 0;
-  constexpr std::uint32_t b_spad_row = smesh::kDim;
-  constexpr std::uint32_t c_acc_row = 0;
-
+  constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};            // matrix rows x cols
+  constexpr std::uint32_t elem_stride = smesh::kDim * sizeof(smesh::Elem); // DRAM bytes per A row
+  constexpr std::uint32_t b_elem_stride = elem_stride + kBStridePadBytes;  // DRAM bytes per B row (with odd padding for test)
+  constexpr std::uint32_t acc_stride = smesh::kDim * sizeof(smesh::Acc);   // DRAM bytes per C row
+  constexpr std::uint32_t a_spad_row = 0;             // spad location for A
+  constexpr std::uint32_t b_spad_row = smesh::kDim;   // spad location for B
+  constexpr std::uint32_t c_acc_row = 0;              // accm location for C
+  // command-construction helper
   auto cmd = [](smesh::SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2) {
     return smesh::SmeshCmd{
         u32(static_cast<std::uint32_t>(funct)),
@@ -121,14 +122,14 @@ bool runCase(const char* name,
              int max_steps,
              int latency,
              bool posted) {
-  smesh::SmeshShell shell("Smesh");
-  smesh::SmeshCommandDriver driver("Driver");
-  smem::MemCtrl mem("MemCtrl");
-  smem::Dram dram("Dram", 0);
-
+  smesh::SmeshShell shell("Smesh");           // smesh accelerator shell
+  smesh::SmeshCommandDriver driver("Driver"); // fake CPU issuing commands
+  smem::MemCtrl mem("MemCtrl");               // memory controller
+  smem::Dram dram("Dram", 0);                 // external memory
+  
   shell.cmd_in << driver.cmd_out;
   driver.resp_in << shell.resp_out;
-
+  // memory wiring
   mem.in_core_req << shell.m_req;
   shell.m_resp << mem.out_core_resp;
   mem.in_core_req.setDelay(1); // 1-cycle delay, otherwise you have 0-delay comb. loop through shell, MemCtrl, and DRAM
@@ -151,10 +152,11 @@ bool runCase(const char* name,
 
   constexpr std::uint32_t elem_stride = smesh::kDim * sizeof(smesh::Elem);
   constexpr std::uint32_t b_elem_stride = elem_stride + kBStridePadBytes;
-  writeElemMatrix(dram, kAAddr, elem_stride, a);
-  writeElemMatrix(dram, kBAddr, b_elem_stride, b);
-  driver.setScript(makeScript());
 
+  writeElemMatrix(dram, kAAddr, elem_stride, a);   // put A into DRAM
+  writeElemMatrix(dram, kBAddr, b_elem_stride, b); // put B into DRAM
+  driver.setScript(makeScript());                  // give fake CPU the command script
+  // run sim until driver finishes
   for (int i = 0; i < max_steps && !driver.done(); ++i) {
     Sim::run();
   }

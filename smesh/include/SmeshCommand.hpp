@@ -47,12 +47,14 @@ constexpr std::uint64_t kLocalAddrMask = 0xffffffffull;
 // bits [31:0]   local address / row
 // bits [47:32]  cols
 // bits [63:48]  rows
+// Build encoded rs1/rs2 operanad
 // Packs row (where matrix starts locally), cols (no. of cols), rows (no. of rows) into a 64-bit value for passing in rs2 = (rows << 48) | (cols << 32) | row (local addr)
 inline std::uint64_t packLocal(std::uint32_t row, MatrixShape shape) {
   return (static_cast<std::uint64_t>(shape.rows) << (kLocalAddrBits + 16)) |
          (static_cast<std::uint64_t>(shape.cols) << kLocalAddrBits) |
          static_cast<std::uint64_t>(row);
 }
+// Decode encoded rs1/rs2 operand (inside SmeshDevice/SmeshShell)
 inline LocalMatrix unpackLocal(std::uint64_t packed) {
   return LocalMatrix{
       static_cast<std::uint32_t>(packed & kLocalAddrMask),
