@@ -155,7 +155,7 @@ bool runCase(const char* name,
 
   writeElemMatrix(dram, kAAddr, elem_stride, a);   // put A into DRAM
   writeElemMatrix(dram, kBAddr, b_elem_stride, b); // put B into DRAM
-  driver.setScript(makeScript());                  // give fake CPU the command script
+  driver.setScript(makeScript());                  // give fake CPU the command script (stores command list)
   // run sim until driver finishes
   for (int i = 0; i < max_steps && !driver.done(); ++i) {
     Sim::run();
