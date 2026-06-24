@@ -1,0 +1,73 @@
+// **********************************************************************
+// smesh/include/SmeshRS.hpp
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Jun 24 2026
+/*
+Reservation-station vocabulary for smesh.
+
+This header defines the lightweight entry and classification types. The Cascade
+reservation-station component will be introduced separately.
+*/
+#pragma once
+
+#include "SmeshCommand.hpp"
+
+#include <cstdint>
+
+namespace smesh {
+
+enum class SmeshQueueClass : std::uint8_t {
+  Load,
+  Execute,
+  Store,
+  System,
+  Invalid,
+};
+
+using SmeshRobId = std::uint16_t;
+
+struct SmeshOperandRange {
+  bool valid = false;
+  std::uint32_t start_row = 0;
+  std::uint32_t rows = 0;
+};
+
+struct SmeshRsEntry {
+  bool valid = false;
+  bool issued = false;
+  SmeshQueueClass queue = SmeshQueueClass::System;
+  SmeshCmd cmd{};
+  SmeshRobId rob_id = 0;
+
+  // Reserved for later dependency tracking.
+  SmeshOperandRange opa{};
+  SmeshOperandRange opb{};
+  bool opa_is_dst = false;
+  std::uint32_t deps = 0;
+};
+
+inline SmeshQueueClass classifyCommand(SmeshFunct funct) {
+  switch (funct) {
+    case SmeshFunct::Mvin:
+    case SmeshFunct::Mvin2:
+    case SmeshFunct::Mvin3:
+      return SmeshQueueClass::Load;
+
+    case SmeshFunct::Preload:
+    case SmeshFunct::ComputeFlip:
+    case SmeshFunct::ComputeStay:
+      return SmeshQueueClass::Execute;
+
+    case SmeshFunct::Mvout:
+    case SmeshFunct::StoreSpad:
+      return SmeshQueueClass::Store;
+
+    case SmeshFunct::Config:
+    case SmeshFunct::Flush:
+      return SmeshQueueClass::System;
+  }
+
+  return SmeshQueueClass::Invalid;
+}
+
+} // namespace smesh
