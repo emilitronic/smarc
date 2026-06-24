@@ -10,6 +10,7 @@
 #include "SmeshDevice.hpp"
 #include "SmeshMemory.hpp"
 #include "SmeshPorts.hpp"
+#include "SmeshRS.hpp"
 #include "smem/MemTypes.hpp"
 
 #include <cstdint>
@@ -48,6 +49,7 @@ class SmeshShell : public Component {
 
   struct ActiveMemCmd {
     SmeshFunct funct = SmeshFunct::Flush;
+    SmeshRobId rob_id = 0;
     std::uint64_t dram_addr = 0;
     std::uint32_t local_row = 0;
     MatrixShape shape{};
@@ -57,14 +59,15 @@ class SmeshShell : public Component {
     std::uint16_t next_id = 0;
   };
 
-  void startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2);
-  void startExternalMvout(std::uint64_t rs1, std::uint64_t rs2);
+  void startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id);
+  void startExternalMvout(std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id);
   void updateExternalMvinIssue();
   void updateExternalMvinWait();
   void updateExternalMvoutIssue();
   void updateExternalMvoutWait();
   void finishActive(std::uint8_t status);
 
+  SmeshRS rs_;
   SmeshDevice device_;
   SmeshMemory memory_;
   bool external_memory_ = false;

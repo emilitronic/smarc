@@ -93,7 +93,8 @@ public:
   bool busy() const;
   bool canAccept() const;
 
-  bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out); // accept new cmd into RS slot
+  bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
+  bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
   const SmeshRsEntry& entry() const;
 
   bool markIssued(SmeshRobId rob_id);

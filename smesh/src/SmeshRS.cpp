@@ -22,8 +22,12 @@ bool SmeshRS::canAccept() const {
   return empty();
 }
 
+bool SmeshRS::allocate(const SmeshCmd& cmd) {
+  return allocate(cmd, nullptr);
+}
+
 bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
-  if (!canAccept() || rob_id_out == nullptr) {
+  if (!canAccept()) {
     return false;
   }
 
@@ -34,7 +38,9 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   entry_.cmd = cmd;
   entry_.rob_id = next_rob_id_++;
 
-  *rob_id_out = entry_.rob_id;
+  if (rob_id_out != nullptr) {
+    *rob_id_out = entry_.rob_id;
+  }
   return true;
 }
 
