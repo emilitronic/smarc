@@ -7,14 +7,20 @@ Common types and constants for the Smesh project.
 */
 #pragma once
 
+#include "SmeshConfig.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
 namespace smesh {
 
-constexpr std::size_t kDim = 4;              // cols per row
-constexpr std::size_t kScratchpadRows = 16;  // rows in SP
-constexpr std::size_t kAccumulatorRows = 16; // rows in accumulator
+constexpr std::size_t kDim = kDefaultConfig.dim;                                  // cols per row
+constexpr std::size_t kScratchpadRows = kDefaultConfig.scratchpad_rows;            // rows in SP
+constexpr std::size_t kAccumulatorRows = kDefaultConfig.accumulator_rows;          // rows in accumulator
+constexpr std::size_t kLoadStates = kDefaultConfig.load_states;                    // mvin/mvin2/mvin3 stride states
+constexpr std::size_t kRsLoadEntries = kDefaultConfig.rs_load_entries;             // M4v0 RS load slots
+constexpr std::size_t kRsExecuteEntries = kDefaultConfig.rs_execute_entries;       // M4v0 RS execute slots
+constexpr std::size_t kRsStoreEntries = kDefaultConfig.rs_store_entries;           // M4v0 RS store slots
 
 using Elem = std::int8_t;
 using Acc = std::int32_t;

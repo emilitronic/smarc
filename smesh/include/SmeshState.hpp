@@ -26,7 +26,7 @@ struct SmeshState {
   std::uint32_t output_acc_row = 0;
   MatrixShape preload_shape{};
   MatrixShape output_shape{};
-  std::array<std::uint32_t, 3> load_stride_bytes{};
+  std::array<std::uint32_t, kLoadStates> load_stride_bytes{};
   std::uint32_t store_stride_bytes = 0;
 
   void reset();
