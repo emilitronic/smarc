@@ -96,12 +96,17 @@ public:
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
   bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
   const SmeshRsEntry& entry() const;
+  const SmeshRsEntry& loadEntry() const;
+  const SmeshRsEntry& executeEntry() const;
+  const SmeshRsEntry& storeEntry() const;
 
   bool markIssued(SmeshRobId rob_id);
   bool complete(SmeshRobId rob_id);
 
 private:
-  SmeshRsEntry entry_{}; // only one row in this simple RS
+  SmeshRsEntry load_entry_{};
+  SmeshRsEntry execute_entry_{};
+  SmeshRsEntry store_entry_{};
   SmeshRobId next_rob_id_ = 0;
 };
 

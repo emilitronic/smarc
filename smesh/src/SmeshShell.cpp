@@ -35,11 +35,36 @@ void SmeshShell::update() {
       break;
   }
 
-  if (cmd_in.empty() || resp_out.full() || !rs_.canAccept()) {
+  if (cmd_in.empty() || resp_out.full()) {
     return;
   }
 
   const auto cmd = cmd_in.peek(); // look at cmd
+  const auto cmd_funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct));
+  // FLUSH (currently a no-op) handled before RS
+  if (cmd_funct == SmeshFunct::Flush) {
+    cmd_in.pop();
+    SmeshResp resp{};
+    try {
+      resp.value = static_cast<u64>(device_.executeCustom(memory_,
+                                                          cmd_funct,
+                                                          static_cast<std::uint64_t>(cmd.rs1),
+                                                          static_cast<std::uint64_t>(cmd.rs2)));
+      resp.status = 0;
+      trace("smesh: system funct=%u ok", static_cast<unsigned>(cmd.funct));
+    } catch (const std::exception& e) {
+      resp.status = 1;
+      resp.value = 0;
+      trace("smesh: system funct=%u err=%s", static_cast<unsigned>(cmd.funct), e.what());
+    }
+    resp_out.push(resp);
+    return;
+  }
+
+  if (!rs_.canAccept()) {
+    return;
+  }
+
   if (!rs_.allocate(cmd)) {       // try to allocate RS entry
     return;
   }
