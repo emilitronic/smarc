@@ -60,16 +60,29 @@ void SmeshShell::update() {
     resp_out.push(resp);
     return;
   }
-
+  // if RS full, stop this cycle
   if (!rs_.canAccept()) {
     return;
   }
-
+  // if RS can't allocate, stop this cycle
   if (!rs_.allocate(cmd)) {       // try to allocate RS entry
     return;
   }
   cmd_in.pop();                   // pop cmd if allocation succeeded
-  const auto& entry = rs_.entry();
+  // which RS outlet has command ready to issue
+  const SmeshRsEntry* issued_entry = nullptr;
+  if (const auto* load = rs_.issueLoad()) {
+    issued_entry = load;
+  } else if (const auto* store = rs_.issueStore()) {
+    issued_entry = store;
+  } else if (const auto* execute = rs_.issueExecute()) {
+    issued_entry = execute;
+  }
+  if (issued_entry == nullptr) {
+    return;
+  }
+
+  const auto& entry = *issued_entry;
   SmeshResp resp{};
 
   try {

@@ -100,6 +100,10 @@ public:
   const SmeshRsEntry& executeEntry() const;
   const SmeshRsEntry& storeEntry() const;
 
+  const SmeshRsEntry* issueLoad() const;
+  const SmeshRsEntry* issueExecute() const;
+  const SmeshRsEntry* issueStore() const;
+
   bool markIssued(SmeshRobId rob_id);
   bool complete(SmeshRobId rob_id);
 

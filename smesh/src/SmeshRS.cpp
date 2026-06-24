@@ -88,6 +88,19 @@ const SmeshRsEntry& SmeshRS::storeEntry() const {
   return store_entry_;
 }
 
+// issue load entry to load issue port
+const SmeshRsEntry* SmeshRS::issueLoad() const {
+  return (load_entry_.valid && !load_entry_.issued) ? &load_entry_ : nullptr;
+}
+// issue execute entry to execute issue port
+const SmeshRsEntry* SmeshRS::issueExecute() const {
+  return (execute_entry_.valid && !execute_entry_.issued) ? &execute_entry_ : nullptr;
+}
+// issue store entry to store issue port
+const SmeshRsEntry* SmeshRS::issueStore() const {
+  return (store_entry_.valid && !store_entry_.issued) ? &store_entry_ : nullptr;
+}
+
 bool SmeshRS::markIssued(SmeshRobId rob_id) {
   for (auto* entry : {&load_entry_, &execute_entry_, &store_entry_}) {
     if (entry->valid && entry->rob_id == rob_id) {
