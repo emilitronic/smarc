@@ -33,6 +33,7 @@ struct SmeshOperandRange {
   std::uint32_t rows = 0;
 };
 
+// RS row format
 struct SmeshRsEntry {
   bool valid = false;
   bool issued = false;
@@ -84,5 +85,23 @@ inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
 
   return SmeshQueueClass::Invalid;
 }
+
+// RS row owner and manager
+class SmeshRS {
+public:
+  bool empty() const;
+  bool busy() const;
+  bool canAccept() const;
+
+  bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out); // accept new cmd into RS slot
+  const SmeshRsEntry& entry() const;
+
+  bool markIssued(SmeshRobId rob_id);
+  bool complete(SmeshRobId rob_id);
+
+private:
+  SmeshRsEntry entry_{}; // only one row in this simple RS
+  SmeshRobId next_rob_id_ = 0;
+};
 
 } // namespace smesh

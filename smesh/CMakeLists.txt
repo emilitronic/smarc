@@ -1,5 +1,6 @@
 add_library(smesh_model
   src/SmeshDevice.cpp
+  src/SmeshRS.cpp
 )
 
 target_include_directories(smesh_model
