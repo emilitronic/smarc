@@ -8,6 +8,7 @@ Testbench to exercise the command API.  Runs the same matmul test as M0, but thr
 
 #include "SmeshCommand.hpp" // for command encoding helpers
 #include "SmeshDevice.hpp"  // for SmeshDevice and SmeshMemory
+#include "SmeshRS.hpp"
 
 #include <array>
 #include <cstdint>

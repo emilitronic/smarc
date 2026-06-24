@@ -11,6 +11,7 @@ reservation-station component will be introduced separately.
 #pragma once
 
 #include "SmeshCommand.hpp"
+#include "SmeshPorts.hpp"
 
 #include <cstdint>
 
@@ -46,7 +47,9 @@ struct SmeshRsEntry {
   std::uint32_t deps = 0;
 };
 
-inline SmeshQueueClass classifyCommand(SmeshFunct funct) {
+inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
+  const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct));
+
   switch (funct) {
     case SmeshFunct::Mvin:
     case SmeshFunct::Mvin2:
@@ -62,7 +65,19 @@ inline SmeshQueueClass classifyCommand(SmeshFunct funct) {
     case SmeshFunct::StoreSpad:
       return SmeshQueueClass::Store;
 
-    case SmeshFunct::Config:
+    case SmeshFunct::Config: {
+      const auto kind = static_cast<ConfigKind>(static_cast<std::uint64_t>(cmd.rs1) & 0x3u);
+      switch (kind) {
+        case ConfigKind::Load:
+          return SmeshQueueClass::Load;
+        case ConfigKind::Execute:
+          return SmeshQueueClass::Execute;
+        case ConfigKind::Store:
+          return SmeshQueueClass::Store;
+      }
+      return SmeshQueueClass::Invalid;
+    }
+
     case SmeshFunct::Flush:
       return SmeshQueueClass::System;
   }
