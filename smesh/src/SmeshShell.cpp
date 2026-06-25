@@ -84,10 +84,11 @@ void SmeshShell::update() {
 
   const auto& entry = *issued_entry;
   SmeshResp resp{};
-
+  // execute RS entry selected for issue
   try {
     rs_.markIssued(entry.rob_id);
-    const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct));
+    const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct)); // funct -> SmeshFunct
+    // start multicycle DRAM-to-spad transfer
     if (external_memory_ &&
         (funct == SmeshFunct::Mvin || funct == SmeshFunct::Mvin2 || funct == SmeshFunct::Mvin3)) {
       startExternalMvin(funct,
@@ -96,6 +97,7 @@ void SmeshShell::update() {
                         entry.rob_id);
       return;
     }
+    // start multicycle acc-to-DRAM transfer
     if (external_memory_ && funct == SmeshFunct::Mvout) {
       startExternalMvout(static_cast<std::uint64_t>(entry.cmd.rs1),
                          static_cast<std::uint64_t>(entry.cmd.rs2),
@@ -103,15 +105,14 @@ void SmeshShell::update() {
       return;
     }
     // execute load/store synchronously if not using external memory, or if the command is not mvin/mvout
-    const auto value = device_.executeCustom(memory_,
-                                             funct,
-                                             static_cast<std::uint64_t>(entry.cmd.rs1),
-                                             static_cast<std::uint64_t>(entry.cmd.rs2));
+    const auto value = device_.executeCustom(memory_, funct, static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2));
+    // if executeCustom succeeds, return success
     resp.status = 0;
     resp.value = static_cast<u64>(value);
     trace("smesh: cmd rob=%u funct=%u ok",
           static_cast<unsigned>(entry.rob_id),
           static_cast<unsigned>(entry.cmd.funct));
+    // if it throws an error
   } catch (const std::exception& e) {
     resp.status = 1;
     resp.value = 0;
@@ -120,8 +121,9 @@ void SmeshShell::update() {
           static_cast<unsigned>(entry.cmd.funct),
           e.what());
   }
-
+  // free the RS row
   rs_.complete(entry.rob_id);
+  // send response back to driver
   resp_out.push(resp);
 }
 

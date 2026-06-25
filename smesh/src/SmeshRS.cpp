@@ -11,7 +11,7 @@ One-entry reservation-station state machine for smesh.
 namespace smesh {
 
 bool SmeshRS::empty() const {
-  return !load_entry_.valid && !execute_entry_.valid && !store_entry_.valid;
+  return !entries_ld_.valid && !entries_ex_.valid && !entries_st_.valid;
 }
 
 bool SmeshRS::busy() const {
@@ -35,13 +35,13 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   const auto queue = classifyCommand(cmd);
   switch (queue) {
     case SmeshQueueClass::Load:
-      slot = &load_entry_;    // choose the load row
+      slot = &entries_ld_;    // choose the load row
       break;
     case SmeshQueueClass::Execute:
-      slot = &execute_entry_; // choose the execute row
+      slot = &entries_ex_;    // choose the execute row
       break;
     case SmeshQueueClass::Store:
-      slot = &store_entry_;   // choose the store row
+      slot = &entries_st_;    // choose the store row
       break;
     case SmeshQueueClass::System:
     case SmeshQueueClass::Invalid:
@@ -63,46 +63,46 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
 
 // which entry is currently occupied
 const SmeshRsEntry& SmeshRS::entry() const {
-  if (load_entry_.valid) {
-    return load_entry_;
+  if (entries_ld_.valid) {
+    return entries_ld_;
   }
-  if (execute_entry_.valid) {
-    return execute_entry_;
+  if (entries_ex_.valid) {
+    return entries_ex_;
   }
-  if (store_entry_.valid) {
-    return store_entry_;
+  if (entries_st_.valid) {
+    return entries_st_;
   }
-  return execute_entry_;
+  return entries_ex_;
 }
 
 // read load RS row
 const SmeshRsEntry& SmeshRS::loadEntry() const {
-  return load_entry_;
+  return entries_ld_;
 }
 // read execute RS row
 const SmeshRsEntry& SmeshRS::executeEntry() const {
-  return execute_entry_;
+  return entries_ex_;
 }
 // read store RS row
 const SmeshRsEntry& SmeshRS::storeEntry() const {
-  return store_entry_;
+  return entries_st_;
 }
 
 // issue load entry to load issue port
 const SmeshRsEntry* SmeshRS::issueLoad() const {
-  return (load_entry_.valid && !load_entry_.issued) ? &load_entry_ : nullptr;
+  return (entries_ld_.valid && !entries_ld_.issued) ? &entries_ld_ : nullptr;
 }
 // issue execute entry to execute issue port
 const SmeshRsEntry* SmeshRS::issueExecute() const {
-  return (execute_entry_.valid && !execute_entry_.issued) ? &execute_entry_ : nullptr;
+  return (entries_ex_.valid && !entries_ex_.issued) ? &entries_ex_ : nullptr;
 }
 // issue store entry to store issue port
 const SmeshRsEntry* SmeshRS::issueStore() const {
-  return (store_entry_.valid && !store_entry_.issued) ? &store_entry_ : nullptr;
+  return (entries_st_.valid && !entries_st_.issued) ? &entries_st_ : nullptr;
 }
 
 bool SmeshRS::markIssued(SmeshRobId rob_id) {
-  for (auto* entry : {&load_entry_, &execute_entry_, &store_entry_}) {
+  for (auto* entry : {&entries_ld_, &entries_ex_, &entries_st_}) {
     if (entry->valid && entry->rob_id == rob_id) {
       entry->issued = true;
       return true;
@@ -113,7 +113,7 @@ bool SmeshRS::markIssued(SmeshRobId rob_id) {
 }
 
 bool SmeshRS::complete(SmeshRobId rob_id) {
-  for (auto* entry : {&load_entry_, &execute_entry_, &store_entry_}) {
+  for (auto* entry : {&entries_ld_, &entries_ex_, &entries_st_}) {
     if (entry->valid && entry->rob_id == rob_id) {
       *entry = SmeshRsEntry{};
       return true;

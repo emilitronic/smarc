@@ -108,9 +108,9 @@ public:
   bool complete(SmeshRobId rob_id);
 
 private:
-  SmeshRsEntry load_entry_{};
-  SmeshRsEntry execute_entry_{};
-  SmeshRsEntry store_entry_{};
+  SmeshRsEntry entries_ld_{};
+  SmeshRsEntry entries_ex_{};
+  SmeshRsEntry entries_st_{};
   SmeshRobId next_rob_id_ = 0;
 };
 
