@@ -27,10 +27,15 @@ enum class SmeshQueueClass : std::uint8_t {
 
 using SmeshRobId = std::uint16_t;
 
-struct SmeshOperandRange {
+struct SmeshRSOpBits {
+  SmeshLocalAddr start{};
+  SmeshLocalAddr end{};
+  bool wraps_around = false;
+};
+
+struct SmeshRSOp {
   bool valid = false;
-  std::uint32_t start_row = 0;
-  std::uint32_t rows = 0;
+  SmeshRSOpBits bits{};
 };
 
 // RS row format
@@ -42,8 +47,8 @@ struct SmeshRsEntry {
   SmeshRobId rob_id = 0;
 
   // Reserved for later dependency tracking.
-  SmeshOperandRange opa{};
-  SmeshOperandRange opb{};
+  SmeshRSOp opa{};
+  SmeshRSOp opb{};
   bool opa_is_dst = false;
   std::uint32_t deps = 0;
 };

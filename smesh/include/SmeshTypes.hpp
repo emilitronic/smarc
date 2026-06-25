@@ -30,4 +30,8 @@ struct MatrixShape {
   std::size_t cols = 0;
 };
 
+struct SmeshLocalAddr {
+  std::uint32_t raw = 0;
+};
+
 } // namespace smesh
