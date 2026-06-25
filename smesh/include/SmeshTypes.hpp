@@ -33,5 +33,15 @@ struct MatrixShape {
 struct SmeshLocalAddr {
   std::uint32_t raw = 0;
 };
+// local address helpers
+inline SmeshLocalAddr makeLocalAddr(std::uint32_t raw) {
+  return SmeshLocalAddr{raw};
+}
+inline SmeshLocalAddr addLocalAddr(SmeshLocalAddr addr, std::uint32_t rows_touched) {
+  return SmeshLocalAddr{addr.raw + rows_touched};
+}
+inline bool addLocalAddrOverflows(SmeshLocalAddr addr, std::uint32_t rows_touched) {
+  return addLocalAddr(addr, rows_touched).raw < addr.raw;
+}
 
 } // namespace smesh

@@ -27,12 +27,13 @@ enum class SmeshQueueClass : std::uint8_t {
 
 using SmeshRobId = std::uint16_t;
 
+// RS's op* section's bit fields
 struct SmeshRSOpBits {
   SmeshLocalAddr start{};
   SmeshLocalAddr end{};
   bool wraps_around = false;
 };
-
+// RS's op* section
 struct SmeshRSOp {
   bool valid = false;
   SmeshRSOpBits bits{};

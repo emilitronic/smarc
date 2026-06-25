@@ -9,6 +9,71 @@ One-entry reservation-station state machine for smesh.
 #include "SmeshRS.hpp"
 
 namespace smesh {
+namespace {
+
+std::uint32_t localAddrRaw(std::uint64_t packed) {
+  return static_cast<std::uint32_t>(packed & kLocalAddrMask);
+}
+
+SmeshRSOp makeRSOp(std::uint64_t packed) {
+  const auto local = unpackLocal(packed);
+  const auto start = makeLocalAddr(localAddrRaw(packed));
+  const auto rows_touched = static_cast<std::uint32_t>(local.shape.rows);
+
+  SmeshRSOp op{};
+  op.valid = true;
+  op.bits.start = start;
+  op.bits.end = addLocalAddr(start, rows_touched);
+  op.bits.wraps_around = addLocalAddrOverflows(start, rows_touched);
+  return op;
+}
+// fill RS entry's op* sections on allocate
+void fillOperands(SmeshRsEntry& entry) {
+  const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct));
+
+  entry.opa = {};
+  entry.opb = {};
+  entry.opa_is_dst = false;
+
+  switch (funct) {
+    case SmeshFunct::Mvin:
+    case SmeshFunct::Mvin2:
+    case SmeshFunct::Mvin3:
+      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+      entry.opa_is_dst = true;
+      break;
+
+    case SmeshFunct::Preload:
+      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+      entry.opb = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs1));
+      entry.opa_is_dst = true;
+      break;
+
+    case SmeshFunct::ComputeFlip:
+    case SmeshFunct::ComputeStay:
+      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs1));
+      entry.opb = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+      entry.opa_is_dst = false;
+      break;
+
+    case SmeshFunct::Mvout:
+      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+      entry.opa_is_dst = false;
+      break;
+
+    case SmeshFunct::StoreSpad:
+      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs1));
+      entry.opb = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+      entry.opa_is_dst = true;
+      break;
+
+    case SmeshFunct::Config:
+    case SmeshFunct::Flush:
+      break;
+  }
+}
+
+} // namespace
 
 bool SmeshRS::empty() const {
   return !entries_ld_.valid && !entries_ex_.valid && !entries_st_.valid;
@@ -49,11 +114,12 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   }
 
   *slot = SmeshRsEntry{};  // clear chosen row before filling it
-  slot->valid = true;
-  slot->issued = false;
-  slot->queue = queue;
-  slot->cmd = cmd;
+  slot->valid = true;              // entry's valid bit
+  slot->issued = false;            // entry's issued bit
+  slot->queue = queue;             // entry's queue type (load/execute/etc.)
+  slot->cmd = cmd;                 // entry's command payload
   slot->rob_id = next_rob_id_++;
+  fillOperands(*slot);             // entry's op* sections
 
   if (rob_id_out != nullptr) {
     *rob_id_out = slot->rob_id;
