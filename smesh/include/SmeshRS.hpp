@@ -13,6 +13,7 @@ reservation-station component will be introduced separately.
 #include "SmeshCommand.hpp"
 #include "SmeshPorts.hpp"
 
+#include <array>
 #include <cstdint>
 
 namespace smesh {
@@ -26,6 +27,16 @@ enum class SmeshQueueClass : std::uint8_t {
 };
 
 using SmeshRobId = std::uint16_t;
+
+// Runtime state programmed by CONFIG commands and used to calculate RS
+// local-memory ranges. These strides are measured in local rows.
+struct SmeshRSConfigState {
+  std::array<std::uint32_t, kLoadStates> ld_block_stride{};
+  std::uint32_t st_block_stride = 0;
+  std::uint32_t a_stride = 0;
+  std::uint32_t c_stride = 0;
+  bool a_transpose = false;
+};
 
 // RS's op* section's bit fields
 struct SmeshRSOpBits {
@@ -99,6 +110,8 @@ public:
   bool busy() const;
   bool canAccept() const;
 
+  const SmeshRSConfigState& configState() const;
+
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
   bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
   const SmeshRsEntry& entry() const;
@@ -114,6 +127,7 @@ public:
   bool complete(SmeshRobId rob_id);
 
 private:
+  SmeshRSConfigState config_state_{};
   SmeshRsEntry entries_ld_{};
   SmeshRsEntry entries_ex_{};
   SmeshRsEntry entries_st_{};

@@ -75,6 +75,10 @@ void fillOperands(SmeshRsEntry& entry) {
 
 } // namespace
 
+const SmeshRSConfigState& SmeshRS::configState() const {
+  return config_state_;
+}
+
 bool SmeshRS::empty() const {
   return !entries_ld_.valid && !entries_ex_.valid && !entries_st_.valid;
 }
