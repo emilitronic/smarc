@@ -122,6 +122,7 @@ void updateConfigState(const SmeshCmd& cmd, SmeshRSConfigState& state) {
 }
 
 // fill RS entry's op* sections on allocate (a dispatcher)
+// *******************************************************
 void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
   const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct));
 

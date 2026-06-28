@@ -50,13 +50,14 @@ struct SmeshRSOp {
 };
 
 // *** RS row contents ***
+// ***********************
 struct SmeshRsEntry {
-  bool valid = false; // smesh keeps the outer entry-valid bit here
+  bool valid = false;      // smesh keeps the outer entry-valid bit here
   SmeshQueueClass q = SmeshQueueClass::System;
-  bool is_config = false;
+  bool is_config = false;  // is it a CONFIG cmd?
 
   SmeshRSOp opa{};
-  bool opa_is_dst = false;
+  bool opa_is_dst = false; //
   SmeshRSOp opb{};
 
   bool issued = false;
@@ -70,7 +71,7 @@ struct SmeshRsEntry {
   std::uint32_t deps_st = 0; // TODO: dependency bits for store entries
   std::uint32_t allocated_at = 0; // allocation sequence number for debugging
 };
-
+// decide which RS row should receive a command
 inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
   const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct));
 
@@ -100,13 +101,13 @@ inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
           return SmeshQueueClass::Store;
       }
       return SmeshQueueClass::Invalid;
-    }
+    } // config cmd has sub-types, so classify by kind
 
     case SmeshFunct::Flush:
-      return SmeshQueueClass::System;
+      return SmeshQueueClass::System; // system cmd bypasses RS
   }
 
-  return SmeshQueueClass::Invalid;
+  return SmeshQueueClass::Invalid; // cmd can't be classified
 }
 
 // RS row owner and manager
