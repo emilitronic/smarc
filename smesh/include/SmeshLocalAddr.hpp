@@ -71,7 +71,9 @@ struct SmeshLocalAddr {
     return (raw >> kLocalAddrNormShift) & 0x7u; // three-bit normalization op
   }
   constexpr bool is_garbage() const {
-    return (raw & kLocalAddrGarbageMask) != 0; // invalid/padding address
+    return is_acc_addr() && accumulate() && read_full_acc_row() &&
+           data() == kLocalAddrDataMask &&
+           (raw & kLocalAddrGarbageMask) != 0; // invalid/padding address
   }
   constexpr std::uint32_t sp_bank() const {
     return kSpBankBits == 0
@@ -136,10 +138,28 @@ constexpr SmeshLocalAddrAddResult add_with_overflow(SmeshLocalAddr addr,
           (static_cast<std::uint32_t>(sum) & kLocalAddrDataMask)},
       ((sum >> overflow_bit) & 0x1u) != 0};
 }
-
+// how to add row offset to local addr
 constexpr SmeshLocalAddr operator+(SmeshLocalAddr addr, std::uint32_t offset) {
   // Return the resulting address and intentionally discard the overflow flag.
   return add_with_overflow(addr, offset).addr;
+}
+// how to compare local addr
+constexpr bool operator<=(SmeshLocalAddr lhs, SmeshLocalAddr rhs) {
+  if (lhs.is_acc_addr() != rhs.is_acc_addr()) {
+    return false;
+  }
+  return lhs.is_acc_addr()
+             ? lhs.full_acc_addr() <= rhs.full_acc_addr()
+             : lhs.full_sp_addr() <= rhs.full_sp_addr();
+}
+
+constexpr bool operator<(SmeshLocalAddr lhs, SmeshLocalAddr rhs) {
+  if (lhs.is_acc_addr() != rhs.is_acc_addr()) {
+    return false;
+  }
+  return lhs.is_acc_addr()
+             ? lhs.full_acc_addr() < rhs.full_acc_addr()
+             : lhs.full_sp_addr() < rhs.full_sp_addr();
 }
 
 } // namespace smesh

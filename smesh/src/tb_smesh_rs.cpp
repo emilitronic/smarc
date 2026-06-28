@@ -27,7 +27,9 @@ bool testLocalAddr() {
   constexpr auto sp = smesh::makeSpAddr(6);
   constexpr auto acc = smesh::makeAccAddr(10, true, true, 5);
   constexpr auto garbage =
-      smesh::makeLocalAddr(smesh::kLocalAddrGarbageMask | 3u);
+      smesh::makeLocalAddr(
+          smesh::makeAccAddr(smesh::kAccAddrMask, true, true).raw |
+          smesh::kLocalAddrGarbageMask);
   constexpr auto sp_sum = smesh::add_with_overflow(smesh::makeSpAddr(14), 3);
   constexpr auto acc_sum =
       smesh::add_with_overflow(smesh::makeAccAddr(14, true, true, 5), 3);
@@ -45,6 +47,33 @@ bool testLocalAddr() {
          acc_sum.overflow && acc_sum.addr.full_acc_addr() == 1 &&
          acc_sum.addr.is_acc_addr() && acc_sum.addr.accumulate() &&
          acc_sum.addr.read_full_acc_row() && acc_sum.addr.norm_cmd() == 5;
+}
+
+smesh::SmeshRSOpBits makeRange(smesh::SmeshLocalAddr start,
+                               std::uint32_t extent) {
+  const auto end = smesh::add_with_overflow(start, extent);
+  return smesh::SmeshRSOpBits{start, end.addr, end.overflow};
+}
+
+bool testOverlap() {
+  const auto sp_a = makeRange(smesh::makeSpAddr(2), 4);     // [2,6)
+  const auto sp_b = makeRange(smesh::makeSpAddr(4), 4);     // [4,8)
+  const auto touching = makeRange(smesh::makeSpAddr(6), 3); // [6,9)
+  const auto acc_same_rows = makeRange(smesh::makeAccAddr(4), 4);
+  const auto wrapping = makeRange(smesh::makeSpAddr(14), 4); // [14,2)
+  const auto wrapped_hit = makeRange(smesh::makeSpAddr(1), 2);
+  const auto wrapped_miss = makeRange(smesh::makeSpAddr(4), 2);
+  const auto garbage_start = smesh::makeLocalAddr(
+      smesh::makeAccAddr(smesh::kAccAddrMask, true, true).raw |
+      smesh::kLocalAddrGarbageMask);
+  const auto garbage = makeRange(garbage_start, 1);
+
+  return sp_a.overlaps(sp_b) && sp_b.overlaps(sp_a) &&
+         !sp_a.overlaps(touching) &&
+         !sp_a.overlaps(acc_same_rows) &&
+         wrapping.overlaps(wrapped_hit) &&
+         !wrapping.overlaps(wrapped_miss) &&
+         !garbage.overlaps(makeRange(smesh::makeAccAddr(15), 1));
 }
 
 bool testLoadRange() {
@@ -238,6 +267,7 @@ bool testComputeRange() {
 
 int main() {
   const bool local_addr_ok = testLocalAddr();
+  const bool overlap_ok = testOverlap();
   const bool load_ok = testLoadRange();
   const bool store_ok = testStoreRange();
   const bool store_spad_ok = testStoreSpadRange();
@@ -245,6 +275,7 @@ int main() {
   const bool compute_ok = testComputeRange();
   std::printf("[SMESH_RS] %s local_addr\n",
               local_addr_ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_RS] %s overlap\n", overlap_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s load_range\n", load_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_range\n", store_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_spad_range\n",
@@ -253,8 +284,8 @@ int main() {
               preload_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s compute_range\n",
               compute_ok ? "PASS" : "FAIL");
-  return (local_addr_ok && load_ok && store_ok && store_spad_ok && preload_ok &&
-          compute_ok)
+  return (local_addr_ok && overlap_ok && load_ok && store_ok && store_spad_ok &&
+          preload_ok && compute_ok)
              ? 0
              : 1;
 }

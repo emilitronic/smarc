@@ -42,6 +42,37 @@ struct SmeshRSOpBits {
   SmeshLocalAddr start{};    // 32b
   SmeshLocalAddr end{};      // 32b
   bool wraps_around = false; //  1b
+
+  constexpr bool overlaps(const SmeshRSOpBits& other) const {
+    // reject ranges that can't overlap
+    // garbage can't overlap, spad range can't overlap acc range
+    if (start.is_garbage() || other.start.is_garbage() ||
+        start.is_acc_addr() != other.start.is_acc_addr()) {
+      return false;
+    }
+    // convert to flattened addresses for comparison, ignoring metadata
+    const auto this_start  = start.is_acc_addr() ? start.full_acc_addr() : start.full_sp_addr();
+    const auto this_end    = end.is_acc_addr() ? end.full_acc_addr() : end.full_sp_addr();
+    const auto other_start = other.start.is_acc_addr() ? other.start.full_acc_addr() : other.start.full_sp_addr();
+    const auto other_end   = other.end.is_acc_addr() ? other.end.full_acc_addr() : other.end.full_sp_addr();
+    
+    if (!wraps_around && this_start == this_end) { // non-wrapping half-open range, e.g., [4,4) has no rows
+      return false;
+    } 
+    if (!other.wraps_around && other_start == other_end) { // non-wrapping half-open range
+      return false;
+    }
+    if (wraps_around && other.wraps_around) { // two non-empty wrapping ranges must overlap (they *both* cross mem boundary)
+      return true;
+    }
+    if (wraps_around) {
+      return other_start < this_end || this_start < other_end; // if this wraps, does other overlap either piece
+    }
+    if (other.wraps_around) {
+      return this_start < other_end || other_start < this_end; // if other wraps, does this overlap either piece
+    }
+    return this_start < other_end && other_start < this_end; // neither wraps, [a,b) overlaps [c,d) iff a < d && c < b]
+  }
 };
 // RS's op* sub-section
 struct SmeshRSOp {

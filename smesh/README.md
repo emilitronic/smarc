@@ -79,6 +79,7 @@ Run the focused reservation-station regression:
 Expected output:
 ```text
 [SMESH_RS] PASS local_addr
+[SMESH_RS] PASS overlap
 [SMESH_RS] PASS load_range
 [SMESH_RS] PASS store_range
 [SMESH_RS] PASS store_spad_range
