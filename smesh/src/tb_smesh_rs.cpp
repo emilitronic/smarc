@@ -35,7 +35,8 @@ bool testLoadRange() {
   }
   const auto& config_entry = rs.loadEntry();
   if (config_entry.q != smesh::SmeshQueueClass::Load ||
-      !config_entry.is_config || !config_entry.complete_on_issue) {
+      !config_entry.is_config || !config_entry.complete_on_issue ||
+      config_entry.allocated_at != 0) {
     return false;
   }
   if (!rs.complete(rs.entry().rob_id)) {
@@ -55,7 +56,7 @@ bool testLoadRange() {
   const auto& entry = rs.loadEntry();
   return entry.q == smesh::SmeshQueueClass::Load && !entry.is_config &&
          !entry.complete_on_issue && entry.opa.valid && entry.opa_is_dst &&
-         !entry.opb.valid &&
+         !entry.opb.valid && entry.allocated_at == 1 &&
          entry.opa.bits.start.raw == base &&
          entry.opa.bits.end.raw == base + 10 &&
          !entry.opa.bits.wraps_around;

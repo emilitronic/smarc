@@ -244,6 +244,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   slot->complete_on_issue = slot->is_config && queue != SmeshQueueClass::Execute;
   slot->cmd = cmd;                 // entry's command payload
   slot->rob_id = next_rob_id_++;
+  slot->allocated_at = instructions_allocated_++;
   updateConfigState(cmd, config_state_);
   fillOperands(*slot, config_state_); // entry's op* sections
 

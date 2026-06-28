@@ -68,9 +68,7 @@ struct SmeshRsEntry {
   std::uint32_t deps_ld = 0; // TODO: dependency bits for load entries
   std::uint32_t deps_ex = 0; // TODO: dependency bits for execute entries
   std::uint32_t deps_st = 0; // TODO: dependency bits for store entries
-
-  // Gemmini's debug-only allocated_at field is deferred until smesh has an
-  // allocation counter.
+  std::uint32_t allocated_at = 0; // allocation sequence number for debugging
 };
 
 inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
@@ -140,6 +138,7 @@ private:
   SmeshRsEntry entries_ex_{};
   SmeshRsEntry entries_st_{};
   SmeshRobId next_rob_id_ = 0;
+  std::uint32_t instructions_allocated_ = 0;
 };
 
 } // namespace smesh
