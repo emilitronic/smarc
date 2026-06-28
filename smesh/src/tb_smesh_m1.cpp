@@ -99,7 +99,7 @@ bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
                     smesh::packConfig(smesh::ConfigKind::Store), acc_stride); // set store stride
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
-                    smesh::packConfig(smesh::ConfigKind::Execute), 0);
+                    smesh::packConfigExecuteRs1(1), smesh::packConfigExecuteRs2(1));
 
   dev.executeCustom(mem, smesh::SmeshFunct::Mvin, kAAddr,
                     smesh::packLocal(a_spad_row, shape)); // move A from DRAM to SP

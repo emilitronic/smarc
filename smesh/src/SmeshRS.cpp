@@ -59,9 +59,21 @@ std::uint32_t storeRowsTouched(MatrixShape shape) {
   return static_cast<std::uint32_t>(extent);
 }
 // Current Gemmini-generated STORE_SPAD commands use one tile column and a
-// destination stride of one, so their destination extent is num_rows.
+// destination stride of one, so their destination extent is num_rows
 std::uint32_t storeSpadDestinationRowsTouched(MatrixShape shape) {
   return static_cast<std::uint32_t>(shape.rows);
+}
+// PRELOAD's B/D src occupies consecutive local rows
+std::uint32_t preloadSourceRowsTouched(MatrixShape shape) {
+  return static_cast<std::uint32_t>(shape.rows);
+}
+// PRELOAD's C dst uses configured execute C stride (set c_stride = 1 for consec row packing in C)
+std::uint32_t preloadDestinationRowsTouched(MatrixShape shape, std::uint32_t c_stride) {
+  const std::uint64_t extent = static_cast<std::uint64_t>(shape.rows) * c_stride;
+  if (extent > std::numeric_limits<std::uint32_t>::max()) {
+    throw std::overflow_error("PRELOAD destination range is too large");
+  }
+  return static_cast<std::uint32_t>(extent);
 }
 // find which LOAD it is, 1, 2, or 3
 std::size_t loadStateId(SmeshFunct funct) {
@@ -82,6 +94,13 @@ void updateConfigState(const SmeshCmd& cmd, SmeshRSConfigState& state) {
 
   const auto rs1 = static_cast<std::uint64_t>(cmd.rs1);
   const auto kind = static_cast<ConfigKind>(rs1 & 0x3u);
+  if (kind == ConfigKind::Execute) {
+    state.a_stride = unpackConfigExecuteAStride(rs1);
+    state.c_stride =
+        unpackConfigExecuteCStride(static_cast<std::uint64_t>(cmd.rs2));
+    state.a_transpose = unpackConfigExecuteATranspose(rs1);
+    return;
+  }
   if (kind != ConfigKind::Load) {
     return;
   }
@@ -112,11 +131,14 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
       break;
     }
 
-    case SmeshFunct::Preload:
-      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
-      entry.opb = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs1));
+    case SmeshFunct::Preload: {
+      const auto source = static_cast<std::uint64_t>(entry.cmd.rs1);
+      const auto destination = static_cast<std::uint64_t>(entry.cmd.rs2);
+      entry.opa = makeRSOp(destination,preloadDestinationRowsTouched(unpackLocal(destination).shape, config_state.c_stride));
+      entry.opb = makeRSOp(source, preloadSourceRowsTouched(unpackLocal(source).shape));
       entry.opa_is_dst = true;
       break;
+    }
 
     case SmeshFunct::ComputeFlip:
     case SmeshFunct::ComputeStay:

@@ -98,15 +98,54 @@ bool testStoreSpadRange() {
          !entry.opb.bits.wraps_around;
 }
 
+bool testPreloadRange() {
+  smesh::SmeshRS rs;
+
+  const auto config = command(
+      smesh::SmeshFunct::Config,
+      smesh::packConfigExecuteRs1(1),
+      smesh::packConfigExecuteRs2(2));
+  if (!rs.allocate(config)) {
+    return false;
+  }
+  if (!rs.complete(rs.entry().rob_id)) {
+    return false;
+  }
+
+  constexpr std::uint32_t source_base = 100;
+  constexpr std::uint32_t destination_base = 400;
+  constexpr smesh::MatrixShape source_shape{2, smesh::kDim};
+  constexpr smesh::MatrixShape destination_shape{3, smesh::kDim};
+  const auto preload = command(
+      smesh::SmeshFunct::Preload,
+      smesh::packLocal(source_base, source_shape),
+      smesh::packLocal(destination_base, destination_shape));
+  if (!rs.allocate(preload)) {
+    return false;
+  }
+
+  const auto& entry = rs.executeEntry();
+  return entry.opa.valid && entry.opa_is_dst && entry.opb.valid &&
+         entry.opa.bits.start.raw == destination_base &&
+         entry.opa.bits.end.raw == destination_base + 6 &&
+         !entry.opa.bits.wraps_around &&
+         entry.opb.bits.start.raw == source_base &&
+         entry.opb.bits.end.raw == source_base + source_shape.rows &&
+         !entry.opb.bits.wraps_around;
+}
+
 } // namespace
 
 int main() {
   const bool load_ok = testLoadRange();
   const bool store_ok = testStoreRange();
   const bool store_spad_ok = testStoreSpadRange();
+  const bool preload_ok = testPreloadRange();
   std::printf("[SMESH_RS] %s load_range\n", load_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_range\n", store_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_spad_range\n",
               store_spad_ok ? "PASS" : "FAIL");
-  return (load_ok && store_ok && store_spad_ok) ? 0 : 1;
+  std::printf("[SMESH_RS] %s preload_range\n",
+              preload_ok ? "PASS" : "FAIL");
+  return (load_ok && store_ok && store_spad_ok && preload_ok) ? 0 : 1;
 }

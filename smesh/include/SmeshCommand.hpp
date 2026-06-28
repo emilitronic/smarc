@@ -68,6 +68,9 @@ inline LocalMatrix unpackLocal(std::uint64_t packed) {
 constexpr std::uint32_t kConfigStateIdShift = 3;
 constexpr std::uint32_t kConfigLoadBlockStrideShift = 16;
 constexpr std::uint64_t kConfigLoadBlockStrideMask = 0xffffull;
+constexpr std::uint32_t kConfigExecuteAStrideShift = 16;
+constexpr std::uint32_t kConfigExecuteATransposeBit = 8;
+constexpr std::uint32_t kConfigExecuteCStrideShift = 48;
 
 inline std::uint64_t packConfig(ConfigKind kind,
                                 std::uint32_t state_id = 0,
@@ -85,6 +88,32 @@ inline std::uint32_t unpackConfigStateId(std::uint64_t rs1) {
 inline std::uint32_t unpackConfigLoadBlockStride(std::uint64_t rs1) {
   return static_cast<std::uint32_t>(
       (rs1 >> kConfigLoadBlockStrideShift) & kConfigLoadBlockStrideMask);
+}
+
+inline std::uint64_t packConfigExecuteRs1(std::uint32_t a_stride,
+                                         bool a_transpose = false) {
+  return static_cast<std::uint64_t>(ConfigKind::Execute) |
+         (static_cast<std::uint64_t>(a_stride & 0xffffu)
+          << kConfigExecuteAStrideShift) |
+         (static_cast<std::uint64_t>(a_transpose)
+          << kConfigExecuteATransposeBit);
+}
+
+inline std::uint64_t packConfigExecuteRs2(std::uint32_t c_stride) {
+  return static_cast<std::uint64_t>(c_stride & 0xffffu)
+         << kConfigExecuteCStrideShift;
+}
+
+inline std::uint32_t unpackConfigExecuteAStride(std::uint64_t rs1) {
+  return static_cast<std::uint32_t>((rs1 >> kConfigExecuteAStrideShift) & 0xffffu);
+}
+
+inline bool unpackConfigExecuteATranspose(std::uint64_t rs1) {
+  return ((rs1 >> kConfigExecuteATransposeBit) & 0x1u) != 0;
+}
+
+inline std::uint32_t unpackConfigExecuteCStride(std::uint64_t rs2) {
+  return static_cast<std::uint32_t>((rs2 >> kConfigExecuteCStrideShift) & 0xffffu);
 }
 
 inline std::uint64_t packStoreSpadDestination(std::uint32_t local_addr,
