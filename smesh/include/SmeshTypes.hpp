@@ -17,10 +17,10 @@ namespace smesh {
 constexpr std::size_t kDim = kDefaultConfig.dim;                             // cols per row
 constexpr std::size_t kSpBanks = kDefaultConfig.sp_banks;
 constexpr std::size_t kSpBankRows = kDefaultConfig.sp_bank_rows;
-constexpr std::size_t kScratchpadRows = kSpBanks * kSpBankRows;              // total rows in SP
+constexpr std::size_t kSpRows = kSpBanks * kSpBankRows;                      // total rows in SP
 constexpr std::size_t kAccBanks = kDefaultConfig.acc_banks;
 constexpr std::size_t kAccBankRows = kDefaultConfig.acc_bank_rows;
-constexpr std::size_t kAccumulatorRows = kAccBanks * kAccBankRows;           // total rows in accumulator
+constexpr std::size_t kAccRows = kAccBanks * kAccBankRows;                   // total rows in accumulator
 constexpr std::size_t kLoadStates = kDefaultConfig.load_states;              // mvin/mvin2/mvin3 stride states
 constexpr std::size_t kRsLoadEntries = kDefaultConfig.rs_load_entries;       // M4v0 RS load slots
 constexpr std::size_t kRsExecuteEntries = kDefaultConfig.rs_execute_entries; // M4v0 RS execute slots

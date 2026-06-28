@@ -204,12 +204,12 @@ Acc SmeshDevice::readAccElem(std::uint32_t row, std::uint32_t col) const {
 // Can matrix tile of size rows x cols fit in SP starting at row?
 void SmeshDevice::checkSpadRange(std::uint32_t row, MatrixShape shape) {
   checkDimShape(shape);
-  require(row + shape.rows <= kScratchpadRows, "scratchpad row range out of bounds");
+  require(row + shape.rows <= kSpRows, "scratchpad row range out of bounds");
 }
 
 void SmeshDevice::checkAccRange(std::uint32_t row, MatrixShape shape) {
   checkDimShape(shape);
-  require(row + shape.rows <= kAccumulatorRows, "accumulator row range out of bounds");
+  require(row + shape.rows <= kAccRows, "accumulator row range out of bounds");
 }
 
 void SmeshDevice::checkDimShape(MatrixShape shape) {
