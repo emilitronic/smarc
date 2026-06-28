@@ -91,11 +91,11 @@ bool runCase(const char* name, const MatrixElem& a, const MatrixElem& b) {
 
   // sending decoded low-level commands
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
-                    smesh::packConfig(smesh::ConfigKind::Load, 0), elem_stride); // set mvin load-state 0 stride
+                    smesh::packConfig(smesh::ConfigKind::Load, 0, smesh::kDim), elem_stride); // set mvin load-state 0 stride
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
-                    smesh::packConfig(smesh::ConfigKind::Load, 1), b_elem_stride); // set mvin2 load-state 1 stride
+                    smesh::packConfig(smesh::ConfigKind::Load, 1, smesh::kDim), b_elem_stride); // set mvin2 load-state 1 stride
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
-                    smesh::packConfig(smesh::ConfigKind::Load, 2), elem_stride); // set mvin3 load-state 2 stride
+                    smesh::packConfig(smesh::ConfigKind::Load, 2, smesh::kDim), elem_stride); // set mvin3 load-state 2 stride
   dev.executeCustom(mem, smesh::SmeshFunct::Config,
                     smesh::packConfig(smesh::ConfigKind::Store), acc_stride); // set store stride
   dev.executeCustom(mem, smesh::SmeshFunct::Config,

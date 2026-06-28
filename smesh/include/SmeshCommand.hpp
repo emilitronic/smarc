@@ -65,9 +65,26 @@ inline LocalMatrix unpackLocal(std::uint64_t packed) {
   };
 }
 
-inline std::uint64_t packConfig(ConfigKind kind, std::uint32_t state_id = 0) {
+constexpr std::uint32_t kConfigStateIdShift = 3;
+constexpr std::uint32_t kConfigLoadBlockStrideShift = 16;
+constexpr std::uint64_t kConfigLoadBlockStrideMask = 0xffffull;
+
+inline std::uint64_t packConfig(ConfigKind kind,
+                                std::uint32_t state_id = 0,
+                                std::uint32_t ld_block_stride = 0) {
   return static_cast<std::uint64_t>(kind) |
-         (static_cast<std::uint64_t>(state_id & 0x3u) << 3);
+         (static_cast<std::uint64_t>(state_id & 0x3u) << kConfigStateIdShift) |
+         ((static_cast<std::uint64_t>(ld_block_stride) & kConfigLoadBlockStrideMask)
+          << kConfigLoadBlockStrideShift);
+}
+
+inline std::uint32_t unpackConfigStateId(std::uint64_t rs1) {
+  return static_cast<std::uint32_t>((rs1 >> kConfigStateIdShift) & 0x3u);
+}
+
+inline std::uint32_t unpackConfigLoadBlockStride(std::uint64_t rs1) {
+  return static_cast<std::uint32_t>(
+      (rs1 >> kConfigLoadBlockStrideShift) & kConfigLoadBlockStrideMask);
 }
 
 } // namespace smesh

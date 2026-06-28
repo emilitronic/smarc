@@ -26,6 +26,10 @@ Build only the M1 low-level command-surface testbench:
 ```bash
 cmake --build build --target tb_smesh_m1 -j
 ```
+Build the focused reservation-station testbench:
+```bash
+cmake --build build --target tb_smesh_rs -j
+```
 Build only the M2 Cascade command-shell testbench:
 ```bash
 cmake --build build --target tb_smesh_m2 -j
@@ -67,6 +71,15 @@ Expected output:
 The M1 testbench drives the same functional data path through decoded
 `funct/rs1/rs2` command fields instead of direct method calls. It does not parse
 raw RISC-V/RoCC instruction words yet.
+
+Run the focused reservation-station regression:
+```bash
+./build/smesh/tb_smesh_rs
+```
+Expected output:
+```text
+[SMESH_RS] PASS load_range
+```
 
 Run the M2 Cascade command-shell testbench:
 ```bash

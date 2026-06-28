@@ -8,17 +8,17 @@ One-entry reservation-station state machine for smesh.
 
 #include "SmeshRS.hpp"
 
+#include <limits>
+#include <stdexcept>
+
 namespace smesh {
 namespace {
 
 std::uint32_t localAddrRaw(std::uint64_t packed) {
   return static_cast<std::uint32_t>(packed & kLocalAddrMask);
 }
-
-SmeshRSOp makeRSOp(std::uint64_t packed) {
-  const auto local = unpackLocal(packed);
+SmeshRSOp makeRSOp(std::uint64_t packed, std::uint32_t rows_touched) {
   const auto start = makeLocalAddr(localAddrRaw(packed));
-  const auto rows_touched = static_cast<std::uint32_t>(local.shape.rows);
 
   SmeshRSOp op{};
   op.valid = true;
@@ -27,21 +27,71 @@ SmeshRSOp makeRSOp(std::uint64_t packed) {
   op.bits.wraps_around = addLocalAddrOverflows(start, rows_touched);
   return op;
 }
-// fill RS entry's op* sections on allocate
-void fillOperands(SmeshRsEntry& entry) {
+
+SmeshRSOp makeRSOp(std::uint64_t packed) {
+  return makeRSOp(packed, static_cast<std::uint32_t>(unpackLocal(packed).shape.rows));
+}
+// compute bounding-range of rows touched by LOAD
+std::uint32_t loadRowsTouched(MatrixShape shape, std::uint32_t block_stride) {
+  if (shape.rows == 0 || shape.cols == 0) {
+    return 0;
+  }
+
+  const std::uint64_t chunks = ((shape.cols - 1) / kDim) + 1; // ceil(num_cols / DIM)
+  const std::uint64_t extent = (chunks - 1) * block_stride + static_cast<std::uint64_t>(shape.rows); // (chunks - 1) * block_stride + num_rows
+  if (extent > std::numeric_limits<std::uint32_t>::max()) {
+    throw std::overflow_error("LOAD local-memory range is too large");
+  }
+  return static_cast<std::uint32_t>(extent);
+}
+// find which LOAD it is, 1, 2, or 3
+std::size_t loadStateId(SmeshFunct funct) {
+  if (funct == SmeshFunct::Mvin2) {
+    return 1;
+  }
+  if (funct == SmeshFunct::Mvin3) {
+    return 2;
+  }
+  return 0;
+}
+// watches for CONFIG commands and updates the RS's config_state_ accordingly
+void updateConfigState(const SmeshCmd& cmd, SmeshRSConfigState& state) {
+  const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct));
+  if (funct != SmeshFunct::Config) {
+    return;
+  }
+
+  const auto rs1 = static_cast<std::uint64_t>(cmd.rs1);
+  const auto kind = static_cast<ConfigKind>(rs1 & 0x3u);
+  if (kind != ConfigKind::Load) {
+    return;
+  }
+
+  const auto state_id = unpackConfigStateId(rs1);
+  if (state_id < state.ld_block_stride.size()) {
+    state.ld_block_stride.at(state_id) = unpackConfigLoadBlockStride(rs1);
+  }
+}
+
+// fill RS entry's op* sections on allocate (a dispatcher)
+void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
   const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct));
 
   entry.opa = {};
   entry.opb = {};
   entry.opa_is_dst = false;
-
+  // map command arguments to appropriate RS op* sections
   switch (funct) {
     case SmeshFunct::Mvin:
     case SmeshFunct::Mvin2:
-    case SmeshFunct::Mvin3:
-      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+    case SmeshFunct::Mvin3: {
+      const auto packed = static_cast<std::uint64_t>(entry.cmd.rs2);
+      const auto state_id = loadStateId(funct);
+      const auto rows_touched = loadRowsTouched(unpackLocal(packed).shape, config_state.ld_block_stride.at(state_id));
+      entry.opa = makeRSOp(packed, rows_touched);
       entry.opa_is_dst = true;
       break;
+    }
 
     case SmeshFunct::Preload:
       entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
@@ -123,7 +173,8 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   slot->queue = queue;             // entry's queue type (load/execute/etc.)
   slot->cmd = cmd;                 // entry's command payload
   slot->rob_id = next_rob_id_++;
-  fillOperands(*slot);             // entry's op* sections
+  updateConfigState(cmd, config_state_);
+  fillOperands(*slot, config_state_); // entry's op* sections
 
   if (rob_id_out != nullptr) {
     *rob_id_out = slot->rob_id;

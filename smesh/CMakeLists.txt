@@ -32,6 +32,15 @@ target_link_libraries(tb_smesh_m1
     smesh_model
 )
 
+add_executable(tb_smesh_rs
+  src/tb_smesh_rs.cpp
+)
+
+target_link_libraries(tb_smesh_rs
+  PRIVATE
+    smesh_model
+)
+
 add_executable(tb_smesh_m2
   src/SmeshCommandDriver.cpp
   src/SmeshShell.cpp

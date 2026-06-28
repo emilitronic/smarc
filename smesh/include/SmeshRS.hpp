@@ -40,17 +40,17 @@ struct SmeshRSConfigState {
 
 // RS's op* section's bit fields
 struct SmeshRSOpBits {
-  SmeshLocalAddr start{};
-  SmeshLocalAddr end{};
-  bool wraps_around = false;
+  SmeshLocalAddr start{};    // 32b
+  SmeshLocalAddr end{};      // 32b
+  bool wraps_around = false; //  1b
 };
-// RS's op* section
+// RS's op* sub-section
 struct SmeshRSOp {
-  bool valid = false;
+  bool valid = false;   // are op* contents valid?
   SmeshRSOpBits bits{};
 };
 
-// RS row format
+// RS row sections
 struct SmeshRsEntry {
   bool valid = false;
   bool issued = false;
