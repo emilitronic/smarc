@@ -60,15 +60,15 @@ std::uint32_t storeRowsTouched(MatrixShape shape) {
 }
 // Current Gemmini-generated STORE_SPAD commands use one tile column and a
 // destination stride of one, so their destination extent is num_rows
-std::uint32_t storeSpadDestinationRowsTouched(MatrixShape shape) {
+std::uint32_t storeSpadDstRowsTouched(MatrixShape shape) {
   return static_cast<std::uint32_t>(shape.rows);
 }
 // PRELOAD's B/D src occupies consecutive local rows
-std::uint32_t preloadSourceRowsTouched(MatrixShape shape) {
+std::uint32_t preloadSrcRowsTouched(MatrixShape shape) {
   return static_cast<std::uint32_t>(shape.rows);
 }
 // PRELOAD's C dst uses configured execute C stride (set c_stride = 1 for consec row packing in C)
-std::uint32_t preloadDestinationRowsTouched(MatrixShape shape, std::uint32_t c_stride) {
+std::uint32_t preloadDstRowsTouched(MatrixShape shape, std::uint32_t c_stride) {
   const std::uint64_t extent = static_cast<std::uint64_t>(shape.rows) * c_stride;
   if (extent > std::numeric_limits<std::uint32_t>::max()) {
     throw std::overflow_error("PRELOAD destination range is too large");
@@ -134,8 +134,8 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
     case SmeshFunct::Preload: {
       const auto source = static_cast<std::uint64_t>(entry.cmd.rs1);
       const auto destination = static_cast<std::uint64_t>(entry.cmd.rs2);
-      entry.opa = makeRSOp(destination,preloadDestinationRowsTouched(unpackLocal(destination).shape, config_state.c_stride));
-      entry.opb = makeRSOp(source, preloadSourceRowsTouched(unpackLocal(source).shape));
+      entry.opa = makeRSOp(destination,preloadDstRowsTouched(unpackLocal(destination).shape, config_state.c_stride));
+      entry.opb = makeRSOp(source, preloadSrcRowsTouched(unpackLocal(source).shape));
       entry.opa_is_dst = true;
       break;
     }
@@ -159,7 +159,7 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
       const auto destination = static_cast<std::uint64_t>(entry.cmd.rs1); // packed dst addr (spad) and dst stride
       const auto source = static_cast<std::uint64_t>(entry.cmd.rs2);      // packed srd addr (spad or accum) and src shape
       const auto shape = unpackLocal(source).shape;                       // unpack src rows and cols from rs2
-      entry.opa = makeRSOp(destination, storeSpadDestinationRowsTouched(shape)); // make opa
+      entry.opa = makeRSOp(destination, storeSpadDstRowsTouched(shape)); // make opa
       entry.opb = makeRSOp(source, storeRowsTouched(shape));                     // make opb
       entry.opa_is_dst = true;
       break;
