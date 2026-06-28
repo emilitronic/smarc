@@ -80,6 +80,7 @@ Expected output:
 ```text
 [SMESH_RS] PASS load_range
 [SMESH_RS] PASS store_range
+[SMESH_RS] PASS store_spad_range
 ```
 
 Run the M2 Cascade command-shell testbench:

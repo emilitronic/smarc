@@ -87,4 +87,13 @@ inline std::uint32_t unpackConfigLoadBlockStride(std::uint64_t rs1) {
       (rs1 >> kConfigLoadBlockStrideShift) & kConfigLoadBlockStrideMask);
 }
 
+inline std::uint64_t packStoreSpadDestination(std::uint32_t local_addr,
+                                              std::uint32_t stride = 1) {
+  return (static_cast<std::uint64_t>(stride) << 32) | local_addr;
+}
+
+inline std::uint32_t unpackStoreSpadDestinationStride(std::uint64_t rs1) {
+  return static_cast<std::uint32_t>(rs1 >> 32);
+}
+
 } // namespace smesh

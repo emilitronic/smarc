@@ -45,7 +45,7 @@ std::uint32_t loadRowsTouched(MatrixShape shape, std::uint32_t block_stride) {
   }
   return static_cast<std::uint32_t>(extent);
 }
-// compute bounding-range of rows touched by STORE
+// compute bounding-range of rows touched by STORE and STORE_SPAD
 std::uint32_t storeRowsTouched(MatrixShape shape) {
   if (shape.rows == 0 || shape.cols == 0) {
     return 0;
@@ -57,6 +57,11 @@ std::uint32_t storeRowsTouched(MatrixShape shape) {
     throw std::overflow_error("STORE local-memory range is too large");
   }
   return static_cast<std::uint32_t>(extent);
+}
+// Current Gemmini-generated STORE_SPAD commands use one tile column and a
+// destination stride of one, so their destination extent is num_rows.
+std::uint32_t storeSpadDestinationRowsTouched(MatrixShape shape) {
+  return static_cast<std::uint32_t>(shape.rows);
 }
 // find which LOAD it is, 1, 2, or 3
 std::size_t loadStateId(SmeshFunct funct) {
@@ -127,12 +132,16 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
       entry.opa_is_dst = false;
       break;
     }
-
-    case SmeshFunct::StoreSpad:
-      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs1));
-      entry.opb = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+    // for now keep STORE_SPAD dst stride of 1, so its destination extent is num_rows
+    case SmeshFunct::StoreSpad: {
+      const auto destination = static_cast<std::uint64_t>(entry.cmd.rs1); // packed dst addr (spad) and dst stride
+      const auto source = static_cast<std::uint64_t>(entry.cmd.rs2);      // packed srd addr (spad or accum) and src shape
+      const auto shape = unpackLocal(source).shape;                       // unpack src rows and cols from rs2
+      entry.opa = makeRSOp(destination, storeSpadDestinationRowsTouched(shape)); // make opa
+      entry.opb = makeRSOp(source, storeRowsTouched(shape));                     // make opb
       entry.opa_is_dst = true;
       break;
+    }
 
     case SmeshFunct::Config:
     case SmeshFunct::Flush:
