@@ -82,6 +82,7 @@ Expected output:
 [SMESH_RS] PASS store_range
 [SMESH_RS] PASS store_spad_range
 [SMESH_RS] PASS preload_range
+[SMESH_RS] PASS compute_range
 ```
 
 Run the M2 Cascade command-shell testbench:

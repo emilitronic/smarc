@@ -134,6 +134,63 @@ bool testPreloadRange() {
          !entry.opb.bits.wraps_around;
 }
 
+bool testComputeRange() {
+  constexpr std::uint32_t a_base = 1000;
+  constexpr std::uint32_t bd_base = 2000;
+  constexpr smesh::MatrixShape a_shape{2, smesh::kDim};
+  constexpr smesh::MatrixShape bd_shape{smesh::kDim, smesh::kDim};
+
+  smesh::SmeshRS flip_rs;
+  const auto flip_config = command(
+      smesh::SmeshFunct::Config,
+      smesh::packConfigExecuteRs1(2, false),
+      smesh::packConfigExecuteRs2(1));
+  if (!flip_rs.allocate(flip_config) ||
+      !flip_rs.complete(flip_rs.entry().rob_id)) {
+    return false;
+  }
+  const auto flip = command(
+      smesh::SmeshFunct::ComputeFlip,
+      smesh::packLocal(a_base, a_shape),
+      smesh::packLocal(bd_base, bd_shape));
+  if (!flip_rs.allocate(flip)) {
+    return false;
+  }
+  const auto& flip_entry = flip_rs.executeEntry();
+  const bool flip_ok =
+      flip_entry.opa.valid && !flip_entry.opa_is_dst && flip_entry.opb.valid &&
+      flip_entry.opa.bits.start.raw == a_base &&
+      flip_entry.opa.bits.end.raw == a_base + 4 &&
+      flip_entry.opb.bits.start.raw == bd_base &&
+      flip_entry.opb.bits.end.raw == bd_base + bd_shape.rows;
+
+  smesh::SmeshRS stay_rs;
+  const auto stay_config = command(
+      smesh::SmeshFunct::Config,
+      smesh::packConfigExecuteRs1(2, true),
+      smesh::packConfigExecuteRs2(1));
+  if (!stay_rs.allocate(stay_config) ||
+      !stay_rs.complete(stay_rs.entry().rob_id)) {
+    return false;
+  }
+  const auto stay = command(
+      smesh::SmeshFunct::ComputeStay,
+      smesh::packLocal(a_base, a_shape),
+      smesh::packLocal(bd_base, bd_shape));
+  if (!stay_rs.allocate(stay)) {
+    return false;
+  }
+  const auto& stay_entry = stay_rs.executeEntry();
+  const bool stay_ok =
+      stay_entry.opa.valid && !stay_entry.opa_is_dst && stay_entry.opb.valid &&
+      stay_entry.opa.bits.start.raw == a_base &&
+      stay_entry.opa.bits.end.raw == a_base + 2 * smesh::kDim &&
+      stay_entry.opb.bits.start.raw == bd_base &&
+      stay_entry.opb.bits.end.raw == bd_base + bd_shape.rows;
+
+  return flip_ok && stay_ok;
+}
+
 } // namespace
 
 int main() {
@@ -141,11 +198,16 @@ int main() {
   const bool store_ok = testStoreRange();
   const bool store_spad_ok = testStoreSpadRange();
   const bool preload_ok = testPreloadRange();
+  const bool compute_ok = testComputeRange();
   std::printf("[SMESH_RS] %s load_range\n", load_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_range\n", store_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_spad_range\n",
               store_spad_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s preload_range\n",
               preload_ok ? "PASS" : "FAIL");
-  return (load_ok && store_ok && store_spad_ok && preload_ok) ? 0 : 1;
+  std::printf("[SMESH_RS] %s compute_range\n",
+              compute_ok ? "PASS" : "FAIL");
+  return (load_ok && store_ok && store_spad_ok && preload_ok && compute_ok)
+             ? 0
+             : 1;
 }

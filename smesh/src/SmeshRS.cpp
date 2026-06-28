@@ -29,9 +29,6 @@ SmeshRSOp makeRSOp(std::uint64_t packed, std::uint32_t rows_touched) {
   return op;
 }
 
-SmeshRSOp makeRSOp(std::uint64_t packed) {
-  return makeRSOp(packed, static_cast<std::uint32_t>(unpackLocal(packed).shape.rows));
-}
 // compute bounding-range of rows touched by LOAD
 std::uint32_t loadRowsTouched(MatrixShape shape, std::uint32_t block_stride) {
   if (shape.rows == 0 || shape.cols == 0) {
@@ -74,6 +71,19 @@ std::uint32_t preloadDstRowsTouched(MatrixShape shape, std::uint32_t c_stride) {
     throw std::overflow_error("PRELOAD destination range is too large");
   }
   return static_cast<std::uint32_t>(extent);
+}
+// COMPUTE's A src uses rows, or columns when A is transposed, and a_stride
+std::uint32_t computeASrcRowsTouched(MatrixShape shape, std::uint32_t a_stride, bool a_transpose) {
+  const auto stepped_rows = a_transpose ? shape.cols : shape.rows;
+  const std::uint64_t extent = static_cast<std::uint64_t>(stepped_rows) * a_stride;
+  if (extent > std::numeric_limits<std::uint32_t>::max()) {
+    throw std::overflow_error("COMPUTE A source range is too large");
+  }
+  return static_cast<std::uint32_t>(extent);
+}
+// COMPUTE's B/D src occupies consecutive local rows
+std::uint32_t computeBDSrcRowsTouched(MatrixShape shape) {
+  return static_cast<std::uint32_t>(shape.rows);
 }
 // find which LOAD it is, 1, 2, or 3
 std::size_t loadStateId(SmeshFunct funct) {
@@ -141,11 +151,20 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
     }
 
     case SmeshFunct::ComputeFlip:
-    case SmeshFunct::ComputeStay:
-      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs1));
-      entry.opb = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+    case SmeshFunct::ComputeStay: {
+      const auto a_source = static_cast<std::uint64_t>(entry.cmd.rs1);
+      const auto bd_source = static_cast<std::uint64_t>(entry.cmd.rs2);
+      entry.opa = makeRSOp(
+          a_source,
+          computeASrcRowsTouched(unpackLocal(a_source).shape,
+                                 config_state.a_stride,
+                                 config_state.a_transpose));
+      entry.opb = makeRSOp(
+          bd_source,
+          computeBDSrcRowsTouched(unpackLocal(bd_source).shape));
       entry.opa_is_dst = false;
       break;
+    }
 
     case SmeshFunct::Mvout: {
       const auto packed = static_cast<std::uint64_t>(entry.cmd.rs2);
