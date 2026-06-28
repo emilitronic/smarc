@@ -17,8 +17,9 @@ namespace {
 std::uint32_t localAddrRaw(std::uint64_t packed) {
   return static_cast<std::uint32_t>(packed & kLocalAddrMask);
 }
+// set op* fields based on local_addr and rows_touched for any command
 SmeshRSOp makeRSOp(std::uint64_t packed, std::uint32_t rows_touched) {
-  const auto start = makeLocalAddr(localAddrRaw(packed));
+  const auto start = makeLocalAddr(localAddrRaw(packed));  // extract local_addr from packed rs1/rs2
 
   SmeshRSOp op{};
   op.valid = true;
@@ -41,6 +42,19 @@ std::uint32_t loadRowsTouched(MatrixShape shape, std::uint32_t block_stride) {
   const std::uint64_t extent = (chunks - 1) * block_stride + static_cast<std::uint64_t>(shape.rows); // (chunks - 1) * block_stride + num_rows
   if (extent > std::numeric_limits<std::uint32_t>::max()) {
     throw std::overflow_error("LOAD local-memory range is too large");
+  }
+  return static_cast<std::uint32_t>(extent);
+}
+// compute bounding-range of rows touched by STORE
+std::uint32_t storeRowsTouched(MatrixShape shape) {
+  if (shape.rows == 0 || shape.cols == 0) {
+    return 0;
+  }
+
+  const std::uint64_t chunks = ((shape.cols - 1) / kDim) + 1; // ceil(num_cols / DIM)
+  const std::uint64_t extent = (chunks - 1) * kDim + static_cast<std::uint64_t>(shape.rows); // (chunks - 1) * DIM + num_rows
+  if (extent > std::numeric_limits<std::uint32_t>::max()) {
+    throw std::overflow_error("STORE local-memory range is too large");
   }
   return static_cast<std::uint32_t>(extent);
 }
@@ -85,10 +99,10 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
     case SmeshFunct::Mvin:
     case SmeshFunct::Mvin2:
     case SmeshFunct::Mvin3: {
-      const auto packed = static_cast<std::uint64_t>(entry.cmd.rs2);
-      const auto state_id = loadStateId(funct);
-      const auto rows_touched = loadRowsTouched(unpackLocal(packed).shape, config_state.ld_block_stride.at(state_id));
-      entry.opa = makeRSOp(packed, rows_touched);
+      const auto packed = static_cast<std::uint64_t>(entry.cmd.rs2); // read shape & local_addr from rs2
+      const auto state_id = loadStateId(funct);  // is it LOAD,LOAD2, or LOAD3?
+      const auto rows_touched = loadRowsTouched(unpackLocal(packed).shape, config_state.ld_block_stride.at(state_id)); // strip extent
+      entry.opa = makeRSOp(packed, rows_touched);  // make opa for LOAD
       entry.opa_is_dst = true;
       break;
     }
@@ -106,10 +120,13 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
       entry.opa_is_dst = false;
       break;
 
-    case SmeshFunct::Mvout:
-      entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs2));
+    case SmeshFunct::Mvout: {
+      const auto packed = static_cast<std::uint64_t>(entry.cmd.rs2);
+      const auto rows_touched = storeRowsTouched(unpackLocal(packed).shape);
+      entry.opa = makeRSOp(packed, rows_touched);
       entry.opa_is_dst = false;
       break;
+    }
 
     case SmeshFunct::StoreSpad:
       entry.opa = makeRSOp(static_cast<std::uint64_t>(entry.cmd.rs1));
@@ -196,28 +213,28 @@ const SmeshRsEntry& SmeshRS::entry() const {
   return entries_ex_;
 }
 
-// read load RS row
+// read LOAD RS row
 const SmeshRsEntry& SmeshRS::loadEntry() const {
   return entries_ld_;
 }
-// read execute RS row
+// read EXECUTE RS row
 const SmeshRsEntry& SmeshRS::executeEntry() const {
   return entries_ex_;
 }
-// read store RS row
+// read STORE RS row
 const SmeshRsEntry& SmeshRS::storeEntry() const {
   return entries_st_;
 }
 
-// issue load entry to load issue port
+// issue LOAD entry to LOAD issue port
 const SmeshRsEntry* SmeshRS::issueLoad() const {
   return (entries_ld_.valid && !entries_ld_.issued) ? &entries_ld_ : nullptr;
 }
-// issue execute entry to execute issue port
+// issue EXECUTE entry to EXECUTE issue port
 const SmeshRsEntry* SmeshRS::issueExecute() const {
   return (entries_ex_.valid && !entries_ex_.issued) ? &entries_ex_ : nullptr;
 }
-// issue store entry to store issue port
+// issue STORE entry to STORE issue port
 const SmeshRsEntry* SmeshRS::issueStore() const {
   return (entries_st_.valid && !entries_st_.issued) ? &entries_st_ : nullptr;
 }

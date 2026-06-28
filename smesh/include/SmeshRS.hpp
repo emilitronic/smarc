@@ -32,7 +32,6 @@ using SmeshRobId = std::uint16_t;
 // local-memory ranges. These strides are measured in local rows.
 struct SmeshRSConfigState {
   std::array<std::uint32_t, kLoadStates> ld_block_stride{};
-  std::uint32_t st_block_stride = 0;
   std::uint32_t a_stride = 0;
   std::uint32_t c_stride = 0;
   bool a_transpose = false;

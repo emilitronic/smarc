@@ -54,10 +54,32 @@ bool testLoadRange() {
          !entry.opa.bits.wraps_around;
 }
 
+bool testStoreRange() {
+  smesh::SmeshRS rs;
+
+  constexpr std::uint32_t base = 200;
+  constexpr smesh::MatrixShape shape{2, 12};
+  const auto store = command(
+      smesh::SmeshFunct::Mvout,
+      0,
+      smesh::packLocal(base, shape));
+  if (!rs.allocate(store)) {
+    return false;
+  }
+
+  const auto& entry = rs.storeEntry();
+  return entry.opa.valid && !entry.opa_is_dst && !entry.opb.valid &&
+         entry.opa.bits.start.raw == base &&
+         entry.opa.bits.end.raw == base + 10 &&
+         !entry.opa.bits.wraps_around;
+}
+
 } // namespace
 
 int main() {
-  const bool ok = testLoadRange();
-  std::printf("[SMESH_RS] %s load_range\n", ok ? "PASS" : "FAIL");
-  return ok ? 0 : 1;
+  const bool load_ok = testLoadRange();
+  const bool store_ok = testStoreRange();
+  std::printf("[SMESH_RS] %s load_range\n", load_ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_RS] %s store_range\n", store_ok ? "PASS" : "FAIL");
+  return (load_ok && store_ok) ? 0 : 1;
 }
