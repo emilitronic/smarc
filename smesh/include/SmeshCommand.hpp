@@ -7,7 +7,7 @@ Command encoding and helper functions for SmeshDevice::executeCustom().
 */
 #pragma once
 
-#include "SmeshTypes.hpp"
+#include "SmeshLocalAddr.hpp"
 
 #include <cstdint>
 
