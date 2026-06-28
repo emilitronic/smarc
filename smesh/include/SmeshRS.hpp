@@ -49,19 +49,28 @@ struct SmeshRSOp {
   SmeshRSOpBits bits{};
 };
 
-// RS row sections
+// *** RS row contents ***
 struct SmeshRsEntry {
-  bool valid = false;
-  bool issued = false;
-  SmeshQueueClass queue = SmeshQueueClass::System;
-  SmeshCmd cmd{};
-  SmeshRobId rob_id = 0;
+  bool valid = false; // smesh keeps the outer entry-valid bit here
+  SmeshQueueClass q = SmeshQueueClass::System;
+  bool is_config = false;
 
-  // Reserved for later dependency tracking.
   SmeshRSOp opa{};
-  SmeshRSOp opb{};
   bool opa_is_dst = false;
-  std::uint32_t deps = 0;
+  SmeshRSOp opb{};
+
+  bool issued = false;
+  bool complete_on_issue = false; // TODO: use this when issue/free timing is modeled
+
+  SmeshCmd cmd{};
+  SmeshRobId rob_id = 0; // smesh v0 ID; Gemmini derives this from queue and row
+
+  std::uint32_t deps_ld = 0; // TODO: dependency bits for load entries
+  std::uint32_t deps_ex = 0; // TODO: dependency bits for execute entries
+  std::uint32_t deps_st = 0; // TODO: dependency bits for store entries
+
+  // Gemmini's debug-only allocated_at field is deferred until smesh has an
+  // allocation counter.
 };
 
 inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {

@@ -236,8 +236,12 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
 
   *slot = SmeshRsEntry{};  // clear chosen row before filling it
   slot->valid = true;              // entry's valid bit
+  slot->q = queue;                 // entry's queue type (load/execute/store)
+  slot->is_config =
+      static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct)) ==
+      SmeshFunct::Config;
   slot->issued = false;            // entry's issued bit
-  slot->queue = queue;             // entry's queue type (load/execute/etc.)
+  slot->complete_on_issue = slot->is_config && queue != SmeshQueueClass::Execute;
   slot->cmd = cmd;                 // entry's command payload
   slot->rob_id = next_rob_id_++;
   updateConfigState(cmd, config_state_);
