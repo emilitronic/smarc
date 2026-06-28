@@ -23,6 +23,30 @@ smesh::SmeshCmd command(smesh::SmeshFunct funct,
   };
 }
 
+bool testLocalAddr() {
+  constexpr auto sp = smesh::makeSpAddr(6);
+  constexpr auto acc = smesh::makeAccAddr(10, true, true, 5);
+  constexpr auto garbage =
+      smesh::makeLocalAddr(smesh::kLocalAddrGarbageMask | 3u);
+  constexpr auto sp_sum = smesh::add_with_overflow(smesh::makeSpAddr(14), 3);
+  constexpr auto acc_sum =
+      smesh::add_with_overflow(smesh::makeAccAddr(14, true, true, 5), 3);
+
+  return smesh::kSpAddrBits == 4 && smesh::kAccAddrBits == 4 &&
+         smesh::kLocalAddrDataBits == 4 &&
+         !sp.is_acc_addr() && sp.sp_bank() == 1 && sp.sp_row() == 2 &&
+         sp.full_sp_addr() == 6 &&
+         acc.is_acc_addr() && acc.acc_bank() == 1 && acc.acc_row() == 2 &&
+         acc.full_acc_addr() == 10 && acc.accumulate() &&
+         acc.read_full_acc_row() && acc.norm_cmd() == 5 &&
+         garbage.is_garbage() &&
+         sp_sum.overflow && sp_sum.addr.full_sp_addr() == 1 &&
+         !sp_sum.addr.is_acc_addr() &&
+         acc_sum.overflow && acc_sum.addr.full_acc_addr() == 1 &&
+         acc_sum.addr.is_acc_addr() && acc_sum.addr.accumulate() &&
+         acc_sum.addr.read_full_acc_row() && acc_sum.addr.norm_cmd() == 5;
+}
+
 bool testLoadRange() {
   smesh::SmeshRS rs;
 
@@ -43,7 +67,7 @@ bool testLoadRange() {
     return false;
   }
 
-  constexpr std::uint32_t base = 100;
+  constexpr auto base = smesh::makeSpAddr(0);
   constexpr smesh::MatrixShape shape{2, 12};
   const auto load = command(
       smesh::SmeshFunct::Mvin2,
@@ -57,15 +81,15 @@ bool testLoadRange() {
   return entry.q == smesh::SmeshQueueClass::Load && !entry.is_config &&
          !entry.complete_on_issue && entry.opa.valid && entry.opa_is_dst &&
          !entry.opb.valid && entry.allocated_at == 1 &&
-         entry.opa.bits.start.raw == base &&
-         entry.opa.bits.end.raw == base + 10 &&
+         entry.opa.bits.start.raw == base.raw &&
+         entry.opa.bits.end.raw == (base + 10).raw &&
          !entry.opa.bits.wraps_around;
 }
 
 bool testStoreRange() {
   smesh::SmeshRS rs;
 
-  constexpr std::uint32_t base = 200;
+  constexpr auto base = smesh::makeAccAddr(0);
   constexpr smesh::MatrixShape shape{2, 12};
   const auto store = command(
       smesh::SmeshFunct::Mvout,
@@ -77,16 +101,16 @@ bool testStoreRange() {
 
   const auto& entry = rs.storeEntry();
   return entry.opa.valid && !entry.opa_is_dst && !entry.opb.valid &&
-         entry.opa.bits.start.raw == base &&
-         entry.opa.bits.end.raw == base + 10 &&
+         entry.opa.bits.start.raw == base.raw &&
+         entry.opa.bits.end.raw == (base + 10).raw &&
          !entry.opa.bits.wraps_around;
 }
 
 bool testStoreSpadRange() {
   smesh::SmeshRS rs;
 
-  constexpr std::uint32_t destination_base = 1000;
-  constexpr std::uint32_t source_base = 200;
+  constexpr auto destination_base = smesh::makeSpAddr(8);
+  constexpr auto source_base = smesh::makeAccAddr(4);
   constexpr smesh::MatrixShape shape{2, smesh::kDim};
   const auto store_spad = command(
       smesh::SmeshFunct::StoreSpad,
@@ -98,11 +122,13 @@ bool testStoreSpadRange() {
 
   const auto& entry = rs.storeEntry();
   return entry.opa.valid && entry.opa_is_dst && entry.opb.valid &&
-         entry.opa.bits.start.raw == destination_base &&
-         entry.opa.bits.end.raw == destination_base + shape.rows &&
+         entry.opa.bits.start.raw == destination_base.raw &&
+         entry.opa.bits.end.raw ==
+             (destination_base + static_cast<std::uint32_t>(shape.rows)).raw &&
          !entry.opa.bits.wraps_around &&
-         entry.opb.bits.start.raw == source_base &&
-         entry.opb.bits.end.raw == source_base + shape.rows &&
+         entry.opb.bits.start.raw == source_base.raw &&
+         entry.opb.bits.end.raw ==
+             (source_base + static_cast<std::uint32_t>(shape.rows)).raw &&
          !entry.opb.bits.wraps_around;
 }
 
@@ -125,8 +151,8 @@ bool testPreloadRange() {
     return false;
   }
 
-  constexpr std::uint32_t source_base = 100;
-  constexpr std::uint32_t destination_base = 400;
+  constexpr auto source_base = smesh::makeSpAddr(0);
+  constexpr auto destination_base = smesh::makeAccAddr(8);
   constexpr smesh::MatrixShape source_shape{2, smesh::kDim};
   constexpr smesh::MatrixShape destination_shape{3, smesh::kDim};
   const auto preload = command(
@@ -139,17 +165,18 @@ bool testPreloadRange() {
 
   const auto& entry = rs.executeEntry();
   return entry.opa.valid && entry.opa_is_dst && entry.opb.valid &&
-         entry.opa.bits.start.raw == destination_base &&
-         entry.opa.bits.end.raw == destination_base + 6 &&
+         entry.opa.bits.start.raw == destination_base.raw &&
+         entry.opa.bits.end.raw == (destination_base + 6).raw &&
          !entry.opa.bits.wraps_around &&
-         entry.opb.bits.start.raw == source_base &&
-         entry.opb.bits.end.raw == source_base + source_shape.rows &&
+         entry.opb.bits.start.raw == source_base.raw &&
+         entry.opb.bits.end.raw ==
+             (source_base + static_cast<std::uint32_t>(source_shape.rows)).raw &&
          !entry.opb.bits.wraps_around;
 }
 
 bool testComputeRange() {
-  constexpr std::uint32_t a_base = 1000;
-  constexpr std::uint32_t bd_base = 2000;
+  constexpr auto a_base = smesh::makeSpAddr(0);
+  constexpr auto bd_base = smesh::makeSpAddr(8);
   constexpr smesh::MatrixShape a_shape{2, smesh::kDim};
   constexpr smesh::MatrixShape bd_shape{smesh::kDim, smesh::kDim};
 
@@ -172,10 +199,11 @@ bool testComputeRange() {
   const auto& flip_entry = flip_rs.executeEntry();
   const bool flip_ok =
       flip_entry.opa.valid && !flip_entry.opa_is_dst && flip_entry.opb.valid &&
-      flip_entry.opa.bits.start.raw == a_base &&
-      flip_entry.opa.bits.end.raw == a_base + 4 &&
-      flip_entry.opb.bits.start.raw == bd_base &&
-      flip_entry.opb.bits.end.raw == bd_base + bd_shape.rows;
+      flip_entry.opa.bits.start.raw == a_base.raw &&
+      flip_entry.opa.bits.end.raw == (a_base + 4).raw &&
+      flip_entry.opb.bits.start.raw == bd_base.raw &&
+      flip_entry.opb.bits.end.raw ==
+          (bd_base + static_cast<std::uint32_t>(bd_shape.rows)).raw;
 
   smesh::SmeshRS stay_rs;
   const auto stay_config = command(
@@ -196,10 +224,12 @@ bool testComputeRange() {
   const auto& stay_entry = stay_rs.executeEntry();
   const bool stay_ok =
       stay_entry.opa.valid && !stay_entry.opa_is_dst && stay_entry.opb.valid &&
-      stay_entry.opa.bits.start.raw == a_base &&
-      stay_entry.opa.bits.end.raw == a_base + 2 * smesh::kDim &&
-      stay_entry.opb.bits.start.raw == bd_base &&
-      stay_entry.opb.bits.end.raw == bd_base + bd_shape.rows;
+      stay_entry.opa.bits.start.raw == a_base.raw &&
+      stay_entry.opa.bits.end.raw ==
+          (a_base + static_cast<std::uint32_t>(2 * smesh::kDim)).raw &&
+      stay_entry.opb.bits.start.raw == bd_base.raw &&
+      stay_entry.opb.bits.end.raw ==
+          (bd_base + static_cast<std::uint32_t>(bd_shape.rows)).raw;
 
   return flip_ok && stay_ok;
 }
@@ -207,11 +237,14 @@ bool testComputeRange() {
 } // namespace
 
 int main() {
+  const bool local_addr_ok = testLocalAddr();
   const bool load_ok = testLoadRange();
   const bool store_ok = testStoreRange();
   const bool store_spad_ok = testStoreSpadRange();
   const bool preload_ok = testPreloadRange();
   const bool compute_ok = testComputeRange();
+  std::printf("[SMESH_RS] %s local_addr\n",
+              local_addr_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s load_range\n", load_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_range\n", store_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_spad_range\n",
@@ -220,7 +253,8 @@ int main() {
               preload_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s compute_range\n",
               compute_ok ? "PASS" : "FAIL");
-  return (load_ok && store_ok && store_spad_ok && preload_ok && compute_ok)
+  return (local_addr_ok && load_ok && store_ok && store_spad_ok && preload_ok &&
+          compute_ok)
              ? 0
              : 1;
 }

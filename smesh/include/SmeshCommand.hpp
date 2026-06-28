@@ -54,6 +54,11 @@ inline std::uint64_t packLocal(std::uint32_t row, MatrixShape shape) {
          (static_cast<std::uint64_t>(shape.cols) << kLocalAddrBits) |
          static_cast<std::uint64_t>(row);
 }
+// convenience overload allowing packLocal(makeAccAddr(8), shape) instead of packLocal(makeAccAddr(8).raw, shape)
+// No need to unwrap type (and accidentally pass unencoded row number)
+inline std::uint64_t packLocal(SmeshLocalAddr addr, MatrixShape shape) {
+  return packLocal(addr.raw, shape);
+}
 // Decode encoded rs1/rs2 operand (inside SmeshDevice/SmeshShell)
 inline LocalMatrix unpackLocal(std::uint64_t packed) {
   return LocalMatrix{
@@ -119,6 +124,11 @@ inline std::uint32_t unpackConfigExecuteCStride(std::uint64_t rs2) {
 inline std::uint64_t packStoreSpadDestination(std::uint32_t local_addr,
                                               std::uint32_t stride = 1) {
   return (static_cast<std::uint64_t>(stride) << 32) | local_addr;
+}
+// STORE_SPAD convenience overload
+inline std::uint64_t packStoreSpadDestination(SmeshLocalAddr local_addr,
+                                              std::uint32_t stride = 1) {
+  return packStoreSpadDestination(local_addr.raw, stride);
 }
 
 inline std::uint32_t unpackStoreSpadDestinationStride(std::uint64_t rs1) {

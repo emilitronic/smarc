@@ -24,8 +24,9 @@ SmeshRSOp makeRSOp(std::uint64_t packed, std::uint32_t rows_touched) {
   SmeshRSOp op{};
   op.valid = true;
   op.bits.start = start;
-  op.bits.end = addLocalAddr(start, rows_touched);
-  op.bits.wraps_around = addLocalAddrOverflows(start, rows_touched);
+  const auto end = add_with_overflow(start, rows_touched);
+  op.bits.end = end.addr;
+  op.bits.wraps_around = end.overflow;
   return op;
 }
 
