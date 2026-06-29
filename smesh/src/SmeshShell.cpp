@@ -86,6 +86,7 @@ void SmeshShell::update() {
   SmeshResp resp{};
   // execute RS entry selected for issue
   try {
+    // TODO: Replace this conceptual acceptance with explicit controller ready/valid handshakes.
     rs_.markIssued(entry.rob_id);
     const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct)); // funct -> SmeshFunct
     // start multicycle DRAM-to-spad transfer

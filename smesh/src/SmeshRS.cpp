@@ -402,7 +402,7 @@ const SmeshRsEntry& SmeshRS::storeEntry(std::size_t row) const {
 }
 
 // ********** ISSUE **********
-
+// issueLoad/Execute/Store selects ready command and returns pointer to it
 // issue LOAD entry to LOAD issue port (search for oldest valid entry)
 const SmeshRsEntry* SmeshRS::issueLoad() const {
   const SmeshRsEntry* oldest = nullptr;
@@ -437,11 +437,24 @@ const SmeshRsEntry* SmeshRS::issueStore() const {
   }
   return oldest;
 }
-
+// mark RS entry found by issue (based on rob_id) as issued once controller accepts it
+// (note this is purely conceptual, SmeshShell just runs markIssued() after issue() for now)
 bool SmeshRS::markIssued(SmeshRobId rob_id) {
-  for (auto* entry : {&entries_ld_[0], &entries_ex_[0], &entries_st_[0]}) {
-    if (entry->valid && entry->rob_id == rob_id) {
-      entry->issued = true;
+  for (auto& entry : entries_ld_) {
+    if (entry.valid && entry.rob_id == rob_id) {
+      entry.issued = true;
+      return true;
+    }
+  }
+  for (auto& entry : entries_ex_) {
+    if (entry.valid && entry.rob_id == rob_id) {
+      entry.issued = true;
+      return true;
+    }
+  }
+  for (auto& entry : entries_st_) {
+    if (entry.valid && entry.rob_id == rob_id) {
+      entry.issued = true;
       return true;
     }
   }
