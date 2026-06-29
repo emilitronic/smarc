@@ -61,7 +61,7 @@ void SmeshShell::update() {
     return;
   }
   // if RS full, stop this cycle
-  if (!rs_.canAccept()) {
+  if (!rs_.canAccept(cmd)) {
     return;
   }
   // if RS can't allocate, stop this cycle

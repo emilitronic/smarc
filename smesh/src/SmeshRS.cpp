@@ -56,7 +56,7 @@ std::uint32_t storeRowsTouched(MatrixShape shape) {
   }
   return static_cast<std::uint32_t>(extent);
 }
-// Current Gemmini-generated STORE_SPAD commands use one tile column and a
+// Current generated STORE_SPAD commands use one tile column and a
 // destination stride of one, so their destination extent is num_rows
 std::uint32_t storeSpadDstRowsTouched(MatrixShape shape) {
   return static_cast<std::uint32_t>(shape.rows);
@@ -191,6 +191,55 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
       break;
   }
 }
+// wrapper around overlaps() that checks for valid ops first
+bool opOverlaps(const SmeshRSOp& lhs, const SmeshRSOp& rhs) {
+  return lhs.valid && rhs.valid && lhs.bits.overlaps(rhs.bits);
+}
+
+// Return true when the new entry has a RAW, WAR, or WAW hazard with an older
+// entry. opa is the destination when opa_is_dst is set; opb is always a source.
+bool dependsOn(const SmeshRsEntry& new_entry, const SmeshRsEntry& older_entry) {
+  if (!older_entry.valid) {
+    return false;
+  }
+
+  // Same-queue commands remain ordered without checking operand ranges.
+  if (new_entry.q == older_entry.q) {
+    return new_entry.q == SmeshQueueClass::Store || !older_entry.issued;
+  }
+  if (new_entry.is_config) {
+    return false;
+  }
+
+  // New write after an older read or write: WAR or WAW.
+  if (new_entry.opa_is_dst) {
+    if (opOverlaps(new_entry.opa, older_entry.opa) || opOverlaps(new_entry.opa, older_entry.opb)) {
+      return true;
+    }
+  // New opa read after an older write: RAW.
+  } else if (older_entry.opa_is_dst && opOverlaps(new_entry.opa, older_entry.opa)) {
+    return true;
+  }
+  // New opb read after an older write: RAW.
+  return older_entry.opa_is_dst && opOverlaps(new_entry.opb, older_entry.opa);
+}
+
+void fillDependencies(SmeshRsEntry& entry, const SmeshRsEntry& older_ld, const SmeshRsEntry& older_ex, const SmeshRsEntry& older_st) {
+  // clear all dependency masks
+  entry.deps_ld = 0;
+  entry.deps_ex = 0;
+  entry.deps_st = 0;
+
+  for (std::size_t i = 0; i < 1; ++i) {
+    if (dependsOn(entry, older_ld)) { entry.deps_ld |= std::uint32_t{1} << i; }
+  }
+  for (std::size_t i = 0; i < 1; ++i) {
+    if (dependsOn(entry, older_ex)) { entry.deps_ex |= std::uint32_t{1} << i; }
+  }
+  for (std::size_t i = 0; i < 1; ++i) {
+    if (dependsOn(entry, older_st)) { entry.deps_st |= std::uint32_t{1} << i; }
+  }
+}
 
 } // namespace
 
@@ -206,52 +255,65 @@ bool SmeshRS::busy() const {
   return !empty();
 }
 
-bool SmeshRS::canAccept() const {
-  return empty();
+bool SmeshRS::canAccept(const SmeshCmd& cmd) const {
+  switch (classifyCommand(cmd)) {
+    case SmeshQueueClass::Load:
+      return !entries_ld_.valid;
+    case SmeshQueueClass::Execute:
+      return !entries_ex_.valid;
+    case SmeshQueueClass::Store:
+      return !entries_st_.valid;
+    case SmeshQueueClass::System:
+    case SmeshQueueClass::Invalid:
+      return false;
+  }
+  return false;
 }
 
 bool SmeshRS::allocate(const SmeshCmd& cmd) {
   return allocate(cmd, nullptr);
 }
-
+// places new command into appropriate RS entry
 bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
-  if (!canAccept()) {
+  if (!canAccept(cmd)) {
     return false;
   }
 
-  SmeshRsEntry* slot = nullptr;
+  SmeshRsEntry* slot = nullptr; // pointer to RS entry where new command will be placed
   const auto queue = classifyCommand(cmd);
   switch (queue) {
     case SmeshQueueClass::Load:
-      slot = &entries_ld_;    // choose the load row
+      slot = &entries_ld_;
       break;
     case SmeshQueueClass::Execute:
-      slot = &entries_ex_;    // choose the execute row
+      slot = &entries_ex_;
       break;
     case SmeshQueueClass::Store:
-      slot = &entries_st_;    // choose the store row
+      slot = &entries_st_;
       break;
     case SmeshQueueClass::System:
     case SmeshQueueClass::Invalid:
       return false;
   }
 
-  *slot = SmeshRsEntry{};  // clear chosen row before filling it
-  slot->valid = true;              // entry's valid bit
-  slot->q = queue;                 // entry's queue type (load/execute/store)
-  slot->is_config =
-      static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct)) ==
-      SmeshFunct::Config;
-  slot->issued = false;            // entry's issued bit
-  slot->complete_on_issue = slot->is_config && queue != SmeshQueueClass::Execute;
-  slot->cmd = cmd;                 // entry's command payload
-  slot->rob_id = next_rob_id_++;
-  slot->allocated_at = instructions_allocated_++;
+  SmeshRsEntry new_entry{};
+  new_entry.valid             = true;
+  new_entry.q                 = queue;
+  new_entry.is_config         = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct)) == SmeshFunct::Config;
+  new_entry.issued            = false;
+  new_entry.complete_on_issue = new_entry.is_config && queue != SmeshQueueClass::Execute; // true if config ld or st
+  new_entry.cmd               = cmd;
+  new_entry.rob_id            = next_rob_id_++;
+  new_entry.allocated_at      = instructions_allocated_++;
+
+  fillOperands(new_entry, config_state_);
+  fillDependencies(new_entry, entries_ld_, entries_ex_, entries_st_);
+
+  *slot = new_entry;
   updateConfigState(cmd, config_state_);
-  fillOperands(*slot, config_state_); // entry's op* sections
 
   if (rob_id_out != nullptr) {
-    *rob_id_out = slot->rob_id;
+    *rob_id_out = new_entry.rob_id;
   }
   return true;
 }
@@ -285,15 +347,21 @@ const SmeshRsEntry& SmeshRS::storeEntry() const {
 
 // issue LOAD entry to LOAD issue port
 const SmeshRsEntry* SmeshRS::issueLoad() const {
-  return (entries_ld_.valid && !entries_ld_.issued) ? &entries_ld_ : nullptr;
+  return entries_ld_.valid && !entries_ld_.issued && entries_ld_.ready()
+             ? &entries_ld_
+             : nullptr;
 }
 // issue EXECUTE entry to EXECUTE issue port
 const SmeshRsEntry* SmeshRS::issueExecute() const {
-  return (entries_ex_.valid && !entries_ex_.issued) ? &entries_ex_ : nullptr;
+  return entries_ex_.valid && !entries_ex_.issued && entries_ex_.ready()
+             ? &entries_ex_
+             : nullptr;
 }
 // issue STORE entry to STORE issue port
 const SmeshRsEntry* SmeshRS::issueStore() const {
-  return (entries_st_.valid && !entries_st_.issued) ? &entries_st_ : nullptr;
+  return entries_st_.valid && !entries_st_.issued && entries_st_.ready()
+             ? &entries_st_
+             : nullptr;
 }
 
 bool SmeshRS::markIssued(SmeshRobId rob_id) {
@@ -307,10 +375,32 @@ bool SmeshRS::markIssued(SmeshRobId rob_id) {
   return false;
 }
 
+// mark RS entry as completed (based on rob_id)and free it, clearing dependencies in other entries
 bool SmeshRS::complete(SmeshRobId rob_id) {
+  // search all three entries
   for (auto* entry : {&entries_ld_, &entries_ex_, &entries_st_}) {
+    // find the valid entry that completed (rob_id matches)
     if (entry->valid && entry->rob_id == rob_id) {
-      *entry = SmeshRsEntry{};
+      const auto completed_q = entry->q; // remember whether it was a LOAD, EXECUTE, or STORE entry
+      // visit every entry that might have a dependency on the completed entry and clear that dependency
+      for (auto* dependent : {&entries_ld_, &entries_ex_, &entries_st_}) {
+        switch (completed_q) {
+          case SmeshQueueClass::Load:
+            dependent->deps_ld &= ~std::uint32_t{1}; // clear bit 0 of deps_ld if LOAD completed
+            break;
+          case SmeshQueueClass::Execute:
+            dependent->deps_ex &= ~std::uint32_t{1}; // clear bit 0 of deps_ex if EXECUTE completed
+            break;
+          case SmeshQueueClass::Store:
+            dependent->deps_st &= ~std::uint32_t{1}; // clear bit 0 of deps_st if STORE completed
+            break;
+          case SmeshQueueClass::System:
+          case SmeshQueueClass::Invalid:
+            break;
+        }
+      }
+
+      *entry = SmeshRsEntry{}; // clear completed entry itself
       return true;
     }
   }

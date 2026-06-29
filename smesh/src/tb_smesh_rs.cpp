@@ -76,6 +76,99 @@ bool testOverlap() {
          !garbage.overlaps(makeRange(smesh::makeAccAddr(15), 1));
 }
 
+bool testDependencies() {
+  constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
+
+  // COMPUTE reads A after LOAD writes the same scratchpad rows.
+  smesh::SmeshRS load_ex_rs;
+  const auto config_load = command(
+      smesh::SmeshFunct::Config,
+      smesh::packConfig(smesh::ConfigKind::Load, 0, smesh::kDim),
+      0);
+  if (!load_ex_rs.allocate(config_load) ||
+      !load_ex_rs.complete(load_ex_rs.entry().rob_id)) {
+    return false;
+  }
+  const auto config_ex = command(
+      smesh::SmeshFunct::Config,
+      smesh::packConfigExecuteRs1(1),
+      smesh::packConfigExecuteRs2(1));
+  if (!load_ex_rs.allocate(config_ex) ||
+      !load_ex_rs.complete(load_ex_rs.entry().rob_id)) {
+    return false;
+  }
+  const auto load = command(
+      smesh::SmeshFunct::Mvin,
+      0,
+      smesh::packLocal(smesh::makeSpAddr(0), shape));
+  const auto compute = command(
+      smesh::SmeshFunct::ComputeFlip,
+      smesh::packLocal(smesh::makeSpAddr(0), shape),
+      smesh::packLocal(smesh::makeSpAddr(8), shape));
+  if (!load_ex_rs.allocate(load) || !load_ex_rs.allocate(compute)) {
+    return false;
+  }
+  const auto load_rob_id = load_ex_rs.loadEntry().rob_id;
+  if (load_ex_rs.executeEntry().deps_ld != 1u ||
+      load_ex_rs.issueLoad() == nullptr ||
+      load_ex_rs.issueExecute() != nullptr ||
+      load_ex_rs.allocate(load)) {
+    return false;
+  }
+  if (!load_ex_rs.markIssued(load_rob_id) ||
+      !load_ex_rs.complete(load_rob_id) ||
+      load_ex_rs.executeEntry().deps_ld != 0u ||
+      load_ex_rs.issueExecute() == nullptr) {
+    return false;
+  }
+
+  // STORE reads C after PRELOAD reserves the same accumulator destination.
+  smesh::SmeshRS ex_st_rs;
+  if (!ex_st_rs.allocate(config_ex) ||
+      !ex_st_rs.complete(ex_st_rs.entry().rob_id)) {
+    return false;
+  }
+  const auto preload = command(
+      smesh::SmeshFunct::Preload,
+      smesh::packLocal(smesh::makeSpAddr(8), shape),
+      smesh::packLocal(smesh::makeAccAddr(0), shape));
+  const auto store = command(
+      smesh::SmeshFunct::Mvout,
+      0,
+      smesh::packLocal(smesh::makeAccAddr(0), shape));
+  if (!ex_st_rs.allocate(preload) || !ex_st_rs.allocate(store)) {
+    return false;
+  }
+  const auto ex_rob_id = ex_st_rs.executeEntry().rob_id;
+  if (ex_st_rs.storeEntry().deps_ex != 1u ||
+      ex_st_rs.issueStore() != nullptr ||
+      !ex_st_rs.complete(ex_rob_id) ||
+      ex_st_rs.storeEntry().deps_ex != 0u ||
+      ex_st_rs.issueStore() == nullptr) {
+    return false;
+  }
+
+  // LOAD writes scratchpad rows after STORE_SPAD writes the same rows.
+  smesh::SmeshRS st_ld_rs;
+  if (!st_ld_rs.allocate(config_load) ||
+      !st_ld_rs.complete(st_ld_rs.entry().rob_id)) {
+    return false;
+  }
+  const auto store_spad = command(
+      smesh::SmeshFunct::StoreSpad,
+      smesh::packStoreSpadDestination(smesh::makeSpAddr(0), 1),
+      smesh::packLocal(smesh::makeAccAddr(0), shape));
+  if (!st_ld_rs.allocate(store_spad) || !st_ld_rs.allocate(load)) {
+    return false;
+  }
+  const auto st_rob_id = st_ld_rs.storeEntry().rob_id;
+  return st_ld_rs.loadEntry().deps_st == 1u &&
+         st_ld_rs.issueLoad() == nullptr &&
+         st_ld_rs.complete(st_rob_id) &&
+         st_ld_rs.loadEntry().deps_st == 0u &&
+         st_ld_rs.issueLoad() != nullptr;
+}
+
 bool testLoadRange() {
   smesh::SmeshRS rs;
 
@@ -268,6 +361,7 @@ bool testComputeRange() {
 int main() {
   const bool local_addr_ok = testLocalAddr();
   const bool overlap_ok = testOverlap();
+  const bool dependencies_ok = testDependencies();
   const bool load_ok = testLoadRange();
   const bool store_ok = testStoreRange();
   const bool store_spad_ok = testStoreSpadRange();
@@ -276,6 +370,8 @@ int main() {
   std::printf("[SMESH_RS] %s local_addr\n",
               local_addr_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s overlap\n", overlap_ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_RS] %s dependencies\n",
+              dependencies_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s load_range\n", load_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_range\n", store_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s store_spad_range\n",
@@ -284,8 +380,8 @@ int main() {
               preload_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s compute_range\n",
               compute_ok ? "PASS" : "FAIL");
-  return (local_addr_ok && overlap_ok && load_ok && store_ok && store_spad_ok &&
-          preload_ok && compute_ok)
+  return (local_addr_ok && overlap_ok && dependencies_ok && load_ok &&
+          store_ok && store_spad_ok && preload_ok && compute_ok)
              ? 0
              : 1;
 }

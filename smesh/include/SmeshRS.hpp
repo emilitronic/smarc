@@ -97,10 +97,14 @@ struct SmeshRsEntry {
   SmeshCmd cmd{};
   SmeshRobId rob_id = 0; // smesh v0 ID; Gemmini derives this from queue and row
 
-  std::uint32_t deps_ld = 0; // TODO: dependency bits for load entries
-  std::uint32_t deps_ex = 0; // TODO: dependency bits for execute entries
-  std::uint32_t deps_st = 0; // TODO: dependency bits for store entries
+  std::uint32_t deps_ld = 0; // bit 0 represents the current load entry
+  std::uint32_t deps_ex = 0; // bit 0 represents the current execute entry
+  std::uint32_t deps_st = 0; // bit 0 represents the current store entry
   std::uint32_t allocated_at = 0; // allocation sequence number for debugging
+  // convenience fn: all dependencies cleared for this entry?
+  bool ready() const {
+    return deps_ld == 0 && deps_ex == 0 && deps_st == 0;
+  }
 };
 // decide which RS row should receive a command
 inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
@@ -146,7 +150,7 @@ class SmeshRS {
 public:
   bool empty() const;
   bool busy() const;
-  bool canAccept() const;
+  bool canAccept(const SmeshCmd& cmd) const;
 
   const SmeshRSConfigState& configState() const;
 
