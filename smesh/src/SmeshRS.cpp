@@ -269,14 +269,31 @@ bool SmeshRS::busy() const {
 
 // ********** ALLOCATION **********
 
-bool SmeshRS::canAccept(const SmeshCmd& cmd) const {
+// TODO: Share free-row selection with allocate() instead of searching twice.
+// How does HW do it?
+bool SmeshRS::canAccept(const SmeshCmd& cmd) const { // does a free row exist?
   switch (classifyCommand(cmd)) {
     case SmeshQueueClass::Load:
-      return !entries_ld_[0].valid;
+      for (const auto& entry : entries_ld_) {
+        if (!entry.valid) {
+          return true;
+        }
+      }
+      return false;
     case SmeshQueueClass::Execute:
-      return !entries_ex_[0].valid;
+      for (const auto& entry : entries_ex_) {
+        if (!entry.valid) {
+          return true;
+        }
+      }
+      return false;
     case SmeshQueueClass::Store:
-      return !entries_st_[0].valid;
+      for (const auto& entry : entries_st_) {
+        if (!entry.valid) {
+          return true;
+        }
+      }
+      return false;
     case SmeshQueueClass::System:
     case SmeshQueueClass::Invalid:
       return false;
@@ -284,7 +301,7 @@ bool SmeshRS::canAccept(const SmeshCmd& cmd) const {
   return false;
 }
 
-bool SmeshRS::allocate(const SmeshCmd& cmd) {
+bool SmeshRS::allocate(const SmeshCmd& cmd) { // convenience wrapper for allocate() that ignores rob_id_out
   return allocate(cmd, nullptr);
 }
 // places new command into appropriate RS entry
@@ -297,17 +314,35 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   const auto queue = classifyCommand(cmd);
   switch (queue) {
     case SmeshQueueClass::Load:
-      slot = &entries_ld_[0];
+      for (auto& entry : entries_ld_) {
+        if (!entry.valid) {
+          slot = &entry;
+          break;
+        }
+      }
       break;
     case SmeshQueueClass::Execute:
-      slot = &entries_ex_[0];
+      for (auto& entry : entries_ex_) {
+        if (!entry.valid) {
+          slot = &entry;
+          break;
+        }
+      }
       break;
     case SmeshQueueClass::Store:
-      slot = &entries_st_[0];
+      for (auto& entry : entries_st_) {
+        if (!entry.valid) {
+          slot = &entry;
+          break;
+        }
+      }
       break;
     case SmeshQueueClass::System:
     case SmeshQueueClass::Invalid:
       return false;
+  }
+  if (slot == nullptr) {
+    return false;
   }
 
   SmeshRsEntry new_entry{};
