@@ -403,23 +403,39 @@ const SmeshRsEntry& SmeshRS::storeEntry(std::size_t row) const {
 
 // ********** ISSUE **********
 
-// issue LOAD entry to LOAD issue port
+// issue LOAD entry to LOAD issue port (search for oldest valid entry)
 const SmeshRsEntry* SmeshRS::issueLoad() const {
-  return entries_ld_[0].valid && !entries_ld_[0].issued && entries_ld_[0].ready()
-             ? &entries_ld_[0]
-             : nullptr;
+  const SmeshRsEntry* oldest = nullptr;
+  for (const auto& entry : entries_ld_) {
+    // if row is valid, not issued, and ready (no dependencies), and is older than the current oldest, update oldest
+    if (entry.valid && !entry.issued && entry.ready() &&
+        (oldest == nullptr || entry.allocated_at < oldest->allocated_at)) {
+      oldest = &entry;
+    }
+  }
+  return oldest;
 }
-// issue EXECUTE entry to EXECUTE issue port
+// issue EXECUTE entry to EXECUTE issue port (search for oldest valid entry)
 const SmeshRsEntry* SmeshRS::issueExecute() const {
-  return entries_ex_[0].valid && !entries_ex_[0].issued && entries_ex_[0].ready()
-             ? &entries_ex_[0]
-             : nullptr;
+  const SmeshRsEntry* oldest = nullptr;
+  for (const auto& entry : entries_ex_) {
+    if (entry.valid && !entry.issued && entry.ready() &&
+        (oldest == nullptr || entry.allocated_at < oldest->allocated_at)) {
+      oldest = &entry;
+    }
+  }
+  return oldest;
 }
-// issue STORE entry to STORE issue port
+// issue STORE entry to STORE issue port (search for oldest valid entry)
 const SmeshRsEntry* SmeshRS::issueStore() const {
-  return entries_st_[0].valid && !entries_st_[0].issued && entries_st_[0].ready()
-             ? &entries_st_[0]
-             : nullptr;
+  const SmeshRsEntry* oldest = nullptr;
+  for (const auto& entry : entries_st_) {
+    if (entry.valid && !entry.issued && entry.ready() &&
+        (oldest == nullptr || entry.allocated_at < oldest->allocated_at)) {
+      oldest = &entry;
+    }
+  }
+  return oldest;
 }
 
 bool SmeshRS::markIssued(SmeshRobId rob_id) {
