@@ -233,21 +233,26 @@ bool dependsOn(const SmeshRsEntry& new_entry, const SmeshRsEntry& older_entry) {
   // New opb read after an older write: RAW.
   return older_entry.opa_is_dst && opOverlaps(new_entry.opb, older_entry.opa);
 }
-
-void fillDependencies(SmeshRsEntry& entry, const SmeshRsEntry& older_ld, const SmeshRsEntry& older_ex, const SmeshRsEntry& older_st) {
+// Compute the dependency masks for a new entry based on all older entries in the RS
+void fillDependencies(
+    SmeshRsEntry& entry,
+    const std::array<SmeshRsEntry, kDefaultConfig.rs_load_entries>& older_ld,
+    const std::array<SmeshRsEntry, kDefaultConfig.rs_execute_entries>& older_ex,
+    const std::array<SmeshRsEntry, kDefaultConfig.rs_store_entries>& older_st) {
   // clear all dependency masks
   entry.deps_ld = 0;
   entry.deps_ex = 0;
   entry.deps_st = 0;
-
-  for (std::size_t i = 0; i < 1; ++i) {
-    if (dependsOn(entry, older_ld)) { entry.deps_ld |= std::uint32_t{1} << i; }
+  // check each older entry for a dependency and set the appropriate bit in the mask
+  // dependency bit i corresponds to RS rows i
+  for (std::size_t i = 0; i < older_ld.size(); ++i) {
+    if (dependsOn(entry, older_ld[i])) { entry.deps_ld |= std::uint32_t{1} << i; }
   }
-  for (std::size_t i = 0; i < 1; ++i) {
-    if (dependsOn(entry, older_ex)) { entry.deps_ex |= std::uint32_t{1} << i; }
+  for (std::size_t i = 0; i < older_ex.size(); ++i) {
+    if (dependsOn(entry, older_ex[i])) { entry.deps_ex |= std::uint32_t{1} << i; }
   }
-  for (std::size_t i = 0; i < 1; ++i) {
-    if (dependsOn(entry, older_st)) { entry.deps_st |= std::uint32_t{1} << i; }
+  for (std::size_t i = 0; i < older_st.size(); ++i) {
+    if (dependsOn(entry, older_st[i])) { entry.deps_st |= std::uint32_t{1} << i; }
   }
 }
 
@@ -304,7 +309,7 @@ bool SmeshRS::canAccept(const SmeshCmd& cmd) const { // does a free row exist?
 bool SmeshRS::allocate(const SmeshCmd& cmd) { // convenience wrapper for allocate() that ignores rob_id_out
   return allocate(cmd, nullptr);
 }
-// places new command into appropriate RS entry
+// places new command into appropriate RS entry and fills its operands and dependencies
 bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   if (!canAccept(cmd)) {
     return false;
@@ -356,7 +361,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   new_entry.allocated_at      = instructions_allocated_++;
 
   fillOperands(new_entry, config_state_);
-  fillDependencies(new_entry, entries_ld_[0], entries_ex_[0], entries_st_[0]);
+  fillDependencies(new_entry, entries_ld_, entries_ex_, entries_st_);
 
   *slot = new_entry;
   updateConfigState(cmd, config_state_);
