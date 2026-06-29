@@ -157,9 +157,9 @@ public:
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
   bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
   const SmeshRsEntry& entry() const;
-  const SmeshRsEntry& loadEntry() const;
-  const SmeshRsEntry& executeEntry() const;
-  const SmeshRsEntry& storeEntry() const;
+  const SmeshRsEntry& loadEntry(std::size_t row = 0) const;
+  const SmeshRsEntry& executeEntry(std::size_t row = 0) const;
+  const SmeshRsEntry& storeEntry(std::size_t row = 0) const;
 
   const SmeshRsEntry* issueLoad() const;
   const SmeshRsEntry* issueExecute() const;
@@ -170,9 +170,9 @@ public:
 
 private:
   SmeshRSConfigState config_state_{};
-  SmeshRsEntry entries_ld_{};
-  SmeshRsEntry entries_ex_{};
-  SmeshRsEntry entries_st_{};
+  std::array<SmeshRsEntry, kDefaultConfig.rs_load_entries> entries_ld_{};
+  std::array<SmeshRsEntry, kDefaultConfig.rs_execute_entries> entries_ex_{};
+  std::array<SmeshRsEntry, kDefaultConfig.rs_store_entries> entries_st_{};
   SmeshRobId next_rob_id_ = 0;
   std::uint32_t instructions_allocated_ = 0;
 };

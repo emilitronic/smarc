@@ -3,11 +3,11 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jun 24 2026
 /*
-Central configuration constants for the current smesh model.
+Central hardware configuration constants for the current smesh model.
 
 This intentionally starts with the settings the simulator uses today, plus the
-small reservation-station capacities planned for M4v0. Keep larger Gemmini-like
-settings out until there is code which consumes them.
+small reservation-station capacities planned for M4v0. Keep larger settings out 
+until there is code which consumes them.
 */
 #pragma once
 

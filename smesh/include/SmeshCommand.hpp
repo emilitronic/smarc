@@ -95,8 +95,7 @@ inline std::uint32_t unpackConfigLoadBlockStride(std::uint64_t rs1) {
       (rs1 >> kConfigLoadBlockStrideShift) & kConfigLoadBlockStrideMask);
 }
 
-inline std::uint64_t packConfigExecuteRs1(std::uint32_t a_stride,
-                                         bool a_transpose = false) {
+inline std::uint64_t packConfigExecuteRs1(std::uint32_t a_stride, bool a_transpose = false) {
   return static_cast<std::uint64_t>(ConfigKind::Execute) |
          (static_cast<std::uint64_t>(a_stride & 0xffffu)
           << kConfigExecuteAStrideShift) |

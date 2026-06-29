@@ -248,7 +248,7 @@ const SmeshRSConfigState& SmeshRS::configState() const {
 }
 
 bool SmeshRS::empty() const {
-  return !entries_ld_.valid && !entries_ex_.valid && !entries_st_.valid;
+  return !entries_ld_[0].valid && !entries_ex_[0].valid && !entries_st_[0].valid;
 }
 
 bool SmeshRS::busy() const {
@@ -258,11 +258,11 @@ bool SmeshRS::busy() const {
 bool SmeshRS::canAccept(const SmeshCmd& cmd) const {
   switch (classifyCommand(cmd)) {
     case SmeshQueueClass::Load:
-      return !entries_ld_.valid;
+      return !entries_ld_[0].valid;
     case SmeshQueueClass::Execute:
-      return !entries_ex_.valid;
+      return !entries_ex_[0].valid;
     case SmeshQueueClass::Store:
-      return !entries_st_.valid;
+      return !entries_st_[0].valid;
     case SmeshQueueClass::System:
     case SmeshQueueClass::Invalid:
       return false;
@@ -283,13 +283,13 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   const auto queue = classifyCommand(cmd);
   switch (queue) {
     case SmeshQueueClass::Load:
-      slot = &entries_ld_;
+      slot = &entries_ld_[0];
       break;
     case SmeshQueueClass::Execute:
-      slot = &entries_ex_;
+      slot = &entries_ex_[0];
       break;
     case SmeshQueueClass::Store:
-      slot = &entries_st_;
+      slot = &entries_st_[0];
       break;
     case SmeshQueueClass::System:
     case SmeshQueueClass::Invalid:
@@ -307,7 +307,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   new_entry.allocated_at      = instructions_allocated_++;
 
   fillOperands(new_entry, config_state_);
-  fillDependencies(new_entry, entries_ld_, entries_ex_, entries_st_);
+  fillDependencies(new_entry, entries_ld_[0], entries_ex_[0], entries_st_[0]);
 
   *slot = new_entry;
   updateConfigState(cmd, config_state_);
@@ -320,52 +320,52 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
 
 // which entry is currently occupied
 const SmeshRsEntry& SmeshRS::entry() const {
-  if (entries_ld_.valid) {
-    return entries_ld_;
+  if (entries_ld_[0].valid) {
+    return entries_ld_[0];
   }
-  if (entries_ex_.valid) {
-    return entries_ex_;
+  if (entries_ex_[0].valid) {
+    return entries_ex_[0];
   }
-  if (entries_st_.valid) {
-    return entries_st_;
+  if (entries_st_[0].valid) {
+    return entries_st_[0];
   }
-  return entries_ex_;
+  return entries_ex_[0];
 }
 
 // read LOAD RS row
-const SmeshRsEntry& SmeshRS::loadEntry() const {
-  return entries_ld_;
+const SmeshRsEntry& SmeshRS::loadEntry(std::size_t row) const {
+  return entries_ld_.at(row);
 }
 // read EXECUTE RS row
-const SmeshRsEntry& SmeshRS::executeEntry() const {
-  return entries_ex_;
+const SmeshRsEntry& SmeshRS::executeEntry(std::size_t row) const {
+  return entries_ex_.at(row);
 }
 // read STORE RS row
-const SmeshRsEntry& SmeshRS::storeEntry() const {
-  return entries_st_;
+const SmeshRsEntry& SmeshRS::storeEntry(std::size_t row) const {
+  return entries_st_.at(row);
 }
 
 // issue LOAD entry to LOAD issue port
 const SmeshRsEntry* SmeshRS::issueLoad() const {
-  return entries_ld_.valid && !entries_ld_.issued && entries_ld_.ready()
-             ? &entries_ld_
+  return entries_ld_[0].valid && !entries_ld_[0].issued && entries_ld_[0].ready()
+             ? &entries_ld_[0]
              : nullptr;
 }
 // issue EXECUTE entry to EXECUTE issue port
 const SmeshRsEntry* SmeshRS::issueExecute() const {
-  return entries_ex_.valid && !entries_ex_.issued && entries_ex_.ready()
-             ? &entries_ex_
+  return entries_ex_[0].valid && !entries_ex_[0].issued && entries_ex_[0].ready()
+             ? &entries_ex_[0]
              : nullptr;
 }
 // issue STORE entry to STORE issue port
 const SmeshRsEntry* SmeshRS::issueStore() const {
-  return entries_st_.valid && !entries_st_.issued && entries_st_.ready()
-             ? &entries_st_
+  return entries_st_[0].valid && !entries_st_[0].issued && entries_st_[0].ready()
+             ? &entries_st_[0]
              : nullptr;
 }
 
 bool SmeshRS::markIssued(SmeshRobId rob_id) {
-  for (auto* entry : {&entries_ld_, &entries_ex_, &entries_st_}) {
+  for (auto* entry : {&entries_ld_[0], &entries_ex_[0], &entries_st_[0]}) {
     if (entry->valid && entry->rob_id == rob_id) {
       entry->issued = true;
       return true;
@@ -378,12 +378,12 @@ bool SmeshRS::markIssued(SmeshRobId rob_id) {
 // mark RS entry as completed (based on rob_id)and free it, clearing dependencies in other entries
 bool SmeshRS::complete(SmeshRobId rob_id) {
   // search all three entries
-  for (auto* entry : {&entries_ld_, &entries_ex_, &entries_st_}) {
+  for (auto* entry : {&entries_ld_[0], &entries_ex_[0], &entries_st_[0]}) {
     // find the valid entry that completed (rob_id matches)
     if (entry->valid && entry->rob_id == rob_id) {
       const auto completed_q = entry->q; // remember whether it was a LOAD, EXECUTE, or STORE entry
       // visit every entry that might have a dependency on the completed entry and clear that dependency
-      for (auto* dependent : {&entries_ld_, &entries_ex_, &entries_st_}) {
+      for (auto* dependent : {&entries_ld_[0], &entries_ex_[0], &entries_st_[0]}) {
         switch (completed_q) {
           case SmeshQueueClass::Load:
             dependent->deps_ld &= ~std::uint32_t{1}; // clear bit 0 of deps_ld if LOAD completed
