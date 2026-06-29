@@ -14,6 +14,8 @@ One-entry reservation-station state machine for smesh.
 namespace smesh {
 namespace {
 
+// ********** OPERAND RANGE HELPERS **********
+
 std::uint32_t localAddrRaw(std::uint64_t packed) {
   return static_cast<std::uint32_t>(packed & kLocalAddrMask);
 }
@@ -86,6 +88,9 @@ std::uint32_t computeASrcRowsTouched(MatrixShape shape, std::uint32_t a_stride, 
 std::uint32_t computeBDSrcRowsTouched(MatrixShape shape) {
   return static_cast<std::uint32_t>(shape.rows);
 }
+
+// ********** CONFIGURATION HELPERS **********
+
 // find which LOAD it is, 1, 2, or 3
 std::size_t loadStateId(SmeshFunct funct) {
   if (funct == SmeshFunct::Mvin2) {
@@ -121,6 +126,8 @@ void updateConfigState(const SmeshCmd& cmd, SmeshRSConfigState& state) {
     state.ld_block_stride.at(state_id) = unpackConfigLoadBlockStride(rs1);
   }
 }
+
+// ********** OPERAND POPULATION **********
 
 // fill RS entry's op* sections on allocate (a dispatcher)
 // *******************************************************
@@ -191,6 +198,9 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
       break;
   }
 }
+
+// ********** DEPENDENCY HELPERS **********
+
 // wrapper around overlaps() that checks for valid ops first
 bool opOverlaps(const SmeshRSOp& lhs, const SmeshRSOp& rhs) {
   return lhs.valid && rhs.valid && lhs.bits.overlaps(rhs.bits);
@@ -243,6 +253,8 @@ void fillDependencies(SmeshRsEntry& entry, const SmeshRsEntry& older_ld, const S
 
 } // namespace
 
+// ********** RS STATUS **********
+
 const SmeshRSConfigState& SmeshRS::configState() const {
   return config_state_;
 }
@@ -254,6 +266,8 @@ bool SmeshRS::empty() const {
 bool SmeshRS::busy() const {
   return !empty();
 }
+
+// ********** ALLOCATION **********
 
 bool SmeshRS::canAccept(const SmeshCmd& cmd) const {
   switch (classifyCommand(cmd)) {
@@ -318,6 +332,8 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   return true;
 }
 
+// ********** ENTRY ACCESS **********
+
 // which entry is currently occupied
 const SmeshRsEntry& SmeshRS::entry() const {
   if (entries_ld_[0].valid) {
@@ -344,6 +360,8 @@ const SmeshRsEntry& SmeshRS::executeEntry(std::size_t row) const {
 const SmeshRsEntry& SmeshRS::storeEntry(std::size_t row) const {
   return entries_st_.at(row);
 }
+
+// ********** ISSUE **********
 
 // issue LOAD entry to LOAD issue port
 const SmeshRsEntry* SmeshRS::issueLoad() const {
@@ -374,6 +392,8 @@ bool SmeshRS::markIssued(SmeshRobId rob_id) {
 
   return false;
 }
+
+// ********** COMPLETION **********
 
 // mark RS entry as completed (based on rob_id)and free it, clearing dependencies in other entries
 bool SmeshRS::complete(SmeshRobId rob_id) {
