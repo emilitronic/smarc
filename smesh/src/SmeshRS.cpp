@@ -466,35 +466,86 @@ bool SmeshRS::markIssued(SmeshRobId rob_id) {
 
 // mark RS entry as completed (based on rob_id)and free it, clearing dependencies in other entries
 bool SmeshRS::complete(SmeshRobId rob_id) {
-  // search all three entries
-  for (auto* entry : {&entries_ld_[0], &entries_ex_[0], &entries_st_[0]}) {
-    // find the valid entry that completed (rob_id matches)
-    if (entry->valid && entry->rob_id == rob_id) {
-      const auto completed_q = entry->q; // remember whether it was a LOAD, EXECUTE, or STORE entry
-      // visit every entry that might have a dependency on the completed entry and clear that dependency
-      for (auto* dependent : {&entries_ld_[0], &entries_ex_[0], &entries_st_[0]}) {
-        switch (completed_q) {
-          case SmeshQueueClass::Load:
-            dependent->deps_ld &= ~std::uint32_t{1}; // clear bit 0 of deps_ld if LOAD completed
-            break;
-          case SmeshQueueClass::Execute:
-            dependent->deps_ex &= ~std::uint32_t{1}; // clear bit 0 of deps_ex if EXECUTE completed
-            break;
-          case SmeshQueueClass::Store:
-            dependent->deps_st &= ~std::uint32_t{1}; // clear bit 0 of deps_st if STORE completed
-            break;
-          case SmeshQueueClass::System:
-          case SmeshQueueClass::Invalid:
-            break;
-        }
-      }
+  SmeshRsEntry* completed_entry = nullptr;
+  std::size_t completed_row = 0;
 
-      *entry = SmeshRsEntry{}; // clear completed entry itself
-      return true;
+  // search all all the LD entries
+  for (std::size_t i = 0; i < entries_ld_.size(); ++i) {
+    if (entries_ld_[i].valid && entries_ld_[i].rob_id == rob_id) {
+      completed_entry = &entries_ld_[i];
+      completed_row = i;
+      break;
     }
   }
+  // if not found in LD, search all the EX entries
+  if (completed_entry == nullptr) {
+    for (std::size_t i = 0; i < entries_ex_.size(); ++i) {
+      if (entries_ex_[i].valid && entries_ex_[i].rob_id == rob_id) {
+        completed_entry = &entries_ex_[i];
+        completed_row = i;
+        break;
+      }
+    }
+  }
+  // if not found in EX, search all the ST entries
+  if (completed_entry == nullptr) {
+    for (std::size_t i = 0; i < entries_st_.size(); ++i) {
+      if (entries_st_[i].valid && entries_st_[i].rob_id == rob_id) {
+        completed_entry = &entries_st_[i];
+        completed_row = i;
+        break;
+      }
+    }
+  }
+  if (completed_entry == nullptr) {
+    return false;
+  }
 
-  return false;
+  const auto completed_q = completed_entry->q; // remember whether it was a LOAD, EXECUTE, or STORE entry
+  const auto completed_bit = std::uint32_t{1} << completed_row; // dep bit to clear corresponding to the completed entry's row
+
+  // visit every entry that might have a dependency on the completed entry and clear that dependency
+  switch (completed_q) {
+    case SmeshQueueClass::Load:
+      for (auto& dependent : entries_ld_) {
+        dependent.deps_ld &= ~completed_bit; // clear completed row's bit in deps_ld if LOAD completed
+      }
+      for (auto& dependent : entries_ex_) {
+        dependent.deps_ld &= ~completed_bit;
+      }
+      for (auto& dependent : entries_st_) {
+        dependent.deps_ld &= ~completed_bit;
+      }
+      break;
+    case SmeshQueueClass::Execute:
+      for (auto& dependent : entries_ld_) {
+        dependent.deps_ex &= ~completed_bit; // clear completed row's bit in deps_ex if EXECUTE completed
+      }
+      for (auto& dependent : entries_ex_) {
+        dependent.deps_ex &= ~completed_bit;
+      }
+      for (auto& dependent : entries_st_) {
+        dependent.deps_ex &= ~completed_bit;
+      }
+      break;
+    case SmeshQueueClass::Store:
+      for (auto& dependent : entries_ld_) {
+        dependent.deps_st &= ~completed_bit; // clear completed row's bit in deps_st if STORE completed
+      }
+      for (auto& dependent : entries_ex_) {
+        dependent.deps_st &= ~completed_bit;
+      }
+      for (auto& dependent : entries_st_) {
+        dependent.deps_st &= ~completed_bit;
+      }
+      break;
+    case SmeshQueueClass::System:
+    case SmeshQueueClass::Invalid:
+      break;
+  }
+
+  *completed_entry = SmeshRsEntry{}; // clear completed entry itself
+  return true;
 }
 
 } // namespace smesh
