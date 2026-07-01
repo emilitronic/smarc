@@ -148,25 +148,34 @@ inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
 // RS row owner and manager
 class SmeshRS {
 public:
-  bool empty() const;
-  bool busy() const;
-  bool canAccept(const SmeshCmd& cmd) const;
+  // ********** RS STATUS **********
 
   const SmeshRSConfigState& configState() const;
+  bool empty() const;
+  bool busy() const;
 
+  // ********** ALLOCATION **********
+
+  bool canAccept(const SmeshCmd& cmd) const;
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
   bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
-  // Test-only convenience; not part of the modeled Gemmini hardware interface.
-  const SmeshRsEntry& entry() const;
+
+  // ********** ENTRY ACCESS **********
+
+  const SmeshRsEntry& entry() const; // test-only convenience; not part of the modeled hardware interface.
   const SmeshRsEntry& loadEntry(std::size_t row = 0) const;
   const SmeshRsEntry& executeEntry(std::size_t row = 0) const;
   const SmeshRsEntry& storeEntry(std::size_t row = 0) const;
 
+  // ********** ISSUE **********
+
   const SmeshRsEntry* issueLoad() const;
   const SmeshRsEntry* issueExecute() const;
   const SmeshRsEntry* issueStore() const;
-
   bool markIssued(SmeshRobId rob_id);
+
+  // ********** COMPLETION **********
+
   bool complete(SmeshRobId rob_id);
 
 private:
