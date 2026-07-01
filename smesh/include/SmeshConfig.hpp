@@ -30,9 +30,9 @@ struct SmeshConfig {
   std::size_t acc_bits = 32;
   std::size_t dma_max_bytes = 64;
 
-  std::size_t rs_load_entries = 1;
-  std::size_t rs_execute_entries = 1;
-  std::size_t rs_store_entries = 1;
+  std::size_t rs_load_entries = 2;
+  std::size_t rs_execute_entries = 2;
+  std::size_t rs_store_entries = 2;
 };
 
 constexpr SmeshConfig kDefaultConfig{};

@@ -76,6 +76,29 @@ bool testOverlap() {
          !garbage.overlaps(makeRange(smesh::makeAccAddr(15), 1));
 }
 
+bool testCapacity() {
+  constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
+  const auto load = command(
+      smesh::SmeshFunct::Mvin,
+      0,
+      smesh::packLocal(smesh::makeSpAddr(0), shape));
+
+  smesh::SmeshRS rs;
+  for (std::size_t i = 0; i < smesh::kDefaultConfig.rs_load_entries; ++i) {
+    if (!rs.allocate(load)) {
+      return false;
+    }
+  }
+  if (rs.canAccept(load) || rs.allocate(load)) {
+    return false;
+  }
+
+  const auto completed_rob_id = rs.loadEntry(0).rob_id;
+  return rs.complete(completed_rob_id) &&
+         rs.canAccept(load) &&
+         rs.allocate(load);
+}
+
 bool testDependencies() {
   constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
 
@@ -111,8 +134,7 @@ bool testDependencies() {
   const auto load_rob_id = load_ex_rs.loadEntry().rob_id;
   if (load_ex_rs.executeEntry().deps_ld != 1u ||
       load_ex_rs.issueLoad() == nullptr ||
-      load_ex_rs.issueExecute() != nullptr ||
-      load_ex_rs.allocate(load)) {
+      load_ex_rs.issueExecute() != nullptr) {
     return false;
   }
   if (!load_ex_rs.markIssued(load_rob_id) ||
@@ -361,6 +383,7 @@ bool testComputeRange() {
 int main() {
   const bool local_addr_ok = testLocalAddr();
   const bool overlap_ok = testOverlap();
+  const bool capacity_ok = testCapacity();
   const bool dependencies_ok = testDependencies();
   const bool load_ok = testLoadRange();
   const bool store_ok = testStoreRange();
@@ -370,6 +393,7 @@ int main() {
   std::printf("[SMESH_RS] %s local_addr\n",
               local_addr_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s overlap\n", overlap_ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_RS] %s capacity\n", capacity_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s dependencies\n",
               dependencies_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s load_range\n", load_ok ? "PASS" : "FAIL");
@@ -380,7 +404,7 @@ int main() {
               preload_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s compute_range\n",
               compute_ok ? "PASS" : "FAIL");
-  return (local_addr_ok && overlap_ok && dependencies_ok && load_ok &&
+  return (local_addr_ok && overlap_ok && capacity_ok && dependencies_ok && load_ok &&
           store_ok && store_spad_ok && preload_ok && compute_ok)
              ? 0
              : 1;
