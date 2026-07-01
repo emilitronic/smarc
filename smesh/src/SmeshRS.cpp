@@ -263,9 +263,24 @@ void fillDependencies(
 const SmeshRSConfigState& SmeshRS::configState() const {
   return config_state_;
 }
-
+// check if every row in all RS entries is empty (invalid)
 bool SmeshRS::empty() const {
-  return !entries_ld_[0].valid && !entries_ex_[0].valid && !entries_st_[0].valid;
+  for (const auto& entry : entries_ld_) {
+    if (entry.valid) {
+      return false;
+    }
+  }
+  for (const auto& entry : entries_ex_) {
+    if (entry.valid) {
+      return false;
+    }
+  }
+  for (const auto& entry : entries_st_) {
+    if (entry.valid) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool SmeshRS::busy() const {
@@ -374,18 +389,29 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
 
 // ********** ENTRY ACCESS **********
 
+// Test-only convenience; not part of the modeled Gemmini hardware interface.
 // which entry is currently occupied
 const SmeshRsEntry& SmeshRS::entry() const {
-  if (entries_ld_[0].valid) {
-    return entries_ld_[0];
+  const SmeshRsEntry* oldest = nullptr;
+  for (const auto& entry : entries_ld_) {
+    if (entry.valid && (oldest == nullptr || entry.allocated_at < oldest->allocated_at)) {
+      oldest = &entry;
+    }
   }
-  if (entries_ex_[0].valid) {
-    return entries_ex_[0];
+  for (const auto& entry : entries_ex_) {
+    if (entry.valid && (oldest == nullptr || entry.allocated_at < oldest->allocated_at)) {
+      oldest = &entry;
+    }
   }
-  if (entries_st_[0].valid) {
-    return entries_st_[0];
+  for (const auto& entry : entries_st_) {
+    if (entry.valid && (oldest == nullptr || entry.allocated_at < oldest->allocated_at)) {
+      oldest = &entry;
+    }
   }
-  return entries_ex_[0];
+  if (oldest == nullptr) {
+    throw std::logic_error("SmeshRS::entry() called while RS is empty");
+  }
+  return *oldest;
 }
 
 // read LOAD RS row

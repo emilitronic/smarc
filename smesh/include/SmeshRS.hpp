@@ -156,6 +156,7 @@ public:
 
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
   bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
+  // Test-only convenience; not part of the modeled Gemmini hardware interface.
   const SmeshRsEntry& entry() const;
   const SmeshRsEntry& loadEntry(std::size_t row = 0) const;
   const SmeshRsEntry& executeEntry(std::size_t row = 0) const;
