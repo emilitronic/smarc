@@ -18,6 +18,7 @@ SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
 }
 
 void SmeshShell::update() {
+  // handle external memory operations already in progress
   switch (state_) {
     case State::MvinIssue:
       updateExternalMvinIssue();
@@ -35,21 +36,21 @@ void SmeshShell::update() {
       break;
   }
 
+  // stop if no command waiting or there's no room for a response
   if (cmd_in.empty() || resp_out.full()) {
     return;
   }
 
-  const auto cmd = cmd_in.peek(); // look at cmd
+  // look at cmd w/o removing it
+  const auto cmd = cmd_in.peek(); 
   const auto cmd_funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct));
-  // FLUSH (currently a no-op) handled before RS
+
+  // check for FLUSH cmd (currently a no-op) handled by top-level control before RS
   if (cmd_funct == SmeshFunct::Flush) {
-    cmd_in.pop();
+    cmd_in.pop();  // remove FLUSH cmd from input queue
     SmeshResp resp{};
     try {
-      resp.value = static_cast<u64>(device_.executeCustom(memory_,
-                                                          cmd_funct,
-                                                          static_cast<std::uint64_t>(cmd.rs1),
-                                                          static_cast<std::uint64_t>(cmd.rs2)));
+      resp.value = static_cast<u64>(device_.executeCustom(memory_, cmd_funct, static_cast<std::uint64_t>(cmd.rs1), static_cast<std::uint64_t>(cmd.rs2)));
       resp.status = 0;
       trace("smesh: system funct=%u ok", static_cast<unsigned>(cmd.funct));
     } catch (const std::exception& e) {
@@ -57,19 +58,23 @@ void SmeshShell::update() {
       resp.value = 0;
       trace("smesh: system funct=%u err=%s", static_cast<unsigned>(cmd.funct), e.what());
     }
-    resp_out.push(resp);
+    resp_out.push(resp); // send response back to driver
     return;
   }
+
+  // next deal with all other commends (all of which go through the RS)
   // if RS full, stop this cycle
   if (!rs_.canAccept(cmd)) {
     return;
   }
   // if RS can't allocate, stop this cycle
-  if (!rs_.allocate(cmd)) {       // try to allocate RS entry
+  if (!rs_.allocate(cmd)) {       // try to allocate RS entry, a rob_id is assigne if successful
     return;
   }
   cmd_in.pop();                   // pop cmd if allocation succeeded
   // which RS outlet has command ready to issue
+  
+  // which already-allocated command is ready to leave RS (i.e., to issue)?
   const SmeshRsEntry* issued_entry = nullptr;
   if (const auto* load = rs_.issueLoad()) {
     issued_entry = load;
@@ -82,45 +87,34 @@ void SmeshShell::update() {
     return;
   }
 
-  const auto& entry = *issued_entry;
+  const auto& entry = *issued_entry; // read-only alias to pointed-to RS entry
   SmeshResp resp{};
   // execute RS entry selected for issue
   try {
-    // TODO: Replace this conceptual acceptance with explicit controller ready/valid handshakes.
-    rs_.markIssued(entry.rob_id);
-    const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct)); // funct -> SmeshFunct
-    // start multicycle DRAM-to-spad transfer
-    if (external_memory_ &&
-        (funct == SmeshFunct::Mvin || funct == SmeshFunct::Mvin2 || funct == SmeshFunct::Mvin3)) {
-      startExternalMvin(funct,
-                        static_cast<std::uint64_t>(entry.cmd.rs1),
-                        static_cast<std::uint64_t>(entry.cmd.rs2),
-                        entry.rob_id);
+    // TODO: Replace this conceptual acceptance with explicit controller ready/valid handshakes
+    rs_.markIssued(entry.rob_id); // search all RS rows for entry.rob_id that's been selected for issue
+    const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct)); // determine which cmd's been issued
+    // if issued cmd is mvin/mvin2/mvin3, start multicycle DRAM-to-spad transfer
+    if (external_memory_ && (funct == SmeshFunct::Mvin || funct == SmeshFunct::Mvin2 || funct == SmeshFunct::Mvin3)) {
+      startExternalMvin(funct, static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2), entry.rob_id);
       return;
     }
-    // start multicycle acc-to-DRAM transfer
+    // if issued cmd is mvout, start multicycle acc-to-DRAM transfer
     if (external_memory_ && funct == SmeshFunct::Mvout) {
-      startExternalMvout(static_cast<std::uint64_t>(entry.cmd.rs1),
-                         static_cast<std::uint64_t>(entry.cmd.rs2),
-                         entry.rob_id);
+      startExternalMvout(static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2), entry.rob_id);
       return;
     }
-    // execute load/store synchronously if not using external memory, or if the command is not mvin/mvout
+    // if issued cmd is neither mvin nor mvout, execute load/store synchronously
     const auto value = device_.executeCustom(memory_, funct, static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2));
     // if executeCustom succeeds, return success
     resp.status = 0;
     resp.value = static_cast<u64>(value);
-    trace("smesh: cmd rob=%u funct=%u ok",
-          static_cast<unsigned>(entry.rob_id),
-          static_cast<unsigned>(entry.cmd.funct));
+    trace("smesh: cmd rob=%u funct=%u ok", static_cast<unsigned>(entry.rob_id), static_cast<unsigned>(entry.cmd.funct));
     // if it throws an error
   } catch (const std::exception& e) {
     resp.status = 1;
     resp.value = 0;
-    trace("smesh: cmd rob=%u funct=%u err=%s",
-          static_cast<unsigned>(entry.rob_id),
-          static_cast<unsigned>(entry.cmd.funct),
-          e.what());
+    trace("smesh: cmd rob=%u funct=%u err=%s", static_cast<unsigned>(entry.rob_id), static_cast<unsigned>(entry.cmd.funct), e.what());
   }
   // free the RS row
   rs_.complete(entry.rob_id);
@@ -134,7 +128,9 @@ void SmeshShell::reset() {
   state_ = State::Idle;
   active_ = {};
 }
-// mvin when using external_memory_ (rather than memory_)
+
+// fns. implementing external memory sequencer behavior (mvin/mvout) when external_memory_ is enabled
+// 1) records mvin command when using external_memory_ (rather than memory_)
 void SmeshShell::startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id) {
   const auto dst = unpackLocal(rs2);
   std::size_t load_state = 0;
@@ -159,24 +155,7 @@ void SmeshShell::startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uin
         static_cast<unsigned long long>(active_.shape.rows),
         static_cast<unsigned long long>(active_.shape.cols));
 }
-// mvout when using external_memory_ (rather than memory_)
-void SmeshShell::startExternalMvout(std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id) {
-  const auto src = unpackLocal(rs2);
-  active_ = {};
-  active_.funct = SmeshFunct::Mvout;
-  active_.rob_id = rob_id;
-  active_.dram_addr = rs1;
-  active_.local_row = src.row;
-  active_.shape = src.shape;
-  active_.stride_bytes = device_.state().store_stride_bytes;
-  active_.next_id = 0;
-  state_ = State::MvoutIssue;
-  trace("smesh: start external mvout row=%u rows=%llu cols=%llu",
-        active_.local_row,
-        static_cast<unsigned long long>(active_.shape.rows),
-        static_cast<unsigned long long>(active_.shape.cols));
-}
-
+// 2) sends one read when m_req has space
 void SmeshShell::updateExternalMvinIssue() {
   if (active_.r >= active_.shape.rows) {
     finishActive(0);
@@ -194,7 +173,7 @@ void SmeshShell::updateExternalMvinIssue() {
   m_req.push(req);
   state_ = State::MvinWait;
 }
-
+// 3) waits for read response, writes to spad
 void SmeshShell::updateExternalMvinWait() {
   if (m_resp.empty()) {
     return;
@@ -216,7 +195,24 @@ void SmeshShell::updateExternalMvinWait() {
   }
   state_ = State::MvinIssue;
 }
-
+// 1) records mvout command when using external_memory_ (rather than memory_)
+void SmeshShell::startExternalMvout(std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id) {
+  const auto src = unpackLocal(rs2);
+  active_ = {};
+  active_.funct = SmeshFunct::Mvout;
+  active_.rob_id = rob_id;
+  active_.dram_addr = rs1;
+  active_.local_row = src.row;
+  active_.shape = src.shape;
+  active_.stride_bytes = device_.state().store_stride_bytes;
+  active_.next_id = 0;
+  state_ = State::MvoutIssue;
+  trace("smesh: start external mvout row=%u rows=%llu cols=%llu",
+        active_.local_row,
+        static_cast<unsigned long long>(active_.shape.rows),
+        static_cast<unsigned long long>(active_.shape.cols));
+}
+// 2) sends one write when m_req has space
 void SmeshShell::updateExternalMvoutIssue() {
   if (active_.r >= active_.shape.rows) {
     finishActive(0);
@@ -236,7 +232,7 @@ void SmeshShell::updateExternalMvoutIssue() {
   m_req.push(req);
   state_ = State::MvoutWait;
 }
-
+// 3) waits for write response
 void SmeshShell::updateExternalMvoutWait() {
   if (m_resp.empty()) {
     return;
