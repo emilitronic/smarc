@@ -3,17 +3,18 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski May 10 2026
 /*
-FIFO packet structs for talking to the SmeshShell and SmeshCommandDriver components.  
-These are just simple structs that define the data format for commands and responses 
-sent between the driver and the shell.  The actual command encoding/decoding logic 
-is in SmeshDevice::executeCustom() and the testbench scripts.
+A collection of ports between smesh components.
 */
 #pragma once
 
 #include <cascade/Cascade.hpp>
 
+#include <cstdint>
+
 namespace smesh {
 
+// ********** DRIVER / SHELL INTERFACE **********
+// interface between SmeshCommandDriver and SmeshShell
 struct SmeshCmd {
   u32 funct = 0;
   u64 rs1 = 0;
@@ -23,6 +24,15 @@ struct SmeshCmd {
 struct SmeshResp {
   u8 status = 0;
   u64 value = 0;
+};
+
+// ********** RS / CONTROLLER INTERFACE **********
+// interface between RS and Ld/St/Ex controllers
+using SmeshRobId = std::uint16_t;
+
+struct SmeshIssue {
+  SmeshCmd cmd{};
+  SmeshRobId rob_id = 0;
 };
 
 } // namespace smesh

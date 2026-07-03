@@ -26,8 +26,6 @@ enum class SmeshQueueClass : std::uint8_t {
   Invalid,
 };
 
-using SmeshRobId = std::uint16_t;
-
 // Runtime state programmed by CONFIG commands and used to calculate RS
 // local-memory ranges. These strides are measured in local rows.
 struct SmeshRSConfigState {
