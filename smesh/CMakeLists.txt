@@ -44,6 +44,19 @@ target_link_libraries(tb_smesh_rs
     smesh_model
 )
 
+add_executable(tb_ex_ctrl
+  src/tb_ex_ctrl.cpp
+)
+
+target_link_libraries(tb_ex_ctrl
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_smesh_m2
   src/SmeshCommandDriver.cpp
   src/SmeshShell.cpp

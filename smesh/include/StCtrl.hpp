@@ -9,6 +9,8 @@ Skeleton for the smesh store controller.
 
 #include <cascade/Cascade.hpp>
 
+#include "SmeshPorts.hpp"
+
 namespace smesh {
 
 class StCtrl : public Component {
@@ -18,6 +20,9 @@ class StCtrl : public Component {
   StCtrl(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
+
+  FifoInput(SmeshIssue, cmd_in);
+  FifoOutput(SmeshRobId, completed);
 };
 
 } // namespace smesh

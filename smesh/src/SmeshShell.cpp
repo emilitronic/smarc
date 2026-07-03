@@ -68,7 +68,7 @@ void SmeshShell::update() {
     return;
   }
   // if RS can't allocate, stop this cycle
-  if (!rs_.allocate(cmd)) {       // try to allocate RS entry, a rob_id is assigne if successful
+  if (!rs_.allocate(cmd)) {       // try to allocate RS entry, a rob_id is assigned if successful
     return;
   }
   cmd_in.pop();                   // pop cmd if allocation succeeded

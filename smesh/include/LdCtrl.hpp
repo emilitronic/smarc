@@ -10,6 +10,8 @@ Skeleton for the smesh load controller.
 
 #include <cascade/Cascade.hpp>
 
+#include "SmeshPorts.hpp"
+
 namespace smesh {
 
 class LdCtrl : public Component {
@@ -19,6 +21,9 @@ class LdCtrl : public Component {
   LdCtrl(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
+
+  FifoInput(SmeshIssue, cmd_in);
+  FifoOutput(SmeshRobId, completed);
 };
 
 } // namespace smesh
