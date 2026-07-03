@@ -9,7 +9,7 @@ Actual functional smesh device model.
 
 #include "SmeshCommand.hpp" // for SmeshFunct and command encoding helpers
 #include "SmeshMemory.hpp"
-#include "SmeshState.hpp"
+#include "SmeshState.hpp"   // spad and accum
 #include "SmeshTypes.hpp"
 
 #include <cstdint>
@@ -41,7 +41,7 @@ class SmeshDevice {
   static void checkAccRange(std::uint32_t row, MatrixShape shape);
   static void checkDimShape(MatrixShape shape);
 
-  SmeshState state_;
+  SmeshState state_; // spad and accum
 };
 
 } // namespace smesh

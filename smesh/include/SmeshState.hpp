@@ -16,11 +16,11 @@ namespace smesh {
 
 struct SmeshState {
   using SpadRow = std::array<Elem, kDim>; // cols (elements) in a SP row
-  using AccRow = std::array<Acc, kDim>;
+  using AccRow  = std::array<Acc, kDim>;
   // size internal memory and computing arrays
   std::array<SpadRow, kSpRows> spad{};
   std::array<AccRow, kAccRows> accumulator{};
-  std::array<AccRow, kDim> pe_state{};
+  std::array<AccRow, kDim>     pe_state{};
   // metadata for data location and shape
   std::uint32_t preload_sp_row = 0;
   std::uint32_t output_acc_row = 0;

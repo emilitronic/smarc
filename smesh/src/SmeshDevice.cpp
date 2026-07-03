@@ -47,10 +47,7 @@ void SmeshDevice::reset() {
 
 // executeCustom provides a generic command interface.  
 // The semantics of rs1 and rs2 depend on the command (funct).
-std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem,
-                                         SmeshFunct funct,
-                                         std::uint64_t rs1,
-                                         std::uint64_t rs2) {
+std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem, SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2) {
   switch (funct) {
     case SmeshFunct::Config: {
       const auto kind = static_cast<ConfigKind>(rs1 & 0x3u);
@@ -108,11 +105,7 @@ std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem,
 }
 
 // mvin: move a matrix from host memory into the scratchpad
-void SmeshDevice::mvin(SmeshMemory& mem,
-                       std::uint64_t dram_addr,
-                       std::uint32_t spad_row,
-                       MatrixShape shape,
-                       std::uint32_t stride_bytes) {
+void SmeshDevice::mvin(SmeshMemory& mem, std::uint64_t dram_addr, std::uint32_t spad_row, MatrixShape shape, std::uint32_t stride_bytes) {
   checkSpadRange(spad_row, shape);
   require(stride_bytes >= shape.cols * sizeof(Elem), "mvin stride is too small");
 
@@ -125,10 +118,7 @@ void SmeshDevice::mvin(SmeshMemory& mem,
 }
 
 // preload: move a matrix from the scratchpad into the PE state and set up for compute
-void SmeshDevice::preload(std::uint32_t b_spad_row,
-                          std::uint32_t c_acc_row,
-                          MatrixShape b_shape,
-                          MatrixShape c_shape) {
+void SmeshDevice::preload(std::uint32_t b_spad_row, std::uint32_t c_acc_row, MatrixShape b_shape, MatrixShape c_shape) {
   checkSpadRange(b_spad_row, b_shape);
   checkAccRange(c_acc_row, c_shape);
   checkDimShape(b_shape);
@@ -177,11 +167,7 @@ void SmeshDevice::computePreloaded(std::uint32_t a_spad_row, MatrixShape a_shape
 }
 
 // mvout: move a matrix from the accumulator into host memory
-void SmeshDevice::mvout(SmeshMemory& mem,
-                        std::uint64_t dram_addr,
-                        std::uint32_t acc_row,
-                        MatrixShape shape,
-                        std::uint32_t stride_bytes) const {
+void SmeshDevice::mvout(SmeshMemory& mem, std::uint64_t dram_addr, std::uint32_t acc_row, MatrixShape shape, std::uint32_t stride_bytes) const {
   checkAccRange(acc_row, shape);
   require(stride_bytes >= shape.cols * sizeof(Acc), "mvout stride is too small");
 

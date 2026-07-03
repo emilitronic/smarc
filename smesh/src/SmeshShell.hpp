@@ -83,12 +83,13 @@ class SmeshShell : public Component {
 
   // ********** INTERNAL BLOCKS AND STATE **********
 
-  SmeshRS rs_;
-  SmeshDevice device_;
-  SmeshMemory memory_;
-  bool external_memory_ = false;
-  State state_ = State::Idle;
-  ActiveMemCmd active_{};
+  SmeshDevice  device_;       // compute, spad, and accum
+  SmeshRS      rs_;
+  ActiveMemCmd active_{};     // cmd data being processed
+  State state_ = State::Idle; // control phase state
+
+  SmeshMemory memory_; // internal mem for simple sims
+  bool external_memory_ = false; // use external mem
 };
 
 } // namespace smesh
