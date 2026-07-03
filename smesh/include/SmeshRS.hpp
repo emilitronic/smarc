@@ -151,6 +151,7 @@ public:
   SmeshRS(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
+  FifoInput(SmeshCmd, alloc_in); // RS allocation input
 
   // ********** RS STATUS **********
 
@@ -163,6 +164,7 @@ public:
   bool canAccept(const SmeshCmd& cmd) const;
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
   bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
+  void updateAlloc();
 
   // ********** ENTRY ACCESS **********
 

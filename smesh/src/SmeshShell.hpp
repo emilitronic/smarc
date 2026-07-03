@@ -36,6 +36,8 @@ class SmeshShell : public Component {
   // memory interface
   FifoOutput(smem::MemReq, m_req);
   FifoInput(smem::MemResp, m_resp);
+  // RS allocation interface
+  FifoOutput(SmeshCmd, rs_alloc_out);
 
   // ********** TESTBENCH / SIMULATION CONTROLS **********
   // internal fake memory for simple sims

@@ -16,7 +16,8 @@ namespace smesh {
 SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
   rs_ = new SmeshRS("RS");
   rs_->clk << clk;
-  UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req); // native memory master interface
+  rs_->alloc_in << rs_alloc_out; // allocation interface from shell to RS
+  UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req, rs_alloc_out); // native memory master interface
 }
 
 SmeshShell::~SmeshShell() {
@@ -42,42 +43,39 @@ void SmeshShell::update() {
       break;
   }
 
-  // stop if no command waiting or there's no room for a response
-  if (cmd_in.empty() || resp_out.full()) {
+  // stop if there's no room for a response
+  if (resp_out.full()) {
     return;
   }
 
-  // look at cmd w/o removing it
-  const auto cmd = cmd_in.peek(); 
-  const auto cmd_funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct));
+  if (!cmd_in.empty()) {
+    // look at cmd w/o removing it
+    const auto cmd = cmd_in.peek();
+    const auto cmd_funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(cmd.funct));
 
-  // check for FLUSH cmd (currently a no-op) handled by top-level control before RS
-  if (cmd_funct == SmeshFunct::Flush) {
-    cmd_in.pop();  // remove FLUSH cmd from input queue
-    SmeshResp resp{};
-    try {
-      resp.value = static_cast<u64>(device_.executeCustom(memory_, cmd_funct, static_cast<std::uint64_t>(cmd.rs1), static_cast<std::uint64_t>(cmd.rs2)));
-      resp.status = 0;
-      trace("smesh: system funct=%u ok", static_cast<unsigned>(cmd.funct));
-    } catch (const std::exception& e) {
-      resp.status = 1;
-      resp.value = 0;
-      trace("smesh: system funct=%u err=%s", static_cast<unsigned>(cmd.funct), e.what());
+    // check for FLUSH cmd (currently a no-op) handled by top-level control before RS
+    if (cmd_funct == SmeshFunct::Flush) {
+      cmd_in.pop();  // remove FLUSH cmd from input queue
+      SmeshResp resp{};
+      try {
+        resp.value = static_cast<u64>(device_.executeCustom(memory_, cmd_funct, static_cast<std::uint64_t>(cmd.rs1), static_cast<std::uint64_t>(cmd.rs2)));
+        resp.status = 0;
+        trace("smesh: system funct=%u ok", static_cast<unsigned>(cmd.funct));
+      } catch (const std::exception& e) {
+        resp.status = 1;
+        resp.value = 0;
+        trace("smesh: system funct=%u err=%s", static_cast<unsigned>(cmd.funct), e.what());
+      }
+      resp_out.push(resp); // send response back to driver
+      return;
     }
-    resp_out.push(resp); // send response back to driver
-    return;
-  }
 
-  // next deal with all other commends (all of which go through the RS)
-  // if RS full, stop this cycle
-  if (!rs_->canAccept(cmd)) {
-    return;
+    // next deal with all other commends (all of which go through the RS)
+    if (!rs_alloc_out.full()) {
+      rs_alloc_out.push(cmd);
+      cmd_in.pop();
+    }
   }
-  // if RS can't allocate, stop this cycle
-  if (!rs_->allocate(cmd)) {       // try to allocate RS entry, a rob_id is assigned if successful
-    return;
-  }
-  cmd_in.pop();                   // pop cmd if allocation succeeded
   // which RS outlet has command ready to issue
   
   // which already-allocated command is ready to leave RS (i.e., to issue)?

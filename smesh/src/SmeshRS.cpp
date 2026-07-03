@@ -254,7 +254,9 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 
 } // namespace
 
-SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {}
+SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateAlloc).reads(alloc_in);
+}
 
 // ********** RS STATUS **********
 
@@ -383,6 +385,20 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
     *rob_id_out = new_entry.rob_id;
   }
   return true;
+}
+// consumes commands and allocates rows when capacity permits
+void SmeshRS::updateAlloc() {
+  if (alloc_in.empty()) {
+    return;
+  }
+
+  const auto cmd = alloc_in.peek();
+  if (!canAccept(cmd)) {
+    return;
+  }
+
+  alloc_in.pop();
+  allocate(cmd);
 }
 
 // ********** ENTRY ACCESS **********
