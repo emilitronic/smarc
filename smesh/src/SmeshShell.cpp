@@ -14,7 +14,13 @@ Cascade component wrapping the existing SmeshDevice, and SmeshMemory, and SmeshR
 namespace smesh {
 
 SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
+  rs_ = new SmeshRS("RS");
+  rs_->clk << clk;
   UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req); // native memory master interface
+}
+
+SmeshShell::~SmeshShell() {
+  delete rs_;
 }
 
 void SmeshShell::update() {
@@ -64,11 +70,11 @@ void SmeshShell::update() {
 
   // next deal with all other commends (all of which go through the RS)
   // if RS full, stop this cycle
-  if (!rs_.canAccept(cmd)) {
+  if (!rs_->canAccept(cmd)) {
     return;
   }
   // if RS can't allocate, stop this cycle
-  if (!rs_.allocate(cmd)) {       // try to allocate RS entry, a rob_id is assigned if successful
+  if (!rs_->allocate(cmd)) {       // try to allocate RS entry, a rob_id is assigned if successful
     return;
   }
   cmd_in.pop();                   // pop cmd if allocation succeeded
@@ -76,11 +82,11 @@ void SmeshShell::update() {
   
   // which already-allocated command is ready to leave RS (i.e., to issue)?
   const SmeshRsEntry* issued_entry = nullptr;
-  if (const auto* load = rs_.issueLoad()) {
+  if (const auto* load = rs_->issueLoad()) {
     issued_entry = load;
-  } else if (const auto* store = rs_.issueStore()) {
+  } else if (const auto* store = rs_->issueStore()) {
     issued_entry = store;
-  } else if (const auto* execute = rs_.issueExecute()) {
+  } else if (const auto* execute = rs_->issueExecute()) {
     issued_entry = execute;
   }
   if (issued_entry == nullptr) {
@@ -92,7 +98,7 @@ void SmeshShell::update() {
   // execute RS entry selected for issue
   try {
     // TODO: Replace this conceptual acceptance with explicit controller ready/valid handshakes
-    rs_.markIssued(entry.rob_id); // search all RS rows for entry.rob_id that's been selected for issue
+    rs_->markIssued(entry.rob_id); // search all RS rows for entry.rob_id that's been selected for issue
     const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct)); // determine which cmd's been issued
     // if issued cmd is mvin/mvin2/mvin3, start multicycle DRAM-to-spad transfer
     if (external_memory_ && (funct == SmeshFunct::Mvin || funct == SmeshFunct::Mvin2 || funct == SmeshFunct::Mvin3)) {
@@ -117,14 +123,13 @@ void SmeshShell::update() {
     trace("smesh: cmd rob=%u funct=%u err=%s", static_cast<unsigned>(entry.rob_id), static_cast<unsigned>(entry.cmd.funct), e.what());
   }
   // free the RS row
-  rs_.complete(entry.rob_id);
+  rs_->complete(entry.rob_id);
   // send response back to driver
   resp_out.push(resp);
 }
 
 void SmeshShell::reset() {
   device_.reset();
-  rs_ = SmeshRS{};
   state_ = State::Idle;
   active_ = {};
 }
@@ -260,7 +265,7 @@ void SmeshShell::finishActive(std::uint8_t status) {
   resp.status = u8(status);
   resp.value = 0;
   resp_out.push(resp);
-  rs_.complete(active_.rob_id);
+  rs_->complete(active_.rob_id);
   state_ = State::Idle;
   active_ = {};
 }

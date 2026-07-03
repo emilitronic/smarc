@@ -83,7 +83,7 @@ bool testCapacity() {
       0,
       smesh::packLocal(smesh::makeSpAddr(0), shape));
 
-  smesh::SmeshRS rs;
+  smesh::SmeshRS rs("CapacityRS");
   for (std::size_t i = 0; i < smesh::kDefaultConfig.rs_load_entries; ++i) {
     if (!rs.allocate(load)) {
       return false;
@@ -103,7 +103,7 @@ bool testDependencies() {
   constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
 
   // COMPUTE reads A after LOAD writes the same scratchpad rows.
-  smesh::SmeshRS load_ex_rs;
+  smesh::SmeshRS load_ex_rs("LoadExRS");
   const auto config_load = command(
       smesh::SmeshFunct::Config,
       smesh::packConfig(smesh::ConfigKind::Load, 0, smesh::kDim),
@@ -145,7 +145,7 @@ bool testDependencies() {
   }
 
   // STORE reads C after PRELOAD reserves the same accumulator destination.
-  smesh::SmeshRS ex_st_rs;
+  smesh::SmeshRS ex_st_rs("ExStRS");
   if (!ex_st_rs.allocate(config_ex) ||
       !ex_st_rs.complete(ex_st_rs.entry().rob_id)) {
     return false;
@@ -171,7 +171,7 @@ bool testDependencies() {
   }
 
   // LOAD writes scratchpad rows after STORE_SPAD writes the same rows.
-  smesh::SmeshRS st_ld_rs;
+  smesh::SmeshRS st_ld_rs("StLdRS");
   if (!st_ld_rs.allocate(config_load) ||
       !st_ld_rs.complete(st_ld_rs.entry().rob_id)) {
     return false;
@@ -192,7 +192,7 @@ bool testDependencies() {
 }
 
 bool testLoadRange() {
-  smesh::SmeshRS rs;
+  smesh::SmeshRS rs("LoadRangeRS");
 
   const auto config = command(
       smesh::SmeshFunct::Config,
@@ -231,7 +231,7 @@ bool testLoadRange() {
 }
 
 bool testStoreRange() {
-  smesh::SmeshRS rs;
+  smesh::SmeshRS rs("StoreRangeRS");
 
   constexpr auto base = smesh::makeAccAddr(0);
   constexpr smesh::MatrixShape shape{2, 12};
@@ -251,7 +251,7 @@ bool testStoreRange() {
 }
 
 bool testStoreSpadRange() {
-  smesh::SmeshRS rs;
+  smesh::SmeshRS rs("StoreSpadRangeRS");
 
   constexpr auto destination_base = smesh::makeSpAddr(8);
   constexpr auto source_base = smesh::makeAccAddr(4);
@@ -277,7 +277,7 @@ bool testStoreSpadRange() {
 }
 
 bool testPreloadRange() {
-  smesh::SmeshRS rs;
+  smesh::SmeshRS rs("PreloadRangeRS");
 
   const auto config = command(
       smesh::SmeshFunct::Config,
@@ -324,7 +324,7 @@ bool testComputeRange() {
   constexpr smesh::MatrixShape a_shape{2, smesh::kDim};
   constexpr smesh::MatrixShape bd_shape{smesh::kDim, smesh::kDim};
 
-  smesh::SmeshRS flip_rs;
+  smesh::SmeshRS flip_rs("ComputeFlipRS");
   const auto flip_config = command(
       smesh::SmeshFunct::Config,
       smesh::packConfigExecuteRs1(2, false),
@@ -349,7 +349,7 @@ bool testComputeRange() {
       flip_entry.opb.bits.end.raw ==
           (bd_base + static_cast<std::uint32_t>(bd_shape.rows)).raw;
 
-  smesh::SmeshRS stay_rs;
+  smesh::SmeshRS stay_rs("ComputeStayRS");
   const auto stay_config = command(
       smesh::SmeshFunct::Config,
       smesh::packConfigExecuteRs1(2, true),

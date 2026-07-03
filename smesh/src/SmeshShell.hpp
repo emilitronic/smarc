@@ -24,6 +24,7 @@ class SmeshShell : public Component {
 
  public:
   SmeshShell(std::string name, COMPONENT_CTOR);
+  ~SmeshShell() override;
 
   // ********** HARDWARE PORTS **********
 
@@ -84,7 +85,7 @@ class SmeshShell : public Component {
   // ********** INTERNAL BLOCKS AND STATE **********
 
   SmeshDevice  device_;       // compute, spad, and accum
-  SmeshRS      rs_;
+  SmeshRS*     rs_ = nullptr;
   ActiveMemCmd active_{};     // cmd data being processed
   State state_ = State::Idle; // control phase state
 

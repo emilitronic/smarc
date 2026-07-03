@@ -234,11 +234,7 @@ bool dependsOn(const SmeshRsEntry& new_entry, const SmeshRsEntry& older_entry) {
   return older_entry.opa_is_dst && opOverlaps(new_entry.opb, older_entry.opa);
 }
 // Compute the dependency masks for a new entry based on all older entries in the RS
-void fillDependencies(
-    SmeshRsEntry& entry,
-    const std::array<SmeshRsEntry, kDefaultConfig.rs_load_entries>& older_ld,
-    const std::array<SmeshRsEntry, kDefaultConfig.rs_execute_entries>& older_ex,
-    const std::array<SmeshRsEntry, kDefaultConfig.rs_store_entries>& older_st) {
+void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefaultConfig.rs_load_entries>& older_ld, const std::array<SmeshRsEntry, kDefaultConfig.rs_execute_entries>& older_ex, const std::array<SmeshRsEntry, kDefaultConfig.rs_store_entries>& older_st) {
   // clear all dependency masks
   entry.deps_ld = 0;
   entry.deps_ex = 0;
@@ -257,6 +253,8 @@ void fillDependencies(
 }
 
 } // namespace
+
+SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {}
 
 // ********** RS STATUS **********
 
@@ -572,6 +570,15 @@ bool SmeshRS::complete(SmeshRobId rob_id) {
 
   *completed_entry = SmeshRsEntry{}; // clear completed entry itself
   return true;
+}
+
+void SmeshRS::reset() {
+  config_state_ = {};
+  entries_ld_ = {};
+  entries_ex_ = {};
+  entries_st_ = {};
+  next_rob_id_ = 0;
+  instructions_allocated_ = 0;
 }
 
 } // namespace smesh

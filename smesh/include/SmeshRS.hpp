@@ -144,8 +144,14 @@ inline SmeshQueueClass classifyCommand(const SmeshCmd& cmd) {
 }
 
 // RS row owner and manager
-class SmeshRS {
+class SmeshRS : public Component {
+  DECLARE_COMPONENT(SmeshRS);
+
 public:
+  SmeshRS(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
   // ********** RS STATUS **********
 
   const SmeshRSConfigState& configState() const;
@@ -175,6 +181,7 @@ public:
   // ********** COMPLETION **********
 
   bool complete(SmeshRobId rob_id);
+  void reset();
 
 private:
   SmeshRSConfigState config_state_{};
