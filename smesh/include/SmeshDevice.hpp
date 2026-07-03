@@ -22,29 +22,15 @@ class SmeshDevice {
 
   // executeCustom provides a generic command interface.  
   // The semantics of rs1 and rs2 depend on the command (funct).
-  std::uint64_t executeCustom(SmeshMemory& mem,
-                              SmeshFunct funct,
-                              std::uint64_t rs1,
-                              std::uint64_t rs2);
+  std::uint64_t executeCustom(SmeshMemory& mem, SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2);
 
-  void mvin(SmeshMemory& mem,
-            std::uint64_t dram_addr,
-            std::uint32_t spad_row,
-            MatrixShape shape,
-            std::uint32_t stride_bytes);
+  void mvin(SmeshMemory& mem, std::uint64_t dram_addr, std::uint32_t spad_row, MatrixShape shape, std::uint32_t stride_bytes);
 
-  void preload(std::uint32_t b_spad_row,
-               std::uint32_t c_acc_row,
-               MatrixShape b_shape,
-               MatrixShape c_shape);
+  void preload(std::uint32_t b_spad_row, std::uint32_t c_acc_row, MatrixShape b_shape, MatrixShape c_shape);
 
   void computePreloaded(std::uint32_t a_spad_row, MatrixShape a_shape);
 
-  void mvout(SmeshMemory& mem,
-             std::uint64_t dram_addr,
-             std::uint32_t acc_row,
-             MatrixShape shape,
-             std::uint32_t stride_bytes) const;
+  void mvout(SmeshMemory& mem, std::uint64_t dram_addr, std::uint32_t acc_row, MatrixShape shape, std::uint32_t stride_bytes) const;
 
   const SmeshState& state() const { return state_; }
   void writeSpadElem(std::uint32_t row, std::uint32_t col, Elem value); // to mvin data from mem through SmeshShell

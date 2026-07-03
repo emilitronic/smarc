@@ -113,10 +113,7 @@ constexpr SmeshLocalAddr makeSpAddr(std::uint32_t full_sp_addr) {
   return SmeshLocalAddr{full_sp_addr & kSpAddrMask};
 }
 
-constexpr SmeshLocalAddr makeAccAddr(std::uint32_t full_acc_addr,
-                                     bool do_accumulate = false,
-                                     bool read_full = false,
-                                     std::uint32_t norm_cmd = 0) {
+constexpr SmeshLocalAddr makeAccAddr(std::uint32_t full_acc_addr, bool do_accumulate = false, bool read_full = false, std::uint32_t norm_cmd = 0) {
   return SmeshLocalAddr{
       (full_acc_addr & kAccAddrMask) |
       kLocalAddrIsAccMask |
@@ -127,11 +124,9 @@ constexpr SmeshLocalAddr makeAccAddr(std::uint32_t full_acc_addr,
 
 // Calculate address and overflow together, wrapping at the selected local
 // memory size while preserving metadata.
-constexpr SmeshLocalAddrAddResult add_with_overflow(SmeshLocalAddr addr,
-                                                     std::uint32_t offset) {
+constexpr SmeshLocalAddrAddResult add_with_overflow(SmeshLocalAddr addr, std::uint32_t offset) {
   const std::uint64_t sum = static_cast<std::uint64_t>(addr.data()) + offset;
-  const std::size_t overflow_bit =
-      addr.is_acc_addr() ? kAccAddrBits : kSpAddrBits;
+  const std::size_t overflow_bit = addr.is_acc_addr() ? kAccAddrBits : kSpAddrBits;
   return SmeshLocalAddrAddResult{
       SmeshLocalAddr{
           (addr.raw & ~kLocalAddrDataMask) |
