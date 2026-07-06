@@ -14,9 +14,13 @@ Cascade component wrapping the existing SmeshDevice, and SmeshMemory, and SmeshR
 namespace smesh {
 
 SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
+  // COMPONENTS
   rs_ = new SmeshRS("RS");
+
+  // CONNECTIONS
   rs_->clk << clk;
   rs_->alloc_in << rs_alloc_out; // allocation interface from shell to RS
+  rs_->issue_ld.sendToBitBucket();
   UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req, rs_alloc_out); // native memory master interface
 }
 
@@ -71,12 +75,11 @@ void SmeshShell::update() {
     }
 
     // next deal with all other commends (all of which go through the RS)
-    if (!rs_alloc_out.full()) {
+    if (!rs_alloc_out.full()) { 
       rs_alloc_out.push(cmd);
       cmd_in.pop();
     }
   }
-  // which RS outlet has command ready to issue
   
   // which already-allocated command is ready to leave RS (i.e., to issue)?
   const SmeshRsEntry* issued_entry = nullptr;

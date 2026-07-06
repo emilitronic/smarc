@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 1 2026
 /*
-Skeleton for the smesh load controller.
+Load controller declaration.
 */
 
 #pragma once
@@ -24,6 +24,16 @@ class LdCtrl : public Component {
 
   FifoInput(SmeshIssue, cmd_in);
   FifoOutput(SmeshRobId, completed);
+
+  void updateAccept();
+  void reset();
+
+  bool hasActiveCommand() const { return active_valid_; }
+  const SmeshIssue& activeCommand() const { return active_; }
+
+ private:
+  bool active_valid_ = false;
+  SmeshIssue active_{};
 };
 
 } // namespace smesh

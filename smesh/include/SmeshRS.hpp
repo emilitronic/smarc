@@ -152,6 +152,7 @@ public:
 
   Clock(clk);
   FifoInput(SmeshCmd, alloc_in); // RS allocation input
+  FifoOutput(SmeshIssue, issue_ld);
 
   // ********** RS STATUS **********
 
@@ -178,7 +179,10 @@ public:
   const SmeshRsEntry* issueLoad() const;
   const SmeshRsEntry* issueExecute() const;
   const SmeshRsEntry* issueStore() const;
+  void updateIssueLoad();
   bool markIssued(SmeshRobId rob_id);
+
+  void setLoadIssuePortEnabled(bool enabled) { load_issue_port_enabled_ = enabled; }
 
   // ********** COMPLETION **********
 
@@ -192,6 +196,7 @@ private:
   std::array<SmeshRsEntry, kDefaultConfig.rs_store_entries> entries_st_{};
   SmeshRobId next_rob_id_ = 0;
   std::uint32_t instructions_allocated_ = 0;
+  bool load_issue_port_enabled_ = false;
 };
 
 } // namespace smesh

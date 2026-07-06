@@ -3,7 +3,10 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jun 24 2026
 /*
-One-entry reservation-station state machine for smesh.
+Reservation station for smesh.
+input port: alloc_in: SmeshCmd, RS allocation input
+
+updateAlloc() receives input and (with help) allocates it into RS.
 */
 
 #include "SmeshRS.hpp"
@@ -256,6 +259,7 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 
 SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
+  UPDATE(updateIssueLoad).writes(issue_ld);
 }
 
 // ********** RS STATUS **********
@@ -477,6 +481,24 @@ const SmeshRsEntry* SmeshRS::issueStore() const {
   }
   return oldest;
 }
+
+// runs each cycle ("update"): send oldest ready load command to LdCtrl and mark its RS entry issued
+void SmeshRS::updateIssueLoad() {
+  if (!load_issue_port_enabled_ || issue_ld.full()) {
+    return;
+  }
+
+  const auto* entry = issueLoad();
+  if (entry == nullptr) {
+    return;
+  }
+
+  SmeshIssue issue{};
+  issue.cmd = entry->cmd;       // pack in cmd
+  issue.rob_id = entry->rob_id; // pack in rob_id
+  issue_ld.push(issue);         // push the packet through issue_ld output port
+  markIssued(entry->rob_id);    // mark entry as issued
+}
 // mark RS entry found by issue (based on rob_id) as issued once controller accepts it
 // (note this is purely conceptual, SmeshShell just runs markIssued() after issue() for now)
 bool SmeshRS::markIssued(SmeshRobId rob_id) {
@@ -595,6 +617,7 @@ void SmeshRS::reset() {
   entries_st_ = {};
   next_rob_id_ = 0;
   instructions_allocated_ = 0;
+  load_issue_port_enabled_ = false;
 }
 
 } // namespace smesh
