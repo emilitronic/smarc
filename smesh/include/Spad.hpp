@@ -27,7 +27,8 @@ class Spad : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaReadResp, write_in);
+  FifoInput(DmaReadResp, write_in);        // spad's write port
+  FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last spad write is done
 
   void updateWrite();
   void reset();

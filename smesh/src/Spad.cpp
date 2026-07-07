@@ -11,11 +11,16 @@ Standalone smesh scratchpad memory implementation.
 namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateWrite).reads(write_in);
+  UPDATE(updateWrite).reads(write_in).writes(dma_resp);
 }
 
 void Spad::updateWrite() {
   if (write_in.empty()) {
+    return;
+  }
+  // wait until completion FIFO to LdCtrl has room before performing final write
+  const auto& pending = write_in.peek();
+  if (static_cast<bool>(pending.last) && dma_resp.full()) {
     return;
   }
 
@@ -30,6 +35,13 @@ void Spad::updateWrite() {
     if ((mask & (std::uint8_t{1} << lane)) != 0) {
       destination[lane] = static_cast<Elem>((data >> (lane * 8)) & 0xffu);
     }
+  }
+  // if this is final write push {bytes_read, cmd_id} on completion FIFO to LdCtrl
+  if (static_cast<bool>(write.last)) {
+    DmaReadCompletion completion{};
+    completion.bytes_read = write.bytes_read;
+    completion.cmd_id = write.cmd_id;
+    dma_resp.push(completion);
   }
 
   write_accepted_ = true;
