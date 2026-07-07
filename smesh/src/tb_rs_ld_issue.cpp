@@ -9,6 +9,7 @@
 
 #include "DmaReader.hpp"
 #include "LdCtrl.hpp"
+#include "MvinScale.hpp"
 #include "SmeshCommand.hpp"
 #include "SmeshRS.hpp"
 #include "smem/Dram.hpp"
@@ -33,6 +34,26 @@ class RsAllocDriver : public Component {
   bool sent_ = false;
 };
 
+class DmaRespSink : public Component {
+  DECLARE_COMPONENT(DmaRespSink);
+
+ public:
+  DmaRespSink(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+  FifoInput(smesh::DmaReadResp, resp_in);
+
+  void update();
+  void reset();
+
+  bool hasResponse() const { return received_; }
+  const smesh::DmaReadResp& response() const { return response_; }
+
+ private:
+  bool received_ = false;
+  smesh::DmaReadResp response_{};
+};
+
 RsAllocDriver::RsAllocDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).writes(alloc_out);
 }
@@ -55,6 +76,24 @@ void RsAllocDriver::reset() {
   sent_ = false;
 }
 
+DmaRespSink::DmaRespSink(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).reads(resp_in);
+}
+
+void DmaRespSink::update() {
+  if (received_ || resp_in.empty()) {
+    return;
+  }
+
+  response_ = resp_in.pop();
+  received_ = true;
+}
+
+void DmaRespSink::reset() {
+  received_ = false;
+  response_ = {};
+}
+
 int main(int argc, char* argv[]) {
   descore::parseTraces(argc, argv);
   Parameter::parseCommandLine(argc, argv);
@@ -64,6 +103,8 @@ int main(int argc, char* argv[]) {
   smesh::SmeshRS rs("RS");
   smesh::LdCtrl ld_ctrl("LdCtrl");
   smesh::DmaReader dma_reader("DmaReader");
+  smesh::MvinScale mvin_scale("MvinScale");
+  DmaRespSink dma_sink("DmaSink");
   smem::MemCtrl mem("MemCtrl");
   smem::Dram dram("Dram", 0);
 
@@ -72,6 +113,8 @@ int main(int argc, char* argv[]) {
   dma_reader.req_in << ld_ctrl.dma_req;
   mem.in_core_req << dma_reader.mem_req;
   dma_reader.mem_resp << mem.out_core_resp;
+  mvin_scale.data_in << dma_reader.resp_out;
+  dma_sink.resp_in << mvin_scale.data_out;
   mem.in_core_req.setDelay(1);
   dram.s_req << mem.s_req;
   mem.s_resp << dram.s_resp;
@@ -84,6 +127,8 @@ int main(int argc, char* argv[]) {
   rs.clk << clk;
   ld_ctrl.clk << clk;
   dma_reader.clk << clk;
+  mvin_scale.clk << clk;
+  dma_sink.clk << clk;
   mem.clk << clk;
   dram.clk << clk;
   clk.generateClock();
@@ -93,12 +138,13 @@ int main(int argc, char* argv[]) {
   const std::array<std::uint8_t, smesh::kDim> row{{0x11, 0x22, 0x33, 0x44}};
   dram.write(0x80001000, row.data(), row.size());
   rs.setLoadIssuePortEnabled(true);
-  for (int i = 0; i < 16 && !dma_reader.hasResponse(); ++i) {
+  for (int i = 0; i < 16 && !dma_sink.hasResponse(); ++i) {
     Sim::run();
   }
 
   const auto& issue = ld_ctrl.activeCommand();
   const auto& req = dma_reader.activeRequest();
+  const auto& resp = dma_sink.response();
   const bool command_ok = ld_ctrl.hasActiveCommand() &&
                           issue.rob_id == 0 &&
                           static_cast<std::uint32_t>(issue.cmd.funct) ==
@@ -108,8 +154,13 @@ int main(int argc, char* argv[]) {
                           static_cast<std::uint16_t>(req.cols) == smesh::kDim &&
                           static_cast<std::uint16_t>(req.block_stride) == smesh::kDim &&
                           static_cast<std::uint16_t>(req.cmd_id) == 0;
-  const bool response_ok = dma_reader.hasResponse() &&
-                           dma_reader.responseData() == 0x44332211;
+  const bool response_ok = dma_sink.hasResponse() &&
+                           static_cast<std::uint64_t>(resp.data) == 0x44332211 &&
+                           resp.laddr.raw == smesh::makeSpAddr(0).raw &&
+                           static_cast<std::uint8_t>(resp.mask) == 0x0f &&
+                           static_cast<std::uint16_t>(resp.bytes_read) == smesh::kDim &&
+                           static_cast<std::uint16_t>(resp.cmd_id) == 0 &&
+                           static_cast<bool>(resp.last);
   const bool ok = command_ok && request_ok && response_ok;
   std::printf("[RS_LD_ISSUE] %s dma_memory_read\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;

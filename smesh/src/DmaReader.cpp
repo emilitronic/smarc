@@ -11,8 +11,8 @@ Minimal DMA reader implementation.
 namespace smesh {
 
 DmaReader::DmaReader(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateRequest).reads(req_in).writes(mem_req);
-  UPDATE(updateResponse).reads(mem_resp);
+  UPDATE(updateRequest).reads(req_in).writes(mem_req);     // update reads from req_in & writes to mem_req
+  UPDATE(updateResponse).reads(mem_resp).writes(resp_out);
 }
 
 void DmaReader::updateRequest() {
@@ -22,8 +22,7 @@ void DmaReader::updateRequest() {
 
   active_ = req_in.pop();
   const auto bytes = static_cast<std::uint16_t>(active_.cols);
-  assert_always(bytes > 0 && bytes <= sizeof(std::uint64_t),
-                "DmaReader currently supports one 1-to-8-byte row");
+  assert_always(bytes > 0 && bytes <= sizeof(std::uint64_t), "DmaReader currently supports one 1-to-8-byte row");
 
   smem::MemReq req{};
   req.addr = active_.vaddr;
@@ -40,31 +39,33 @@ void DmaReader::updateRequest() {
 }
 
 void DmaReader::updateResponse() {
-  if (!waiting_ || mem_resp.empty()) {
+  if (!waiting_ || mem_resp.empty() || resp_out.full()) {
     return;
   }
 
   const auto resp = mem_resp.pop();
-  assert_always(static_cast<std::uint16_t>(resp.id) ==
-                    static_cast<std::uint16_t>(active_.cmd_id),
-                "DmaReader response ID does not match active request");
-  assert_always(static_cast<std::uint8_t>(resp.err) == 0,
-                "DmaReader memory response reported an error");
+  assert_always(static_cast<std::uint16_t>(resp.id) == static_cast<std::uint16_t>(active_.cmd_id), "DmaReader response ID does not match active request");
+  assert_always(static_cast<std::uint8_t>(resp.err) == 0, "DmaReader memory response reported an error");
 
-  response_data_ = static_cast<std::uint64_t>(resp.rdata);
-  response_valid_ = true;
+  const auto bytes = static_cast<std::uint16_t>(active_.cols);
+  DmaReadResp dma_resp{};
+  dma_resp.data = resp.rdata;
+  dma_resp.laddr = active_.laddr;
+  dma_resp.mask = u8(bytes == 8 ? 0xffu : ((1u << bytes) - 1u));
+  dma_resp.bytes_read = u16(bytes);
+  dma_resp.cmd_id = active_.cmd_id;
+  dma_resp.last = true;
+  resp_out.push(dma_resp);
   waiting_ = false;
 
   trace("dma_reader: response data=0x%llx cmd_id=%u",
-        static_cast<unsigned long long>(response_data_),
+        static_cast<unsigned long long>(dma_resp.data),
         static_cast<unsigned>(resp.id));
 }
 
 void DmaReader::reset() {
   waiting_ = false;
-  response_valid_ = false;
   active_ = {};
-  response_data_ = 0;
 }
 
 } // namespace smesh

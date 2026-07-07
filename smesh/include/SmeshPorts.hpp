@@ -52,4 +52,13 @@ struct DmaReadReq {
   u16 cmd_id = 0;
 };
 
+struct DmaReadResp {
+  u64 data = 0;
+  SmeshLocalAddr laddr{};
+  u8 mask = 0;
+  u16 bytes_read = 0;
+  u16 cmd_id = 0;
+  bit last = false;
+};
+
 } // namespace smesh

@@ -2,6 +2,7 @@ add_library(smesh_model
   src/DmaReader.cpp
   src/ExCtrl.cpp
   src/LdCtrl.cpp
+  src/MvinScale.cpp
   src/SmeshDevice.cpp
   src/SmeshRS.cpp
   src/StCtrl.cpp

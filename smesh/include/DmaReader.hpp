@@ -26,20 +26,17 @@ class DmaReader : public Component {
   FifoInput(DmaReadReq, req_in);
   FifoOutput(smem::MemReq, mem_req);
   FifoInput(smem::MemResp, mem_resp);
+  FifoOutput(DmaReadResp, resp_out);
 
   void updateRequest();
   void updateResponse();
   void reset();
 
-  bool hasResponse() const { return response_valid_; }
   const DmaReadReq& activeRequest() const { return active_; }
-  std::uint64_t responseData() const { return response_data_; }
 
  private:
   bool waiting_ = false;
-  bool response_valid_ = false;
   DmaReadReq active_{};
-  std::uint64_t response_data_ = 0;
 };
 
 } // namespace smesh

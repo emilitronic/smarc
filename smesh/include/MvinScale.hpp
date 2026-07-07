@@ -1,0 +1,31 @@
+// **********************************************************************
+// smesh/include/MvinScale.hpp
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Jul 6 2026
+/*
+Load-path scaling stage. Scaling is currently an identity operation.
+*/
+
+#pragma once
+
+#include <cascade/Cascade.hpp>
+
+#include "SmeshPorts.hpp"
+
+namespace smesh {
+
+class MvinScale : public Component {
+  DECLARE_COMPONENT(MvinScale);
+
+ public:
+  MvinScale(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  FifoInput(DmaReadResp, data_in);
+  FifoOutput(DmaReadResp, data_out);
+
+  void update();
+};
+
+} // namespace smesh
