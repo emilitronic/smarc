@@ -64,6 +64,7 @@ int main(int argc, char* argv[]) {
   ld_ctrl.cmd_in << rs.issue_ld;
   ld_ctrl.completed.sendToBitBucket();
   ld_ctrl.completed.wireToZero();
+  ld_ctrl.dma_req.sendToBitBucket();
   rs.setLoadIssuePortEnabled(true);
 
   Clock clk;

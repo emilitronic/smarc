@@ -22,8 +22,9 @@ class LdCtrl : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshIssue, cmd_in);
-  FifoOutput(SmeshRobId, completed);
+  FifoInput(SmeshIssue, cmd_in);      // RS-issued load command to accept
+  FifoOutput(SmeshRobId, completed);  // Let RS know when load is done (rob_id)
+  FifoOutput(DmaReadReq, dma_req);    // DMA read request to memory controller
 
   void updateAccept();
   void reset();
