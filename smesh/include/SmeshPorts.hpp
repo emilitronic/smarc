@@ -57,6 +57,7 @@ struct DmaReadResp {
   SmeshLocalAddr laddr{};
   u8 mask = 0;
   u16 bytes_read = 0;
+  u8 pixel_repeats = 1;
   u16 cmd_id = 0;
   bit last = false;
 };

@@ -53,6 +53,7 @@ void DmaReader::updateResponse() {
   dma_resp.laddr = active_.laddr;
   dma_resp.mask = u8(bytes == 8 ? 0xffu : ((1u << bytes) - 1u));
   dma_resp.bytes_read = u16(bytes);
+  dma_resp.pixel_repeats = active_.pixel_repeats;
   dma_resp.cmd_id = active_.cmd_id;
   dma_resp.last = true;
   resp_out.push(dma_resp);

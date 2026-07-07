@@ -9,6 +9,7 @@
 
 #include "DmaReader.hpp"
 #include "LdCtrl.hpp"
+#include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
 #include "SmeshCommand.hpp"
 #include "SmeshRS.hpp"
@@ -104,6 +105,7 @@ int main(int argc, char* argv[]) {
   smesh::LdCtrl ld_ctrl("LdCtrl");
   smesh::DmaReader dma_reader("DmaReader");
   smesh::MvinScale mvin_scale("MvinScale");
+  smesh::MvinPixelRepeater pixel_repeater("MvinPixelRepeater");
   DmaRespSink dma_sink("DmaSink");
   smem::MemCtrl mem("MemCtrl");
   smem::Dram dram("Dram", 0);
@@ -114,7 +116,8 @@ int main(int argc, char* argv[]) {
   mem.in_core_req << dma_reader.mem_req;
   dma_reader.mem_resp << mem.out_core_resp;
   mvin_scale.data_in << dma_reader.resp_out;
-  dma_sink.resp_in << mvin_scale.data_out;
+  pixel_repeater.data_in << mvin_scale.data_out;
+  dma_sink.resp_in << pixel_repeater.data_out;
   mem.in_core_req.setDelay(1);
   dram.s_req << mem.s_req;
   mem.s_resp << dram.s_resp;
@@ -128,6 +131,7 @@ int main(int argc, char* argv[]) {
   ld_ctrl.clk << clk;
   dma_reader.clk << clk;
   mvin_scale.clk << clk;
+  pixel_repeater.clk << clk;
   dma_sink.clk << clk;
   mem.clk << clk;
   dram.clk << clk;
@@ -159,6 +163,7 @@ int main(int argc, char* argv[]) {
                            resp.laddr.raw == smesh::makeSpAddr(0).raw &&
                            static_cast<std::uint8_t>(resp.mask) == 0x0f &&
                            static_cast<std::uint16_t>(resp.bytes_read) == smesh::kDim &&
+                           static_cast<std::uint8_t>(resp.pixel_repeats) == 1 &&
                            static_cast<std::uint16_t>(resp.cmd_id) == 0 &&
                            static_cast<bool>(resp.last);
   const bool ok = command_ok && request_ok && response_ok;
