@@ -6,6 +6,7 @@ add_library(smesh_model
   src/MvinScale.cpp
   src/SmeshDevice.cpp
   src/SmeshRS.cpp
+  src/Spad.cpp
   src/StCtrl.cpp
 )
 
