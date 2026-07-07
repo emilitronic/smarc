@@ -34,6 +34,7 @@ class LdCtrl : public Component {
   bool hasActiveCommand() const { return active_valid_; }
   const SmeshIssue& activeCommand() const { return active_; }
   bool hasDmaResponse() const { return dma_response_valid_; }
+  std::uint32_t expectedBytes() const { return expected_bytes_; }
   std::uint32_t returnedBytes() const { return returned_bytes_; }
   SmeshRobId responseCommandId() const { return response_cmd_id_; }
 
@@ -41,6 +42,7 @@ class LdCtrl : public Component {
   bool active_valid_ = false;        // whether LdCtrl has active command from RS
   SmeshIssue active_{};              // active command and its rob_id from RS
   bool dma_response_valid_ = false;  // has a DMA completion response returned
+  std::uint32_t expected_bytes_ = 0; // total bytes expected for active command
   std::uint32_t returned_bytes_ = 0; // total bytes returned for active command (accumulated across multiple DMA responses)
   SmeshRobId response_cmd_id_ = 0;   // commmand ID from most recent DMA completion response (should match active_.rob_id)
 };

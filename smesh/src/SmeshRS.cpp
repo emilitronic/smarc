@@ -260,6 +260,7 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
   UPDATE(updateIssueLoad).writes(issue_ld);
+  UPDATE(updateComplete).reads(completed);
 }
 
 // ********** RS STATUS **********
@@ -525,6 +526,15 @@ bool SmeshRS::markIssued(SmeshRobId rob_id) {
 }
 
 // ********** COMPLETION **********
+
+void SmeshRS::updateComplete() {
+  if (completed.empty()) {
+    return;
+  }
+
+  const auto rob_id = completed.pop();
+  assert_always(complete(rob_id), "SmeshRS received completion for an unknown ROB ID");
+}
 
 // mark RS entry as completed (based on rob_id)and free it, clearing dependencies in other entries
 bool SmeshRS::complete(SmeshRobId rob_id) {

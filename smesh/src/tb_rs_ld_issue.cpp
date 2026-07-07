@@ -45,7 +45,7 @@ void RsAllocDriver::update() {
     return;
   }
 
-  constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
+  constexpr smesh::MatrixShape shape{1, smesh::kDim};
   smesh::SmeshCmd cmd{};
   cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin));
   cmd.rs1 = u64(0x80001000);
@@ -75,6 +75,7 @@ int main(int argc, char* argv[]) {
 
   rs.alloc_in << driver.alloc_out;
   ld_ctrl.cmd_in << rs.issue_ld;
+  rs.completed << ld_ctrl.completed;
   dma_reader.req_in << ld_ctrl.dma_req;
   mem.in_core_req << dma_reader.mem_req;
   dma_reader.mem_resp << mem.out_core_resp;
@@ -85,8 +86,6 @@ int main(int argc, char* argv[]) {
   mem.in_core_req.setDelay(1);
   dram.s_req << mem.s_req;
   mem.s_resp << dram.s_resp;
-  ld_ctrl.completed.sendToBitBucket();
-  ld_ctrl.completed.wireToZero();
   rs.setLoadIssuePortEnabled(true);
 
   Clock clk;
@@ -106,14 +105,14 @@ int main(int argc, char* argv[]) {
   const std::array<std::uint8_t, smesh::kDim> row{{0x11, 0x22, 0x33, 0x44}};
   dram.write(0x80001000, row.data(), row.size());
   rs.setLoadIssuePortEnabled(true);
-  for (int i = 0; i < 16 && !ld_ctrl.hasDmaResponse(); ++i) {
+  for (int i = 0; i < 16 && !(ld_ctrl.hasDmaResponse() && rs.empty()); ++i) {
     Sim::run();
   }
 
   const auto& issue = ld_ctrl.activeCommand();
   const auto& req = dma_reader.activeRequest();
   const auto& spad_row = spad.row(smesh::makeSpAddr(0));
-  const bool command_ok = ld_ctrl.hasActiveCommand() &&
+  const bool command_ok = !ld_ctrl.hasActiveCommand() &&
                           issue.rob_id == 0 &&
                           static_cast<std::uint32_t>(issue.cmd.funct) ==
                               static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin);
@@ -128,8 +127,10 @@ int main(int argc, char* argv[]) {
                        spad_row[2] == static_cast<smesh::Elem>(0x33) &&
                        spad_row[3] == static_cast<smesh::Elem>(0x44);
   const bool completion_ok = ld_ctrl.hasDmaResponse() &&
+                             ld_ctrl.expectedBytes() == smesh::kDim &&
                              ld_ctrl.returnedBytes() == smesh::kDim &&
-                             ld_ctrl.responseCommandId() == 0;
+                             ld_ctrl.responseCommandId() == 0 &&
+                             rs.empty();
   const bool ok = command_ok && request_ok && spad_ok && completion_ok;
   std::printf("[RS_LD_ISSUE] %s dma_spad_write_completion\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;

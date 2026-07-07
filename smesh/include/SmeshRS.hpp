@@ -151,8 +151,9 @@ public:
   SmeshRS(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoInput(SmeshCmd, alloc_in); // RS allocation input
-  FifoOutput(SmeshIssue, issue_ld);
+  FifoInput(SmeshCmd, alloc_in);     // RS allocation input from controller
+  FifoOutput(SmeshIssue, issue_ld);  // RS load issue output to load controller
+  FifoInput(SmeshRobId, completed);  // RS completion input from load/execute/store controllers
 
   // ********** RS STATUS **********
 
@@ -187,6 +188,7 @@ public:
   // ********** COMPLETION **********
 
   bool complete(SmeshRobId rob_id);
+  void updateComplete();
   void reset();
 
 private:
