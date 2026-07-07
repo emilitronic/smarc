@@ -1,4 +1,5 @@
 add_library(smesh_model
+  src/DmaReader.cpp
   src/ExCtrl.cpp
   src/LdCtrl.cpp
   src/SmeshDevice.cpp
@@ -64,6 +65,7 @@ add_executable(tb_rs_ld_issue
 target_link_libraries(tb_rs_ld_issue
   PRIVATE
     smesh_model
+    smem_memory
     cascade
     -lz
     -ltermcap
