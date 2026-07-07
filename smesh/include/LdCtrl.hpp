@@ -25,16 +25,24 @@ class LdCtrl : public Component {
   FifoInput(SmeshIssue, cmd_in);      // RS-issued load command to accept
   FifoOutput(SmeshRobId, completed);  // Let RS know when load is done (rob_id)
   FifoOutput(DmaReadReq, dma_req);    // DMA read request to memory controller
+  FifoInput(DmaReadCompletion, dma_resp); // ack completion of memory move
 
-  void updateAccept();
+  void updateAccept();      // what to do per cycle to accept load command
+  void updateDmaResponse(); // what to do per cycle to handle memory completion ack
   void reset();
 
   bool hasActiveCommand() const { return active_valid_; }
   const SmeshIssue& activeCommand() const { return active_; }
+  bool hasDmaResponse() const { return dma_response_valid_; }
+  std::uint32_t returnedBytes() const { return returned_bytes_; }
+  SmeshRobId responseCommandId() const { return response_cmd_id_; }
 
  private:
-  bool active_valid_ = false;
-  SmeshIssue active_{};
+  bool active_valid_ = false;        // whether LdCtrl has active command from RS
+  SmeshIssue active_{};              // active command and its rob_id from RS
+  bool dma_response_valid_ = false;  // has a DMA completion response returned
+  std::uint32_t returned_bytes_ = 0; // total bytes returned for active command (accumulated across multiple DMA responses)
+  SmeshRobId response_cmd_id_ = 0;   // commmand ID from most recent DMA completion response (should match active_.rob_id)
 };
 
 } // namespace smesh

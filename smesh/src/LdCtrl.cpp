@@ -13,7 +13,8 @@ Load controller implementation.
 namespace smesh {
 
 LdCtrl::LdCtrl(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateAccept).reads(cmd_in).writes(dma_req);
+  UPDATE(updateAccept).reads(cmd_in).writes(dma_req); // accept load commands from RS and push DMA read requests to memory controller
+  UPDATE(updateDmaResponse).reads(dma_resp);          // let LdCtrl know when memory move is complete
 }
 
 void LdCtrl::updateAccept() {
@@ -47,9 +48,28 @@ void LdCtrl::updateAccept() {
         static_cast<unsigned>(req.cmd_id));
 }
 
+void LdCtrl::updateDmaResponse() {
+  if (dma_resp.empty()) {
+    return;
+  }
+
+  const auto response = dma_resp.pop();
+  assert_always(active_valid_, "LdCtrl received a DMA response without an active command");
+  assert_always(static_cast<std::uint16_t>(response.cmd_id) == active_.rob_id, "LdCtrl DMA response ID does not match active command");
+
+  returned_bytes_ += static_cast<std::uint16_t>(response.bytes_read);
+  response_cmd_id_ = static_cast<SmeshRobId>(response.cmd_id);
+  dma_response_valid_ = true;
+
+  trace("ld_ctrl: dma response bytes_read=%u cmd_id=%u total=%u", static_cast<unsigned>(response.bytes_read), static_cast<unsigned>(response.cmd_id), static_cast<unsigned>(returned_bytes_));
+}
+
 void LdCtrl::reset() {
   active_valid_ = false;
   active_ = {};
+  dma_response_valid_ = false;
+  returned_bytes_ = 0;
+  response_cmd_id_ = 0;
 }
 
 } // namespace smesh
