@@ -9,6 +9,8 @@ A collection of ports between smesh components.
 
 #include <cascade/Cascade.hpp>
 
+#include "SmeshLocalAddr.hpp"
+
 #include <cstdint>
 
 namespace smesh {
@@ -33,6 +35,21 @@ using SmeshRobId = std::uint16_t;
 struct SmeshIssue {
   SmeshCmd cmd{};
   SmeshRobId rob_id = 0;
+};
+
+// ********** LOAD CONTROLLER / DMA INTERFACE **********
+
+struct DmaReadReq {
+  u64 vaddr = 0;
+  SmeshLocalAddr laddr{};
+  u16 cols = 0;
+  u16 repeats = 0;
+  u32 scale = 0;
+  bit has_acc_bitwidth = false;
+  bit all_zeros = false;
+  u16 block_stride = 0;
+  u8 pixel_repeats = 1;
+  u16 cmd_id = 0;
 };
 
 } // namespace smesh
