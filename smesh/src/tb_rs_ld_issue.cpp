@@ -45,7 +45,7 @@ void RsAllocDriver::update() {
     return;
   }
 
-  constexpr smesh::MatrixShape shape{1, smesh::kDim};
+  constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
   smesh::SmeshCmd cmd{};
   cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin));
   cmd.rs1 = u64(0x80001000);
@@ -102,33 +102,40 @@ int main(int argc, char* argv[]) {
 
   Sim::init();
   Sim::reset();
-  const std::array<std::uint8_t, smesh::kDim> row{{0x11, 0x22, 0x33, 0x44}};
-  dram.write(0x80001000, row.data(), row.size());
+  const std::array<std::uint8_t, smesh::kDim * smesh::kDim> rows{{
+      0x11, 0x12, 0x13, 0x14,
+      0x21, 0x22, 0x23, 0x24,
+      0x31, 0x32, 0x33, 0x34,
+      0x41, 0x42, 0x43, 0x44,
+  }};
+  dram.write(0x80001000, rows.data(), rows.size());
   rs.setLoadIssuePortEnabled(true);
-  for (int i = 0; i < 16 && !(ld_ctrl.hasDmaResponse() && rs.empty()); ++i) {
+  for (int i = 0; i < 64 && !(ld_ctrl.hasDmaResponse() && rs.empty()); ++i) {
     Sim::run();
   }
 
   const auto& issue = ld_ctrl.activeCommand();
   const auto& req = dma_reader.activeRequest();
-  const auto& spad_row = spad.row(smesh::makeSpAddr(0));
   const bool command_ok = !ld_ctrl.hasActiveCommand() &&
                           issue.rob_id == 0 &&
                           static_cast<std::uint32_t>(issue.cmd.funct) ==
                               static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin);
-  const bool request_ok = static_cast<std::uint64_t>(req.vaddr) == 0x80001000 &&
-                          req.laddr.raw == smesh::makeSpAddr(0).raw &&
+  const bool request_ok = static_cast<std::uint64_t>(req.vaddr) == 0x8000100c &&
+                          req.laddr.raw == smesh::makeSpAddr(3).raw &&
                           static_cast<std::uint16_t>(req.cols) == smesh::kDim &&
                           static_cast<std::uint16_t>(req.block_stride) == smesh::kDim &&
                           static_cast<std::uint16_t>(req.cmd_id) == 0;
-  const bool spad_ok = spad.hasAcceptedWrite() &&
-                       spad_row[0] == static_cast<smesh::Elem>(0x11) &&
-                       spad_row[1] == static_cast<smesh::Elem>(0x22) &&
-                       spad_row[2] == static_cast<smesh::Elem>(0x33) &&
-                       spad_row[3] == static_cast<smesh::Elem>(0x44);
+  bool spad_ok = spad.hasAcceptedWrite();
+  for (std::size_t r = 0; r < smesh::kDim; ++r) {
+    const auto& spad_row = spad.row(smesh::makeSpAddr(static_cast<std::uint32_t>(r)));
+    for (std::size_t c = 0; c < smesh::kDim; ++c) {
+      spad_ok = spad_ok &&
+                spad_row[c] == static_cast<smesh::Elem>(rows[r * smesh::kDim + c]);
+    }
+  }
   const bool completion_ok = ld_ctrl.hasDmaResponse() &&
-                             ld_ctrl.expectedBytes() == smesh::kDim &&
-                             ld_ctrl.returnedBytes() == smesh::kDim &&
+                             ld_ctrl.expectedBytes() == smesh::kDim * smesh::kDim &&
+                             ld_ctrl.returnedBytes() == smesh::kDim * smesh::kDim &&
                              ld_ctrl.responseCommandId() == 0 &&
                              rs.empty();
   const bool ok = command_ok && request_ok && spad_ok && completion_ok;
