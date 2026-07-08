@@ -119,9 +119,9 @@ void LdCtrl::updateDmaResponse() {
   const auto new_returned_bytes = returned_bytes_ + static_cast<std::uint16_t>(pending.bytes_read);
 
   const auto response = dma_resp.pop();
-  returned_bytes_ = new_returned_bytes;
-  request_in_flight_ = false;  // just got resposne, so no DMA row request is outstanding
-  response_cmd_id_ = static_cast<SmeshRobId>(response.cmd_id);
+  returned_bytes_     = new_returned_bytes;
+  request_in_flight_  = false;  // just got resposne, so no DMA row request is outstanding
+  response_cmd_id_    = static_cast<SmeshRobId>(response.cmd_id);
   dma_response_valid_ = true;
 
   trace("ld_ctrl: dma response bytes_read=%u cmd_id=%u total=%u", static_cast<unsigned>(response.bytes_read), static_cast<unsigned>(response.cmd_id), static_cast<unsigned>(returned_bytes_));
@@ -143,21 +143,21 @@ void LdCtrl::updateComplete() {
 }
 
 void LdCtrl::reset() {
-  active_valid_ = false;
-  active_ = {};
-  command_done_ = false;
+  active_valid_       = false;
+  active_             = {};
+  command_done_       = false;
   dma_response_valid_ = false;
-  request_in_flight_ = false;
-  base_vaddr_ = 0;
-  base_laddr_ = {};
-  rows_ = 0;
-  cols_ = 0;
-  next_row_ = 0;
-  dram_row_stride_ = 0;
-  ld_block_stride_ = 0;
-  expected_bytes_ = 0;
-  returned_bytes_ = 0;
-  response_cmd_id_ = 0;
+  request_in_flight_  = false;
+  base_vaddr_         = 0;
+  base_laddr_         = {};
+  rows_               = 0;
+  cols_               = 0;
+  next_row_           = 0;
+  dram_row_stride_    = 0;
+  ld_block_stride_    = 0;
+  expected_bytes_     = 0;
+  returned_bytes_     = 0;
+  response_cmd_id_    = 0;
   for (auto& config : load_config_) {
     config.dram_row_stride = static_cast<std::uint32_t>(kDim);
     config.ld_block_stride = static_cast<std::uint32_t>(kDim);

@@ -34,13 +34,13 @@ class LdCtrl : public Component {
   void updateDmaResponse(); // how to handle memory completion ack
   void updateComplete();    // how to report completed command to RS
   void reset();
-
-  bool hasActiveCommand() const { return active_valid_; }
+  // accessor functions for testbench to check LdCtrl state
+  bool hasActiveCommand()           const { return active_valid_; }
   const SmeshIssue& activeCommand() const { return active_; }
-  bool hasDmaResponse() const { return dma_response_valid_; }
-  std::uint32_t expectedBytes() const { return expected_bytes_; }
-  std::uint32_t returnedBytes() const { return returned_bytes_; }
-  SmeshRobId responseCommandId() const { return response_cmd_id_; }
+  bool hasDmaResponse()             const { return dma_response_valid_; }
+  std::uint32_t expectedBytes()     const { return expected_bytes_; }
+  std::uint32_t returnedBytes()     const { return returned_bytes_; }
+  SmeshRobId responseCommandId()    const { return response_cmd_id_; }
 
  private:
   struct LoadConfigState {
