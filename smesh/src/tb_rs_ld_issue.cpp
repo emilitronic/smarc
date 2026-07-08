@@ -20,6 +20,10 @@
 #include <array>
 #include <cstdio>
 
+constexpr std::uint64_t kDramBase = 0x80001000;
+constexpr std::uint32_t kDramRowStride = 7;
+constexpr std::uint32_t kLoadBlockStride = 6;
+
 class RsAllocDriver : public Component {
   DECLARE_COMPONENT(RsAllocDriver);
 
@@ -33,7 +37,7 @@ class RsAllocDriver : public Component {
   void reset();
 
  private:
-  bool sent_ = false;
+  std::uint32_t next_command_ = 0;
 };
 
 RsAllocDriver::RsAllocDriver(std::string /*name*/, IMPL_CTOR) {
@@ -41,21 +45,27 @@ RsAllocDriver::RsAllocDriver(std::string /*name*/, IMPL_CTOR) {
 }
 
 void RsAllocDriver::update() {
-  if (sent_ || alloc_out.full()) {
+  if (next_command_ >= 2 || alloc_out.full()) {
     return;
   }
 
   constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
   smesh::SmeshCmd cmd{};
-  cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin));
-  cmd.rs1 = u64(0x80001000);
-  cmd.rs2 = u64(smesh::packLocal(smesh::makeSpAddr(0), shape));
+  if (next_command_ == 0) {
+    cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Config));
+    cmd.rs1 = u64(smesh::packConfig(smesh::ConfigKind::Load, 0, kLoadBlockStride));
+    cmd.rs2 = u64(kDramRowStride);
+  } else {
+    cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin));
+    cmd.rs1 = u64(kDramBase);
+    cmd.rs2 = u64(smesh::packLocal(smesh::makeSpAddr(0), shape));
+  }
   alloc_out.push(cmd);
-  sent_ = true;
+  ++next_command_;
 }
 
 void RsAllocDriver::reset() {
-  sent_ = false;
+  next_command_ = 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -108,23 +118,28 @@ int main(int argc, char* argv[]) {
       0x31, 0x32, 0x33, 0x34,
       0x41, 0x42, 0x43, 0x44,
   }};
-  dram.write(0x80001000, rows.data(), rows.size());
+  for (std::size_t r = 0; r < smesh::kDim; ++r) {
+    dram.write(kDramBase + r * kDramRowStride,
+               rows.data() + r * smesh::kDim,
+               smesh::kDim);
+  }
   rs.setLoadIssuePortEnabled(true);
-  for (int i = 0; i < 64 && !(ld_ctrl.hasDmaResponse() && rs.empty()); ++i) {
+  for (int i = 0; i < 96 && !(ld_ctrl.hasDmaResponse() && rs.empty()); ++i) {
     Sim::run();
   }
 
   const auto& issue = ld_ctrl.activeCommand();
   const auto& req = dma_reader.activeRequest();
   const bool command_ok = !ld_ctrl.hasActiveCommand() &&
-                          issue.rob_id == 0 &&
+                          issue.rob_id == 1 &&
                           static_cast<std::uint32_t>(issue.cmd.funct) ==
                               static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin);
-  const bool request_ok = static_cast<std::uint64_t>(req.vaddr) == 0x8000100c &&
+  const bool request_ok = static_cast<std::uint64_t>(req.vaddr) ==
+                              kDramBase + (smesh::kDim - 1) * kDramRowStride &&
                           req.laddr.raw == smesh::makeSpAddr(3).raw &&
                           static_cast<std::uint16_t>(req.cols) == smesh::kDim &&
-                          static_cast<std::uint16_t>(req.block_stride) == smesh::kDim &&
-                          static_cast<std::uint16_t>(req.cmd_id) == 0;
+                          static_cast<std::uint16_t>(req.block_stride) == kLoadBlockStride &&
+                          static_cast<std::uint16_t>(req.cmd_id) == 1;
   bool spad_ok = spad.hasAcceptedWrite();
   for (std::size_t r = 0; r < smesh::kDim; ++r) {
     const auto& spad_row = spad.row(smesh::makeSpAddr(static_cast<std::uint32_t>(r)));
@@ -136,7 +151,7 @@ int main(int argc, char* argv[]) {
   const bool completion_ok = ld_ctrl.hasDmaResponse() &&
                              ld_ctrl.expectedBytes() == smesh::kDim * smesh::kDim &&
                              ld_ctrl.returnedBytes() == smesh::kDim * smesh::kDim &&
-                             ld_ctrl.responseCommandId() == 0 &&
+                             ld_ctrl.responseCommandId() == 1 &&
                              rs.empty();
   const bool ok = command_ok && request_ok && spad_ok && completion_ok;
   std::printf("[RS_LD_ISSUE] %s dma_spad_write_completion\n", ok ? "PASS" : "FAIL");
