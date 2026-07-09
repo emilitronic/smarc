@@ -15,6 +15,7 @@ easy to inspect.
 #include <cascade/Cascade.hpp>
 
 #include "SmeshCmdQueue.hpp"
+#include "SmeshUnrolledCmdQueue.hpp"
 
 namespace smesh {
 
@@ -33,7 +34,8 @@ class SmeshTop : public Component {
   void reset();
 
  private:
-  SmeshCmdQueue* cmd_queue_ = nullptr;
+  SmeshCmdQueue*           cmd_queue_ = nullptr;
+  SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
 };
 
 } // namespace smesh

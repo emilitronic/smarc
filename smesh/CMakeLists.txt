@@ -8,6 +8,7 @@ add_library(smesh_model
   src/SmeshDevice.cpp
   src/SmeshRS.cpp
   src/SmeshTop.cpp
+  src/SmeshUnrolledCmdQueue.cpp
   src/Spad.cpp
   src/StCtrl.cpp
 )
