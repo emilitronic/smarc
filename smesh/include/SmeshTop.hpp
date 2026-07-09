@@ -27,6 +27,8 @@ class SmeshTop : public Component {
 
   Clock(clk);
 
+  FifoInput(SmeshCmd, cmd_in); // input to SmeshTop from outside world
+
   void update();
   void reset();
 

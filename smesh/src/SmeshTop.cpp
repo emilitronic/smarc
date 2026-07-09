@@ -14,10 +14,10 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_ = new SmeshCmdQueue("CmdQueue"); // buffer incoming commands here
 
   cmd_queue_->clk << clk;
-  cmd_queue_->cmd_in.wireToZero();
+  cmd_queue_->cmd_in << cmd_in; // SmeshTop -> cmd_queue_
   cmd_queue_->cmd_out.sendToBitBucket();
 
-  UPDATE(update);
+  UPDATE(update).reads(cmd_in);
 }
 
 SmeshTop::~SmeshTop() {
