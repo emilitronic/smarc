@@ -22,6 +22,7 @@ easy to inspect.
 #include "SmeshRS.hpp"
 #include "SmeshUnrolledCmdQueue.hpp"
 #include "Spad.hpp"
+#include "smem/MemTypes.hpp"
 
 namespace smesh {
 
@@ -35,6 +36,8 @@ class SmeshTop : public Component {
   Clock(clk);
 
   FifoInput(SmeshCmd, cmd_in); // input to SmeshTop from outside world
+  FifoOutput(smem::MemReq, m_req);
+  FifoInput(smem::MemResp, m_resp);
 
   void update();
   void reset();

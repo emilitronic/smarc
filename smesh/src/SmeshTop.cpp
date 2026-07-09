@@ -39,11 +39,11 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   pixel_repeater_->data_in << mvin_scale_->data_out;  //                               MvinPixelRepeater <- MvinScale 
   spad_->write_in << pixel_repeater_->data_out;       //                      Spad <-  MvinPixelRepeater 
   ld_ctrl_->dma_resp << spad_->dma_resp;              //            LdCtrl <- Spad completion
-  dma_reader_->mem_req.sendToBitBucket();
-  dma_reader_->mem_resp.wireToZero();
+  m_req << dma_reader_->mem_req;                      // DmaReader -> external memory
+  dma_reader_->mem_resp << m_resp;                    // DmaReader <- external memory
   rs_->setLoadIssuePortEnabled(true);
 
-  UPDATE(update).reads(cmd_in);
+  UPDATE(update).reads(cmd_in, m_resp).writes(m_req);
 }
 
 SmeshTop::~SmeshTop() {
