@@ -18,7 +18,7 @@ class ExCtrlDriver : public Component {
 
   Clock(clk);
   FifoOutput(smesh::SmeshIssue, cmd_out);
-  FifoInput(smesh::SmeshRobId, completed_in);
+  FifoInput(smesh::SmeshRsTag, completed_in);
 
   void update_issue() {
     if (sent_ || cmd_out.full()) {
@@ -26,7 +26,7 @@ class ExCtrlDriver : public Component {
     }
 
     smesh::SmeshIssue issue{};
-    issue.rob_id = expected_rob_id_;
+    issue.rs_tag = expected_rs_tag_;
     cmd_out.push(issue);
     sent_ = true;
   }
@@ -36,8 +36,8 @@ class ExCtrlDriver : public Component {
       return;
     }
 
-    const auto rob_id = completed_in.pop();
-    matched_ = rob_id == expected_rob_id_;
+    const auto rs_tag = completed_in.pop();
+    matched_ = rs_tag == expected_rs_tag_;
     done_ = true;
   }
 
@@ -51,7 +51,7 @@ class ExCtrlDriver : public Component {
   bool matched() const { return matched_; }
 
  private:
-  static constexpr smesh::SmeshRobId expected_rob_id_ = 7;
+  static constexpr smesh::SmeshRsTag expected_rs_tag_ = 7;
   bool sent_ = false;
   bool done_ = false;
   bool matched_ = false;

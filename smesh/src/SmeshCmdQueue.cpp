@@ -21,8 +21,8 @@ void SmeshCmdQueue::update() {
 
   SmeshQueuedCmd queued{};
   queued.cmd             = cmd_in.pop();
-  queued.rob_id          = 0;
-  queued.rob_id_valid    = false;
+  queued.rs_tag          = 0;
+  queued.rs_tag_valid    = false;
   queued.from_mmul_loop  = false;
   queued.from_conv_loop  = false;
   cmd_out.push(queued);

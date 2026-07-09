@@ -30,12 +30,12 @@ struct SmeshResp {
 
 // ********** COMMAND QUEUE INTERFACE **********
 // command wrapper after command ingress, before RS allocation
-using SmeshRobId = std::uint16_t;
+using SmeshRsTag = std::uint16_t;
 
 struct SmeshQueuedCmd {
   SmeshCmd cmd{};
-  SmeshRobId rob_id   = 0;
-  bit rob_id_valid    = false;
+  SmeshRsTag rs_tag   = 0;
+  bit rs_tag_valid    = false;
   bit from_mmul_loop  = false;
   bit from_conv_loop  = false;
 };
@@ -45,7 +45,7 @@ struct SmeshQueuedCmd {
 
 struct SmeshIssue {
   SmeshCmd cmd{};
-  SmeshRobId rob_id = 0;
+  SmeshRsTag rs_tag = 0;
 };
 
 // ********** LOAD CONTROLLER / DMA INTERFACE **********

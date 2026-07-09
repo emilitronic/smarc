@@ -22,14 +22,14 @@ class ExCtrl : public Component {
   Clock(clk);
 
   FifoInput(SmeshIssue, cmd_in);
-  FifoOutput(SmeshRobId, completed);
+  FifoOutput(SmeshRsTag, completed);
 
   void update();
   void reset();
 
  private:
   bool active_valid_ = false;
-  SmeshRobId active_rob_id_ = 0;
+  SmeshRsTag active_rs_tag_ = 0;
 };
 
 } // namespace smesh

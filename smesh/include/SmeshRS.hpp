@@ -93,7 +93,7 @@ struct SmeshRsEntry {
   bool complete_on_issue = false; // TODO: use this when issue/free timing is modeled
 
   SmeshCmd cmd{};
-  SmeshRobId rob_id = 0; // smesh v0 ID; Gemmini derives this from queue and row
+  SmeshRsTag rs_tag = 0; // smesh v0 command-completion tag
 
   std::uint32_t deps_ld = 0; // bit 0 represents the current load entry
   std::uint32_t deps_ex = 0; // bit 0 represents the current execute entry
@@ -153,7 +153,7 @@ public:
   Clock(clk);
   FifoInput(SmeshCmd, alloc_in);     // RS allocation input from controller
   FifoOutput(SmeshIssue, issue_ld);  // RS load issue output to load controller
-  FifoInput(SmeshRobId, completed);  // RS completion input from load/execute/store controllers
+  FifoInput(SmeshRsTag, completed);  // RS completion input from load/execute/store controllers
 
   // ********** RS STATUS **********
 
@@ -165,7 +165,7 @@ public:
 
   bool canAccept(const SmeshCmd& cmd) const;
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
-  bool allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out);
+  bool allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out);
   void updateAlloc();
 
   // ********** ENTRY ACCESS **********
@@ -181,13 +181,13 @@ public:
   const SmeshRsEntry* issueExecute() const;
   const SmeshRsEntry* issueStore() const;
   void updateIssueLoad();
-  bool markIssued(SmeshRobId rob_id);
+  bool markIssued(SmeshRsTag rs_tag);
 
   void setLoadIssuePortEnabled(bool enabled) { load_issue_port_enabled_ = enabled; }
 
   // ********** COMPLETION **********
 
-  bool complete(SmeshRobId rob_id);
+  bool complete(SmeshRsTag rs_tag);
   void updateComplete();
   void reset();
 
@@ -196,7 +196,7 @@ private:
   std::array<SmeshRsEntry, kDefaultConfig.rs_load_entries> entries_ld_{};
   std::array<SmeshRsEntry, kDefaultConfig.rs_execute_entries> entries_ex_{};
   std::array<SmeshRsEntry, kDefaultConfig.rs_store_entries> entries_st_{};
-  SmeshRobId next_rob_id_ = 0;
+  SmeshRsTag next_rs_tag_ = 0;
   std::uint32_t instructions_allocated_ = 0;
   bool load_issue_port_enabled_ = false;
 };

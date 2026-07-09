@@ -326,11 +326,11 @@ bool SmeshRS::canAccept(const SmeshCmd& cmd) const { // does a free row exist?
   return false;
 }
 
-bool SmeshRS::allocate(const SmeshCmd& cmd) { // convenience wrapper for allocate() that ignores rob_id_out
+bool SmeshRS::allocate(const SmeshCmd& cmd) { // convenience wrapper for allocate() that ignores rs_tag_out
   return allocate(cmd, nullptr);
 }
 // places new command into appropriate RS entry and fills its operands and dependencies
-bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
+bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out) {
   if (!canAccept(cmd)) {
     return false;
   }
@@ -377,7 +377,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   new_entry.issued            = false;
   new_entry.complete_on_issue = new_entry.is_config && queue != SmeshQueueClass::Execute; // true if config ld or st
   new_entry.cmd               = cmd;
-  new_entry.rob_id            = next_rob_id_++;
+  new_entry.rs_tag            = next_rs_tag_++;
   new_entry.allocated_at      = instructions_allocated_++;
 
   fillOperands(new_entry, config_state_);
@@ -386,8 +386,8 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRobId* rob_id_out) {
   *slot = new_entry;
   updateConfigState(cmd, config_state_);
 
-  if (rob_id_out != nullptr) {
-    *rob_id_out = new_entry.rob_id;
+  if (rs_tag_out != nullptr) {
+    *rs_tag_out = new_entry.rs_tag;
   }
   return true;
 }
@@ -408,7 +408,7 @@ void SmeshRS::updateAlloc() {
 
 // ********** ENTRY ACCESS **********
 
-// Test-only convenience; not part of the modeled Gemmini hardware interface.
+// Test-only convenience; not part of the modeled hardware interface.
 // which entry is currently occupied
 const SmeshRsEntry& SmeshRS::entry() const {
   const SmeshRsEntry* oldest = nullptr;
@@ -496,27 +496,27 @@ void SmeshRS::updateIssueLoad() {
 
   SmeshIssue issue{};
   issue.cmd = entry->cmd;       // pack in cmd
-  issue.rob_id = entry->rob_id; // pack in rob_id
+  issue.rs_tag = entry->rs_tag; // pack in rs_tag
   issue_ld.push(issue);         // push the packet through issue_ld output port
-  markIssued(entry->rob_id);    // mark entry as issued
+  markIssued(entry->rs_tag);    // mark entry as issued
 }
-// mark RS entry found by issue (based on rob_id) as issued once controller accepts it
+// mark RS entry found by issue (based on rs_tag) as issued once controller accepts it
 // (note this is purely conceptual, SmeshShell just runs markIssued() after issue() for now)
-bool SmeshRS::markIssued(SmeshRobId rob_id) {
+bool SmeshRS::markIssued(SmeshRsTag rs_tag) {
   for (auto& entry : entries_ld_) {
-    if (entry.valid && entry.rob_id == rob_id) {
+    if (entry.valid && entry.rs_tag == rs_tag) {
       entry.issued = true;
       return true;
     }
   }
   for (auto& entry : entries_ex_) {
-    if (entry.valid && entry.rob_id == rob_id) {
+    if (entry.valid && entry.rs_tag == rs_tag) {
       entry.issued = true;
       return true;
     }
   }
   for (auto& entry : entries_st_) {
-    if (entry.valid && entry.rob_id == rob_id) {
+    if (entry.valid && entry.rs_tag == rs_tag) {
       entry.issued = true;
       return true;
     }
@@ -532,18 +532,18 @@ void SmeshRS::updateComplete() {
     return;
   }
 
-  const auto rob_id = completed.pop();
-  assert_always(complete(rob_id), "SmeshRS received completion for an unknown ROB ID");
+  const auto rs_tag = completed.pop();
+  assert_always(complete(rs_tag), "SmeshRS received completion for an unknown RS tag");
 }
 
-// mark RS entry as completed (based on rob_id)and free it, clearing dependencies in other entries
-bool SmeshRS::complete(SmeshRobId rob_id) {
+// mark RS entry as completed (based on rs_tag) and free it, clearing dependencies in other entries
+bool SmeshRS::complete(SmeshRsTag rs_tag) {
   SmeshRsEntry* completed_entry = nullptr;
   std::size_t completed_row = 0;
 
   // search all all the LD entries
   for (std::size_t i = 0; i < entries_ld_.size(); ++i) {
-    if (entries_ld_[i].valid && entries_ld_[i].rob_id == rob_id) {
+    if (entries_ld_[i].valid && entries_ld_[i].rs_tag == rs_tag) {
       completed_entry = &entries_ld_[i];
       completed_row = i;
       break;
@@ -552,7 +552,7 @@ bool SmeshRS::complete(SmeshRobId rob_id) {
   // if not found in LD, search all the EX entries
   if (completed_entry == nullptr) {
     for (std::size_t i = 0; i < entries_ex_.size(); ++i) {
-      if (entries_ex_[i].valid && entries_ex_[i].rob_id == rob_id) {
+      if (entries_ex_[i].valid && entries_ex_[i].rs_tag == rs_tag) {
         completed_entry = &entries_ex_[i];
         completed_row = i;
         break;
@@ -562,7 +562,7 @@ bool SmeshRS::complete(SmeshRobId rob_id) {
   // if not found in EX, search all the ST entries
   if (completed_entry == nullptr) {
     for (std::size_t i = 0; i < entries_st_.size(); ++i) {
-      if (entries_st_[i].valid && entries_st_[i].rob_id == rob_id) {
+      if (entries_st_[i].valid && entries_st_[i].rs_tag == rs_tag) {
         completed_entry = &entries_st_[i];
         completed_row = i;
         break;
@@ -625,7 +625,7 @@ void SmeshRS::reset() {
   entries_ld_ = {};
   entries_ex_ = {};
   entries_st_ = {};
-  next_rob_id_ = 0;
+  next_rs_tag_ = 0;
   instructions_allocated_ = 0;
   load_issue_port_enabled_ = false;
 }

@@ -45,7 +45,7 @@ void LdCtrl::updateAccept() {
   active_valid_ = true;
   command_done_ = false;
 
-  trace("ld_ctrl: accepted rob=%u funct=%u", static_cast<unsigned>(active_.rob_id), static_cast<unsigned>(active_.cmd.funct));
+  trace("ld_ctrl: accepted tag=%u funct=%u", static_cast<unsigned>(active_.rs_tag), static_cast<unsigned>(active_.cmd.funct));
 
   const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(active_.cmd.funct));
   // if it's a  CONFIG_CMD, put settings in load_config_[state_id]
@@ -95,7 +95,7 @@ void LdCtrl::updateIssue() {
   req.laddr          = base_laddr_ + next_row_;
   req.cols           = u16(static_cast<std::uint16_t>(cols_));
   req.block_stride   = u16(static_cast<std::uint16_t>(ld_block_stride_));
-  req.cmd_id         = u16(active_.rob_id);
+  req.cmd_id         = u16(active_.rs_tag);
   dma_req.push(req);         // push DMA read request to memory controller
   request_in_flight_ = true; // just pushed, so one DMA row request is outstanding
   ++next_row_;
@@ -114,14 +114,14 @@ void LdCtrl::updateDmaResponse() {
 
   const auto& pending = dma_resp.peek();
   assert_always(active_valid_, "LdCtrl received a DMA response without an active command");
-  assert_always(static_cast<std::uint16_t>(pending.cmd_id) == active_.rob_id, "LdCtrl DMA response ID does not match active command");
+  assert_always(static_cast<std::uint16_t>(pending.cmd_id) == active_.rs_tag, "LdCtrl DMA response ID does not match active command");
 
   const auto new_returned_bytes = returned_bytes_ + static_cast<std::uint16_t>(pending.bytes_read);
 
   const auto response = dma_resp.pop();
   returned_bytes_     = new_returned_bytes;
   request_in_flight_  = false;  // just got resposne, so no DMA row request is outstanding
-  response_cmd_id_    = static_cast<SmeshRobId>(response.cmd_id);
+  response_rs_tag_    = static_cast<SmeshRsTag>(response.cmd_id);
   dma_response_valid_ = true;
 
   trace("ld_ctrl: dma response bytes_read=%u cmd_id=%u total=%u", static_cast<unsigned>(response.bytes_read), static_cast<unsigned>(response.cmd_id), static_cast<unsigned>(returned_bytes_));
@@ -136,8 +136,8 @@ void LdCtrl::updateComplete() {
     return;
   }
 
-  completed.push(active_.rob_id);
-  trace("ld_ctrl: completed rob=%u", static_cast<unsigned>(active_.rob_id));
+  completed.push(active_.rs_tag);
+  trace("ld_ctrl: completed tag=%u", static_cast<unsigned>(active_.rs_tag));
   active_valid_ = false;
   command_done_ = false;
 }
@@ -157,7 +157,7 @@ void LdCtrl::reset() {
   ld_block_stride_    = 0;
   expected_bytes_     = 0;
   returned_bytes_     = 0;
-  response_cmd_id_    = 0;
+  response_rs_tag_    = 0;
   for (auto& config : load_config_) {
     config.dram_row_stride = static_cast<std::uint32_t>(kDim);
     config.ld_block_stride = static_cast<std::uint32_t>(kDim);

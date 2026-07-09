@@ -25,7 +25,7 @@ class LdCtrl : public Component {
   Clock(clk);
 
   FifoInput(SmeshIssue, cmd_in);      // RS-issued load command to accept
-  FifoOutput(SmeshRobId, completed);  // Let RS know when load is done (rob_id)
+  FifoOutput(SmeshRsTag, completed);  // Let RS know when load is done (rs_tag)
   FifoOutput(DmaReadReq, dma_req);    // DMA read request to memory controller
   FifoInput(DmaReadCompletion, dma_resp); // ack completion of memory move
   // per-cycle update functions
@@ -40,7 +40,7 @@ class LdCtrl : public Component {
   bool hasDmaResponse()             const { return dma_response_valid_; }
   std::uint32_t expectedBytes()     const { return expected_bytes_; }
   std::uint32_t returnedBytes()     const { return returned_bytes_; }
-  SmeshRobId responseCommandId()    const { return response_cmd_id_; }
+  SmeshRsTag responseRsTag()        const { return response_rs_tag_; }
 
  private:
   struct LoadConfigState {
@@ -49,7 +49,7 @@ class LdCtrl : public Component {
   };
 
   bool active_valid_        = false;  // whether LdCtrl has active command from RS
-  SmeshIssue active_{};               // active command and its rob_id from RS
+  SmeshIssue active_{};               // active command and its rs_tag from RS
   bool command_done_        = false;
   bool dma_response_valid_  = false;  // has a DMA completion response returned
   bool request_in_flight_   = false;  // one DMA row request is outstanding
@@ -62,7 +62,7 @@ class LdCtrl : public Component {
   std::uint32_t ld_block_stride_ = 0; // stride in local rows between blocks of rows in local memory
   std::uint32_t expected_bytes_  = 0; // total bytes expected for active command
   std::uint32_t returned_bytes_  = 0; // total bytes returned for active command (accumulated across multiple DMA responses)
-  SmeshRobId response_cmd_id_    = 0; // commmand ID from most recent DMA completion response (should match active_.rob_id)
+  SmeshRsTag response_rs_tag_    = 0; // RS tag from most recent DMA completion response (should match active_.rs_tag)
   std::array<LoadConfigState, kLoadStates> load_config_{};
 };
 

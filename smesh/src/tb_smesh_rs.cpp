@@ -93,8 +93,8 @@ bool testCapacity() {
     return false;
   }
 
-  const auto completed_rob_id = rs.loadEntry(0).rob_id;
-  return rs.complete(completed_rob_id) &&
+  const auto completed_rs_tag = rs.loadEntry(0).rs_tag;
+  return rs.complete(completed_rs_tag) &&
          rs.canAccept(load) &&
          rs.allocate(load);
 }
@@ -109,7 +109,7 @@ bool testDependencies() {
       smesh::packConfig(smesh::ConfigKind::Load, 0, smesh::kDim),
       0);
   if (!load_ex_rs.allocate(config_load) ||
-      !load_ex_rs.complete(load_ex_rs.entry().rob_id)) {
+      !load_ex_rs.complete(load_ex_rs.entry().rs_tag)) {
     return false;
   }
   const auto config_ex = command(
@@ -117,7 +117,7 @@ bool testDependencies() {
       smesh::packConfigExecuteRs1(1),
       smesh::packConfigExecuteRs2(1));
   if (!load_ex_rs.allocate(config_ex) ||
-      !load_ex_rs.complete(load_ex_rs.entry().rob_id)) {
+      !load_ex_rs.complete(load_ex_rs.entry().rs_tag)) {
     return false;
   }
   const auto load = command(
@@ -131,14 +131,14 @@ bool testDependencies() {
   if (!load_ex_rs.allocate(load) || !load_ex_rs.allocate(compute)) {
     return false;
   }
-  const auto load_rob_id = load_ex_rs.loadEntry().rob_id;
+  const auto load_rs_tag = load_ex_rs.loadEntry().rs_tag;
   if (load_ex_rs.executeEntry().deps_ld != 1u ||
       load_ex_rs.issueLoad() == nullptr ||
       load_ex_rs.issueExecute() != nullptr) {
     return false;
   }
-  if (!load_ex_rs.markIssued(load_rob_id) ||
-      !load_ex_rs.complete(load_rob_id) ||
+  if (!load_ex_rs.markIssued(load_rs_tag) ||
+      !load_ex_rs.complete(load_rs_tag) ||
       load_ex_rs.executeEntry().deps_ld != 0u ||
       load_ex_rs.issueExecute() == nullptr) {
     return false;
@@ -147,7 +147,7 @@ bool testDependencies() {
   // STORE reads C after PRELOAD reserves the same accumulator destination.
   smesh::SmeshRS ex_st_rs("ExStRS");
   if (!ex_st_rs.allocate(config_ex) ||
-      !ex_st_rs.complete(ex_st_rs.entry().rob_id)) {
+      !ex_st_rs.complete(ex_st_rs.entry().rs_tag)) {
     return false;
   }
   const auto preload = command(
@@ -161,10 +161,10 @@ bool testDependencies() {
   if (!ex_st_rs.allocate(preload) || !ex_st_rs.allocate(store)) {
     return false;
   }
-  const auto ex_rob_id = ex_st_rs.executeEntry().rob_id;
+  const auto ex_rs_tag = ex_st_rs.executeEntry().rs_tag;
   if (ex_st_rs.storeEntry().deps_ex != 1u ||
       ex_st_rs.issueStore() != nullptr ||
-      !ex_st_rs.complete(ex_rob_id) ||
+      !ex_st_rs.complete(ex_rs_tag) ||
       ex_st_rs.storeEntry().deps_ex != 0u ||
       ex_st_rs.issueStore() == nullptr) {
     return false;
@@ -173,7 +173,7 @@ bool testDependencies() {
   // LOAD writes scratchpad rows after STORE_SPAD writes the same rows.
   smesh::SmeshRS st_ld_rs("StLdRS");
   if (!st_ld_rs.allocate(config_load) ||
-      !st_ld_rs.complete(st_ld_rs.entry().rob_id)) {
+      !st_ld_rs.complete(st_ld_rs.entry().rs_tag)) {
     return false;
   }
   const auto store_spad = command(
@@ -183,10 +183,10 @@ bool testDependencies() {
   if (!st_ld_rs.allocate(store_spad) || !st_ld_rs.allocate(load)) {
     return false;
   }
-  const auto st_rob_id = st_ld_rs.storeEntry().rob_id;
+  const auto st_rs_tag = st_ld_rs.storeEntry().rs_tag;
   return st_ld_rs.loadEntry().deps_st == 1u &&
          st_ld_rs.issueLoad() == nullptr &&
-         st_ld_rs.complete(st_rob_id) &&
+         st_ld_rs.complete(st_rs_tag) &&
          st_ld_rs.loadEntry().deps_st == 0u &&
          st_ld_rs.issueLoad() != nullptr;
 }
@@ -207,7 +207,7 @@ bool testLoadRange() {
       config_entry.allocated_at != 0) {
     return false;
   }
-  if (!rs.complete(rs.entry().rob_id)) {
+  if (!rs.complete(rs.entry().rs_tag)) {
     return false;
   }
 
@@ -291,7 +291,7 @@ bool testPreloadRange() {
       !config_entry.is_config || config_entry.complete_on_issue) {
     return false;
   }
-  if (!rs.complete(rs.entry().rob_id)) {
+  if (!rs.complete(rs.entry().rs_tag)) {
     return false;
   }
 
@@ -330,7 +330,7 @@ bool testComputeRange() {
       smesh::packConfigExecuteRs1(2, false),
       smesh::packConfigExecuteRs2(1));
   if (!flip_rs.allocate(flip_config) ||
-      !flip_rs.complete(flip_rs.entry().rob_id)) {
+      !flip_rs.complete(flip_rs.entry().rs_tag)) {
     return false;
   }
   const auto flip = command(
@@ -355,7 +355,7 @@ bool testComputeRange() {
       smesh::packConfigExecuteRs1(2, true),
       smesh::packConfigExecuteRs2(1));
   if (!stay_rs.allocate(stay_config) ||
-      !stay_rs.complete(stay_rs.entry().rob_id)) {
+      !stay_rs.complete(stay_rs.entry().rs_tag)) {
     return false;
   }
   const auto stay = command(

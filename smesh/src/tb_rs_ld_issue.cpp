@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
   const auto& issue = ld_ctrl.activeCommand();
   const auto& req = dma_reader.activeRequest();
   const bool command_ok = !ld_ctrl.hasActiveCommand() &&
-                          issue.rob_id == 1 &&
+                          issue.rs_tag == 1 &&
                           static_cast<std::uint32_t>(issue.cmd.funct) ==
                               static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin);
   const bool request_ok = static_cast<std::uint64_t>(req.vaddr) ==
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
   const bool completion_ok = ld_ctrl.hasDmaResponse() &&
                              ld_ctrl.expectedBytes() == smesh::kDim * smesh::kDim &&
                              ld_ctrl.returnedBytes() == smesh::kDim * smesh::kDim &&
-                             ld_ctrl.responseCommandId() == 1 &&
+                             ld_ctrl.responseRsTag() == 1 &&
                              rs.empty();
   const bool ok = command_ok && request_ok && spad_ok && completion_ok;
   std::printf("[RS_LD_ISSUE] %s dma_spad_write_completion\n", ok ? "PASS" : "FAIL");

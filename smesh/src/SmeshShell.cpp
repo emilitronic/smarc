@@ -100,16 +100,16 @@ void SmeshShell::update() {
   // execute RS entry selected for issue
   try {
     // TODO: Replace this conceptual acceptance with explicit controller ready/valid handshakes
-    rs_->markIssued(entry.rob_id); // search all RS rows for entry.rob_id that's been selected for issue
+    rs_->markIssued(entry.rs_tag); // search all RS rows for entry.rs_tag that's been selected for issue
     const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(entry.cmd.funct)); // determine which cmd's been issued
     // if issued cmd is mvin/mvin2/mvin3, start multicycle DRAM-to-spad transfer
     if (external_memory_ && (funct == SmeshFunct::Mvin || funct == SmeshFunct::Mvin2 || funct == SmeshFunct::Mvin3)) {
-      startExternalMvin(funct, static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2), entry.rob_id);
+      startExternalMvin(funct, static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2), entry.rs_tag);
       return;
     }
     // if issued cmd is mvout, start multicycle acc-to-DRAM transfer
     if (external_memory_ && funct == SmeshFunct::Mvout) {
-      startExternalMvout(static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2), entry.rob_id);
+      startExternalMvout(static_cast<std::uint64_t>(entry.cmd.rs1), static_cast<std::uint64_t>(entry.cmd.rs2), entry.rs_tag);
       return;
     }
     // if issued cmd is neither mvin nor mvout, execute load/store synchronously
@@ -117,15 +117,15 @@ void SmeshShell::update() {
     // if executeCustom succeeds, return success
     resp.status = 0;
     resp.value = static_cast<u64>(value);
-    trace("smesh: cmd rob=%u funct=%u ok", static_cast<unsigned>(entry.rob_id), static_cast<unsigned>(entry.cmd.funct));
+    trace("smesh: cmd tag=%u funct=%u ok", static_cast<unsigned>(entry.rs_tag), static_cast<unsigned>(entry.cmd.funct));
     // if it throws an error
   } catch (const std::exception& e) {
     resp.status = 1;
     resp.value = 0;
-    trace("smesh: cmd rob=%u funct=%u err=%s", static_cast<unsigned>(entry.rob_id), static_cast<unsigned>(entry.cmd.funct), e.what());
+    trace("smesh: cmd tag=%u funct=%u err=%s", static_cast<unsigned>(entry.rs_tag), static_cast<unsigned>(entry.cmd.funct), e.what());
   }
   // free the RS row
-  rs_->complete(entry.rob_id);
+  rs_->complete(entry.rs_tag);
   // send response back to driver
   resp_out.push(resp);
 }
@@ -138,7 +138,7 @@ void SmeshShell::reset() {
 
 // fns. implementing external memory sequencer behavior (mvin/mvout) when external_memory_ is enabled
 // 1) records mvin command when using external_memory_ (rather than memory_)
-void SmeshShell::startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id) {
+void SmeshShell::startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2, SmeshRsTag rs_tag) {
   const auto dst = unpackLocal(rs2);
   std::size_t load_state = 0;
   if (funct == SmeshFunct::Mvin2) {
@@ -149,7 +149,7 @@ void SmeshShell::startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uin
 
   active_ = {};
   active_.funct = funct;
-  active_.rob_id = rob_id;
+  active_.rs_tag = rs_tag;
   active_.dram_addr = rs1;
   active_.local_row = dst.row;
   active_.shape = dst.shape;
@@ -203,11 +203,11 @@ void SmeshShell::updateExternalMvinWait() {
   state_ = State::MvinIssue;
 }
 // 1) records mvout command when using external_memory_ (rather than memory_)
-void SmeshShell::startExternalMvout(std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id) {
+void SmeshShell::startExternalMvout(std::uint64_t rs1, std::uint64_t rs2, SmeshRsTag rs_tag) {
   const auto src = unpackLocal(rs2);
   active_ = {};
   active_.funct = SmeshFunct::Mvout;
-  active_.rob_id = rob_id;
+  active_.rs_tag = rs_tag;
   active_.dram_addr = rs1;
   active_.local_row = src.row;
   active_.shape = src.shape;
@@ -267,7 +267,7 @@ void SmeshShell::finishActive(std::uint8_t status) {
   resp.status = u8(status);
   resp.value = 0;
   resp_out.push(resp);
-  rs_->complete(active_.rob_id);
+  rs_->complete(active_.rs_tag);
   state_ = State::Idle;
   active_ = {};
 }

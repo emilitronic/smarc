@@ -64,7 +64,7 @@ class SmeshShell : public Component {
 
   struct ActiveMemCmd {
     SmeshFunct    funct = SmeshFunct::Flush;
-    SmeshRobId    rob_id = 0;
+    SmeshRsTag    rs_tag = 0;
     std::uint64_t dram_addr = 0;
     std::uint32_t local_row = 0;
     MatrixShape   shape{};
@@ -76,10 +76,10 @@ class SmeshShell : public Component {
 
   // ********** MEMORY SEQUENCER BEHAVIOR **********
 
-  void startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id);
+  void startExternalMvin(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2, SmeshRsTag rs_tag);
   void updateExternalMvinIssue();
   void updateExternalMvinWait();
-  void startExternalMvout(std::uint64_t rs1, std::uint64_t rs2, SmeshRobId rob_id);
+  void startExternalMvout(std::uint64_t rs1, std::uint64_t rs2, SmeshRsTag rs_tag);
   void updateExternalMvoutIssue();
   void updateExternalMvoutWait();
   void finishActive(std::uint8_t status);

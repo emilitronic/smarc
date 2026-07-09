@@ -16,8 +16,8 @@ void ExCtrl::update() {
     if (completed.full()) {
       return;
     }
-    completed.push(active_rob_id_);
-    trace("ex_ctrl: completed rob=%u", static_cast<unsigned>(active_rob_id_));
+    completed.push(active_rs_tag_);
+    trace("ex_ctrl: completed tag=%u", static_cast<unsigned>(active_rs_tag_));
     active_valid_ = false;
     return;
   }
@@ -27,14 +27,14 @@ void ExCtrl::update() {
   }
 
   const auto issue = cmd_in.pop();
-  active_rob_id_ = issue.rob_id;
+  active_rs_tag_ = issue.rs_tag;
   active_valid_ = true;
-  trace("ex_ctrl: accepted rob=%u", static_cast<unsigned>(active_rob_id_));
+  trace("ex_ctrl: accepted tag=%u", static_cast<unsigned>(active_rs_tag_));
 }
 
 void ExCtrl::reset() {
   active_valid_ = false;
-  active_rob_id_ = 0;
+  active_rs_tag_ = 0;
 }
 
 } // namespace smesh
