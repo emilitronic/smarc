@@ -16,9 +16,12 @@ easy to inspect.
 
 #include "DmaReader.hpp"
 #include "LdCtrl.hpp"
+#include "MvinPixelRepeater.hpp"
+#include "MvinScale.hpp"
 #include "SmeshCmdQueue.hpp"
 #include "SmeshRS.hpp"
 #include "SmeshUnrolledCmdQueue.hpp"
+#include "Spad.hpp"
 
 namespace smesh {
 
@@ -42,6 +45,9 @@ class SmeshTop : public Component {
   SmeshRS*                 rs_ = nullptr;
   LdCtrl*                  ld_ctrl_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
+  MvinScale*               mvin_scale_ = nullptr;
+  MvinPixelRepeater*       pixel_repeater_ = nullptr;
+  Spad*                    spad_ = nullptr;
 };
 
 } // namespace smesh
