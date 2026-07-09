@@ -28,9 +28,20 @@ struct SmeshResp {
   u64 value = 0;
 };
 
+// ********** COMMAND QUEUE INTERFACE **********
+// command wrapper after command ingress, before RS allocation
+using SmeshRobId = std::uint16_t;
+
+struct SmeshQueuedCmd {
+  SmeshCmd cmd{};
+  SmeshRobId rob_id   = 0;
+  bit rob_id_valid    = false;
+  bit from_mmul_loop  = false;
+  bit from_conv_loop  = false;
+};
+
 // ********** RS / CONTROLLER INTERFACE **********
 // interface between RS and Ld/St/Ex controllers
-using SmeshRobId = std::uint16_t;
 
 struct SmeshIssue {
   SmeshCmd cmd{};

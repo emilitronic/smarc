@@ -11,7 +11,17 @@ Top-level smesh composition point.
 namespace smesh {
 
 SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
+  cmd_queue_ = new SmeshCmdQueue("CmdQueue"); // buffer incoming commands here
+
+  cmd_queue_->clk << clk;
+  cmd_queue_->cmd_in.wireToZero();
+  cmd_queue_->cmd_out.sendToBitBucket();
+
   UPDATE(update);
+}
+
+SmeshTop::~SmeshTop() {
+  delete cmd_queue_;
 }
 
 void SmeshTop::update() {}

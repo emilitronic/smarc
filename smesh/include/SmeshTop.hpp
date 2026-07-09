@@ -14,6 +14,8 @@ easy to inspect.
 
 #include <cascade/Cascade.hpp>
 
+#include "SmeshCmdQueue.hpp"
+
 namespace smesh {
 
 class SmeshTop : public Component {
@@ -21,11 +23,15 @@ class SmeshTop : public Component {
 
  public:
   SmeshTop(std::string name, COMPONENT_CTOR);
+  ~SmeshTop() override;
 
   Clock(clk);
 
   void update();
   void reset();
+
+ private:
+  SmeshCmdQueue* cmd_queue_ = nullptr;
 };
 
 } // namespace smesh

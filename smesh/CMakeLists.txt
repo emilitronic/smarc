@@ -4,6 +4,7 @@ add_library(smesh_model
   src/LdCtrl.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
+  src/SmeshCmdQueue.cpp
   src/SmeshDevice.cpp
   src/SmeshRS.cpp
   src/SmeshTop.cpp
