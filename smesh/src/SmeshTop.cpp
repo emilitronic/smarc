@@ -14,21 +14,27 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_          = new SmeshCmdQueue("CmdQueue"); // buffer incoming commands here
   unrolled_cmd_queue_ = new SmeshUnrolledCmdQueue("UnrolledCmdQueue");
   rs_                 = new SmeshRS("RS");
+  ld_ctrl_            = new LdCtrl("LdCtrl");
 
   cmd_queue_->clk << clk;
   unrolled_cmd_queue_->clk << clk;
   rs_->clk << clk;
+  ld_ctrl_->clk << clk;
 
-  cmd_queue_->cmd_in << cmd_in;                       // SmeshTop -> cmd_queue_
+  cmd_queue_->cmd_in << cmd_in;           // SmeshTop -> cmd_queue_
   unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out; // cmd_queue_ -> unrolled_cmd_queue_
-  rs_->alloc_in << unrolled_cmd_queue_->cmd_out;      // unrolled_cmd_queue_ -> RS allocation
-  rs_->issue_ld.sendToBitBucket();
-  rs_->completed.wireToZero();
+  rs_->alloc_in << unrolled_cmd_queue_->cmd_out;                    // unrolled_cmd_queue_ -> RS allocation
+  ld_ctrl_->cmd_in << rs_->issue_ld;                                                       // RS load issue -> LdCtrl
+  rs_->completed << ld_ctrl_->completed;                                                   // RS completion <- LdCtrl
+  ld_ctrl_->dma_req.sendToBitBucket();
+  ld_ctrl_->dma_resp.wireToZero();
+  rs_->setLoadIssuePortEnabled(true);
 
   UPDATE(update).reads(cmd_in);
 }
 
 SmeshTop::~SmeshTop() {
+  delete ld_ctrl_;
   delete rs_;
   delete unrolled_cmd_queue_;
   delete cmd_queue_;

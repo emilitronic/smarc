@@ -14,6 +14,7 @@ easy to inspect.
 
 #include <cascade/Cascade.hpp>
 
+#include "LdCtrl.hpp"
 #include "SmeshCmdQueue.hpp"
 #include "SmeshRS.hpp"
 #include "SmeshUnrolledCmdQueue.hpp"
@@ -38,6 +39,7 @@ class SmeshTop : public Component {
   SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
+  LdCtrl*                  ld_ctrl_ = nullptr;
 };
 
 } // namespace smesh
