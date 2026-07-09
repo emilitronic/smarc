@@ -22,10 +22,13 @@ class SmeshCmdQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshCmd, cmd_in);
-  FifoOutput(SmeshQueuedCmd, cmd_out);
+  Input(bit, cmd_valid);
+  Input(SmeshCmd, cmd_bits);
+  Output(bit, cmd_ready);
+  FifoOutput(SmeshCmd, cmd_out);
 
-  void update();
+  void updateReady();  // computes cmd_ready from FIFO space
+  void updateAccept(); // pushes cmd_bits when cmd_valid && cmd_ready
 };
 
 } // namespace smesh

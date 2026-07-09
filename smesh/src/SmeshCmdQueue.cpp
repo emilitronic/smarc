@@ -11,23 +11,23 @@ Command ingress queue implementation.
 namespace smesh {
 
 SmeshCmdQueue::SmeshCmdQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(cmd_in).writes(cmd_out);
+  UPDATE(updateReady).writes(cmd_ready);
+  UPDATE(updateAccept).reads(cmd_valid, cmd_bits).writes(cmd_out);
 }
 
-void SmeshCmdQueue::update() {
-  if (cmd_in.empty() || cmd_out.full()) {
+void SmeshCmdQueue::updateReady() {
+  cmd_ready = bit(!cmd_out.full());
+}
+
+void SmeshCmdQueue::updateAccept() {
+  if (cmd_out.full() || cmd_valid == 0) {
     return;
   }
 
-  SmeshQueuedCmd queued{};
-  queued.cmd             = cmd_in.pop();
-  queued.rs_tag          = 0;
-  queued.rs_tag_valid    = false;
-  queued.from_mmul_loop  = false;
-  queued.from_conv_loop  = false;
-  cmd_out.push(queued);
+  const auto cmd = *cmd_bits;
+  cmd_out.push(cmd);
 
-  trace("cmd_queue: accepted funct=%u", static_cast<unsigned>(queued.cmd.funct));
+  trace("cmd_queue: accepted funct=%u", static_cast<unsigned>(cmd.funct));
 }
 
 } // namespace smesh

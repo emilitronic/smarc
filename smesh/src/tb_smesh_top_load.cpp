@@ -26,7 +26,9 @@ class TopLoadDriver : public Component {
   TopLoadDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(smesh::SmeshCmd, cmd_out);
+  Output(bit, cmd_valid);
+  Output(smesh::SmeshCmd, cmd_bits);
+  Input(bit, cmd_ready);
 
   void update();
   void reset();
@@ -36,11 +38,12 @@ class TopLoadDriver : public Component {
 };
 
 TopLoadDriver::TopLoadDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(cmd_out);
+  UPDATE(update).reads(cmd_ready).writes(cmd_valid, cmd_bits);
 }
 
 void TopLoadDriver::update() {
-  if (next_command_ >= 2 || cmd_out.full()) {
+  cmd_valid = 0;
+  if (next_command_ >= 2) {
     return;
   }
 
@@ -56,9 +59,12 @@ void TopLoadDriver::update() {
     cmd.rs2 = u64(smesh::packLocal(smesh::makeSpAddr(0), shape));
   }
 
-  cmd_out.push(cmd);
-  trace("top_load_driver: pushed funct=%u", static_cast<unsigned>(cmd.funct));
-  ++next_command_;
+  cmd_bits = cmd;
+  cmd_valid = 1;
+  if (cmd_ready != 0) {
+    trace("top_load_driver: pushed funct=%u", static_cast<unsigned>(cmd.funct));
+    ++next_command_;
+  }
 }
 
 void TopLoadDriver::reset() {
@@ -75,7 +81,9 @@ int main(int argc, char* argv[]) {
   smem::MemCtrl mem("MemCtrl");
   smem::Dram dram("Dram", 0);
 
-  top.cmdIn() << driver.cmd_out;
+  top.cmd_valid << driver.cmd_valid;
+  top.cmd_bits << driver.cmd_bits;
+  driver.cmd_ready << top.cmd_ready;
   mem.in_core_req << top.memReq();
   top.memResp() << mem.out_core_resp;
   mem.in_core_req.setDelay(1);
