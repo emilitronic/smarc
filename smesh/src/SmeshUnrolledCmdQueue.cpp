@@ -22,8 +22,7 @@ void SmeshUnrolledCmdQueue::update() {
   const auto cmd = cmd_in.pop();
   cmd_out.push(cmd);
 
-  trace("unrolled_cmd_queue: accepted funct=%u",
-        static_cast<unsigned>(cmd.cmd.funct));
+  trace("unrolled_cmd_queue: accepted funct=%u", static_cast<unsigned>(cmd.cmd.funct));
 }
 
 } // namespace smesh
