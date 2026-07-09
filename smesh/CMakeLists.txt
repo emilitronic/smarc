@@ -78,6 +78,20 @@ target_link_libraries(tb_rs_ld_issue
     -lpthread
 )
 
+add_executable(tb_smesh_top_load
+  src/tb_smesh_top_load.cpp
+)
+
+target_link_libraries(tb_smesh_top_load
+  PRIVATE
+    smesh_model
+    smem_memory
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_smesh_m2
   src/SmeshCommandDriver.cpp
   src/SmeshShell.cpp

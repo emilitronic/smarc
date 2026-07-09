@@ -22,8 +22,8 @@ class SmeshUnrolledCmdQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshQueuedCmd, cmd_in);   // queue i/p
-  FifoOutput(SmeshQueuedCmd, cmd_out); // queue o/p
+  FifoInput(SmeshCmd, cmd_in);
+  FifoOutput(SmeshCmd, cmd_out);
 
   void update();
 };

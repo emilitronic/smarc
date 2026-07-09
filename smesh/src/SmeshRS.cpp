@@ -4,7 +4,7 @@
 // Sebastian Claudiusz Magierowski Jun 24 2026
 /*
 Reservation station for smesh.
-input port: alloc_in: SmeshQueuedCmd, RS allocation input
+input port: alloc_in: SmeshCmd, RS allocation input
 
 updateAlloc() receives input and (with help) allocates it into RS.
 */
@@ -397,8 +397,7 @@ void SmeshRS::updateAlloc() {
     return;
   }
 
-  const auto queued = alloc_in.peek();
-  const auto cmd = queued.cmd;
+  const auto cmd = alloc_in.peek();
   if (!canAccept(cmd)) {
     return;
   }

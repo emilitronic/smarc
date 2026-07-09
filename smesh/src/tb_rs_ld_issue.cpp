@@ -31,7 +31,7 @@ class RsAllocDriver : public Component {
   RsAllocDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(smesh::SmeshQueuedCmd, alloc_out);
+  FifoOutput(smesh::SmeshCmd, alloc_out);
 
   void update();
   void reset();
@@ -50,8 +50,7 @@ void RsAllocDriver::update() {
   }
 
   constexpr smesh::MatrixShape shape{smesh::kDim, smesh::kDim};
-  smesh::SmeshQueuedCmd queued{};
-  auto& cmd = queued.cmd;
+  smesh::SmeshCmd cmd{};
   if (next_command_ == 0) {
     cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Config));
     cmd.rs1 = u64(smesh::packConfig(smesh::ConfigKind::Load, 0, kLoadBlockStride));
@@ -61,7 +60,7 @@ void RsAllocDriver::update() {
     cmd.rs1 = u64(kDramBase);
     cmd.rs2 = u64(smesh::packLocal(smesh::makeSpAddr(0), shape));
   }
-  alloc_out.push(queued);
+  alloc_out.push(cmd);
   ++next_command_;
 }
 

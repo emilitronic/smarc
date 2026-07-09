@@ -151,7 +151,7 @@ public:
   SmeshRS(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoInput(SmeshQueuedCmd, alloc_in); // RS allocation input from command front end
+  FifoInput(SmeshCmd, alloc_in); // RS allocation input from command front end
   FifoOutput(SmeshIssue, issue_ld);  // RS load issue output to load controller
   FifoInput(SmeshRsTag, completed);  // RS completion input from load/execute/store controllers
 

@@ -77,9 +77,7 @@ void SmeshShell::update() {
 
     // next deal with all other commends (all of which go through the RS)
     if (!rs_alloc_out.full()) { 
-      SmeshQueuedCmd queued{};
-      queued.cmd = cmd;
-      rs_alloc_out.push(queued);
+      rs_alloc_out.push(cmd);
       cmd_in.pop();
     }
   }

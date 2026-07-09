@@ -18,7 +18,6 @@ easy to inspect.
 #include "LdCtrl.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
-#include "SmeshCmdQueue.hpp"
 #include "SmeshRS.hpp"
 #include "SmeshUnrolledCmdQueue.hpp"
 #include "Spad.hpp"
@@ -34,16 +33,21 @@ class SmeshTop : public Component {
   ~SmeshTop() override;
 
   Clock(clk);
+  // accessor fns. let testbench connect to the command queue and memory interfaces
+  // e.g., top.cmdIn() << driver.cmd_out; 
+  auto& cmdIn() { return unrolled_cmd_queue_->cmd_in; }  // when top.cmdIn() is called, give them cmd_in of unrolled_cmd_queue_
+  auto& memReq() { return dma_reader_->mem_req; }        // when top.memReq() is called, give them mem_req of dma_reader_
+  auto& memResp() { return dma_reader_->mem_resp; }      // when top.memResp() is called, give them mem_resp of dma_reader_
 
-  FifoInput(SmeshCmd, cmd_in); // input to SmeshTop from outside world
-  FifoOutput(smem::MemReq, m_req);
-  FifoInput(smem::MemResp, m_resp);
+  // narrow inspection accessors for testbench to check internal state
+  const SmeshRS& rs()     const { return *rs_; }
+  const LdCtrl&  ldCtrl() const { return *ld_ctrl_; }
+  const Spad&    spad()   const { return *spad_; }
 
   void update();
   void reset();
 
  private:
-  SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
   LdCtrl*                  ld_ctrl_ = nullptr;
