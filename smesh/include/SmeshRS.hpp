@@ -153,6 +153,7 @@ public:
   Clock(clk);
   FifoInput(SmeshCmd, alloc_in); // RS allocation input from command front end
   FifoOutput(SmeshIssue, issue_ld);  // RS load issue output to load controller
+  FifoOutput(SmeshIssue, issue_st);  // RS store issue output to store controller
   FifoInput(SmeshRsTag, completed);  // RS completion input from load/execute/store controllers
 
   // ********** RS STATUS **********
@@ -181,9 +182,11 @@ public:
   const SmeshRsEntry* issueExecute() const;
   const SmeshRsEntry* issueStore() const;
   void updateIssueLoad();
+  void updateIssueStore();
   bool markIssued(SmeshRsTag rs_tag);
 
   void setLoadIssuePortEnabled(bool enabled) { load_issue_port_enabled_ = enabled; }
+  void setStoreIssuePortEnabled(bool enabled) { store_issue_port_enabled_ = enabled; }
 
   // ********** COMPLETION **********
 
@@ -199,6 +202,7 @@ private:
   SmeshRsTag next_rs_tag_ = 0;
   std::uint32_t instructions_allocated_ = 0;
   bool load_issue_port_enabled_ = false;
+  bool store_issue_port_enabled_ = false;
 };
 
 } // namespace smesh

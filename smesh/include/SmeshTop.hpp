@@ -25,6 +25,7 @@ easy to inspect.
 #include "SmeshCmdQueues.hpp"
 #include "SmeshRS.hpp"
 #include "Spad.hpp"
+#include "StCtrl.hpp"
 #include "smem/MemTypes.hpp"
 
 namespace smesh {
@@ -61,6 +62,8 @@ class SmeshTop : public Component {
   SmeshRS*                 rs_ = nullptr;
   LdCtrl*                  ld_ctrl_ = nullptr;
   DmaReadIssueQueue*       read_issue_queue_ = nullptr;
+  StCtrl*                  st_ctrl_ = nullptr;
+  DmaWriteIssueQueue*      write_dispatch_queue_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;

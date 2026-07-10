@@ -260,6 +260,7 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
   UPDATE(updateIssueLoad).writes(issue_ld);
+  UPDATE(updateIssueStore).writes(issue_st);
   UPDATE(updateComplete).reads(completed);
 }
 
@@ -489,7 +490,7 @@ void SmeshRS::updateIssueLoad() {
     return;
   }
 
-  const auto* entry = issueLoad();
+  const auto* entry = issueLoad(); // scan load RS entries & pick oldest that's valid, not issued, ready (no deps)
   if (entry == nullptr) {
     return;
   }
@@ -499,6 +500,24 @@ void SmeshRS::updateIssueLoad() {
   issue.rs_tag = entry->rs_tag; // pack in rs_tag
   issue_ld.push(issue);         // push the packet through issue_ld output port
   markIssued(entry->rs_tag);    // mark entry as issued
+}
+
+// runs each cycle ("update"): send oldest ready store command to StCtrl and mark its RS entry issued
+void SmeshRS::updateIssueStore() {
+  if (!store_issue_port_enabled_ || issue_st.full()) {
+    return;
+  }
+
+  const auto* entry = issueStore(); // scan load RS entries & pick oldest that's valid, not issued, ready (no deps)
+  if (entry == nullptr) {
+    return;
+  }
+
+  SmeshIssue issue{};
+  issue.cmd = entry->cmd;
+  issue.rs_tag = entry->rs_tag;
+  issue_st.push(issue);
+  markIssued(entry->rs_tag);
 }
 // mark RS entry found by issue (based on rs_tag) as issued once controller accepts it
 // (note this is purely conceptual, SmeshShell just runs markIssued() after issue() for now)
@@ -628,6 +647,7 @@ void SmeshRS::reset() {
   next_rs_tag_ = 0;
   instructions_allocated_ = 0;
   load_issue_port_enabled_ = false;
+  store_issue_port_enabled_ = false;
 }
 
 } // namespace smesh

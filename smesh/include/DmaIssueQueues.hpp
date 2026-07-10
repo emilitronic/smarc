@@ -28,4 +28,18 @@ class DmaReadIssueQueue : public Component {
   void update();
 };
 
+class DmaWriteIssueQueue : public Component {
+  DECLARE_COMPONENT(DmaWriteIssueQueue);
+
+ public:
+  DmaWriteIssueQueue(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  FifoInput(DmaWriteReq, req_in);
+  FifoOutput(DmaWriteReq, req_out);
+
+  void update();
+};
+
 } // namespace smesh

@@ -85,6 +85,7 @@ int main(int argc, char* argv[]) {
 
   rs.alloc_in << driver.alloc_out;
   ld_ctrl.cmd_in << rs.issue_ld;
+  rs.issue_st.sendToBitBucket();
   rs.completed << ld_ctrl.completed;
   dma_reader.req_in << ld_ctrl.dma_req;
   mem.in_core_req << dma_reader.mem_req;

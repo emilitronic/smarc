@@ -78,4 +78,25 @@ struct DmaReadCompletion {
   u16 cmd_id = 0;
 };
 
+// ********** STORE CONTROLLER / DMA INTERFACE **********
+// interface between StCtrl and the store-side write dispatch path
+struct DmaWriteReq {
+  u64 vaddr = 0;
+  SmeshLocalAddr laddr{};
+  u16 dest = 0;
+  u8 acc_act = 0;
+  u32 acc_scale = 0;
+  u32 acc_igelu_qb = 0;
+  u32 acc_igelu_qc = 0;
+  u32 acc_iexp_qln2 = 0;
+  u32 acc_iexp_qln2_inv = 0;
+  u16 acc_norm_stats_id = 0;
+  u16 len = 0;
+  u16 block = 0;
+  u16 cmd_id = 0;
+  u32 status = 0;
+  bit pool_en = false;
+  bit store_en = true;
+};
+
 } // namespace smesh
