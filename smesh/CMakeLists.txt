@@ -7,11 +7,10 @@ add_library(smesh_model
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
-  src/SmeshCmdQueue.cpp
+  src/SmeshCmdQueues.cpp
   src/SmeshDevice.cpp
   src/SmeshRS.cpp
   src/SmeshTop.cpp
-  src/SmeshUnrolledCmdQueue.cpp
   src/Spad.cpp
   src/StCtrl.cpp
 )

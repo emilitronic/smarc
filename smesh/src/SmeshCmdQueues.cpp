@@ -1,12 +1,12 @@
 // **********************************************************************
-// smesh/src/SmeshCmdQueue.cpp
+// smesh/src/SmeshCmdQueues.cpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Jul 8 2026
+// Sebastian Claudiusz Magierowski Jul 10 2026
 /*
-Command ingress queue implementation.
+Command-path queue implementations.
 */
 
-#include "SmeshCmdQueue.hpp"
+#include "SmeshCmdQueues.hpp"
 
 namespace smesh {
 
@@ -28,6 +28,21 @@ void SmeshCmdQueue::updateAccept() {
   cmd_out.push(cmd);
 
   trace("cmd_queue: accepted funct=%u", static_cast<unsigned>(cmd.funct));
+}
+
+SmeshUnrolledCmdQueue::SmeshUnrolledCmdQueue(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).reads(cmd_in).writes(cmd_out);
+}
+
+void SmeshUnrolledCmdQueue::update() {
+  if (cmd_in.empty() || cmd_out.full()) {
+    return;
+  }
+
+  const auto cmd = cmd_in.pop();
+  cmd_out.push(cmd);
+
+  trace("unrolled_cmd_queue: accepted funct=%u", static_cast<unsigned>(cmd.funct));
 }
 
 } // namespace smesh

@@ -21,9 +21,8 @@ easy to inspect.
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
-#include "SmeshCmdQueue.hpp"
+#include "SmeshCmdQueues.hpp"
 #include "SmeshRS.hpp"
-#include "SmeshUnrolledCmdQueue.hpp"
 #include "Spad.hpp"
 #include "smem/MemTypes.hpp"
 
