@@ -20,7 +20,7 @@ void MvinLocalRouter::update() {
   }
 
   const auto& pending = data_in.peek();
-  if (pending.laddr.is_acc_addr()) {
+  if (pending.laddr.is_acc_addr()) { // if data from DMA destined for accum...
     if (accum_out.full()) {
       return;
     }
@@ -29,7 +29,7 @@ void MvinLocalRouter::update() {
     trace("mvin_local_router: to accum laddr=0x%x cmd_id=%u",
           static_cast<unsigned>(data.laddr.raw),
           static_cast<unsigned>(data.cmd_id));
-  } else {
+  } else {                           // if data from DMA destined for spad...
     if (spad_out.full()) {
       return;
     }

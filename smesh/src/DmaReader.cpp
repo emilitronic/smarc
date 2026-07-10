@@ -49,15 +49,15 @@ void DmaReader::updateResponse() {
 
   const auto bytes = static_cast<std::uint16_t>(active_.cols);
   DmaReadResp dma_resp{};
-  dma_resp.data = resp.rdata;
-  dma_resp.laddr = active_.laddr;
-  dma_resp.mask = u8(bytes == 8 ? 0xffu : ((1u << bytes) - 1u));
-  dma_resp.bytes_read = u16(bytes);
+  dma_resp.data          = resp.rdata;
+  dma_resp.laddr         = active_.laddr;
+  dma_resp.mask          = u8(bytes == 8 ? 0xffu : ((1u << bytes) - 1u));
+  dma_resp.bytes_read    = u16(bytes);
   dma_resp.pixel_repeats = active_.pixel_repeats;
-  dma_resp.cmd_id = active_.cmd_id;
-  dma_resp.last = true;
+  dma_resp.cmd_id        = active_.cmd_id;
+  dma_resp.last          = true;
   resp_out.push(dma_resp);
-  waiting_ = false;
+  waiting_               = false;
 
   trace("dma_reader: response data=0x%llx cmd_id=%u",
         static_cast<unsigned long long>(dma_resp.data),

@@ -112,7 +112,7 @@ constexpr SmeshLocalAddr makeSpAddr(std::uint32_t full_sp_addr) {
   // Make encoded SP address from a flat row number; metadata remains zero.
   return SmeshLocalAddr{full_sp_addr & kSpAddrMask};
 }
-
+// makes local addr with accumulator metadata
 constexpr SmeshLocalAddr makeAccAddr(std::uint32_t full_acc_addr, bool do_accumulate = false, bool read_full = false, std::uint32_t norm_cmd = 0) {
   return SmeshLocalAddr{
       (full_acc_addr & kAccAddrMask) |

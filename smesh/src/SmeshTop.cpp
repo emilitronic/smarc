@@ -45,12 +45,12 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   dma_reader_->req_in << ld_ctrl_->dma_req;            //                                                       LdCtrl -> DmaReader
   mvin_scale_->data_in << dma_reader_->resp_out;       //                                                    MvinScale <- DmaReader
   pixel_repeater_->data_in << mvin_scale_->data_out;   //                               MvinPixelRepeater <- MvinScale 
-  local_router_->data_in << pixel_repeater_->data_out; //                              MvinLocalRouter <- MvinPixelRepeater
-  spad_->write_in << local_router_->spad_out;          //                                        Spad <- MvinLocalRouter
-  accum_->write_in << local_router_->accum_out;        //                                       Accum <- MvinLocalRouter
-  completion_mux_->spad_in << spad_->dma_resp;         //                         DmaReadCompletionMux <- Spad
-  completion_mux_->accum_in << accum_->dma_resp;       //                         DmaReadCompletionMux <- Accum
-  ld_ctrl_->dma_resp << completion_mux_->dma_resp;     //                                      LdCtrl <- DmaReadCompletionMux
+  local_router_->data_in << pixel_repeater_->data_out; //            MvinLocalRouter <- MvinPixelRepeater
+  spad_->write_in << local_router_->spad_out;          //    Spad <- MvinLocalRouter
+  accum_->write_in << local_router_->accum_out;        //   Accum <- MvinLocalRouter
+  completion_mux_->spad_in << spad_->dma_resp;         //             DmaReadCompletionMux <- Spad
+  completion_mux_->accum_in << accum_->dma_resp;       //             DmaReadCompletionMux <- Accum
+  ld_ctrl_->dma_resp << completion_mux_->dma_resp;     //   LdCtrl <- DmaReadCompletionMux
   rs_->setLoadIssuePortEnabled(true);
 
   UPDATE(update);

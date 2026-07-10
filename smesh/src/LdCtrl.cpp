@@ -70,7 +70,7 @@ void LdCtrl::updateAccept() {
   // if its a LOAD_CMD (Mvin, Mvin2, Mvin3)
   const auto local    = unpackLocal(static_cast<std::uint64_t>(active_.cmd.rs2)); // local_addr in rs2
   base_vaddr_         = static_cast<std::uint64_t>(active_.cmd.rs1);
-  base_laddr_         = makeLocalAddr(local.row);
+  base_laddr_         = makeLocalAddr(local.row); // metadata is also in here
   rows_               = static_cast<std::uint32_t>(local.shape.rows);
   cols_               = static_cast<std::uint32_t>(local.shape.cols);
   next_row_           = 0; // it's a new mvin, it hasn't issued any row reqs yet
