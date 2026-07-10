@@ -15,6 +15,7 @@ easy to inspect.
 #include <cascade/Cascade.hpp>
 
 #include "Accum.hpp"
+#include "DmaIssueQueues.hpp"
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
 #include "LdCtrl.hpp"
@@ -59,6 +60,7 @@ class SmeshTop : public Component {
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
   LdCtrl*                  ld_ctrl_ = nullptr;
+  DmaReadIssueQueue*       read_issue_queue_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;

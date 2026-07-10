@@ -1,5 +1,6 @@
 add_library(smesh_model
   src/Accum.cpp
+  src/DmaIssueQueues.cpp
   src/DmaReadCompletionMux.cpp
   src/DmaReader.cpp
   src/ExCtrl.cpp

@@ -15,6 +15,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   unrolled_cmd_queue_ = new SmeshUnrolledCmdQueue("UnrolledCmdQueue");
   rs_                 = new SmeshRS("RS");
   ld_ctrl_            = new LdCtrl("LdCtrl");
+  read_issue_queue_   = new DmaReadIssueQueue("DmaReadIssueQueue");
   dma_reader_         = new DmaReader("DmaReader");
   mvin_scale_         = new MvinScale("MvinScale");
   pixel_repeater_     = new MvinPixelRepeater("MvinPixelRepeater");
@@ -27,6 +28,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   unrolled_cmd_queue_->clk << clk;
   rs_->clk                 << clk;
   ld_ctrl_->clk            << clk;
+  read_issue_queue_->clk   << clk;
   dma_reader_->clk         << clk;
   mvin_scale_->clk         << clk;
   pixel_repeater_->clk     << clk;
@@ -42,7 +44,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   rs_->alloc_in << unrolled_cmd_queue_->cmd_out;       //               unrolled_cmd_queue_ -> RS allocation
   ld_ctrl_->cmd_in << rs_->issue_ld;                   //                                      RS load issue -> LdCtrl
   rs_->completed << ld_ctrl_->completed;               //                                      RS completion <- LdCtrl
-  dma_reader_->req_in << ld_ctrl_->dma_req;            //                                                       LdCtrl -> DmaReader
+  read_issue_queue_->req_in << ld_ctrl_->dma_req;      //                                                       LdCtrl -> DmaReadIssueQueue
+  dma_reader_->req_in << read_issue_queue_->req_out;   //                                           DmaReadIssueQueue -> DmaReader
   mvin_scale_->data_in << dma_reader_->resp_out;       //                                                    MvinScale <- DmaReader
   pixel_repeater_->data_in << mvin_scale_->data_out;   //                               MvinPixelRepeater <- MvinScale 
   local_router_->data_in << pixel_repeater_->data_out; //            MvinLocalRouter <- MvinPixelRepeater
@@ -64,6 +67,7 @@ SmeshTop::~SmeshTop() {
   delete pixel_repeater_;
   delete mvin_scale_;
   delete dma_reader_;
+  delete read_issue_queue_;
   delete ld_ctrl_;
   delete rs_;
   delete unrolled_cmd_queue_;
