@@ -49,7 +49,7 @@ struct SmeshIssue {
 };
 
 // ********** LOAD CONTROLLER / DMA INTERFACE **********
-
+// interface between LdCtrl and memory controller
 struct DmaReadReq {
   u64 vaddr = 0;
   SmeshLocalAddr laddr{};
@@ -62,7 +62,7 @@ struct DmaReadReq {
   u8 pixel_repeats = 1;
   u16 cmd_id = 0;
 };
-
+// interface between memory controller and LdCtrl (via other components)
 struct DmaReadResp {
   u64 data = 0;
   SmeshLocalAddr laddr{};

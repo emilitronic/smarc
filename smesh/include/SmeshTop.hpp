@@ -14,8 +14,11 @@ easy to inspect.
 
 #include <cascade/Cascade.hpp>
 
+#include "Accum.hpp"
+#include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
 #include "LdCtrl.hpp"
+#include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
 #include "SmeshCmdQueue.hpp"
@@ -47,6 +50,7 @@ class SmeshTop : public Component {
   const SmeshRS& rs()     const { return *rs_; }
   const LdCtrl&  ldCtrl() const { return *ld_ctrl_; }
   const Spad&    spad()   const { return *spad_; }
+  const Accum&   accum()  const { return *accum_; }
 
   void update();
   void reset();
@@ -59,7 +63,10 @@ class SmeshTop : public Component {
   DmaReader*               dma_reader_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;
+  MvinLocalRouter*         local_router_ = nullptr;
   Spad*                    spad_ = nullptr;
+  Accum*                   accum_ = nullptr;
+  DmaReadCompletionMux*    completion_mux_ = nullptr;
 };
 
 } // namespace smesh

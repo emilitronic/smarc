@@ -1,7 +1,10 @@
 add_library(smesh_model
+  src/Accum.cpp
+  src/DmaReadCompletionMux.cpp
   src/DmaReader.cpp
   src/ExCtrl.cpp
   src/LdCtrl.cpp
+  src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
   src/SmeshCmdQueue.cpp
@@ -83,6 +86,20 @@ add_executable(tb_smesh_top_load
 )
 
 target_link_libraries(tb_smesh_top_load
+  PRIVATE
+    smesh_model
+    smem_memory
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+add_executable(tb_smesh_top_acc_load
+  src/tb_smesh_top_acc_load.cpp
+)
+
+target_link_libraries(tb_smesh_top_acc_load
   PRIVATE
     smesh_model
     smem_memory
