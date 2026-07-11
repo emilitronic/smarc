@@ -63,7 +63,10 @@ class SmeshTop : public Component {
   LdCtrl*                  ld_ctrl_ = nullptr;
   DmaReadIssueQueue*       read_issue_queue_ = nullptr;
   StCtrl*                  st_ctrl_ = nullptr;
-  DmaWriteIssueQueue*      write_dispatch_queue_ = nullptr;
+  DmaWriteDispatchQueue*   write_dispatch_queue_ = nullptr;
+  DmaWriteNormQueue*       write_norm_queue_ = nullptr;
+  DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
+  DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;

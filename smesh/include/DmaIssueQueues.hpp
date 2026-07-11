@@ -28,6 +28,48 @@ class DmaReadIssueQueue : public Component {
   void update();
 };
 
+class DmaWriteDispatchQueue : public Component {
+  DECLARE_COMPONENT(DmaWriteDispatchQueue);
+
+ public:
+  DmaWriteDispatchQueue(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  FifoInput(DmaWriteReq, req_in);
+  FifoOutput(DmaWriteReq, req_out);
+
+  void update();
+};
+
+class DmaWriteNormQueue : public Component {
+  DECLARE_COMPONENT(DmaWriteNormQueue);
+
+ public:
+  DmaWriteNormQueue(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  FifoInput(DmaWriteReq, req_in);
+  FifoOutput(DmaWriteReq, req_out);
+
+  void update();
+};
+
+class DmaWriteScaleQueue : public Component {
+  DECLARE_COMPONENT(DmaWriteScaleQueue);
+
+ public:
+  DmaWriteScaleQueue(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  FifoInput(DmaWriteReq, req_in);
+  FifoOutput(DmaWriteReq, req_out);
+
+  void update();
+};
+
 class DmaWriteIssueQueue : public Component {
   DECLARE_COMPONENT(DmaWriteIssueQueue);
 

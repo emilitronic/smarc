@@ -17,7 +17,10 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   ld_ctrl_              = new LdCtrl("LdCtrl");
   read_issue_queue_     = new DmaReadIssueQueue("DmaReadIssueQueue");
   st_ctrl_              = new StCtrl("StCtrl");
-  write_dispatch_queue_ = new DmaWriteIssueQueue("DmaWriteIssueQueue");
+  write_dispatch_queue_ = new DmaWriteDispatchQueue("DmaWriteDispatchQueue");
+  write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
+  write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");
+  write_issue_queue_    = new DmaWriteIssueQueue("DmaWriteIssueQueue");
   dma_reader_           = new DmaReader("DmaReader");
   mvin_scale_           = new MvinScale("MvinScale");
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
@@ -33,6 +36,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   read_issue_queue_->clk     << clk;
   st_ctrl_->clk              << clk;
   write_dispatch_queue_->clk << clk;
+  write_norm_queue_->clk     << clk;
+  write_scale_queue_->clk    << clk;
+  write_issue_queue_->clk    << clk;
   dma_reader_->clk           << clk;
   mvin_scale_->clk           << clk;
   pixel_repeater_->clk       << clk;
@@ -51,8 +57,11 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   read_issue_queue_->req_in << ld_ctrl_->dma_req;      //                                                       LdCtrl -> DmaReadIssueQueue
   dma_reader_->req_in << read_issue_queue_->req_out;   //                                           DmaReadIssueQueue -> DmaReader
   st_ctrl_->cmd_in << rs_->issue_st;                   //                                      RS store issue -> StCtrl
-  write_dispatch_queue_->req_in << st_ctrl_->dma_req;  //                                                       StCtrl -> DmaWriteIssueQueue
-  write_dispatch_queue_->req_out.sendToBitBucket();    // later: write dispatch continues into store read/write path
+  write_dispatch_queue_->req_in << st_ctrl_->dma_req;  //                                                       StCtrl -> DmaWriteDispatchQueue
+  write_norm_queue_->req_in << write_dispatch_queue_->req_out;
+  write_scale_queue_->req_in << write_norm_queue_->req_out;
+  write_issue_queue_->req_in << write_scale_queue_->req_out;
+  write_issue_queue_->req_out.sendToBitBucket();       // later: write issue feeds DmaWriter
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
   mvin_scale_->data_in << dma_reader_->resp_out;       //                                                    MvinScale <- DmaReader
@@ -81,6 +90,9 @@ SmeshTop::~SmeshTop() {
   delete pixel_repeater_;
   delete mvin_scale_;
   delete dma_reader_;
+  delete write_issue_queue_;
+  delete write_scale_queue_;
+  delete write_norm_queue_;
   delete write_dispatch_queue_;
   delete st_ctrl_;
   delete read_issue_queue_;
