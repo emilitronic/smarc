@@ -62,6 +62,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_dispatch_queue_->req_in << st_ctrl_->dma_req;  //                                                       StCtrl -> DmaWriteDispatchQueue
   st_read_ctrl_->dispatch_valid << write_dispatch_queue_->front_valid;
   st_read_ctrl_->dispatch_bits << write_dispatch_queue_->front_bits;
+  st_read_ctrl_->norm_ready << write_norm_queue_->enq_ready;
   write_dispatch_queue_->front_ready << st_read_ctrl_->dispatch_ready;
   write_norm_queue_->req_in << write_dispatch_queue_->req_out;
   write_scale_queue_->req_in << write_norm_queue_->req_out;

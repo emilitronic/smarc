@@ -54,8 +54,12 @@ class DmaWriteNormQueue : public Component {
   Clock(clk);
 
   FifoInput(DmaWriteReq, req_in);
+  Input(bit, enq_valid);         // wires tapped off tail of queue for external control
+  Input(DmaWriteReq, enq_bits);  // wires tapped off tail of queue for external control
+  Output(bit, enq_ready);        // wires tapped off tail of queue for external control
   FifoOutput(DmaWriteReq, req_out);
 
+  void updateReady();
   void update();
 };
 

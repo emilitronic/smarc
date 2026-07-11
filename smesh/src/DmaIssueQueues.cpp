@@ -53,7 +53,12 @@ void DmaWriteDispatchQueue::update() {
 }
 
 DmaWriteNormQueue::DmaWriteNormQueue(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateReady).writes(enq_ready);
   UPDATE(update).reads(req_in).writes(req_out);
+}
+
+void DmaWriteNormQueue::updateReady() {
+  enq_ready = bit(!req_out.full());
 }
 
 void DmaWriteNormQueue::update() {
