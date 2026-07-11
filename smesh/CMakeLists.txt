@@ -14,6 +14,7 @@ add_library(smesh_model
   src/SmeshTop.cpp
   src/Spad.cpp
   src/StCtrl.cpp
+  src/StReadCtrl.cpp
 )
 
 target_include_directories(smesh_model

@@ -26,6 +26,7 @@ easy to inspect.
 #include "SmeshRS.hpp"
 #include "Spad.hpp"
 #include "StCtrl.hpp"
+#include "StReadCtrl.hpp"
 #include "smem/MemTypes.hpp"
 
 namespace smesh {
@@ -57,8 +58,6 @@ class SmeshTop : public Component {
   void reset();
 
  private:
-  Output(bit, write_dispatch_front_ready_);
-
   SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
@@ -66,6 +65,7 @@ class SmeshTop : public Component {
   DmaReadIssueQueue*       read_issue_queue_ = nullptr;
   StCtrl*                  st_ctrl_ = nullptr;
   DmaWriteDispatchQueue*   write_dispatch_queue_ = nullptr;
+  StReadCtrl*              st_read_ctrl_ = nullptr;
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
