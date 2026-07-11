@@ -25,7 +25,7 @@ class StReadCtrl : public Component {
   Input(bit, dispatch_valid);        // is dispatch queue signal valid
   Input(DmaWriteReq, dispatch_bits);
   Input(bit, norm_ready);            // is norm queue signal ready
-  Output(bit, dispatch_ready);
+  Output(bit, read_req_fire);
 
   void updateReady();
   void updateInspect();

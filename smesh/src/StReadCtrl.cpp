@@ -11,12 +11,12 @@ Store-path local-memory read control implementation.
 namespace smesh {
 
 StReadCtrl::StReadCtrl(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReady).writes(dispatch_ready);
+  UPDATE(updateReady).writes(read_req_fire);
   UPDATE(updateInspect).reads(dispatch_valid, dispatch_bits, norm_ready);
 }
 
 void StReadCtrl::updateReady() {
-  dispatch_ready = 1;
+  read_req_fire = 1;
 }
 
 void StReadCtrl::updateInspect() {
