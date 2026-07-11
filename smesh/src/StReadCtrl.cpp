@@ -12,7 +12,7 @@ namespace smesh {
 
 StReadCtrl::StReadCtrl(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady).writes(read_req_fire);
-  UPDATE(updateInspect).reads(dispatch_valid, dispatch_bits, norm_ready);
+  UPDATE(updateInspect).reads(dispatch_valid, dispatch_bits, norm_ready, spad_read_ready, accum_read_ready);
 }
 
 void StReadCtrl::updateReady() {
@@ -30,12 +30,14 @@ void StReadCtrl::updateInspect() {
   const bool targets_spad = is_live && !laddr.is_acc_addr();
   const bool targets_accum = is_live && laddr.is_acc_addr();
 
-  trace("st_read_ctrl: laddr=0x%x spad=%u sp_bank=%u accum=%u acc_bank=%u norm_ready=%u len=%u cmd_id=%u",
+  trace("st_read_ctrl: laddr=0x%x spad=%u sp_bank=%u spad_ready=%u accum=%u acc_bank=%u accum_ready=%u norm_ready=%u len=%u cmd_id=%u",
         static_cast<unsigned>(laddr.raw),
         static_cast<unsigned>(targets_spad),
         static_cast<unsigned>(laddr.sp_bank()),
+        static_cast<unsigned>(spad_read_ready),
         static_cast<unsigned>(targets_accum),
         static_cast<unsigned>(laddr.acc_bank()),
+        static_cast<unsigned>(accum_read_ready),
         static_cast<unsigned>(norm_ready),
         static_cast<unsigned>(req.len),
         static_cast<unsigned>(req.cmd_id));
