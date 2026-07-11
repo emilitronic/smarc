@@ -30,14 +30,14 @@ void DmaReadIssueQueue::update() {
 }
 
 DmaWriteDispatchQueue::DmaWriteDispatchQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(req_in, front_ready).writes(req_out, front_valid, front_bits);
+  UPDATE(update).reads(req_in, deq_ready).writes(req_out, deq_valid, deq_bits);
 }
 
 void DmaWriteDispatchQueue::update() {
-  front_valid = bit(!req_in.empty());  // if there's a command at head of queue, assert front_valid
-  front_bits = req_in.empty() ? DmaWriteReq{} : req_in.peek(); // if queue is empty, drive blank request, else expose head of queue w/o consuming it
+  deq_valid = bit(!req_in.empty());  // if there's a command at head of queue, assert deq_valid
+  deq_bits = req_in.empty() ? DmaWriteReq{} : req_in.peek(); // if queue is empty, drive blank request, else expose head of queue w/o consuming it
 
-  if (req_in.empty() || req_out.full() || front_ready == 0) {  // don't move command forward if no command available, or next queue is full, or outside logic says not ready
+  if (req_in.empty() || req_out.full() || deq_ready == 0) {  // don't move command forward if no command available, or next queue is full, or outside logic says not ready
     return;
   }
 
