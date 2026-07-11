@@ -12,6 +12,7 @@ namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
+  UPDATE(updateRead).reads(read_req).writes(read_resp);
 }
 
 void Spad::updateWrite() {
@@ -51,6 +52,42 @@ void Spad::updateWrite() {
         static_cast<unsigned>(write.mask),
         static_cast<unsigned>(write.cmd_id),
         static_cast<unsigned>(write.last));
+}
+
+void Spad::updateRead() {
+  const bool exread = false; // TODO: execute read wins once ExCtrl has a local-memory read port
+  const bool dmawrite = !read_req.empty();
+  if (!exread && !dmawrite) {
+    return;
+  }
+  if (exread) {
+    return;
+  }
+  if (read_resp.full()) {
+    return;
+  }
+
+  const auto req = read_req.pop();
+  assert_always(!req.laddr.is_acc_addr(),
+                "Spad read received an accumulator address");
+
+  const auto& source = banks_[req.laddr.sp_bank()][req.laddr.sp_row()];
+  SpadReadResp resp{};
+  resp.laddr = req.laddr;
+  resp.len = req.len;
+  resp.cmd_id = req.cmd_id;
+  resp.from_dma = req.from_dma;
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    resp.data |= (static_cast<std::uint64_t>(
+                      static_cast<std::uint8_t>(source[lane])) << (lane * 8));
+    resp.mask |= static_cast<u8>(u8{1} << lane);
+  }
+  read_resp.push(resp);
+  trace("spad: dma read bank=%u row=%u mask=0x%x cmd_id=%u",
+        static_cast<unsigned>(req.laddr.sp_bank()),
+        static_cast<unsigned>(req.laddr.sp_row()),
+        static_cast<unsigned>(resp.mask),
+        static_cast<unsigned>(req.cmd_id));
 }
 
 void Spad::reset() {

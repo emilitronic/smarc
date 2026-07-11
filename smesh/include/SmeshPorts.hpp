@@ -99,4 +99,48 @@ struct DmaWriteReq {
   bit store_en = true;
 };
 
+// ifc to scratchpad memory read port
+struct SpadReadReq {
+  SmeshLocalAddr laddr{};
+  u16 len = 0;
+  u16 cmd_id = 0;
+  bit from_dma = true;
+};
+// ifc from scratchpad memory to read pipes
+struct SpadReadResp {
+  u64 data = 0;
+  SmeshLocalAddr laddr{};
+  u8 mask = 0;
+  u16 len = 0;
+  u16 cmd_id = 0;
+  bit from_dma = true;
+};
+
+// interface to accumulator memory read port
+struct AccumReadReq {
+  SmeshLocalAddr laddr{};
+  u16 len = 0;
+  u8 act = 0;
+  u32 scale = 0;
+  u32 igelu_qb = 0;
+  u32 igelu_qc = 0;
+  u32 iexp_qln2 = 0;
+  u32 iexp_qln2_inv = 0;
+  bit full = false;
+  u16 cmd_id = 0;
+  bit from_dma = true;
+};
+// ifc from accumulator memory to read pipes to normalizer
+struct AccumReadResp {
+  u64 data = 0;
+  SmeshLocalAddr laddr{};
+  u8 mask = 0;
+  u16 len = 0;
+  u8 act = 0;
+  u32 scale = 0;
+  bit full = false;
+  u16 cmd_id = 0;
+  bit from_dma = true;
+};
+
 } // namespace smesh

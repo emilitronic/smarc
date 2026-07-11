@@ -29,8 +29,11 @@ class Spad : public Component {
 
   FifoInput(DmaReadResp, write_in);        // spad's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last spad write is done
+  FifoInput(SpadReadReq, read_req);
+  FifoOutput(SpadReadResp, read_resp);
 
   void updateWrite();
+  void updateRead();
   void reset();
 
   bool hasAcceptedWrite() const { return write_accepted_; }

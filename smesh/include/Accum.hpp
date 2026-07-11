@@ -29,8 +29,11 @@ class Accum : public Component {
 
   FifoInput(DmaReadResp, write_in);        // accum's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last accum write is done
+  FifoInput(AccumReadReq, read_req);
+  FifoOutput(AccumReadResp, read_resp);
 
   void updateWrite();
+  void updateRead();
   void reset();
 
   bool hasAcceptedWrite() const { return write_accepted_; }

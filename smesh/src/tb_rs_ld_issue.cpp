@@ -93,6 +93,8 @@ int main(int argc, char* argv[]) {
   mvin_scale.data_in << dma_reader.resp_out;
   pixel_repeater.data_in << mvin_scale.data_out;
   spad.write_in << pixel_repeater.data_out;
+  spad.read_req.wireToZero();
+  spad.read_resp.sendToBitBucket();
   ld_ctrl.dma_resp << spad.dma_resp;
   mem.in_core_req.setDelay(1);
   dram.s_req << mem.s_req;
