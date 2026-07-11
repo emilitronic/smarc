@@ -38,9 +38,9 @@ class DmaWriteDispatchQueue : public Component {
 
   FifoInput(DmaWriteReq, req_in);
   FifoOutput(DmaWriteReq, req_out);
-  Output(bit, deq_valid);        // explicit dequeue-side view of the head entry
+  Output(bit, deq_val);          // explicit dequeue-side view of the head entry
   Output(DmaWriteReq, deq_bits); // explicit dequeue-side view of the head entry
-  Input(bit, deq_ready);         // external control says the head entry may advance
+  Input(bit, deq_rdy);           // external control says the head entry may advance
 
   void update();
 };
@@ -54,9 +54,9 @@ class DmaWriteNormQueue : public Component {
   Clock(clk);
 
   FifoInput(DmaWriteReq, req_in);
-  Input(bit, enq_valid);         // wires tapped off tail of queue for external control
+  Input(bit, enq_val);           // wires tapped off tail of queue for external control
   Input(DmaWriteReq, enq_bits);  // wires tapped off tail of queue for external control
-  Output(bit, enq_ready);        // wires tapped off tail of queue for external control
+  Output(bit, enq_rdy);          // wires tapped off tail of queue for external control
   FifoOutput(DmaWriteReq, req_out);
 
   void updateReady();

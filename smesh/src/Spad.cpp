@@ -12,7 +12,7 @@ namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
-  UPDATE(updateReadReady).writes(read_ready);
+  UPDATE(updateReadReady).writes(read_rdy);
   UPDATE(updateRead).reads(read_req).writes(read_resp);
 }
 
@@ -56,7 +56,7 @@ void Spad::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Spad::updateReadReady() {
-  read_ready = bit(!read_resp.full());
+  read_rdy = bit(!read_resp.full());
 }
 
 void Spad::updateRead() {

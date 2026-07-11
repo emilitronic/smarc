@@ -30,14 +30,14 @@ void DmaReadIssueQueue::update() {
 }
 
 DmaWriteDispatchQueue::DmaWriteDispatchQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(req_in, deq_ready).writes(req_out, deq_valid, deq_bits);
+  UPDATE(update).reads(req_in, deq_rdy).writes(req_out, deq_val, deq_bits);
 }
 
 void DmaWriteDispatchQueue::update() {
-  deq_valid = bit(!req_in.empty());  // if there's a command at head of queue, assert deq_valid
+  deq_val = bit(!req_in.empty());  // if there's a command at head of queue, assert deq_val
   deq_bits = req_in.empty() ? DmaWriteReq{} : req_in.peek(); // if queue is empty, drive blank request, else expose head of queue w/o consuming it
 
-  if (req_in.empty() || req_out.full() || deq_ready == 0) {  // don't move command forward if no command available, or next queue is full, or outside logic says not ready
+  if (req_in.empty() || req_out.full() || deq_rdy == 0) {  // don't move command forward if no command available, or next queue is full, or outside logic says not ready
     return;
   }
 
@@ -53,12 +53,12 @@ void DmaWriteDispatchQueue::update() {
 }
 
 DmaWriteNormQueue::DmaWriteNormQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReady).writes(enq_ready);
+  UPDATE(updateReady).writes(enq_rdy);
   UPDATE(update).reads(req_in).writes(req_out);
 }
 
 void DmaWriteNormQueue::updateReady() {
-  enq_ready = bit(!req_out.full());
+  enq_rdy = bit(!req_out.full());
 }
 
 void DmaWriteNormQueue::update() {
