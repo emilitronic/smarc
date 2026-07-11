@@ -38,6 +38,9 @@ class DmaWriteDispatchQueue : public Component {
 
   FifoInput(DmaWriteReq, req_in);
   FifoOutput(DmaWriteReq, req_out);
+  Output(bit, front_valid);        // wires tapped off head of queue for external control
+  Output(DmaWriteReq, front_bits); // wires tapped off head of queue for external control
+  Input(bit, front_ready);         // wires tapped off head of queue for external control
 
   void update();
 };

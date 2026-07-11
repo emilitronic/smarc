@@ -58,6 +58,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   dma_reader_->req_in << read_issue_queue_->req_out;   //                                           DmaReadIssueQueue -> DmaReader
   st_ctrl_->cmd_in << rs_->issue_st;                   //                                      RS store issue -> StCtrl
   write_dispatch_queue_->req_in << st_ctrl_->dma_req;  //                                                       StCtrl -> DmaWriteDispatchQueue
+  write_dispatch_queue_->front_ready << write_dispatch_front_ready_;
   write_norm_queue_->req_in << write_dispatch_queue_->req_out;
   write_scale_queue_->req_in << write_norm_queue_->req_out;
   write_issue_queue_->req_in << write_scale_queue_->req_out;
@@ -105,6 +106,7 @@ SmeshTop::~SmeshTop() {
 void SmeshTop::update() {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
+  write_dispatch_front_ready_ = 1;
 }
 
 void SmeshTop::reset() {

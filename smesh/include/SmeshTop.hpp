@@ -57,6 +57,8 @@ class SmeshTop : public Component {
   void reset();
 
  private:
+  Output(bit, write_dispatch_front_ready_);
+
   SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
