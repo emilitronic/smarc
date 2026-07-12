@@ -30,7 +30,7 @@ void DmaReadIssueQueue::update() {
 }
 
 DmaWriteDispatchQueue::DmaWriteDispatchQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(req_in, deq_rdy).writes(req_out, deq_val, deq_bits);
+  UPDATE(update).reads(req_in).writes(req_out, deq_val, deq_bits);  // need one update if have multiple readers
 }
 
 void DmaWriteDispatchQueue::update() {

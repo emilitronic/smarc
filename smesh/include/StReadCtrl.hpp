@@ -29,7 +29,7 @@ class StReadCtrl : public Component {
   Input(bit, accum_read_rdy);        // is accum read req ready
   Output(bit, read_req_fire);
 
-  void updateReady();
+  void updateReadFire();
   void updateInspect();
 };
 
