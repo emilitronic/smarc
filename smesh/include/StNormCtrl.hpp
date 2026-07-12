@@ -22,6 +22,14 @@ class StNormCtrl : public Component {
 
   Clock(clk);
 
+  Input(bit, norm_deq_val);
+  Input(DmaWriteReq, norm_deq_bits);
+  Input(bit, accum_read_resp_val);
+  Input(AccumReadResp, accum_read_resp_bits);
+  Input(bit, normalizer_cmd_rdy);
+  Input(bit, scale_enq_rdy);
+  Input(u32, bank_index);
+
   Output(bit, norm_deq_rdy);
   Output(bit, scale_enq_val);
   Output(bit, normalizer_cmd_val);
