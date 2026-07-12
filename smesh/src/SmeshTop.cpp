@@ -70,7 +70,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_dispatch_queue_->deq_rdy << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_val << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_bits << write_dispatch_queue_->deq_bits;
-  write_scale_queue_->req_in << write_norm_queue_->req_out;
+  write_scale_queue_->enq_val << write_norm_queue_->deq_val;
+  write_scale_queue_->enq_bits << write_norm_queue_->deq_bits;
+  write_norm_queue_->deq_rdy << write_scale_queue_->enq_rdy;
   write_issue_queue_->req_in << write_scale_queue_->req_out;
   write_issue_queue_->req_out.sendToBitBucket();       // later: write issue feeds DmaWriter
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration

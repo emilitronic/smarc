@@ -60,10 +60,19 @@ class DmaWriteNormQueue : public Component {
   Input(bit, enq_val);           // wires tapped off tail of queue for external control
   Input(DmaWriteReq, enq_bits);  // wires tapped off tail of queue for external control
   Output(bit, enq_rdy);          // wires tapped off tail of queue for external control
-  FifoOutput(DmaWriteReq, req_out);
+  Output(bit, deq_val);
+  Output(DmaWriteReq, deq_bits);
+  Input(bit, deq_rdy);
 
-  void updateReady();
-  void update();
+  void updateEnqReady();
+  void updateEnqAccept();
+  void updateDeqView();
+  void updateDeqPop();
+  void reset();
+
+ private:
+  bool valid_ = false;
+  DmaWriteReq entry_{};
 };
 
 class DmaWriteScaleQueue : public Component {
@@ -74,9 +83,12 @@ class DmaWriteScaleQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaWriteReq, req_in);
+  Input(bit, enq_val);
+  Input(DmaWriteReq, enq_bits);
+  Output(bit, enq_rdy);
   FifoOutput(DmaWriteReq, req_out);
 
+  void updateReady();
   void update();
 };
 
