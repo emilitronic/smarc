@@ -12,8 +12,8 @@ namespace smesh {
 
 Accum::Accum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
-  UPDATE(updateReadReady).writes(read_rdy);
-  UPDATE(updateRead).reads(read_req).writes(read_resp);
+  UPDATE(updateReadReady).writes(read_req_rdy);
+  UPDATE(updateRead).reads(read_req, read_req_val).writes(read_resp);
 }
 
 void Accum::updateWrite() {
@@ -57,12 +57,12 @@ void Accum::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Accum::updateReadReady() {
-  read_rdy = bit(!read_resp.full());
+  read_req_rdy = bit(!read_resp.full());
 }
 
 void Accum::updateRead() {
   const bool exread = false; // TODO: execute read wins once ExCtrl has a local-memory read port
-  const bool dmawrite = !read_req.empty();
+  const bool dmawrite = read_req_val != 0 && !read_req.empty();
   if (!exread && !dmawrite) {
     return;
   }

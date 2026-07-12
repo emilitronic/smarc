@@ -30,7 +30,8 @@ class Accum : public Component {
   FifoInput(DmaReadResp, write_in);        // accum's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last accum write is done
   FifoInput(AccumReadReq, read_req);       // accum's read req port
-  Output(bit, read_rdy);                   // tap out read req ready signal for StReadCtrl to inspect
+  Input(bit, read_req_val);                // accum's read req valid signal
+  Output(bit, read_req_rdy);               // tap out read req ready signal for StReadCtrl to inspect
   FifoOutput(AccumReadResp, read_resp);
 
   void updateWrite();

@@ -63,8 +63,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_read_ctrl_->dispatch_val << write_dispatch_queue_->deq_val;
   st_read_ctrl_->dispatch_bits << write_dispatch_queue_->deq_bits;
   st_read_ctrl_->norm_rdy << write_norm_queue_->enq_rdy;
-  st_read_ctrl_->spad_read_rdy << spad_->read_rdy;
-  st_read_ctrl_->accum_read_rdy << accum_->read_rdy;
+  st_read_ctrl_->spad_read_req_rdy << spad_->read_req_rdy;
+  st_read_ctrl_->accum_read_req_rdy << accum_->read_req_rdy;
   write_dispatch_queue_->deq_rdy << st_read_ctrl_->read_req_fire;
   write_norm_queue_->req_in << write_dispatch_queue_->req_out;
   write_scale_queue_->req_in << write_norm_queue_->req_out;
@@ -77,9 +77,11 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   local_router_->data_in << pixel_repeater_->data_out; //            MvinLocalRouter <- MvinPixelRepeater
   spad_->write_in << local_router_->spad_out;          //    Spad <- MvinLocalRouter
   accum_->write_in << local_router_->accum_out;        //   Accum <- MvinLocalRouter
-  spad_->read_req.wireToZero();                        // later: write_dispatch_queue_ -> local-memory read path
+  spad_->read_req_val << st_read_ctrl_->dmawrite_spad;
+  spad_->read_req.wireToZero();                        // later: StReadCtrl -> local-memory read path bits
   spad_->read_resp.sendToBitBucket();
-  accum_->read_req.wireToZero();                       // later: write_dispatch_queue_ -> local-memory read path
+  accum_->read_req_val << st_read_ctrl_->dmawrite_accum;
+  accum_->read_req.wireToZero();                       // later: StReadCtrl -> local-memory read path bits
   accum_->read_resp.sendToBitBucket();
   completion_mux_->spad_in << spad_->dma_resp;         //             DmaReadCompletionMux <- Spad
   completion_mux_->accum_in << accum_->dma_resp;       //             DmaReadCompletionMux <- Accum

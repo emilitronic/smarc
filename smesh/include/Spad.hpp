@@ -30,7 +30,8 @@ class Spad : public Component {
   FifoInput(DmaReadResp, write_in);        // spad's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last spad write is done
   FifoInput(SpadReadReq, read_req);        // spad's read req port
-  Output(bit, read_rdy);                   // tap out read req ready signal for StReadCtrl to inspect
+  Input(bit, read_req_val);                // spad's read req valid signal
+  Output(bit, read_req_rdy);               // tap out read req ready signal for StReadCtrl to inspect
   FifoOutput(SpadReadResp, read_resp);
 
   void updateWrite();
