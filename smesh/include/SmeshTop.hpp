@@ -58,9 +58,6 @@ class SmeshTop : public Component {
   void reset();
 
  private:
-  Output(SpadReadReq, zero_spad_read_req_);
-  Output(AccumReadReq, zero_accum_read_req_);
-
   SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;

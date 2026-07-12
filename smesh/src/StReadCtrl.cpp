@@ -13,7 +13,7 @@ namespace smesh {
 StReadCtrl::StReadCtrl(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReadFire)
       .reads(dispatch_val, dispatch_bits, norm_rdy, spad_read_req_rdy, accum_read_req_rdy)
-      .writes(dmawrite_spad, dmawrite_accum, read_req_fire);
+      .writes(dmawrite_spad, dmawrite_accum, spad_req_bits, accum_req_bits, read_req_fire);
   UPDATE(updateInspect).reads(dispatch_val, dispatch_bits, norm_rdy, spad_read_req_rdy, accum_read_req_rdy);
 }
 // compute whether store-read action can advance this cycle
@@ -31,9 +31,31 @@ void StReadCtrl::updateReadFire() {
                            norm_rdy != 0;
   const bool read_fire = (spad_valid && spad_read_req_rdy != 0) ||
                          (accum_valid && accum_read_req_rdy != 0);
+  // tap off dispatch_bits for spat read req payload
+  SpadReadReq spad_req{};
+  spad_req.laddr = laddr;
+  spad_req.len = req.len;
+  spad_req.cmd_id = req.cmd_id;
+  spad_req.from_dma = true;
+  // tap off dispatch_bits for accum read req payload
+  AccumReadReq accum_req{};
+  accum_req.laddr = laddr;
+  accum_req.len = req.len;
+  accum_req.act = req.acc_act;
+  accum_req.scale = req.acc_scale;
+  accum_req.igelu_qb = req.acc_igelu_qb;
+  accum_req.igelu_qc = req.acc_igelu_qc;
+  accum_req.iexp_qln2 = req.acc_iexp_qln2;
+  accum_req.iexp_qln2_inv = req.acc_iexp_qln2_inv;
+  accum_req.full = laddr.read_full_acc_row();
+  accum_req.cmd_id = req.cmd_id;
+  accum_req.from_dma = true;
+
   // outputs
   dmawrite_spad  = bit(spad_valid);
   dmawrite_accum = bit(accum_valid);
+  spad_req_bits = spad_req;
+  accum_req_bits = accum_req;
   read_req_fire  = bit(read_fire);
 }
 // look at dispatch queue command

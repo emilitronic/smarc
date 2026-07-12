@@ -79,10 +79,10 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_->write_in << local_router_->spad_out;          //    Spad <- MvinLocalRouter
   accum_->write_in << local_router_->accum_out;        //   Accum <- MvinLocalRouter
   spad_->read_req_val << st_read_ctrl_->dmawrite_spad;
-  spad_->read_req_bits << zero_spad_read_req_;         // later: StReadCtrl -> local-memory read path bits
+  spad_->read_req_bits << st_read_ctrl_->spad_req_bits;
   spad_->read_resp.sendToBitBucket();
   accum_->read_req_val << st_read_ctrl_->dmawrite_accum;
-  accum_->read_req_bits << zero_accum_read_req_;       // later: StReadCtrl -> local-memory read path bits
+  accum_->read_req_bits << st_read_ctrl_->accum_req_bits;
   accum_->read_resp.sendToBitBucket();
   completion_mux_->spad_in << spad_->dma_resp;         //             DmaReadCompletionMux <- Spad
   completion_mux_->accum_in << accum_->dma_resp;       //             DmaReadCompletionMux <- Accum
@@ -90,7 +90,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
 
-  UPDATE(update).writes(zero_spad_read_req_, zero_accum_read_req_);
+  UPDATE(update);
 }
 
 SmeshTop::~SmeshTop() {
@@ -115,8 +115,6 @@ SmeshTop::~SmeshTop() {
 }
 
 void SmeshTop::update() {
-  zero_spad_read_req_ = SpadReadReq{};
-  zero_accum_read_req_ = AccumReadReq{};
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
 }

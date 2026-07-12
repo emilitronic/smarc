@@ -29,6 +29,8 @@ class StReadCtrl : public Component {
   Input(bit, accum_read_req_rdy);    // is accum read req ready
   Output(bit, dmawrite_spad);
   Output(bit, dmawrite_accum);
+  Output(SpadReadReq, spad_req_bits);   // tap off spad read req payload for spad to consume
+  Output(AccumReadReq, accum_req_bits); // tap off accum read req payload for accum to consume
   Output(bit, read_req_fire);
 
   void updateReadFire();
