@@ -8,6 +8,7 @@ add_library(smesh_model
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
+  src/Normalizer.cpp
   src/SmeshCmdQueues.cpp
   src/SmeshDevice.cpp
   src/SmeshRS.cpp

@@ -143,4 +143,17 @@ struct AccumReadResp {
   bit from_dma = true;
 };
 
+// command metadata entering accumulator normalization
+struct AccNormCmd {
+  u16 len = 0;
+  u16 stats_id = 0;
+  u8 cmd = 0;
+};
+
+// joined accumulator data + normalization metadata
+struct AccNormReq {
+  AccumReadResp acc_read_resp{};
+  AccNormCmd cmd{};
+};
+
 } // namespace smesh
