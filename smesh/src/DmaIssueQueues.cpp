@@ -30,19 +30,21 @@ void DmaReadIssueQueue::update() {
 }
 
 DmaWriteDispatchQueue::DmaWriteDispatchQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(req_in).writes(req_out, deq_val, deq_bits);  // need one update if have multiple readers
+  UPDATE(updateDeqView).reads(req_in).writes(deq_val, deq_bits);
+  UPDATE(updateDeqPop).reads(deq_rdy);
 }
-
-void DmaWriteDispatchQueue::update() {
+// expose head of queue to outside logic
+void DmaWriteDispatchQueue::updateDeqView() {
   deq_val = bit(!req_in.empty());  // if there's a command at head of queue, assert deq_val
   deq_bits = req_in.empty() ? DmaWriteReq{} : req_in.peek(); // if queue is empty, drive blank request, else expose head of queue w/o consuming it
-
-  if (req_in.empty() || req_out.full() || deq_rdy == 0) {  // don't move command forward if no command available, or next queue is full, or outside logic says not ready
+}
+// pop head of queue if outside logic says it's ok to advance
+void DmaWriteDispatchQueue::updateDeqPop() {
+  if (req_in.empty() || deq_rdy == 0) {  // don't consume command unless outside logic says this entry fires
     return;
   }
 
   const auto req = req_in.pop();
-  req_out.push(req);
 
   trace("dma_write_dispatch_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
         static_cast<unsigned long long>(req.vaddr),
@@ -54,7 +56,7 @@ void DmaWriteDispatchQueue::update() {
 
 DmaWriteNormQueue::DmaWriteNormQueue(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady).writes(enq_rdy);
-  UPDATE(update).reads(req_in).writes(req_out);
+  UPDATE(update).reads(enq_val, enq_bits).writes(req_out);
 }
 
 void DmaWriteNormQueue::updateReady() {
@@ -62,11 +64,11 @@ void DmaWriteNormQueue::updateReady() {
 }
 
 void DmaWriteNormQueue::update() {
-  if (req_in.empty() || req_out.full()) {
+  if (enq_val == 0 || req_out.full()) {
     return;
   }
 
-  const auto req = req_in.pop();
+  const auto req = *enq_bits;
   req_out.push(req);
 
   trace("dma_write_norm_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",

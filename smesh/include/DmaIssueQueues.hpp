@@ -37,12 +37,16 @@ class DmaWriteDispatchQueue : public Component {
   Clock(clk);
 
   FifoInput(DmaWriteReq, req_in);
-  FifoOutput(DmaWriteReq, req_out);
   Output(bit, deq_val);          // explicit dequeue-side view of the head entry
   Output(DmaWriteReq, deq_bits); // explicit dequeue-side view of the head entry
   Input(bit, deq_rdy);           // external control says the head entry may advance
-
-  void update();
+  // expose (show head entry) and pop (consum head entry) need separate update fns. 
+  // to avoid combinational loop between deq_val and deq_rdy
+  // otherwise the same function will produce signal that starts
+  // the decision and consume the signal that comes back from
+  // the decision (a combinational cycle)
+  void updateDeqView(); 
+  void updateDeqPop();  
 };
 
 class DmaWriteNormQueue : public Component {
@@ -53,7 +57,6 @@ class DmaWriteNormQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaWriteReq, req_in);
   Input(bit, enq_val);           // wires tapped off tail of queue for external control
   Input(DmaWriteReq, enq_bits);  // wires tapped off tail of queue for external control
   Output(bit, enq_rdy);          // wires tapped off tail of queue for external control
