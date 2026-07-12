@@ -27,6 +27,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
   local_router_         = new MvinLocalRouter("MvinLocalRouter");
   spad_                 = new Spad("Spad");
+  spad_dma_read_pipe_   = new SpadDmaReadPipe("SpadDmaReadPipe");
   accum_                = new Accum("Accum");
   completion_mux_       = new DmaReadCompletionMux("DmaReadCompletionMux");
 
@@ -46,6 +47,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   pixel_repeater_->clk       << clk;
   local_router_->clk         << clk;
   spad_->clk                 << clk;
+  spad_dma_read_pipe_->clk   << clk;
   accum_->clk                << clk;
   completion_mux_->clk       << clk;
 
@@ -80,7 +82,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   accum_->write_in << local_router_->accum_out;        //   Accum <- MvinLocalRouter
   spad_->read_req_val << st_read_ctrl_->dmawrite_spad;
   spad_->read_req_bits << st_read_ctrl_->spad_req_bits;
-  spad_->read_resp.sendToBitBucket();
+  spad_dma_read_pipe_->resp_in << spad_->read_resp;
+  spad_dma_read_pipe_->resp_out.sendToBitBucket();     // later: spad DMA read data feeds DmaWriter
   accum_->read_req_val << st_read_ctrl_->dmawrite_accum;
   accum_->read_req_bits << st_read_ctrl_->accum_req_bits;
   accum_->read_resp.sendToBitBucket();
@@ -96,6 +99,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
 SmeshTop::~SmeshTop() {
   delete completion_mux_;
   delete accum_;
+  delete spad_dma_read_pipe_;
   delete spad_;
   delete local_router_;
   delete pixel_repeater_;

@@ -25,6 +25,7 @@ easy to inspect.
 #include "SmeshCmdQueues.hpp"
 #include "SmeshRS.hpp"
 #include "Spad.hpp"
+#include "SpadReadPipes.hpp"
 #include "StCtrl.hpp"
 #include "StReadCtrl.hpp"
 #include "smem/MemTypes.hpp"
@@ -74,6 +75,7 @@ class SmeshTop : public Component {
   MvinPixelRepeater*       pixel_repeater_ = nullptr;
   MvinLocalRouter*         local_router_ = nullptr;
   Spad*                    spad_ = nullptr;
+  SpadDmaReadPipe*         spad_dma_read_pipe_ = nullptr;
   Accum*                   accum_ = nullptr;
   DmaReadCompletionMux*    completion_mux_ = nullptr;
 };
