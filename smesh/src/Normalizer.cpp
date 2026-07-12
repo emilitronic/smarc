@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
-Accumulator normalization skeleton implementation.
+Transform/joins accumulator read data and norm metadata.
 */
 
 #include "Normalizer.hpp"

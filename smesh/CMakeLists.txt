@@ -16,6 +16,7 @@ add_library(smesh_model
   src/Spad.cpp
   src/SpadReadPipes.cpp
   src/StCtrl.cpp
+  src/StNormCtrl.cpp
   src/StReadCtrl.cpp
 )
 
