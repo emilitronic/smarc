@@ -13,7 +13,7 @@ namespace smesh {
 Accum::Accum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy);
-  UPDATE(updateRead).reads(read_req, read_req_val).writes(read_resp);
+  UPDATE(updateRead).reads(read_req_val, read_req_bits).writes(read_resp);
 }
 
 void Accum::updateWrite() {
@@ -62,7 +62,7 @@ void Accum::updateReadReady() {
 
 void Accum::updateRead() {
   const bool exread = false; // TODO: execute read wins once ExCtrl has a local-memory read port
-  const bool dmawrite = read_req_val != 0 && !read_req.empty();
+  const bool dmawrite = read_req_val != 0;
   if (!exread && !dmawrite) {
     return;
   }
@@ -73,7 +73,7 @@ void Accum::updateRead() {
     return;
   }
 
-  const auto req = read_req.pop();
+  const auto req = *read_req_bits;
   assert_always(req.laddr.is_acc_addr(), "Accum read received a scratchpad address");
 
   const auto& source = banks_[req.laddr.acc_bank()][req.laddr.acc_row()];

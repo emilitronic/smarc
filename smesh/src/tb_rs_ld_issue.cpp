@@ -40,6 +40,18 @@ class RsAllocDriver : public Component {
   std::uint32_t next_command_ = 0;
 };
 
+class ZeroSpadReadDriver : public Component {
+  DECLARE_COMPONENT(ZeroSpadReadDriver);
+
+ public:
+  ZeroSpadReadDriver(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+  Output(smesh::SpadReadReq, read_req);
+
+  void update();
+};
+
 RsAllocDriver::RsAllocDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).writes(alloc_out);
 }
@@ -68,6 +80,14 @@ void RsAllocDriver::reset() {
   next_command_ = 0;
 }
 
+ZeroSpadReadDriver::ZeroSpadReadDriver(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).writes(read_req);
+}
+
+void ZeroSpadReadDriver::update() {
+  read_req = smesh::SpadReadReq{};
+}
+
 int main(int argc, char* argv[]) {
   descore::parseTraces(argc, argv);
   Parameter::parseCommandLine(argc, argv);
@@ -80,6 +100,7 @@ int main(int argc, char* argv[]) {
   smesh::MvinScale mvin_scale("MvinScale");
   smesh::MvinPixelRepeater pixel_repeater("MvinPixelRepeater");
   smesh::Spad spad("Spad");
+  ZeroSpadReadDriver zero_spad_read("ZeroSpadRead");
   smem::MemCtrl mem("MemCtrl");
   smem::Dram dram("Dram", 0);
 
@@ -93,7 +114,7 @@ int main(int argc, char* argv[]) {
   mvin_scale.data_in << dma_reader.resp_out;
   pixel_repeater.data_in << mvin_scale.data_out;
   spad.write_in << pixel_repeater.data_out;
-  spad.read_req.wireToZero();
+  spad.read_req_bits << zero_spad_read.read_req;
   spad.read_resp.sendToBitBucket();
   ld_ctrl.dma_resp << spad.dma_resp;
   mem.in_core_req.setDelay(1);
@@ -109,6 +130,7 @@ int main(int argc, char* argv[]) {
   mvin_scale.clk << clk;
   pixel_repeater.clk << clk;
   spad.clk << clk;
+  zero_spad_read.clk << clk;
   mem.clk << clk;
   dram.clk << clk;
   clk.generateClock();
