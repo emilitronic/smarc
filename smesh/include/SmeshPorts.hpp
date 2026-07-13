@@ -156,4 +156,17 @@ struct AccNormReq {
   AccNormCmd cmd{};
 };
 
+// accumulator data entering the accumulator scale stage
+struct AccScaleReq {
+  AccNormReq norm{};
+};
+
+// accumulator data after the accumulator scale stage
+struct AccScaleResp {
+  u64 full_data = 0;
+  u64 data = 0;
+  u16 acc_bank_id = 0;
+  bit from_dma = true;
+};
+
 } // namespace smesh
