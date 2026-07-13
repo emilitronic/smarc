@@ -22,6 +22,7 @@ easy to inspect.
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
+#include "Normalizer.hpp"
 #include "SmeshCmdQueues.hpp"
 #include "SmeshRS.hpp"
 #include "Spad.hpp"
@@ -70,6 +71,7 @@ class SmeshTop : public Component {
   StReadCtrl*              st_read_ctrl_ = nullptr;
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;
+  Normalizer*              normalizer_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
