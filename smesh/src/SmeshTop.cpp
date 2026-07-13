@@ -57,14 +57,14 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_->cmd_valid << cmd_valid;
   cmd_queue_->cmd_bits  << cmd_bits;
   cmd_ready             << cmd_queue_->cmd_ready;
-  unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out;  // cmd_queue_ -> unrolled_cmd_queue_
-  rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;       //               unrolled_cmd_queue_ -> RS allocation
-  ld_ctrl_->cmd_in << rs_->issue_ld;                   //                                      RS load issue -> LdCtrl
-  rs_->completed   << ld_ctrl_->completed;               //                                      RS completion <- LdCtrl
-  read_issue_queue_->req_in << ld_ctrl_->dma_req;      //                                                       LdCtrl -> DmaReadIssueQueue
-  dma_reader_->req_in       << read_issue_queue_->req_out;   //                                           DmaReadIssueQueue -> DmaReader
-  st_ctrl_->cmd_in << rs_->issue_st;                   //                                      RS store issue -> StCtrl
-  write_dispatch_queue_->req_in << st_ctrl_->dma_req;  //                                                       StCtrl -> DmaWriteDispatchQueue
+  unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out;  
+  rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;       
+  ld_ctrl_->cmd_in << rs_->issue_ld;                   
+  rs_->completed   << ld_ctrl_->completed;               
+  read_issue_queue_->req_in << ld_ctrl_->dma_req;      
+  dma_reader_->req_in       << read_issue_queue_->req_out;   
+  st_ctrl_->cmd_in << rs_->issue_st;                   
+  write_dispatch_queue_->req_in << st_ctrl_->dma_req;  
   st_read_ctrl_->dispatch_val       << write_dispatch_queue_->deq_val;
   st_read_ctrl_->dispatch_bits      << write_dispatch_queue_->deq_bits;
   st_read_ctrl_->norm_rdy           << write_norm_queue_->enq_rdy;
@@ -80,21 +80,21 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_issue_queue_->req_out.sendToBitBucket();       // later: write issue feeds DmaWriter
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
-  mvin_scale_->data_in     << dma_reader_->resp_out;       //                                                    MvinScale <- DmaReader
-  pixel_repeater_->data_in << mvin_scale_->data_out;   //                               MvinPixelRepeater <- MvinScale 
-  local_router_->data_in   << pixel_repeater_->data_out; //            MvinLocalRouter <- MvinPixelRepeater
-  spad_->write_in          << local_router_->spad_out;          //    Spad <- MvinLocalRouter
-  accum_->write_in         << local_router_->accum_out;        //   Accum <- MvinLocalRouter
+  mvin_scale_->data_in     << dma_reader_->resp_out;       
+  pixel_repeater_->data_in << mvin_scale_->data_out;    
+  local_router_->data_in   << pixel_repeater_->data_out; 
+  spad_->write_in          << local_router_->spad_out; 
+  accum_->write_in         << local_router_->accum_out; 
   spad_->read_req_val      << st_read_ctrl_->dmawrite_spad;
   spad_->read_req_bits     << st_read_ctrl_->spad_req_bits;
   spad_dma_read_pipe_->resp_in << spad_->read_resp;
   spad_dma_read_pipe_->resp_out.sendToBitBucket();     // later: spad DMA read data feeds DmaWriter
   accum_->read_req_val     << st_read_ctrl_->dmawrite_accum;
   accum_->read_req_bits    << st_read_ctrl_->accum_req_bits;
-  accum_->read_resp.sendToBitBucket();
-  completion_mux_->spad_in  << spad_->dma_resp;         //             DmaReadCompletionMux <- Spad
-  completion_mux_->accum_in << accum_->dma_resp;       //             DmaReadCompletionMux <- Accum
-  ld_ctrl_->dma_resp        << completion_mux_->dma_resp;     //   LdCtrl <- DmaReadCompletionMux
+  accum_->read_resp_rdy    << bit(true);               // later: StNormCtrl controls accumulator read-response consumption
+  completion_mux_->spad_in  << spad_->dma_resp;         
+  completion_mux_->accum_in << accum_->dma_resp;       
+  ld_ctrl_->dma_resp        << completion_mux_->dma_resp;     
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
 

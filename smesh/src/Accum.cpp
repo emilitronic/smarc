@@ -13,7 +13,9 @@ namespace smesh {
 Accum::Accum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy);
-  UPDATE(updateRead).reads(read_req_val, read_req_bits).writes(read_resp);
+  UPDATE(updateReadRespView).writes(read_resp_val, read_resp_bits);
+  UPDATE(updateReadRespPop).reads(read_resp_rdy);
+  UPDATE(updateRead).reads(read_req_val, read_req_bits);
 }
 
 void Accum::updateWrite() {
@@ -57,7 +59,19 @@ void Accum::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Accum::updateReadReady() {
-  read_req_rdy = bit(!read_resp.full());
+  read_req_rdy = bit(!read_resp_valid_);
+}
+
+void Accum::updateReadRespView() {
+  read_resp_val = bit(read_resp_valid_);
+  read_resp_bits = read_resp_valid_ ? read_resp_entry_ : AccumReadResp{};
+}
+
+void Accum::updateReadRespPop() {
+  if (read_resp_valid_ && read_resp_rdy != 0) {
+    read_resp_valid_ = false;
+    read_resp_entry_ = AccumReadResp{};
+  }
 }
 
 void Accum::updateRead() {
@@ -69,7 +83,7 @@ void Accum::updateRead() {
   if (exread) {
     return;
   }
-  if (read_resp.full()) {
+  if (read_resp_valid_) {
     return;
   }
 
@@ -90,7 +104,8 @@ void Accum::updateRead() {
                       static_cast<std::uint8_t>(source[lane] & 0xff)) << (lane * 8));
     resp.mask |= static_cast<u8>(u8{1} << lane);
   }
-  read_resp.push(resp);
+  read_resp_entry_ = resp;
+  read_resp_valid_ = true;
   trace("accum: dma read bank=%u row=%u mask=0x%x cmd_id=%u",
         static_cast<unsigned>(req.laddr.acc_bank()),
         static_cast<unsigned>(req.laddr.acc_row()),
@@ -101,6 +116,8 @@ void Accum::updateRead() {
 void Accum::reset() {
   banks_ = {};
   write_accepted_ = false;
+  read_resp_valid_ = false;
+  read_resp_entry_ = AccumReadResp{};
 }
 
 const Accum::Row& Accum::row(SmeshLocalAddr addr) const {

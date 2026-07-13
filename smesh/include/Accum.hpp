@@ -29,13 +29,19 @@ class Accum : public Component {
 
   FifoInput(DmaReadResp, write_in);        // accum's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last accum write is done
+
   Input(bit, read_req_val);                // accum's read req valid signal
   Output(bit, read_req_rdy);               // tap out read req ready signal for StReadCtrl to inspect
   Input(AccumReadReq, read_req_bits);      // accum's read req payload
-  FifoOutput(AccumReadResp, read_resp);
+
+  Output(bit, read_resp_val);
+  Output(AccumReadResp, read_resp_bits);
+  Input(bit, read_resp_rdy);
 
   void updateWrite();
   void updateReadReady();
+  void updateReadRespView();
+  void updateReadRespPop();
   void updateRead();
   void reset();
 
@@ -44,7 +50,9 @@ class Accum : public Component {
 
  private:
   std::array<std::array<Row, kAccBankRows>, kAccBanks> banks_{};
-  bool write_accepted_ = false;
+  bool write_accepted_  = false;
+  bool read_resp_valid_ = false;
+  AccumReadResp read_resp_entry_{}; // reg holds response while waiting for StNormCtrl to pop it
 };
 
 } // namespace smesh
