@@ -55,6 +55,7 @@ class SmeshTop : public Component {
   const SmeshRS& rs()     const { return *rs_; }
   const LdCtrl&  ldCtrl() const { return *ld_ctrl_; }
   const Spad&    spad()   const { return *spad_; }
+  const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_; }
   const Accum&   accum()  const { return *accum_; }
 
   void update();
