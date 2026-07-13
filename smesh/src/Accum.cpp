@@ -61,12 +61,12 @@ void Accum::updateWrite() {
 void Accum::updateReadReady() {
   read_req_rdy = bit(!read_resp_valid_);
 }
-
+// shows current response to outside world
 void Accum::updateReadRespView() {
   read_resp_val = bit(read_resp_valid_);
-  read_resp_bits = read_resp_valid_ ? read_resp_entry_ : AccumReadResp{};
+  read_resp_bits = read_resp_valid_ ? read_resp_entry_ : AccumReadResp{}; // if  not valid, drive blank response
 }
-
+// consumes/clears response when downsream block is ready
 void Accum::updateReadRespPop() {
   if (read_resp_valid_ && read_resp_rdy != 0) {
     read_resp_valid_ = false;
