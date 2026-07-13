@@ -20,6 +20,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_dispatch_queue_ = new DmaWriteDispatchQueue("DmaWriteDispatchQueue");
   st_read_ctrl_         = new StReadCtrl("StReadCtrl");
   write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
+  st_norm_ctrl_         = new StNormCtrl("StNormCtrl");
   write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");
   write_issue_queue_    = new DmaWriteIssueQueue("DmaWriteIssueQueue");
   dma_reader_           = new DmaReader("DmaReader");
@@ -40,6 +41,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_dispatch_queue_->clk << clk;
   st_read_ctrl_->clk         << clk;
   write_norm_queue_->clk     << clk;
+  st_norm_ctrl_->clk         << clk;
+  st_norm_ctrl_->bank_index  << u32(0); // we don't have banks structures defined yet, set to 0 for now
   write_scale_queue_->clk    << clk;
   write_issue_queue_->clk    << clk;
   dma_reader_->clk           << clk;
@@ -55,43 +58,43 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_->cmd_bits  << cmd_bits;
   cmd_ready             << cmd_queue_->cmd_ready;
   unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out;  // cmd_queue_ -> unrolled_cmd_queue_
-  rs_->alloc_in << unrolled_cmd_queue_->cmd_out;       //               unrolled_cmd_queue_ -> RS allocation
+  rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;       //               unrolled_cmd_queue_ -> RS allocation
   ld_ctrl_->cmd_in << rs_->issue_ld;                   //                                      RS load issue -> LdCtrl
-  rs_->completed << ld_ctrl_->completed;               //                                      RS completion <- LdCtrl
+  rs_->completed   << ld_ctrl_->completed;               //                                      RS completion <- LdCtrl
   read_issue_queue_->req_in << ld_ctrl_->dma_req;      //                                                       LdCtrl -> DmaReadIssueQueue
-  dma_reader_->req_in << read_issue_queue_->req_out;   //                                           DmaReadIssueQueue -> DmaReader
+  dma_reader_->req_in       << read_issue_queue_->req_out;   //                                           DmaReadIssueQueue -> DmaReader
   st_ctrl_->cmd_in << rs_->issue_st;                   //                                      RS store issue -> StCtrl
   write_dispatch_queue_->req_in << st_ctrl_->dma_req;  //                                                       StCtrl -> DmaWriteDispatchQueue
-  st_read_ctrl_->dispatch_val << write_dispatch_queue_->deq_val;
-  st_read_ctrl_->dispatch_bits << write_dispatch_queue_->deq_bits;
-  st_read_ctrl_->norm_rdy << write_norm_queue_->enq_rdy;
-  st_read_ctrl_->spad_read_req_rdy << spad_->read_req_rdy;
+  st_read_ctrl_->dispatch_val       << write_dispatch_queue_->deq_val;
+  st_read_ctrl_->dispatch_bits      << write_dispatch_queue_->deq_bits;
+  st_read_ctrl_->norm_rdy           << write_norm_queue_->enq_rdy;
+  st_read_ctrl_->spad_read_req_rdy  << spad_->read_req_rdy;
   st_read_ctrl_->accum_read_req_rdy << accum_->read_req_rdy;
   write_dispatch_queue_->deq_rdy << st_read_ctrl_->read_req_fire;
-  write_norm_queue_->enq_val << st_read_ctrl_->read_req_fire;
-  write_norm_queue_->enq_bits << write_dispatch_queue_->deq_bits;
-  write_scale_queue_->enq_val << write_norm_queue_->deq_val;
+  write_norm_queue_->enq_val   << st_read_ctrl_->read_req_fire;
+  write_norm_queue_->enq_bits  << write_dispatch_queue_->deq_bits;
+  write_scale_queue_->enq_val  << write_norm_queue_->deq_val;
   write_scale_queue_->enq_bits << write_norm_queue_->deq_bits;
-  write_norm_queue_->deq_rdy << write_scale_queue_->enq_rdy;
-  write_issue_queue_->req_in << write_scale_queue_->req_out;
+  write_norm_queue_->deq_rdy   << write_scale_queue_->enq_rdy;
+  write_issue_queue_->req_in   << write_scale_queue_->req_out;
   write_issue_queue_->req_out.sendToBitBucket();       // later: write issue feeds DmaWriter
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
-  mvin_scale_->data_in << dma_reader_->resp_out;       //                                                    MvinScale <- DmaReader
+  mvin_scale_->data_in     << dma_reader_->resp_out;       //                                                    MvinScale <- DmaReader
   pixel_repeater_->data_in << mvin_scale_->data_out;   //                               MvinPixelRepeater <- MvinScale 
-  local_router_->data_in << pixel_repeater_->data_out; //            MvinLocalRouter <- MvinPixelRepeater
-  spad_->write_in << local_router_->spad_out;          //    Spad <- MvinLocalRouter
-  accum_->write_in << local_router_->accum_out;        //   Accum <- MvinLocalRouter
-  spad_->read_req_val << st_read_ctrl_->dmawrite_spad;
-  spad_->read_req_bits << st_read_ctrl_->spad_req_bits;
+  local_router_->data_in   << pixel_repeater_->data_out; //            MvinLocalRouter <- MvinPixelRepeater
+  spad_->write_in          << local_router_->spad_out;          //    Spad <- MvinLocalRouter
+  accum_->write_in         << local_router_->accum_out;        //   Accum <- MvinLocalRouter
+  spad_->read_req_val      << st_read_ctrl_->dmawrite_spad;
+  spad_->read_req_bits     << st_read_ctrl_->spad_req_bits;
   spad_dma_read_pipe_->resp_in << spad_->read_resp;
   spad_dma_read_pipe_->resp_out.sendToBitBucket();     // later: spad DMA read data feeds DmaWriter
-  accum_->read_req_val << st_read_ctrl_->dmawrite_accum;
-  accum_->read_req_bits << st_read_ctrl_->accum_req_bits;
+  accum_->read_req_val     << st_read_ctrl_->dmawrite_accum;
+  accum_->read_req_bits    << st_read_ctrl_->accum_req_bits;
   accum_->read_resp.sendToBitBucket();
-  completion_mux_->spad_in << spad_->dma_resp;         //             DmaReadCompletionMux <- Spad
+  completion_mux_->spad_in  << spad_->dma_resp;         //             DmaReadCompletionMux <- Spad
   completion_mux_->accum_in << accum_->dma_resp;       //             DmaReadCompletionMux <- Accum
-  ld_ctrl_->dma_resp << completion_mux_->dma_resp;     //   LdCtrl <- DmaReadCompletionMux
+  ld_ctrl_->dma_resp        << completion_mux_->dma_resp;     //   LdCtrl <- DmaReadCompletionMux
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
 
@@ -109,6 +112,7 @@ SmeshTop::~SmeshTop() {
   delete dma_reader_;
   delete write_issue_queue_;
   delete write_scale_queue_;
+  delete st_norm_ctrl_;
   delete write_norm_queue_;
   delete st_read_ctrl_;
   delete write_dispatch_queue_;

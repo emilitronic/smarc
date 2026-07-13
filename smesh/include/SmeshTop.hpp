@@ -27,6 +27,7 @@ easy to inspect.
 #include "Spad.hpp"
 #include "SpadReadPipes.hpp"
 #include "StCtrl.hpp"
+#include "StNormCtrl.hpp"
 #include "StReadCtrl.hpp"
 #include "smem/MemTypes.hpp"
 
@@ -68,6 +69,7 @@ class SmeshTop : public Component {
   DmaWriteDispatchQueue*   write_dispatch_queue_ = nullptr;
   StReadCtrl*              st_read_ctrl_ = nullptr;
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
+  StNormCtrl*              st_norm_ctrl_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
