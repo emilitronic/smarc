@@ -58,6 +58,14 @@ class SmeshTop : public Component {
   const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_; }
   const Accum&   accum()  const { return *accum_; }
 
+  // Store-path monitor taps for testbench-only checkers.
+  auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad; }
+  auto& storeSpadReadReqRdy() { return spad_->read_req_rdy; }
+  auto& storeSpadReadReqBits() { return st_read_ctrl_->spad_req_bits; }
+  auto& storeNormEnqVal() { return st_read_ctrl_->read_req_fire; }
+  auto& storeNormEnqRdy() { return write_norm_queue_->enq_rdy; }
+  auto& storeNormEnqBits() { return write_dispatch_queue_->deq_bits; }
+
   void update();
   void reset();
 
