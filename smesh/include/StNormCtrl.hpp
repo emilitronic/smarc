@@ -33,6 +33,7 @@ class StNormCtrl : public Component {
   Output(bit, norm_deq_rdy);
   Output(bit, scale_enq_val);
   Output(bit, normalizer_cmd_val);
+  Output(AccNormReq, normalizer_req_bits);
   Output(bit, accum_read_resp_rdy);
 
   void update();

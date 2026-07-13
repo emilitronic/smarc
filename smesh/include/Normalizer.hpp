@@ -22,10 +22,12 @@ class Normalizer : public Component {
 
   Clock(clk);
 
-  FifoInput(AccumReadResp, acc_resp_in);
-  FifoInput(DmaWriteReq, cmd_in);
+  Input(bit, req_val);
+  Output(bit, req_rdy);
+  Input(AccNormReq, req_bits);
   FifoOutput(AccNormReq, req_out);
 
+  void updateReady();
   void update();
 };
 

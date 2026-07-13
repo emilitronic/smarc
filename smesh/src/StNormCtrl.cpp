@@ -49,11 +49,13 @@ StNormCtrl::StNormCtrl(std::string /*name*/, IMPL_CTOR) {
                 .writes(norm_deq_rdy,
                         scale_enq_val,
                         normalizer_cmd_val,
+                        normalizer_req_bits,
                         accum_read_resp_rdy);
 }
 
 void StNormCtrl::update() {
   const auto req = *norm_deq_bits;
+  const auto acc_resp = *accum_read_resp_bits;
   const auto laddr = req.laddr;
 
   const bool is_scratchpad = !laddr.is_acc_addr(); // metadata says we're writing from spad
@@ -65,10 +67,17 @@ void StNormCtrl::update() {
       laddr.acc_bank() == static_cast<std::uint32_t>(bank_index); // metadata says this is write from accum
   const bool writes_to_main_memory = normCmdWritesToMainMemory(laddr.norm_cmd()); // is subfield norm_cmd==RESET?
 
+  // just using next_* as a convenience (clear C++/Cascade separation)
   bool next_norm_deq_rdy        = false;
   bool next_scale_enq_val       = false;
   bool next_normalizer_cmd_val  = false; // default skip normalizer
   bool next_accum_read_resp_rdy = false; // default don't consume accum read resp
+  AccNormReq next_normalizer_req{};
+  next_normalizer_req.acc_read_resp = acc_resp;
+  next_normalizer_req.cmd.len       = req.len;
+  next_normalizer_req.cmd.stats_id  = req.acc_norm_stats_id;
+  next_normalizer_req.cmd.cmd = static_cast<u8>(laddr.norm_cmd());
+
   // CASE 1: spad or garbage, bypass normalizer stage
   if (bypass_normalizer) {
     next_norm_deq_rdy = scale_enq_rdy != 0; // norm may pop if scale queue is ready
@@ -101,6 +110,7 @@ void StNormCtrl::update() {
   norm_deq_rdy = bit(next_norm_deq_rdy);
   scale_enq_val = bit(next_scale_enq_val);
   normalizer_cmd_val = bit(next_normalizer_cmd_val);
+  normalizer_req_bits = next_normalizer_req;
   accum_read_resp_rdy = bit(next_accum_read_resp_rdy);
 }
 
