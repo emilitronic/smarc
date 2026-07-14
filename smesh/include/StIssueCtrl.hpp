@@ -22,6 +22,18 @@ class StIssueCtrl : public Component {
 
   Clock(clk);
 
+  Input(bit, issue_deq_val);        // DmaWriteIssueQueue head metadata is valid
+  Input(DmaWriteReq, issue_deq_bits); // DmaWriteIssueQueue head metadata payload
+
+  Input(bit, dma_writer_req_rdy);   // DmaWriter can accept selected metadata/data this cycle
+  Input(bit, spad_writer_req_rdy);  // SpadWriter can accept selected metadata/data this cycle
+
+  Input(bit, spad_data_val);        // SpadDmaReadPipe has normal-width data available
+  Input(SpadReadResp, spad_data_bits); // SpadDmaReadPipe data payload
+
+  Input(bit, acc_data_val);         // AccScaleUnit has accumulator-sourced data available
+  Input(AccScaleResp, acc_data_bits); // AccScaleUnit data payload
+
   Output(bit, spad_data_rdy); // tells SpadDmaReadPipe output it may be consumed
   Output(bit, acc_data_rdy);  // tells AccScaleUnit output it may be consumed
 

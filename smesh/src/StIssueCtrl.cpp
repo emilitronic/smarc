@@ -11,13 +11,25 @@ Store-path final issue control skeleton implementation.
 namespace smesh {
 
 StIssueCtrl::StIssueCtrl(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateDataOutputs).writes(spad_data_rdy,
+  UPDATE(updateDataOutputs).reads(issue_deq_val,
+                                  issue_deq_bits,
+                                  spad_data_val,
+                                  spad_data_bits,
+                                  acc_data_val,
+                                  acc_data_bits)
+                           .writes(spad_data_rdy,
                                    acc_data_rdy,
                                    data_source_sel,
                                    final_data_sel,
                                    write_data_is_all_zeros,
                                    write_data_is_full_width);
-  UPDATE(updateWriterOutputs).writes(dma_writer_req_val,
+  UPDATE(updateWriterOutputs).reads(issue_deq_val,
+                                    issue_deq_bits,
+                                    dma_writer_req_rdy,
+                                    spad_writer_req_rdy,
+                                    spad_data_val,
+                                    acc_data_val)
+                             .writes(dma_writer_req_val,
                                      spad_writer_req_val,
                                      issue_deq_rdy,
                                      writer_sel);
