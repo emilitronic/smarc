@@ -15,6 +15,7 @@ easy to inspect.
 #include <cascade/Cascade.hpp>
 
 #include "Accum.hpp"
+#include "AccScaleUnit.hpp"
 #include "DmaIssueQueues.hpp"
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
@@ -30,6 +31,7 @@ easy to inspect.
 #include "StCtrl.hpp"
 #include "StNormCtrl.hpp"
 #include "StReadCtrl.hpp"
+#include "StScaleCtrl.hpp"
 #include "smem/MemTypes.hpp"
 
 namespace smesh {
@@ -81,6 +83,8 @@ class SmeshTop : public Component {
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;
   Normalizer*              normalizer_ = nullptr;
+  AccScaleUnit*            acc_scale_unit_ = nullptr;
+  StScaleCtrl*             st_scale_ctrl_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;

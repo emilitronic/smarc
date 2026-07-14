@@ -12,21 +12,36 @@ namespace smesh {
 
 Normalizer::Normalizer(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady).writes(req_rdy);
-  UPDATE(update).reads(req_val, req_bits).writes(req_out);
+  UPDATE(updateRespView).writes(resp_val, resp_bits);
+  UPDATE(updateRespPop).reads(resp_rdy);
+  UPDATE(update).reads(req_val, req_bits);
 }
 
 void Normalizer::updateReady() {
-  req_rdy = bit(!req_out.full());
+  req_rdy = bit(!resp_valid_);
+}
+
+void Normalizer::updateRespView() {
+  resp_val = bit(resp_valid_);
+  resp_bits = resp_valid_ ? resp_entry_ : AccNormReq{};
+}
+
+void Normalizer::updateRespPop() {
+  if (resp_valid_ && resp_rdy != 0) {
+    resp_valid_ = false;
+    resp_entry_ = AccNormReq{};
+  }
 }
 
 void Normalizer::update() {
-  if (req_val == 0 || req_out.full()) {
+  if (req_val == 0 || resp_valid_) {
     return;
   }
 
   const auto req = *req_bits;
   assert_always(req.acc_read_resp.from_dma != 0, "Normalizer received non-DMA accumulator response");
-  req_out.push(req);
+  resp_entry_ = req;
+  resp_valid_ = true;
 
   trace("normalizer: accepted acc_laddr=0x%x len=%u stats_id=%u norm_cmd=%u cmd_id=%u",
         static_cast<unsigned>(req.acc_read_resp.laddr.raw),

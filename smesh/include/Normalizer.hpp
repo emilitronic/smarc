@@ -25,10 +25,18 @@ class Normalizer : public Component {
   Input(bit, req_val);
   Output(bit, req_rdy);
   Input(AccNormReq, req_bits);
-  FifoOutput(AccNormReq, req_out);
+  Output(bit, resp_val);
+  Input(bit, resp_rdy);
+  Output(AccNormReq, resp_bits);
 
   void updateReady();
+  void updateRespView();
+  void updateRespPop();
   void update();
+
+ private:
+  bool resp_valid_ = false;
+  AccNormReq resp_entry_{};
 };
 
 } // namespace smesh

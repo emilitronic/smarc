@@ -22,6 +22,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
   st_norm_ctrl_         = new StNormCtrl("StNormCtrl");
   normalizer_           = new Normalizer("Normalizer");
+  acc_scale_unit_       = new AccScaleUnit("AccScaleUnit");
+  st_scale_ctrl_        = new StScaleCtrl("StScaleCtrl");
   write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");
   write_issue_queue_    = new DmaWriteIssueQueue("DmaWriteIssueQueue");
   dma_reader_           = new DmaReader("DmaReader");
@@ -45,6 +47,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_norm_ctrl_->clk         << clk;
   st_norm_ctrl_->bank_index  << u32(0); // we don't have banks structures defined yet, set to 0 for now
   normalizer_->clk           << clk;
+  acc_scale_unit_->clk       << clk;
+  st_scale_ctrl_->clk        << clk;
   write_scale_queue_->clk    << clk;
   write_issue_queue_->clk    << clk;
   dma_reader_->clk           << clk;
@@ -80,12 +84,23 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_norm_ctrl_->normalizer_cmd_rdy << normalizer_->req_rdy;
   normalizer_->req_val  << st_norm_ctrl_->normalizer_cmd_val;
   normalizer_->req_bits << st_norm_ctrl_->normalizer_req_bits;
-  normalizer_->req_out.sendToBitBucket();              // later: normalizer output feeds accumulator store data path
+  st_scale_ctrl_->normalizer_resp_val  << normalizer_->resp_val;
+  st_scale_ctrl_->normalizer_resp_bits << normalizer_->resp_bits;
+  normalizer_->resp_rdy                << st_scale_ctrl_->normalizer_resp_rdy;
   st_norm_ctrl_->scale_enq_rdy << write_scale_queue_->enq_rdy;
   write_scale_queue_->enq_val  << st_norm_ctrl_->scale_enq_val;
   write_scale_queue_->enq_bits << write_norm_queue_->deq_bits;
   write_norm_queue_->deq_rdy   << st_norm_ctrl_->norm_deq_rdy;
-  write_issue_queue_->req_in   << write_scale_queue_->req_out;
+  st_scale_ctrl_->scale_deq_val << write_scale_queue_->deq_val;
+  st_scale_ctrl_->scale_deq_bits << write_scale_queue_->deq_bits;
+  write_scale_queue_->deq_rdy   << st_scale_ctrl_->scale_deq_rdy;
+  st_scale_ctrl_->acc_scale_req_rdy << acc_scale_unit_->req_rdy;
+  acc_scale_unit_->req_val  << st_scale_ctrl_->acc_scale_req_val;
+  acc_scale_unit_->req_bits << st_scale_ctrl_->acc_scale_req_bits;
+  acc_scale_unit_->resp_out.sendToBitBucket();         // later: accumulator data feeds DmaWriter
+  st_scale_ctrl_->issue_enq_rdy << write_issue_queue_->enq_rdy;
+  write_issue_queue_->enq_val  << st_scale_ctrl_->issue_enq_val;
+  write_issue_queue_->enq_bits << write_scale_queue_->deq_bits;
   write_issue_queue_->req_out.sendToBitBucket();       // later: write issue feeds DmaWriter
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
@@ -123,6 +138,8 @@ SmeshTop::~SmeshTop() {
   delete dma_reader_;
   delete write_issue_queue_;
   delete write_scale_queue_;
+  delete st_scale_ctrl_;
+  delete acc_scale_unit_;
   delete normalizer_;
   delete st_norm_ctrl_;
   delete write_norm_queue_;
