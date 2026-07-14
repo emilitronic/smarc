@@ -99,11 +99,14 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_scale_ctrl_->acc_scale_req_rdy << acc_scale_unit_->req_rdy;
   acc_scale_unit_->req_val  << st_scale_ctrl_->acc_scale_req_val;
   acc_scale_unit_->req_bits << st_scale_ctrl_->acc_scale_req_bits;
-  dma_writer_->acc_data_in << acc_scale_unit_->resp_out;
+  acc_scale_unit_->out_rdy << bit(true);               // later: StIssueCtrl consumes accumulator data
   st_scale_ctrl_->issue_enq_rdy << write_issue_queue_->enq_rdy;
   write_issue_queue_->enq_val  << st_scale_ctrl_->issue_enq_val;
   write_issue_queue_->enq_bits << write_scale_queue_->deq_bits;
-  dma_writer_->issue_in << write_issue_queue_->req_out;
+  write_issue_queue_->deq_rdy << bit(true);            // later: StIssueCtrl controls write issue dequeue
+  dma_writer_->issue_in.wireToZero();                  // later: StIssueCtrl drives DmaWriter request
+  dma_writer_->spad_data_in.wireToZero();              // later: StIssueCtrl routes selected spad data
+  dma_writer_->acc_data_in.wireToZero();               // later: StIssueCtrl routes selected accumulator data
   dma_writer_->mem_req.sendToBitBucket();              // later: store requests connect to external memory
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
@@ -115,7 +118,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_->read_req_val      << st_read_ctrl_->dmawrite_spad;
   spad_->read_req_bits     << st_read_ctrl_->spad_req_bits;
   spad_dma_read_pipe_->resp_in << spad_->read_resp;
-  dma_writer_->spad_data_in << spad_dma_read_pipe_->resp_out;
+  spad_dma_read_pipe_->out_rdy << bit(true);           // later: StIssueCtrl consumes spad read data
   accum_->read_req_val     << st_read_ctrl_->dmawrite_accum;
   accum_->read_req_bits    << st_read_ctrl_->accum_req_bits;
   st_norm_ctrl_->accum_read_resp_val  << accum_->read_resp_val;

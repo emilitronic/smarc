@@ -11,17 +11,32 @@ Scratchpad read response pipe implementations.
 namespace smesh {
 // deals with spad read resp to req from DMA path
 SpadDmaReadPipe::SpadDmaReadPipe(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(resp_in).writes(resp_out);
+  UPDATE(updateOutView).writes(out_val, out_bits);
+  UPDATE(updateOutPop).reads(out_rdy);
+  UPDATE(updateAccept).reads(resp_in);
 }
 
-void SpadDmaReadPipe::update() {
-  if (resp_in.empty() || resp_out.full()) {
+void SpadDmaReadPipe::updateOutView() {
+  out_val = bit(out_valid_);
+  out_bits = out_valid_ ? out_entry_ : SpadReadResp{};
+}
+
+void SpadDmaReadPipe::updateOutPop() {
+  if (out_valid_ && out_rdy != 0) {
+    out_valid_ = false;
+    out_entry_ = SpadReadResp{};
+  }
+}
+
+void SpadDmaReadPipe::updateAccept() {
+  if (resp_in.empty() || out_valid_) {
     return;
   }
 
   const auto resp = resp_in.pop();
   assert_always(resp.from_dma != 0, "SpadDmaReadPipe received non-DMA spad read response");
-  resp_out.push(resp);
+  out_entry_ = resp;
+  out_valid_ = true;
   accepted_response_ = true;
   last_response_     = resp;
 
@@ -34,6 +49,8 @@ void SpadDmaReadPipe::update() {
 void SpadDmaReadPipe::reset() {
   accepted_response_ = false;
   last_response_ = SpadReadResp{};
+  out_valid_ = false;
+  out_entry_ = SpadReadResp{};
 }
 
 ExDmaReadPipe::ExDmaReadPipe(std::string /*name*/, IMPL_CTOR) {

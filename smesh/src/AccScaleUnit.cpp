@@ -12,15 +12,29 @@ namespace smesh {
 
 AccScaleUnit::AccScaleUnit(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady).writes(req_rdy);
-  UPDATE(update).reads(req_val, req_bits).writes(resp_out);
+  UPDATE(updateOutView).writes(out_val, out_bits);
+  UPDATE(updateOutPop).reads(out_rdy);
+  UPDATE(update).reads(req_val, req_bits);
 }
 
 void AccScaleUnit::updateReady() {
-  req_rdy = bit(!resp_out.full());
+  req_rdy = bit(!out_valid_);
+}
+
+void AccScaleUnit::updateOutView() {
+  out_val = bit(out_valid_);
+  out_bits = out_valid_ ? out_entry_ : AccScaleResp{};
+}
+
+void AccScaleUnit::updateOutPop() {
+  if (out_valid_ && out_rdy != 0) {
+    out_valid_ = false;
+    out_entry_ = AccScaleResp{};
+  }
 }
 
 void AccScaleUnit::update() {
-  if (req_val == 0 || resp_out.full()) {
+  if (req_val == 0 || out_valid_) {
     return;
   }
 
@@ -31,7 +45,8 @@ void AccScaleUnit::update() {
   resp.data = acc.data;
   resp.acc_bank_id = static_cast<u16>(acc.laddr.acc_bank());
   resp.from_dma = acc.from_dma;
-  resp_out.push(resp);
+  out_entry_ = resp;
+  out_valid_ = true;
 
   trace("acc_scale_unit: accepted acc_laddr=0x%x bank=%u len=%u cmd_id=%u",
         static_cast<unsigned>(acc.laddr.raw),

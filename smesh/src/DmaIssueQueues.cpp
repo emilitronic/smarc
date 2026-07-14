@@ -162,21 +162,24 @@ void DmaWriteScaleQueue::reset() {
 }
 
 DmaWriteIssueQueue::DmaWriteIssueQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReady).writes(enq_rdy);
-  UPDATE(update).reads(enq_val, enq_bits).writes(req_out);
+  UPDATE(updateEnqReady).writes(enq_rdy);
+  UPDATE(updateEnqAccept).reads(enq_val, enq_bits);
+  UPDATE(updateDeqView).writes(deq_val, deq_bits);
+  UPDATE(updateDeqPop).reads(deq_rdy);
 }
 
-void DmaWriteIssueQueue::updateReady() {
-  enq_rdy = bit(!req_out.full());
+void DmaWriteIssueQueue::updateEnqReady() {
+  enq_rdy = bit(!valid_);
 }
 
-void DmaWriteIssueQueue::update() {
-  if (enq_val == 0 || req_out.full()) {
+void DmaWriteIssueQueue::updateEnqAccept() {
+  if (enq_val == 0 || valid_) {
     return;
   }
 
   const auto req = *enq_bits;
-  req_out.push(req);
+  entry_ = req;
+  valid_ = true;
 
   trace("dma_write_issue_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
         static_cast<unsigned long long>(req.vaddr),
@@ -184,6 +187,32 @@ void DmaWriteIssueQueue::update() {
         static_cast<unsigned>(req.len),
         static_cast<unsigned>(req.block),
         static_cast<unsigned>(req.cmd_id));
+}
+
+void DmaWriteIssueQueue::updateDeqView() {
+  deq_val = bit(valid_);
+  deq_bits = valid_ ? entry_ : DmaWriteReq{};
+}
+
+void DmaWriteIssueQueue::updateDeqPop() {
+  if (!valid_ || deq_rdy == 0) {
+    return;
+  }
+
+  trace("dma_write_issue_queue: issued vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
+        static_cast<unsigned long long>(entry_.vaddr),
+        static_cast<unsigned>(entry_.laddr.raw),
+        static_cast<unsigned>(entry_.len),
+        static_cast<unsigned>(entry_.block),
+        static_cast<unsigned>(entry_.cmd_id));
+
+  valid_ = false;
+  entry_ = DmaWriteReq{};
+}
+
+void DmaWriteIssueQueue::reset() {
+  valid_ = false;
+  entry_ = DmaWriteReq{};
 }
 
 } // namespace smesh

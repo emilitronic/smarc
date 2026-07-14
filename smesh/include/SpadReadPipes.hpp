@@ -23,9 +23,13 @@ class SpadDmaReadPipe : public Component {
   Clock(clk);
 
   FifoInput(SpadReadResp, resp_in);
-  FifoOutput(SpadReadResp, resp_out);
+  Output(bit, out_val);
+  Output(SpadReadResp, out_bits);
+  Input(bit, out_rdy);
 
-  void update();
+  void updateOutView();
+  void updateOutPop();
+  void updateAccept();
   void reset();
   // inspection accessors for testbench to check pipe state
   bool hasAcceptedResponse() const { return accepted_response_; }
@@ -34,6 +38,8 @@ class SpadDmaReadPipe : public Component {
  private:
   bool accepted_response_ = false; // did spad DMA read pipe accept SpadReadResp since reset
   SpadReadResp last_response_{};   // stores copy of most recent resp pipe accepted
+  bool out_valid_ = false;
+  SpadReadResp out_entry_{};
 };
 
 class ExDmaReadPipe : public Component {

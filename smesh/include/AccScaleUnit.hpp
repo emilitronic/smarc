@@ -25,10 +25,18 @@ class AccScaleUnit : public Component {
   Input(bit, req_val);
   Output(bit, req_rdy);
   Input(AccScaleReq, req_bits);
-  FifoOutput(AccScaleResp, resp_out);
+  Output(bit, out_val);
+  Output(AccScaleResp, out_bits);
+  Input(bit, out_rdy);
 
   void updateReady();
+  void updateOutView();
+  void updateOutPop();
   void update();
+
+ private:
+  bool out_valid_ = false;
+  AccScaleResp out_entry_{};
 };
 
 } // namespace smesh
