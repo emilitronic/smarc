@@ -22,11 +22,12 @@ class SpadWriter : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaWriteReq, issue_in);
-  FifoInput(SpadReadResp, spad_data_in);
-  FifoInput(AccScaleResp, acc_data_in);
+  Input(bit, req_val);
+  Input(StWriterReq, req_bits);
+  Output(bit, req_rdy);
   FifoOutput(DmaReadResp, spad_write_out);
 
+  void updateReady();
   void update();
 };
 

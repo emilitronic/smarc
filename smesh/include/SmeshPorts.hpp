@@ -169,4 +169,13 @@ struct AccScaleResp {
   bit from_dma = true;
 };
 
+// final store request after StIssueCtrl has paired metadata and data
+struct StWriterReq {
+  DmaWriteReq issue{};
+  u64 data = 0;
+  u64 full_data = 0;
+  bit data_is_all_zeros = false;
+  bit data_is_full_width = false;
+};
+
 } // namespace smesh

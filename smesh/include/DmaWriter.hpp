@@ -23,11 +23,12 @@ class DmaWriter : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaWriteReq, issue_in);
-  FifoInput(SpadReadResp, spad_data_in);
-  FifoInput(AccScaleResp, acc_data_in);
+  Input(bit, req_val);
+  Input(StWriterReq, req_bits);
+  Output(bit, req_rdy);
   FifoOutput(smem::MemReq, mem_req);
 
+  void updateReady();
   void update();
 };
 

@@ -19,7 +19,6 @@ easy to inspect.
 #include "DmaIssueQueues.hpp"
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
-#include "DmaWriter.hpp"
 #include "LdCtrl.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
@@ -88,7 +87,6 @@ class SmeshTop : public Component {
   StScaleCtrl*             st_scale_ctrl_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
-  DmaWriter*               dma_writer_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;
