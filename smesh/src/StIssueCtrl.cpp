@@ -36,19 +36,25 @@ StIssueCtrl::StIssueCtrl(std::string /*name*/, IMPL_CTOR) {
 }
 
 void StIssueCtrl::updateDataOutputs() {
-  spad_data_rdy = bit(false);
-  acc_data_rdy = bit(false);
-  data_source_sel = u8(0);
-  final_data_sel = u8(0);
-  write_data_is_all_zeros = bit(false);
-  write_data_is_full_width = bit(false);
+  const auto issue      = *issue_deq_bits;
+  const auto laddr      = issue.laddr;
+  const bool garbage    = laddr.is_garbage();
+  const bool is_acc     = laddr.is_acc_addr();
+  const bool full_width = laddr.read_full_acc_row();
+
+  spad_data_rdy            = bit(false);
+  acc_data_rdy             = bit(false);
+  data_source_sel          = u8(0);
+  final_data_sel           = u8(0);
+  write_data_is_all_zeros  = bit(garbage); // if garbage, mark data as all zeros
+  write_data_is_full_width = bit(!garbage && is_acc && full_width); // write full-width activation elements
 }
 
 void StIssueCtrl::updateWriterOutputs() {
-  dma_writer_req_val = bit(false);
+  dma_writer_req_val  = bit(false);
   spad_writer_req_val = bit(false);
-  issue_deq_rdy = bit(false);
-  writer_sel = u8(0);
+  issue_deq_rdy       = bit(false);
+  writer_sel          = u8(0);
 }
 
 } // namespace smesh
