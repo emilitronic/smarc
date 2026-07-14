@@ -110,9 +110,9 @@ void StIssueCtrl::updateDataOutputs() {
   const bool issue_fire    = d.wi_valid && d.data_available && d.writer_ready; // selected writer accepts one store req this cycle
   spad_data_rdy            = bit(issue_fire && d.use_spad_data); // if issue fires and spad is source, consume spad item
   acc_data_rdy             = bit(issue_fire && d.use_acc_data);  // if issue fires and acc is source, consume acc item
-  data_source_sel          = u8(next_data_source); // what is write data source: ZERO, SPAD_DMA_PIPE, or ACC_SCALE_UNIT
-  final_data_sel           = u8(next_final_data);  // which data form to use:    ZERO, NORMAL_WIDTH, or FULL_ACC_WIDTH
-  write_data_is_all_zeros  = bit(d.garbage); // if garbage, mark data as all zeros
+  data_source_sel          = u8(next_data_source); // where to take candidate data from: ZERO, SPAD_DMA_PIPE, or ACC_SCALE_UNIT
+  final_data_sel           = u8(next_final_data);  // which payload is sent to writer:   ZERO, NORMAL_WIDTH, or FULL_ACC_WIDTH
+  write_data_is_all_zeros  = bit(d.garbage);       // if garbage, mark data as all zeros
   write_data_is_full_width = bit(!d.garbage && d.is_acc && d.full_width); // write full-width activation elements
 }
 // writer/metadata outputs

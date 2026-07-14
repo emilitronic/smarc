@@ -20,6 +20,7 @@ add_library(smesh_model
   src/SpadWriter.cpp
   src/StCtrl.cpp
   src/StIssueCtrl.cpp
+  src/StIssueMux.cpp
   src/StNormCtrl.cpp
   src/StReadCtrl.cpp
   src/StScaleCtrl.cpp
