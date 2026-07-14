@@ -8,6 +8,8 @@ Store-path final issue payload mux implementation.
 
 #include "StIssueMux.hpp"
 
+#include "SmeshTypes.hpp"
+
 namespace smesh {
 
 namespace {
@@ -47,6 +49,8 @@ void StIssueMux::update() {
   req.issue              = issue;
   req.data_is_all_zeros  = write_data_is_all_zeros;
   req.data_is_full_width = write_data_is_full_width;
+  // convert len from row elements to bytes depending on whether the write is full-width (Acc) or normal-width (Elem)
+  req.len_bytes = u16(static_cast<std::uint16_t>( issue.len * (req.data_is_full_width ? sizeof(Acc) : sizeof(Elem))));
 
   switch (static_cast<std::uint8_t>(data_source_sel)) {
     case kDataSourceSpad:

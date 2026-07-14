@@ -29,7 +29,7 @@ void SpadWriter::update() {
   DmaReadResp write{};
   write.laddr = issue.laddr;
   write.mask = 0xf;
-  write.bytes_read = 8;
+  write.bytes_read = writer_req.len_bytes;
   write.pixel_repeats = 1;
   write.cmd_id = issue.cmd_id;
   write.last = true;

@@ -91,7 +91,7 @@ struct DmaWriteReq {
   u32 acc_iexp_qln2 = 0;
   u32 acc_iexp_qln2_inv = 0;
   u16 acc_norm_stats_id = 0;
-  u16 len = 0;
+  u16 len = 0; // number of row elements StCtrl is writing to mem (not bytes)
   u16 block = 0;
   u16 cmd_id = 0;
   u32 status = 0;
@@ -102,7 +102,7 @@ struct DmaWriteReq {
 // ifc to scratchpad memory read port
 struct SpadReadReq {
   SmeshLocalAddr laddr{};
-  u16 len = 0;
+  u16 len = 0; // number of row elements being read from spad (not bytes)
   u16 cmd_id = 0;
   bit from_dma = true;
 };
@@ -111,7 +111,7 @@ struct SpadReadResp {
   u64 data = 0;
   SmeshLocalAddr laddr{};
   u8 mask = 0;
-  u16 len = 0;
+  u16 len = 0; // number of row elements being read from spad (not bytes)
   u16 cmd_id = 0;
   bit from_dma = true;
 };
@@ -119,7 +119,7 @@ struct SpadReadResp {
 // interface to accumulator memory read port
 struct AccumReadReq {
   SmeshLocalAddr laddr{};
-  u16 len = 0;
+  u16 len = 0; // number of row elements being read from accum (not bytes)
   u8 act = 0;
   u32 scale = 0;
   u32 igelu_qb = 0;
@@ -135,7 +135,7 @@ struct AccumReadResp {
   u64 data = 0;
   SmeshLocalAddr laddr{};
   u8 mask = 0;
-  u16 len = 0;
+  u16 len = 0; // number of row elements being read from accum (not bytes)
   u8 act = 0;
   u32 scale = 0;
   bit full = false;
@@ -145,7 +145,7 @@ struct AccumReadResp {
 
 // command metadata entering accumulator normalization
 struct AccNormCmd {
-  u16 len = 0;
+  u16 len = 0; // number of row elements being read from accum (not bytes)
   u16 stats_id = 0;
   u8 cmd = 0;
 };
@@ -174,6 +174,7 @@ struct StWriterReq {
   DmaWriteReq issue{};
   u64 data = 0;
   u64 full_data = 0;
+  u16 len_bytes = 0; // number of bytes being written to mem (not row elements)
   bit data_is_all_zeros = false;
   bit data_is_full_width = false;
 };

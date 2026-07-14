@@ -29,7 +29,7 @@ void DmaWriter::update() {
   smem::MemReq req{};
   req.addr = issue.vaddr;
   req.write = true;
-  req.size = 8;
+  req.size = writer_req.len_bytes;
   req.id = issue.cmd_id;
   req.wdata = writer_req.data_is_all_zeros ? u64(0) : writer_req.data;
   mem_req.push(req);
