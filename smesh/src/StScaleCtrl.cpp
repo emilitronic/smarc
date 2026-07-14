@@ -47,6 +47,7 @@ void StScaleCtrl::update() {
   if (bypass_acc_scale) {
     next_scale_deq_rdy = issue_enq_rdy != 0; // scale rdy <= issue rdy
     next_issue_enq_val = scale_deq_val != 0; // scale val => issue val
+  }
   // CASE 2: accumulator, so normalizer->AccScaleUnit and scale_q->issue_q move together (enforces a paired transfer)
   else {
     // do norm --> acc transfer if acc rdy + norm val & scale --> issue transfer *can* be made

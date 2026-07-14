@@ -26,6 +26,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_scale_ctrl_        = new StScaleCtrl("StScaleCtrl");
   write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");
   write_issue_queue_    = new DmaWriteIssueQueue("DmaWriteIssueQueue");
+  dma_writer_           = new DmaWriter("DmaWriter");
   dma_reader_           = new DmaReader("DmaReader");
   mvin_scale_           = new MvinScale("MvinScale");
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
@@ -51,6 +52,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_scale_ctrl_->clk        << clk;
   write_scale_queue_->clk    << clk;
   write_issue_queue_->clk    << clk;
+  dma_writer_->clk           << clk;
   dma_reader_->clk           << clk;
   mvin_scale_->clk           << clk;
   pixel_repeater_->clk       << clk;
@@ -97,11 +99,12 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_scale_ctrl_->acc_scale_req_rdy << acc_scale_unit_->req_rdy;
   acc_scale_unit_->req_val  << st_scale_ctrl_->acc_scale_req_val;
   acc_scale_unit_->req_bits << st_scale_ctrl_->acc_scale_req_bits;
-  acc_scale_unit_->resp_out.sendToBitBucket();         // later: accumulator data feeds DmaWriter
+  dma_writer_->acc_data_in << acc_scale_unit_->resp_out;
   st_scale_ctrl_->issue_enq_rdy << write_issue_queue_->enq_rdy;
   write_issue_queue_->enq_val  << st_scale_ctrl_->issue_enq_val;
   write_issue_queue_->enq_bits << write_scale_queue_->deq_bits;
-  write_issue_queue_->req_out.sendToBitBucket();       // later: write issue feeds DmaWriter
+  dma_writer_->issue_in << write_issue_queue_->req_out;
+  dma_writer_->mem_req.sendToBitBucket();              // later: store requests connect to external memory
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
   mvin_scale_->data_in     << dma_reader_->resp_out;       
@@ -112,7 +115,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_->read_req_val      << st_read_ctrl_->dmawrite_spad;
   spad_->read_req_bits     << st_read_ctrl_->spad_req_bits;
   spad_dma_read_pipe_->resp_in << spad_->read_resp;
-  spad_dma_read_pipe_->resp_out.sendToBitBucket();     // later: spad DMA read data feeds DmaWriter
+  dma_writer_->spad_data_in << spad_dma_read_pipe_->resp_out;
   accum_->read_req_val     << st_read_ctrl_->dmawrite_accum;
   accum_->read_req_bits    << st_read_ctrl_->accum_req_bits;
   st_norm_ctrl_->accum_read_resp_val  << accum_->read_resp_val;
@@ -137,6 +140,7 @@ SmeshTop::~SmeshTop() {
   delete mvin_scale_;
   delete dma_reader_;
   delete write_issue_queue_;
+  delete dma_writer_;
   delete write_scale_queue_;
   delete st_scale_ctrl_;
   delete acc_scale_unit_;

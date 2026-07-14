@@ -4,6 +4,7 @@ add_library(smesh_model
   src/DmaIssueQueues.cpp
   src/DmaReadCompletionMux.cpp
   src/DmaReader.cpp
+  src/DmaWriter.cpp
   src/ExCtrl.cpp
   src/LdCtrl.cpp
   src/MvinLocalRouter.cpp
