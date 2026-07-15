@@ -71,6 +71,9 @@ class SmeshTop : public Component {
   auto& storeNormEnqVal() { return st_read_ctrl_->read_req_fire; }
   auto& storeNormEnqRdy() { return write_norm_queue_->enq_rdy; }
   auto& storeNormEnqBits() { return write_dispatch_queue_->deq_bits; }
+  auto& storeDmaWriterReqVal() { return dma_writer_->req_val; }
+  auto& storeDmaWriterReqRdy() { return dma_writer_->req_rdy; }
+  auto& storeDmaWriterReqBits() { return dma_writer_->req_bits; }
 
   void update();
   void reset();

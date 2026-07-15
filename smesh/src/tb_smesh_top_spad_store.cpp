@@ -53,15 +53,21 @@ class StorePathMonitor : public Component {
   Input(bit, norm_enq_val);
   Input(bit, norm_enq_rdy);
   Input(smesh::DmaWriteReq, norm_enq_bits);
+  Input(bit, dma_writer_req_val);
+  Input(bit, dma_writer_req_rdy);
+  Input(smesh::StWriterReq, dma_writer_req_bits);
 
   void update();
+  void updateWriter();
   void reset();
 
   bool sawAlignedTransfer() const { return saw_aligned_transfer_; }
+  bool sawDmaWriterTransfer() const { return saw_dma_writer_transfer_; }
   std::uint32_t alignedTransferCount() const { return aligned_transfer_count_; }
 
  private:
   bool saw_aligned_transfer_ = false;
+  bool saw_dma_writer_transfer_ = false;
   std::uint32_t aligned_transfer_count_ = 0;
 };
 
@@ -110,6 +116,10 @@ StorePathMonitor::StorePathMonitor(std::string /*name*/, IMPL_CTOR) {
                        norm_enq_val,
                        norm_enq_rdy,
                        norm_enq_bits);
+  UPDATE(updateWriter).reads(
+                       dma_writer_req_val,
+                       dma_writer_req_rdy,
+                       dma_writer_req_bits);
 }
 
 void StorePathMonitor::update() {
@@ -119,28 +129,51 @@ void StorePathMonitor::update() {
     return;
   }
 
-  assert_always(spad_fire == norm_fire,
-                "store monitor saw spad read request and norm enqueue move in different cycles");
+  if (spad_fire || norm_fire) {
+    assert_always(spad_fire == norm_fire,
+                  "store monitor saw spad read request and norm enqueue move in different cycles");
 
-  const auto spad_req = *spad_req_bits;
-  const auto norm_req = *norm_enq_bits;
-  assert_always(spad_req.laddr.raw == norm_req.laddr.raw,
-                "store monitor saw mismatched local addresses");
-  assert_always(spad_req.len == norm_req.len,
-                "store monitor saw mismatched lengths");
-  assert_always(spad_req.cmd_id == norm_req.cmd_id,
-                "store monitor saw mismatched command IDs");
+    const auto spad_req = *spad_req_bits;
+    const auto norm_req = *norm_enq_bits;
+    assert_always(spad_req.laddr.raw == norm_req.laddr.raw,
+                  "store monitor saw mismatched local addresses");
+    assert_always(spad_req.len == norm_req.len,
+                  "store monitor saw mismatched lengths");
+    assert_always(spad_req.cmd_id == norm_req.cmd_id,
+                  "store monitor saw mismatched command IDs");
 
-  saw_aligned_transfer_ = true;
-  ++aligned_transfer_count_;
-  trace("store_path_monitor: aligned spad/norm laddr=0x%x len=%u cmd_id=%u",
-        static_cast<unsigned>(spad_req.laddr.raw),
-        static_cast<unsigned>(spad_req.len),
-        static_cast<unsigned>(spad_req.cmd_id));
+    saw_aligned_transfer_ = true;
+    ++aligned_transfer_count_;
+    trace("store_path_monitor: aligned spad/norm laddr=0x%x len=%u cmd_id=%u",
+          static_cast<unsigned>(spad_req.laddr.raw),
+          static_cast<unsigned>(spad_req.len),
+          static_cast<unsigned>(spad_req.cmd_id));
+  }
+}
+
+void StorePathMonitor::updateWriter() {
+  const bool dma_writer_fire = dma_writer_req_val != 0 && dma_writer_req_rdy != 0;
+  if (!dma_writer_fire) {
+    return;
+  }
+  const auto writer_req = *dma_writer_req_bits;
+  assert_always(writer_req.issue.vaddr == kStoreDramBase,
+                "store monitor saw wrong DMA writer address");
+  assert_always(writer_req.issue.dest == 0,
+                "store monitor expected normal DMA writer destination");
+  assert_always(writer_req.len_bytes == smesh::kDim * sizeof(smesh::Elem),
+                "store monitor saw wrong DMA writer byte count");
+  for (std::size_t i = 0; i < smesh::kDim; ++i) {
+    assert_always(writer_req.data[i] == static_cast<std::uint8_t>(0x01 + i),
+                  "store monitor saw wrong DMA writer data byte");
+  }
+
+  saw_dma_writer_transfer_ = true;
 }
 
 void StorePathMonitor::reset() {
   saw_aligned_transfer_ = false;
+  saw_dma_writer_transfer_ = false;
   aligned_transfer_count_ = 0;
 }
 
@@ -166,6 +199,9 @@ int main(int argc, char* argv[]) {
   monitor.norm_enq_val << top.storeNormEnqVal();
   monitor.norm_enq_rdy << top.storeNormEnqRdy();
   monitor.norm_enq_bits << top.storeNormEnqBits();
+  monitor.dma_writer_req_val << top.storeDmaWriterReqVal();
+  monitor.dma_writer_req_rdy << top.storeDmaWriterReqRdy();
+  monitor.dma_writer_req_bits << top.storeDmaWriterReqBits();
   mem.in_core_req.setDelay(1);
   dram.s_req << mem.s_req;
   mem.s_resp << dram.s_resp;
@@ -193,7 +229,7 @@ int main(int argc, char* argv[]) {
                smesh::kDim);
   }
 
-  for (int i = 0; i < 192 && !top.spadDmaReadPipe().hasAcceptedResponse(); ++i) {
+  for (int i = 0; i < 192 && !monitor.sawDmaWriterTransfer(); ++i) {
     Sim::run();
   }
 
@@ -215,15 +251,17 @@ int main(int argc, char* argv[]) {
   }
 
   const bool monitor_ok = monitor.sawAlignedTransfer() &&
+                          monitor.sawDmaWriterTransfer() &&
                           monitor.alignedTransferCount() == 1;
   const bool ok = spad_ok && pipe_ok && monitor_ok;
   if (!ok) {
     const auto& store0 = top.rs().storeEntry(0);
-    std::printf("  spad_ok=%u pipe_ok=%u monitor_ok=%u accepted_resp=%u aligned_count=%u\n",
+    std::printf("  spad_ok=%u pipe_ok=%u monitor_ok=%u accepted_resp=%u writer_seen=%u aligned_count=%u\n",
                 spad_ok ? 1u : 0u,
                 pipe_ok ? 1u : 0u,
                 monitor_ok ? 1u : 0u,
                 top.spadDmaReadPipe().hasAcceptedResponse() ? 1u : 0u,
+                monitor.sawDmaWriterTransfer() ? 1u : 0u,
                 monitor.alignedTransferCount());
     std::printf("  store0 valid=%u issued=%u ready=%u funct=%u tag=%u deps_ld=0x%x deps_st=0x%x\n",
                 store0.valid ? 1u : 0u,
