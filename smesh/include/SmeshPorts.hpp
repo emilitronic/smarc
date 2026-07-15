@@ -11,6 +11,7 @@ A collection of ports between smesh components.
 
 #include "SmeshLocalAddr.hpp"
 
+#include <array>
 #include <cstdint>
 
 namespace smesh {
@@ -170,10 +171,11 @@ struct AccScaleResp {
 };
 
 // final store request after StIssueCtrl has paired metadata and data
+using StWriterData = std::array<std::uint8_t, kDim * sizeof(Acc)>;
+// final store request after StIssueCtrl has paired metadata and data
 struct StWriterReq {
   DmaWriteReq issue{};
-  u64 data = 0;
-  u64 full_data = 0;
+  StWriterData data{};
   u16 len_bytes = 0; // number of bytes being written to mem (not row elements)
   bit data_is_all_zeros = false;
   bit data_is_full_width = false;
