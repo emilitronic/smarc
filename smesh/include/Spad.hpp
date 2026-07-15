@@ -32,10 +32,14 @@ class Spad : public Component {
   Input(bit, read_req_val);                // spad's read req valid signal
   Output(bit, read_req_rdy);               // tap out read req ready signal for StReadCtrl to inspect
   Input(SpadReadReq, read_req_bits);       // spad's read req payload
-  FifoOutput(SpadReadResp, read_resp);
+  Output(bit, read_resp_val);
+  Output(SpadReadResp, read_resp_bits);
+  Input(bit, read_resp_rdy);
 
   void updateWrite();
   void updateReadReady();
+  void updateReadRespView();
+  void updateReadRespPop();
   void updateRead();
   void reset();
 
@@ -45,6 +49,8 @@ class Spad : public Component {
  private:
   std::array<std::array<Row, kSpBankRows>, kSpBanks> banks_{};
   bool write_accepted_ = false;
+  bool read_resp_valid_ = false;
+  SpadReadResp read_resp_entry_{}; // reg holds response while waiting for read pipe to pop it
 };
 
 } // namespace smesh

@@ -139,7 +139,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   accum_->write_in         << local_router_->accum_out; 
   spad_->read_req_val      << st_read_ctrl_->dmawrite_spad;
   spad_->read_req_bits     << st_read_ctrl_->spad_req_bits;
-  spad_dma_read_pipe_->resp_in << spad_->read_resp;
+  spad_dma_read_pipe_->resp_val  << spad_->read_resp_val;
+  spad_dma_read_pipe_->resp_bits << spad_->read_resp_bits;
+  spad_->read_resp_rdy          << spad_dma_read_pipe_->resp_rdy;
   spad_dma_read_pipe_->out_rdy << st_issue_ctrl_->spad_data_rdy;
   accum_->read_req_val     << st_read_ctrl_->dmawrite_accum;
   accum_->read_req_bits    << st_read_ctrl_->accum_req_bits;

@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 1 2026
 /*
-Skeleton for the smesh execute controller.
+Structural shell for the smesh execute controller.
 */
 #pragma once
 
@@ -24,12 +24,31 @@ class ExCtrl : public Component {
   FifoInput(SmeshIssue, cmd_in);
   FifoOutput(SmeshRsTag, completed);
 
-  void update();
-  void reset();
+  Output(bit, spad_read_req_val);
+  Input(bit, spad_read_req_rdy);
+  Output(SpadReadReq, spad_read_req_bits);
+  Input(bit, spad_read_resp_val);
+  Input(SpadReadResp, spad_read_resp_bits);
+  Output(bit, spad_read_resp_rdy);
 
- private:
-  bool active_valid_ = false;
-  SmeshRsTag active_rs_tag_ = 0;
+  Output(bit, accum_read_req_val);
+  Input(bit, accum_read_req_rdy);
+  Output(AccumReadReq, accum_read_req_bits);
+  Input(bit, accum_read_resp_val);
+  Input(AccumReadResp, accum_read_resp_bits);
+  Output(bit, accum_read_resp_rdy);
+
+  Output(bit, spad_write_val);
+  Input(bit, spad_write_rdy);
+  Output(DmaReadResp, spad_write_bits);
+
+  Output(bit, accum_write_val);
+  Input(bit, accum_write_rdy);
+  Output(DmaReadResp, accum_write_bits);
+
+  void updateReadPorts();
+  void updateWritePorts();
+  void reset();
 };
 
 } // namespace smesh

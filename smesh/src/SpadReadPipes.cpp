@@ -11,9 +11,15 @@ Scratchpad read response pipe implementations.
 namespace smesh {
 // deals with spad read resp to req from DMA path
 SpadDmaReadPipe::SpadDmaReadPipe(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateRespReady).reads(resp_val, resp_bits).writes(resp_rdy);
   UPDATE(updateOutView).writes(out_val, out_bits);
   UPDATE(updateOutPop).reads(out_rdy);
-  UPDATE(updateAccept).reads(resp_in);
+  UPDATE(updateAccept).reads(resp_val, resp_bits);
+}
+
+void SpadDmaReadPipe::updateRespReady() {
+  const auto resp = *resp_bits;
+  resp_rdy = bit(resp_val != 0 && resp.from_dma != 0 && !out_valid_);
 }
 
 void SpadDmaReadPipe::updateOutView() {
@@ -29,11 +35,11 @@ void SpadDmaReadPipe::updateOutPop() {
 }
 
 void SpadDmaReadPipe::updateAccept() {
-  if (resp_in.empty() || out_valid_) {
+  const auto resp = *resp_bits;
+  if (resp_val == 0 || resp.from_dma == 0 || out_valid_) {
     return;
   }
 
-  const auto resp = resp_in.pop();
   assert_always(resp.from_dma != 0, "SpadDmaReadPipe received non-DMA spad read response");
   out_entry_ = resp;
   out_valid_ = true;
@@ -53,23 +59,49 @@ void SpadDmaReadPipe::reset() {
   out_entry_ = SpadReadResp{};
 }
 
-ExDmaReadPipe::ExDmaReadPipe(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(resp_in).writes(resp_out);
+SpadExReadPipe::SpadExReadPipe(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateRespReady).reads(resp_val, resp_bits).writes(resp_rdy);
+  UPDATE(updateOutView).writes(out_val, out_bits);
+  UPDATE(updateOutPop).reads(out_rdy);
+  UPDATE(updateAccept).reads(resp_val, resp_bits);
 }
 
-void ExDmaReadPipe::update() {
-  if (resp_in.empty() || resp_out.full()) {
+void SpadExReadPipe::updateRespReady() {
+  const auto resp = *resp_bits;
+  resp_rdy = bit(resp_val != 0 && resp.from_dma == 0 && !out_valid_);
+}
+
+void SpadExReadPipe::updateOutView() {
+  out_val = bit(out_valid_);
+  out_bits = out_valid_ ? out_entry_ : SpadReadResp{};
+}
+
+void SpadExReadPipe::updateOutPop() {
+  if (out_valid_ && out_rdy != 0) {
+    out_valid_ = false;
+    out_entry_ = SpadReadResp{};
+  }
+}
+
+void SpadExReadPipe::updateAccept() {
+  const auto resp = *resp_bits;
+  if (resp_val == 0 || resp.from_dma != 0 || out_valid_) {
     return;
   }
 
-  const auto resp = resp_in.pop();
-  assert_always(resp.from_dma == 0, "ExDmaReadPipe received DMA spad read response");
-  resp_out.push(resp);
+  assert_always(resp.from_dma == 0, "SpadExReadPipe received DMA spad read response");
+  out_entry_ = resp;
+  out_valid_ = true;
 
-  trace("ex_dma_read_pipe: accepted laddr=0x%x len=%u cmd_id=%u",
+  trace("spad_ex_read_pipe: accepted laddr=0x%x len=%u cmd_id=%u",
         static_cast<unsigned>(resp.laddr.raw),
         static_cast<unsigned>(resp.len),
         static_cast<unsigned>(resp.cmd_id));
+}
+
+void SpadExReadPipe::reset() {
+  out_valid_ = false;
+  out_entry_ = SpadReadResp{};
 }
 
 } // namespace smesh

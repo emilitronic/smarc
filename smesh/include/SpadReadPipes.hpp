@@ -22,11 +22,14 @@ class SpadDmaReadPipe : public Component {
 
   Clock(clk);
 
-  FifoInput(SpadReadResp, resp_in);
+  Input(bit, resp_val);
+  Input(SpadReadResp, resp_bits);
+  Output(bit, resp_rdy);
   Output(bit, out_val);
   Output(SpadReadResp, out_bits);
   Input(bit, out_rdy);
 
+  void updateRespReady();
   void updateOutView();
   void updateOutPop();
   void updateAccept();
@@ -42,18 +45,30 @@ class SpadDmaReadPipe : public Component {
   SpadReadResp out_entry_{};
 };
 
-class ExDmaReadPipe : public Component {
-  DECLARE_COMPONENT(ExDmaReadPipe);
+class SpadExReadPipe : public Component {
+  DECLARE_COMPONENT(SpadExReadPipe);
 
  public:
-  ExDmaReadPipe(std::string name, COMPONENT_CTOR);
+  SpadExReadPipe(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
 
-  FifoInput(SpadReadResp, resp_in);
-  FifoOutput(SpadReadResp, resp_out);
+  Input(bit, resp_val);
+  Input(SpadReadResp, resp_bits);
+  Output(bit, resp_rdy);
+  Output(bit, out_val);
+  Output(SpadReadResp, out_bits);
+  Input(bit, out_rdy);
 
-  void update();
+  void updateRespReady();
+  void updateOutView();
+  void updateOutPop();
+  void updateAccept();
+  void reset();
+
+ private:
+  bool out_valid_ = false;
+  SpadReadResp out_entry_{};
 };
 
 } // namespace smesh

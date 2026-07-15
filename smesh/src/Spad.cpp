@@ -13,7 +13,9 @@ namespace smesh {
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy);
-  UPDATE(updateRead).reads(read_req_val, read_req_bits).writes(read_resp);
+  UPDATE(updateReadRespView).writes(read_resp_val, read_resp_bits);
+  UPDATE(updateReadRespPop).reads(read_resp_rdy);
+  UPDATE(updateRead).reads(read_req_val, read_req_bits);
 }
 
 void Spad::updateWrite() {
@@ -56,7 +58,19 @@ void Spad::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Spad::updateReadReady() {
-  read_req_rdy = bit(!read_resp.full());
+  read_req_rdy = bit(!read_resp_valid_);
+}
+
+void Spad::updateReadRespView() {
+  read_resp_val = bit(read_resp_valid_);
+  read_resp_bits = read_resp_valid_ ? read_resp_entry_ : SpadReadResp{};
+}
+
+void Spad::updateReadRespPop() {
+  if (read_resp_valid_ && read_resp_rdy != 0) {
+    read_resp_valid_ = false;
+    read_resp_entry_ = SpadReadResp{};
+  }
 }
 
 void Spad::updateRead() {
@@ -68,7 +82,7 @@ void Spad::updateRead() {
   if (exread) {
     return;
   }
-  if (read_resp.full()) {
+  if (read_resp_valid_) {
     return;
   }
 
@@ -87,7 +101,8 @@ void Spad::updateRead() {
                       static_cast<std::uint8_t>(source[lane])) << (lane * 8));
     resp.mask |= static_cast<u8>(u8{1} << lane);
   }
-  read_resp.push(resp);
+  read_resp_entry_ = resp;
+  read_resp_valid_ = true;
   trace("spad: dma read bank=%u row=%u mask=0x%x cmd_id=%u",
         static_cast<unsigned>(req.laddr.sp_bank()),
         static_cast<unsigned>(req.laddr.sp_row()),
@@ -98,6 +113,8 @@ void Spad::updateRead() {
 void Spad::reset() {
   banks_ = {};
   write_accepted_ = false;
+  read_resp_valid_ = false;
+  read_resp_entry_ = SpadReadResp{};
 }
 
 const Spad::Row& Spad::row(SmeshLocalAddr addr) const {
