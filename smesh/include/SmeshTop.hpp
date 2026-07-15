@@ -19,6 +19,7 @@ easy to inspect.
 #include "DmaIssueQueues.hpp"
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
+#include "DmaWriter.hpp"
 #include "LdCtrl.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
@@ -28,6 +29,7 @@ easy to inspect.
 #include "SmeshRS.hpp"
 #include "Spad.hpp"
 #include "SpadReadPipes.hpp"
+#include "SpadWriter.hpp"
 #include "StCtrl.hpp"
 #include "StIssueCtrl.hpp"
 #include "StIssueMux.hpp"
@@ -91,6 +93,8 @@ class SmeshTop : public Component {
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
   StIssueCtrl*             st_issue_ctrl_ = nullptr;
   StIssueMux*              st_issue_mux_ = nullptr;
+  DmaWriter*               dma_writer_ = nullptr;
+  SpadWriter*              spad_writer_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;

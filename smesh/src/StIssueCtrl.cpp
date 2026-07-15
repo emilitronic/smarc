@@ -124,7 +124,7 @@ void StIssueCtrl::updateWriterOutputs() {
   dma_writer_req_val      = bit(d.wi_valid && d.data_available && !d.dest_spad); // tell DMA writer is has valid req
   spad_writer_req_val     = bit(d.wi_valid && d.data_available && d.dest_spad);  // tell SPAD writer is has valid req
   issue_deq_rdy           = bit(issue_fire);                                     // pop metadata from issue queue if writer accepts this cycle
-  writer_sel              = u8(d.dest_spad ? kWriterSpad : kWriterDma);          // which writer path is chosen
+  writer_sel              = u8(d.dest_spad ? kWriterSpad : kWriterDma);          // which writer path is chosen (not used at moment)
 }
 
 } // namespace smesh
