@@ -170,8 +170,9 @@ struct AccScaleResp {
   bit from_dma = true;
 };
 
-// final store request after StIssueCtrl has paired metadata and data
+// maximum-width store data payload; len_bytes says how many bytes are meaningful
 using StWriterData = std::array<std::uint8_t, kDim * sizeof(Acc)>;
+
 // final store request after StIssueCtrl has paired metadata and data
 struct StWriterReq {
   DmaWriteReq issue{};

@@ -29,6 +29,7 @@ easy to inspect.
 #include "Spad.hpp"
 #include "SpadReadPipes.hpp"
 #include "StCtrl.hpp"
+#include "StIssueCtrl.hpp"
 #include "StNormCtrl.hpp"
 #include "StReadCtrl.hpp"
 #include "StScaleCtrl.hpp"
@@ -87,6 +88,7 @@ class SmeshTop : public Component {
   StScaleCtrl*             st_scale_ctrl_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
+  StIssueCtrl*             st_issue_ctrl_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;

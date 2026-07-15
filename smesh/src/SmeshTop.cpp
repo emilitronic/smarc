@@ -26,6 +26,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_scale_ctrl_        = new StScaleCtrl("StScaleCtrl");
   write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");
   write_issue_queue_    = new DmaWriteIssueQueue("DmaWriteIssueQueue");
+  st_issue_ctrl_        = new StIssueCtrl("StIssueCtrl");
   dma_reader_           = new DmaReader("DmaReader");
   mvin_scale_           = new MvinScale("MvinScale");
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
@@ -51,6 +52,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_scale_ctrl_->clk        << clk;
   write_scale_queue_->clk    << clk;
   write_issue_queue_->clk    << clk;
+  st_issue_ctrl_->clk        << clk;
   dma_reader_->clk           << clk;
   mvin_scale_->clk           << clk;
   pixel_repeater_->clk       << clk;
@@ -97,11 +99,18 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_scale_ctrl_->acc_scale_req_rdy << acc_scale_unit_->req_rdy;
   acc_scale_unit_->req_val  << st_scale_ctrl_->acc_scale_req_val;
   acc_scale_unit_->req_bits << st_scale_ctrl_->acc_scale_req_bits;
-  acc_scale_unit_->out_rdy << bit(true);               // later: StIssueCtrl consumes accumulator data
   st_scale_ctrl_->issue_enq_rdy << write_issue_queue_->enq_rdy;
   write_issue_queue_->enq_val  << st_scale_ctrl_->issue_enq_val;
   write_issue_queue_->enq_bits << write_scale_queue_->deq_bits;
-  write_issue_queue_->deq_rdy << bit(true);            // later: StIssueCtrl controls write issue dequeue
+  st_issue_ctrl_->issue_deq_val  << write_issue_queue_->deq_val;
+  st_issue_ctrl_->issue_deq_bits << write_issue_queue_->deq_bits;
+  st_issue_ctrl_->dma_writer_req_rdy  << write_issue_queue_->deq_val; // later: DmaWriter ready
+  st_issue_ctrl_->spad_writer_req_rdy << write_issue_queue_->deq_val; // later: SpadWriter ready
+  st_issue_ctrl_->spad_data_val       << spad_dma_read_pipe_->out_val;
+  st_issue_ctrl_->spad_data_bits      << spad_dma_read_pipe_->out_bits;
+  st_issue_ctrl_->acc_data_val        << acc_scale_unit_->out_val;
+  st_issue_ctrl_->acc_data_bits       << acc_scale_unit_->out_bits;
+  write_issue_queue_->deq_rdy << st_issue_ctrl_->issue_deq_rdy;
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
   mvin_scale_->data_in     << dma_reader_->resp_out;       
@@ -112,9 +121,10 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_->read_req_val      << st_read_ctrl_->dmawrite_spad;
   spad_->read_req_bits     << st_read_ctrl_->spad_req_bits;
   spad_dma_read_pipe_->resp_in << spad_->read_resp;
-  spad_dma_read_pipe_->out_rdy << bit(true);           // later: StIssueCtrl consumes spad read data
+  spad_dma_read_pipe_->out_rdy << st_issue_ctrl_->spad_data_rdy;
   accum_->read_req_val     << st_read_ctrl_->dmawrite_accum;
   accum_->read_req_bits    << st_read_ctrl_->accum_req_bits;
+  acc_scale_unit_->out_rdy << st_issue_ctrl_->acc_data_rdy;
   st_norm_ctrl_->accum_read_resp_val  << accum_->read_resp_val;
   st_norm_ctrl_->accum_read_resp_bits << accum_->read_resp_bits;
   accum_->read_resp_rdy               << st_norm_ctrl_->accum_read_resp_rdy;
@@ -137,6 +147,7 @@ SmeshTop::~SmeshTop() {
   delete mvin_scale_;
   delete dma_reader_;
   delete write_issue_queue_;
+  delete st_issue_ctrl_;
   delete write_scale_queue_;
   delete st_scale_ctrl_;
   delete acc_scale_unit_;
