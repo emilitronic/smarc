@@ -27,6 +27,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");
   write_issue_queue_    = new DmaWriteIssueQueue("DmaWriteIssueQueue");
   st_issue_ctrl_        = new StIssueCtrl("StIssueCtrl");
+  st_issue_mux_         = new StIssueMux("StIssueMux");
   dma_reader_           = new DmaReader("DmaReader");
   mvin_scale_           = new MvinScale("MvinScale");
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
@@ -53,6 +54,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_scale_queue_->clk    << clk;
   write_issue_queue_->clk    << clk;
   st_issue_ctrl_->clk        << clk;
+  st_issue_mux_->clk         << clk;
   dma_reader_->clk           << clk;
   mvin_scale_->clk           << clk;
   pixel_repeater_->clk       << clk;
@@ -110,6 +112,13 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_issue_ctrl_->spad_data_bits      << spad_dma_read_pipe_->out_bits;
   st_issue_ctrl_->acc_data_val        << acc_scale_unit_->out_val;
   st_issue_ctrl_->acc_data_bits       << acc_scale_unit_->out_bits;
+  st_issue_mux_->issue_bits       << write_issue_queue_->deq_bits;
+  st_issue_mux_->spad_data_bits   << spad_dma_read_pipe_->out_bits;
+  st_issue_mux_->acc_data_bits    << acc_scale_unit_->out_bits;
+  st_issue_mux_->data_source_sel  << st_issue_ctrl_->data_source_sel;
+  st_issue_mux_->final_data_sel   << st_issue_ctrl_->final_data_sel;
+  st_issue_mux_->write_data_is_all_zeros  << st_issue_ctrl_->write_data_is_all_zeros;
+  st_issue_mux_->write_data_is_full_width << st_issue_ctrl_->write_data_is_full_width;
   write_issue_queue_->deq_rdy << st_issue_ctrl_->issue_deq_rdy;
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
@@ -146,6 +155,7 @@ SmeshTop::~SmeshTop() {
   delete pixel_repeater_;
   delete mvin_scale_;
   delete dma_reader_;
+  delete st_issue_mux_;
   delete write_issue_queue_;
   delete st_issue_ctrl_;
   delete write_scale_queue_;
