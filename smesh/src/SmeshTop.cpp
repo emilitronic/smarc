@@ -95,7 +95,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_read_ctrl_->dispatch_val       << write_dispatch_queue_->deq_val;
   st_read_ctrl_->dispatch_bits      << write_dispatch_queue_->deq_bits;
   st_read_ctrl_->norm_rdy           << write_norm_queue_->enq_rdy;
-  st_read_ctrl_->spad_read_req_rdy  << arb_read_spad_[0]->dmawrite_rdy;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    st_read_ctrl_->spad_read_req_rdy[bank] << arb_read_spad_[bank]->dmawrite_rdy;
+  }
   st_read_ctrl_->accum_read_req_rdy << arb_read_accum_->dmawrite_rdy;
   write_dispatch_queue_->deq_rdy << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_val   << st_read_ctrl_->read_req_fire;
@@ -150,14 +152,16 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   local_router_->data_in   << pixel_repeater_->data_out; 
   spad_->write_in          << local_router_->spad_out; 
   accum_->write_in         << local_router_->accum_out; 
-  arb_read_spad_[0]->exread_val    << ex_ctrl_->spad_read_req_val;
-  arb_read_spad_[0]->exread_bits   << ex_ctrl_->spad_read_req_bits;
-  ex_ctrl_->spad_read_req_rdy      << arb_read_spad_[0]->exread_rdy;
-  arb_read_spad_[0]->dmawrite_val  << st_read_ctrl_->dmawrite_spad;
-  arb_read_spad_[0]->dmawrite_bits << st_read_ctrl_->spad_req_bits;
-  arb_read_spad_[0]->read_req_rdy  << spad_->read_req_rdy_banked[0];
-  spad_->read_req_val_banked[0]    << arb_read_spad_[0]->read_req_val;
-  spad_->read_req_bits_banked[0]   << arb_read_spad_[0]->read_req_bits;
+  arb_read_spad_[0]->exread_val   << ex_ctrl_->spad_read_req_val;
+  arb_read_spad_[0]->exread_bits  << ex_ctrl_->spad_read_req_bits;
+  ex_ctrl_->spad_read_req_rdy     << arb_read_spad_[0]->exread_rdy;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_read_spad_[bank]->dmawrite_val  << st_read_ctrl_->dmawrite_spad[bank];
+    arb_read_spad_[bank]->dmawrite_bits << st_read_ctrl_->spad_req_bits[bank];
+    arb_read_spad_[bank]->read_req_rdy  << spad_->read_req_rdy_banked[bank];
+    spad_->read_req_val_banked[bank]    << arb_read_spad_[bank]->read_req_val;
+    spad_->read_req_bits_banked[bank]   << arb_read_spad_[bank]->read_req_bits;
+  }
   spad_->read_req_val  << arb_read_spad_[0]->read_req_val;
   spad_->read_req_bits << arb_read_spad_[0]->read_req_bits;
   spad_dma_read_pipe_->resp_val  << spad_->read_resp_val;

@@ -69,9 +69,9 @@ class SmeshTop : public Component {
   const Accum&   accum()  const { return *accum_; }
 
   // Store-path monitor taps for testbench-only checkers.
-  auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad; }
+  auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad[0]; }
   auto& storeSpadReadReqRdy() { return spad_->read_req_rdy_banked[0]; }
-  auto& storeSpadReadReqBits() { return st_read_ctrl_->spad_req_bits; }
+  auto& storeSpadReadReqBits() { return st_read_ctrl_->spad_req_bits[0]; }
   auto& storeNormEnqVal() { return st_read_ctrl_->read_req_fire; }
   auto& storeNormEnqRdy() { return write_norm_queue_->enq_rdy; }
   auto& storeNormEnqBits() { return write_dispatch_queue_->deq_bits; }

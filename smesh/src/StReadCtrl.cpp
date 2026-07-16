@@ -32,6 +32,7 @@ void StReadCtrl::updateReadReq() {
                            is_live &&
                            laddr.is_acc_addr() &&
                            norm_rdy != 0;
+  const auto spad_bank = laddr.sp_bank();
 
   // tap off dispatch_bits for spat read req payload
   SpadReadReq spad_req{};
@@ -53,10 +54,11 @@ void StReadCtrl::updateReadReq() {
   accum_req.cmd_id = req.cmd_id;
   accum_req.from_dma = true;
 
-  // outputs
-  dmawrite_spad  = bit(spad_valid);
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    dmawrite_spad[bank] = bit(spad_valid && bank == spad_bank);
+    spad_req_bits[bank] = spad_req;
+  }
   dmawrite_accum = bit(accum_valid);
-  spad_req_bits = spad_req;
   accum_req_bits = accum_req;
 }
 
@@ -73,7 +75,7 @@ void StReadCtrl::updateReadFire() {
                            is_live &&
                            laddr.is_acc_addr() &&
                            norm_rdy != 0;
-  const bool read_fire = (spad_valid && spad_read_req_rdy != 0) ||
+  const bool read_fire = (spad_valid && spad_read_req_rdy[laddr.sp_bank()] != 0) ||
                          (accum_valid && accum_read_req_rdy != 0);
   // output
   read_req_fire  = bit(read_fire);
@@ -94,14 +96,14 @@ void StReadCtrl::updateInspect() {
   const bool dmawrite_accum = dispatch_val != 0 && targets_accum &&
                               norm_rdy != 0;
   const bool dmawrite = dmawrite_spad || dmawrite_accum;
-  const bool read_fire = (dmawrite_spad && spad_read_req_rdy != 0) ||
+  const bool read_fire = (dmawrite_spad && spad_read_req_rdy[laddr.sp_bank()] != 0) ||
                          (dmawrite_accum && accum_read_req_rdy != 0);
 
   trace("st_read_ctrl: laddr=0x%x spad=%u sp_bank=%u spad_ready=%u accum=%u acc_bank=%u accum_ready=%u norm_rdy=%u dmawrite_spad=%u dmawrite_accum=%u dmawrite=%u read_fire=%u len=%u cmd_id=%u",
         static_cast<unsigned>(laddr.raw),
         static_cast<unsigned>(targets_spad),
         static_cast<unsigned>(laddr.sp_bank()),
-        static_cast<unsigned>(spad_read_req_rdy),
+        static_cast<unsigned>(spad_read_req_rdy[laddr.sp_bank()]),
         static_cast<unsigned>(targets_accum),
         static_cast<unsigned>(laddr.acc_bank()),
         static_cast<unsigned>(accum_read_req_rdy),
