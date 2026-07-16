@@ -14,6 +14,8 @@ easy to inspect.
 
 #include <cascade/Cascade.hpp>
 
+#include <array>
+
 #include "Accum.hpp"
 #include "AccScaleUnit.hpp"
 #include "ArbReadLocal.hpp"
@@ -68,7 +70,7 @@ class SmeshTop : public Component {
 
   // Store-path monitor taps for testbench-only checkers.
   auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad; }
-  auto& storeSpadReadReqRdy() { return spad_->read_req_rdy; }
+  auto& storeSpadReadReqRdy() { return spad_->read_req_rdy_banked[0]; }
   auto& storeSpadReadReqBits() { return st_read_ctrl_->spad_req_bits; }
   auto& storeNormEnqVal() { return st_read_ctrl_->read_req_fire; }
   auto& storeNormEnqRdy() { return write_norm_queue_->enq_rdy; }
@@ -90,7 +92,7 @@ class SmeshTop : public Component {
   StCtrl*                  st_ctrl_ = nullptr;
   DmaWriteDispatchQueue*   write_dispatch_queue_ = nullptr;
   StReadCtrl*              st_read_ctrl_ = nullptr;
-  ArbReadSpad*             arb_read_spad_ = nullptr;
+  std::array<ArbReadSpad*, kSpBanks> arb_read_spad_{};
   ArbReadAccum*            arb_read_accum_ = nullptr;
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;

@@ -20,7 +20,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_ctrl_              = new StCtrl("StCtrl");
   write_dispatch_queue_ = new DmaWriteDispatchQueue("DmaWriteDispatchQueue");
   st_read_ctrl_         = new StReadCtrl("StReadCtrl");
-  arb_read_spad_        = new ArbReadSpad("ArbReadSpad");
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_read_spad_[bank] = new ArbReadSpad("ArbReadSpad");
+  }
   arb_read_accum_       = new ArbReadAccum("ArbReadAccum");
   write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
   st_norm_ctrl_         = new StNormCtrl("StNormCtrl");
@@ -51,7 +53,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_ctrl_->clk              << clk;
   write_dispatch_queue_->clk << clk;
   st_read_ctrl_->clk         << clk;
-  arb_read_spad_->clk        << clk;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_read_spad_[bank]->clk << clk;
+  }
   arb_read_accum_->clk       << clk;
   write_norm_queue_->clk     << clk;
   st_norm_ctrl_->clk         << clk;
@@ -91,7 +95,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_read_ctrl_->dispatch_val       << write_dispatch_queue_->deq_val;
   st_read_ctrl_->dispatch_bits      << write_dispatch_queue_->deq_bits;
   st_read_ctrl_->norm_rdy           << write_norm_queue_->enq_rdy;
-  st_read_ctrl_->spad_read_req_rdy  << arb_read_spad_->dmawrite_rdy;
+  st_read_ctrl_->spad_read_req_rdy  << arb_read_spad_[0]->dmawrite_rdy;
   st_read_ctrl_->accum_read_req_rdy << arb_read_accum_->dmawrite_rdy;
   write_dispatch_queue_->deq_rdy << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_val   << st_read_ctrl_->read_req_fire;
@@ -146,14 +150,16 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   local_router_->data_in   << pixel_repeater_->data_out; 
   spad_->write_in          << local_router_->spad_out; 
   accum_->write_in         << local_router_->accum_out; 
-  arb_read_spad_->exread_val   << ex_ctrl_->spad_read_req_val;
-  arb_read_spad_->exread_bits  << ex_ctrl_->spad_read_req_bits;
-  ex_ctrl_->spad_read_req_rdy  << arb_read_spad_->exread_rdy;
-  arb_read_spad_->dmawrite_val << st_read_ctrl_->dmawrite_spad;
-  arb_read_spad_->dmawrite_bits << st_read_ctrl_->spad_req_bits;
-  arb_read_spad_->read_req_rdy << spad_->read_req_rdy;
-  spad_->read_req_val      << arb_read_spad_->read_req_val;
-  spad_->read_req_bits     << arb_read_spad_->read_req_bits;
+  arb_read_spad_[0]->exread_val    << ex_ctrl_->spad_read_req_val;
+  arb_read_spad_[0]->exread_bits   << ex_ctrl_->spad_read_req_bits;
+  ex_ctrl_->spad_read_req_rdy      << arb_read_spad_[0]->exread_rdy;
+  arb_read_spad_[0]->dmawrite_val  << st_read_ctrl_->dmawrite_spad;
+  arb_read_spad_[0]->dmawrite_bits << st_read_ctrl_->spad_req_bits;
+  arb_read_spad_[0]->read_req_rdy  << spad_->read_req_rdy_banked[0];
+  spad_->read_req_val_banked[0]    << arb_read_spad_[0]->read_req_val;
+  spad_->read_req_bits_banked[0]   << arb_read_spad_[0]->read_req_bits;
+  spad_->read_req_val  << arb_read_spad_[0]->read_req_val;
+  spad_->read_req_bits << arb_read_spad_[0]->read_req_bits;
   spad_dma_read_pipe_->resp_val  << spad_->read_resp_val;
   spad_dma_read_pipe_->resp_bits << spad_->read_resp_bits;
   spad_->read_resp_rdy          << spad_dma_read_pipe_->resp_rdy;
@@ -200,7 +206,9 @@ SmeshTop::~SmeshTop() {
   delete st_norm_ctrl_;
   delete write_norm_queue_;
   delete arb_read_accum_;
-  delete arb_read_spad_;
+  for (auto* arb : arb_read_spad_) {
+    delete arb;
+  }
   delete st_read_ctrl_;
   delete write_dispatch_queue_;
   delete st_ctrl_;
