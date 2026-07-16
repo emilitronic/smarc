@@ -32,6 +32,13 @@ class Spad : public Component {
   Input(bit, read_req_val);                // spad's read req valid signal
   Output(bit, read_req_rdy);               // tap out read req ready signal for StReadCtrl to inspect
   Input(SpadReadReq, read_req_bits);       // spad's read req payload
+
+  // Banked read request ports. These are the intended long-term interface;
+  // the single read_req_* ports above stay temporarily during the refactor.
+  InputArray(bit, read_req_val_banked, kSpBanks);
+  OutputArray(bit, read_req_rdy_banked, kSpBanks);
+  InputArray(SpadReadReq, read_req_bits_banked, kSpBanks);
+
   Output(bit, read_resp_val);
   Output(SpadReadResp, read_resp_bits);
   Input(bit, read_resp_rdy);
