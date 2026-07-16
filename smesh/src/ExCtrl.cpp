@@ -33,8 +33,10 @@ void ExCtrl::updateCmdSink() {
 }
 
 void ExCtrl::updateReadPorts() {
-  spad_read_req_val = 0;
-  spad_read_req_bits = SpadReadReq{};
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_read_req_val[bank] = 0;
+    spad_read_req_bits[bank] = SpadReadReq{};
+  }
   spad_read_resp_rdy = 0;
 
   accum_read_req_val = 0;
@@ -51,8 +53,10 @@ void ExCtrl::updateWritePorts() {
 }
 
 void ExCtrl::reset() {
-  spad_read_req_val.reset(0);
-  spad_read_req_bits.reset(SpadReadReq{});
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_read_req_val[bank].reset(0);
+    spad_read_req_bits[bank].reset(SpadReadReq{});
+  }
   spad_read_resp_rdy.reset(0);
 
   accum_read_req_val.reset(0);

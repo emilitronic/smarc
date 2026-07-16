@@ -12,7 +12,7 @@ namespace smesh {
 
 ArbReadSpad::ArbReadSpad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(exread_val, dmawrite_val, dmawrite_bits, read_req_rdy)
+      .reads(exread_val, exread_bits, dmawrite_val, dmawrite_bits, read_req_rdy)
       .writes(exread_rdy, dmawrite_rdy, read_req_val, read_req_bits);
 }
 
@@ -21,7 +21,6 @@ void ArbReadSpad::update() {
   const bool dmawrite = dmawrite_val != 0; // store path asking to read spad this cycle
 
   read_req_val  = bit(exread || dmawrite); // if either Ex or St path wants to read spad, send valid
-  // TODO: add exread_bits to this update's reads() list before ExCtrl can assert exread_val.
   read_req_bits = exread ? *exread_bits : *dmawrite_bits; // choose request payload to put in spad
 
   exread_rdy   = bit(exread && read_req_rdy != 0);

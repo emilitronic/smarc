@@ -10,6 +10,7 @@ Structural shell for the smesh execute controller.
 #include <cascade/Cascade.hpp>
 
 #include "SmeshPorts.hpp"
+#include "SmeshTypes.hpp"
 
 namespace smesh {
 
@@ -24,9 +25,9 @@ class ExCtrl : public Component {
   FifoInput(SmeshIssue, cmd_in);
   FifoOutput(SmeshRsTag, completed);
 
-  Output(bit, spad_read_req_val);
-  Input(bit, spad_read_req_rdy);
-  Output(SpadReadReq, spad_read_req_bits);
+  OutputArray(bit, spad_read_req_val, kSpBanks);
+  InputArray(bit, spad_read_req_rdy, kSpBanks);
+  OutputArray(SpadReadReq, spad_read_req_bits, kSpBanks);
   Input(bit, spad_read_resp_val);
   Input(SpadReadResp, spad_read_resp_bits);
   Output(bit, spad_read_resp_rdy);

@@ -152,10 +152,10 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   local_router_->data_in   << pixel_repeater_->data_out; 
   spad_->write_in          << local_router_->spad_out; 
   accum_->write_in         << local_router_->accum_out; 
-  arb_read_spad_[0]->exread_val   << ex_ctrl_->spad_read_req_val;
-  arb_read_spad_[0]->exread_bits  << ex_ctrl_->spad_read_req_bits;
-  ex_ctrl_->spad_read_req_rdy     << arb_read_spad_[0]->exread_rdy;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_read_spad_[bank]->exread_val    << ex_ctrl_->spad_read_req_val[bank];
+    arb_read_spad_[bank]->exread_bits   << ex_ctrl_->spad_read_req_bits[bank];
+    ex_ctrl_->spad_read_req_rdy[bank]   << arb_read_spad_[bank]->exread_rdy;
     arb_read_spad_[bank]->dmawrite_val  << st_read_ctrl_->dmawrite_spad[bank];
     arb_read_spad_[bank]->dmawrite_bits << st_read_ctrl_->spad_req_bits[bank];
     arb_read_spad_[bank]->read_req_rdy  << spad_->read_req_rdy_banked[bank];
