@@ -33,7 +33,8 @@ class StReadCtrl : public Component {
   Output(AccumReadReq, accum_req_bits); // tap off accum read req payload for accum to consume
   Output(bit, read_req_fire);
 
-  void updateReadFire();
+  void updateReadReq();  //request-valid gen signals to arbiter...
+  void updateReadFire(); // ...and read-fire gen based on arbiter readiness (split to avoid combinational cycle)
   void updateInspect();
 };
 

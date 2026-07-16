@@ -46,6 +46,7 @@ class ExCtrl : public Component {
   Input(bit, accum_write_rdy);
   Output(DmaReadResp, accum_write_bits);
 
+  void updateCmdSink();
   void updateReadPorts();
   void updateWritePorts();
   void reset();

@@ -260,6 +260,7 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
   UPDATE(updateIssueLoad).writes(issue_ld);
+  UPDATE(updateIssueExecute).writes(issue_ex);
   UPDATE(updateIssueStore).writes(issue_st);
   UPDATE(updateComplete).reads(completed);
 }
@@ -500,6 +501,24 @@ void SmeshRS::updateIssueLoad() {
   issue.rs_tag = entry->rs_tag; // pack in rs_tag
   issue_ld.push(issue);         // push the packet through issue_ld output port
   markIssued(entry->rs_tag);    // mark entry as issued
+}
+
+// runs each cycle ("update"): send oldest ready execute command to ExCtrl and mark its RS entry issued
+void SmeshRS::updateIssueExecute() {
+  if (!execute_issue_port_enabled_ || issue_ex.full()) {
+    return;
+  }
+
+  const auto* entry = issueExecute();
+  if (entry == nullptr) {
+    return;
+  }
+
+  SmeshIssue issue{};
+  issue.cmd = entry->cmd;
+  issue.rs_tag = entry->rs_tag;
+  issue_ex.push(issue);
+  markIssued(entry->rs_tag);
 }
 
 // runs each cycle ("update"): send oldest ready store command to StCtrl and mark its RS entry issued

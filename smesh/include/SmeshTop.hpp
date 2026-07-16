@@ -16,10 +16,12 @@ easy to inspect.
 
 #include "Accum.hpp"
 #include "AccScaleUnit.hpp"
+#include "ArbReadLocal.hpp"
 #include "DmaIssueQueues.hpp"
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
 #include "DmaWriter.hpp"
+#include "ExCtrl.hpp"
 #include "LdCtrl.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
@@ -84,9 +86,12 @@ class SmeshTop : public Component {
   SmeshRS*                 rs_ = nullptr;
   LdCtrl*                  ld_ctrl_ = nullptr;
   DmaReadIssueQueue*       read_issue_queue_ = nullptr;
+  ExCtrl*                  ex_ctrl_ = nullptr;
   StCtrl*                  st_ctrl_ = nullptr;
   DmaWriteDispatchQueue*   write_dispatch_queue_ = nullptr;
   StReadCtrl*              st_read_ctrl_ = nullptr;
+  ArbReadSpad*             arb_read_spad_ = nullptr;
+  ArbReadAccum*            arb_read_accum_ = nullptr;
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;
   Normalizer*              normalizer_ = nullptr;

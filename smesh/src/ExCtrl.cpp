@@ -8,6 +8,7 @@
 namespace smesh {
 
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateCmdSink).reads(cmd_in);
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -18,6 +19,17 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   spad_write_bits,
                                   accum_write_val,
                                   accum_write_bits);
+}
+
+void ExCtrl::updateCmdSink() {
+  if (cmd_in.empty()) {
+    return;
+  }
+
+  const auto issue = cmd_in.pop();
+  trace("ex_ctrl: dropped unimplemented execute cmd tag=%u funct=%u",
+        static_cast<unsigned>(issue.rs_tag),
+        static_cast<unsigned>(issue.cmd.funct));
 }
 
 void ExCtrl::updateReadPorts() {

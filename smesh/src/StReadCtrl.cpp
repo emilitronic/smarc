@@ -11,13 +11,16 @@ Store-path local-memory read control implementation.
 namespace smesh {
 
 StReadCtrl::StReadCtrl(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateReadReq)
+      .reads(dispatch_val, dispatch_bits, norm_rdy)
+      .writes(dmawrite_spad, dmawrite_accum, spad_req_bits, accum_req_bits);
   UPDATE(updateReadFire)
       .reads(dispatch_val, dispatch_bits, norm_rdy, spad_read_req_rdy, accum_read_req_rdy)
-      .writes(dmawrite_spad, dmawrite_accum, spad_req_bits, accum_req_bits, read_req_fire);
+      .writes(read_req_fire);
   UPDATE(updateInspect).reads(dispatch_val, dispatch_bits, norm_rdy, spad_read_req_rdy, accum_read_req_rdy);
 }
-// compute whether store-read action can advance this cycle
-void StReadCtrl::updateReadFire() {
+// do I want a store-side local-memory read? if yes, which memory? what requests bits to present?
+void StReadCtrl::updateReadReq() {
   const auto req = *dispatch_bits;
   const auto laddr = req.laddr;
   const bool is_live = !laddr.is_garbage();
@@ -29,8 +32,7 @@ void StReadCtrl::updateReadFire() {
                            is_live &&
                            laddr.is_acc_addr() &&
                            norm_rdy != 0;
-  const bool read_fire = (spad_valid && spad_read_req_rdy != 0) ||
-                         (accum_valid && accum_read_req_rdy != 0);
+
   // tap off dispatch_bits for spat read req payload
   SpadReadReq spad_req{};
   spad_req.laddr = laddr;
@@ -56,6 +58,24 @@ void StReadCtrl::updateReadFire() {
   dmawrite_accum = bit(accum_valid);
   spad_req_bits = spad_req;
   accum_req_bits = accum_req;
+}
+
+// compute whether store-read action can advance this cycle
+void StReadCtrl::updateReadFire() {
+  const auto req = *dispatch_bits;
+  const auto laddr = req.laddr;
+  const bool is_live = !laddr.is_garbage();
+  const bool spad_valid = dispatch_val != 0 &&
+                          is_live &&
+                          !laddr.is_acc_addr() &&
+                          norm_rdy != 0;
+  const bool accum_valid = dispatch_val != 0 &&
+                           is_live &&
+                           laddr.is_acc_addr() &&
+                           norm_rdy != 0;
+  const bool read_fire = (spad_valid && spad_read_req_rdy != 0) ||
+                         (accum_valid && accum_read_req_rdy != 0);
+  // output
   read_req_fire  = bit(read_fire);
 }
 // look at dispatch queue command
