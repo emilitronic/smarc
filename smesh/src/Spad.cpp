@@ -12,10 +12,10 @@ namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
-  UPDATE(updateReadReady).writes(read_req_rdy, read_req_rdy_banked);
+  UPDATE(updateReadReady).writes(read_req_rdy_banked);
   UPDATE(updateReadRespView).writes(read_resp_val, read_resp_bits);
   UPDATE(updateReadRespPop).reads(read_resp_rdy);
-  UPDATE(updateRead).reads(read_req_val, read_req_bits);
+  UPDATE(updateRead).reads(read_req_val_banked, read_req_bits_banked);
 }
 
 void Spad::updateWrite() {
@@ -58,7 +58,6 @@ void Spad::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Spad::updateReadReady() {
-  read_req_rdy = bit(!read_resp_valid_);
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     read_req_rdy_banked[bank] = bit(!read_resp_valid_);
   }
@@ -78,8 +77,17 @@ void Spad::updateReadRespPop() {
 
 void Spad::updateRead() {
   const bool exread = false; // TODO: execute read wins once ExCtrl has a local-memory read port
-  const bool dmawrite = read_req_val != 0;
-  if (!exread && !dmawrite) {
+  bool has_request = false;
+  SpadReadReq req{};
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    if (read_req_val_banked[bank] != 0) {
+      req = *read_req_bits_banked[bank];
+      has_request = true;
+      break;
+    }
+  }
+
+  if (!exread && !has_request) {
     return;
   }
   if (exread) {
@@ -89,7 +97,6 @@ void Spad::updateRead() {
     return;
   }
 
-  const auto req = *read_req_bits;
   assert_always(!req.laddr.is_acc_addr(),
                 "Spad read received an accumulator address");
 

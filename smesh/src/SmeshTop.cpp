@@ -162,8 +162,6 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     spad_->read_req_val_banked[bank]    << arb_read_spad_[bank]->read_req_val;
     spad_->read_req_bits_banked[bank]   << arb_read_spad_[bank]->read_req_bits;
   }
-  spad_->read_req_val  << arb_read_spad_[0]->read_req_val;
-  spad_->read_req_bits << arb_read_spad_[0]->read_req_bits;
   spad_dma_read_pipe_->resp_val  << spad_->read_resp_val;
   spad_dma_read_pipe_->resp_bits << spad_->read_resp_bits;
   spad_->read_resp_rdy          << spad_dma_read_pipe_->resp_rdy;

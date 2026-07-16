@@ -115,7 +115,8 @@ int main(int argc, char* argv[]) {
   mvin_scale.data_in << dma_reader.resp_out;
   pixel_repeater.data_in << mvin_scale.data_out;
   spad.write_in << pixel_repeater.data_out;
-  spad.read_req_bits << zero_spad_read.read_req;
+  spad.read_req_val_banked[0] << bit(0);
+  spad.read_req_bits_banked[0] << zero_spad_read.read_req;
   spad.read_resp_rdy << bit(1);
   ld_ctrl.dma_resp << spad.dma_resp;
   mem.in_core_req.setDelay(1);
