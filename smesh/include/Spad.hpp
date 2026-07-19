@@ -37,6 +37,9 @@ class Spad : public Component {
   Output(bit, read_resp_val);
   Output(SpadReadResp, read_resp_bits);
   Input(bit, read_resp_rdy);
+  OutputArray(bit, read_resp_val_bnk, kSpBanks);
+  OutputArray(SpadReadResp, read_resp_bits_bnk, kSpBanks);
+  InputArray(bit, read_resp_rdy_bnk, kSpBanks);
 
   void updateWrite();
   void updateReadReady();
@@ -51,7 +54,7 @@ class Spad : public Component {
  private:
   std::array<std::array<Row, kSpBankRows>, kSpBanks> banks_{};
   bool write_accepted_ = false;
-  bool read_resp_valid_ = false;
+  bool read_resp_valid_ = false;   // reg holds response valid while waiting for read pipe to pop it
   SpadReadResp read_resp_entry_{}; // reg holds response while waiting for read pipe to pop it
 };
 

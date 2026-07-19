@@ -64,7 +64,6 @@ void StReadCtrl::updateReadReq() {
     accum_req_bits[bank] = accum_req;
   }
 }
-
 // compute whether store-read action can advance this cycle
 void StReadCtrl::updateReadFire() {
   const auto req = *dispatch_bits;
