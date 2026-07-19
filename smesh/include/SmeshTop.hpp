@@ -111,6 +111,7 @@ class SmeshTop : public Component {
   MvinLocalRouter*         local_router_ = nullptr;
   Spad*                    spad_ = nullptr;
   std::array<SpadDmaReadPipe*, kSpBanks> spad_dma_read_pipe_{};
+  std::array<SpadExReadPipe*, kSpBanks> spad_ex_read_pipe_{};
   Accum*                   accum_ = nullptr;
   DmaReadCompletionMux*    completion_mux_ = nullptr;
 };

@@ -36,8 +36,8 @@ void ExCtrl::updateReadPorts() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank] = 0;
     spad_read_req_bits[bank] = SpadReadReq{};
+    spad_read_resp_rdy[bank] = 0;
   }
-  spad_read_resp_rdy = 0;
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_val[bank] = 0;
@@ -58,8 +58,8 @@ void ExCtrl::reset() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);
     spad_read_req_bits[bank].reset(SpadReadReq{});
+    spad_read_resp_rdy[bank].reset(0);
   }
-  spad_read_resp_rdy.reset(0);
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_val[bank].reset(0);

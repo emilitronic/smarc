@@ -28,9 +28,9 @@ class ExCtrl : public Component {
   OutputArray(bit, spad_read_req_val, kSpBanks);
   InputArray(bit, spad_read_req_rdy, kSpBanks);
   OutputArray(SpadReadReq, spad_read_req_bits, kSpBanks);
-  Input(bit, spad_read_resp_val);
-  Input(SpadReadResp, spad_read_resp_bits);
-  Output(bit, spad_read_resp_rdy);
+  InputArray(bit, spad_read_resp_val, kSpBanks);
+  InputArray(SpadReadResp, spad_read_resp_bits, kSpBanks);
+  OutputArray(bit, spad_read_resp_rdy, kSpBanks);
 
   OutputArray(bit, accum_read_req_val, kAccBanks);
   InputArray(bit, accum_read_req_rdy, kAccBanks);

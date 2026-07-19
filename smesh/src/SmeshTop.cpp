@@ -44,6 +44,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_                 = new Spad("Spad");
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank] = new SpadDmaReadPipe("SpadDmaReadPipe");
+    spad_ex_read_pipe_[bank]  = new SpadExReadPipe("SpadExReadPipe");
   }
   accum_                = new Accum("Accum");
   completion_mux_       = new DmaReadCompletionMux("DmaReadCompletionMux");
@@ -82,6 +83,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_->clk                 << clk;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank]->clk << clk;
+    spad_ex_read_pipe_[bank]->clk  << clk;
   }
   accum_->clk                << clk;
   completion_mux_->clk       << clk;
@@ -175,6 +177,12 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank]->resp_val  << spad_->read_resp_val_bnk[bank];
     spad_dma_read_pipe_[bank]->resp_bits << spad_->read_resp_bits_bnk[bank];
+    spad_ex_read_pipe_[bank]->resp_val   << spad_->read_resp_val_bnk[bank];
+    spad_ex_read_pipe_[bank]->resp_bits  << spad_->read_resp_bits_bnk[bank];
+    ex_ctrl_->spad_read_resp_val[bank]   << spad_ex_read_pipe_[bank]->out_val;
+    ex_ctrl_->spad_read_resp_bits[bank]  << spad_ex_read_pipe_[bank]->out_bits;
+    spad_ex_read_pipe_[bank]->out_rdy    << ex_ctrl_->spad_read_resp_rdy[bank];
+    // TODO: once ExCtrl produces real spad reads, combine DMA and execute pipe ready.
     spad_->read_resp_rdy_bnk[bank]       << spad_dma_read_pipe_[bank]->resp_rdy;
   }
   spad_dma_read_pipe_[0]->out_rdy << st_issue_ctrl_->spad_data_rdy;
@@ -208,6 +216,9 @@ SmeshTop::~SmeshTop() {
   delete completion_mux_;
   delete accum_;
   for (auto* pipe : spad_dma_read_pipe_) {
+    delete pipe;
+  }
+  for (auto* pipe : spad_ex_read_pipe_) {
     delete pipe;
   }
   delete spad_;
