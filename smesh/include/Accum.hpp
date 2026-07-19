@@ -35,9 +35,9 @@ class Accum : public Component {
   OutputArray(bit, read_req_rdy_bnk, kAccBanks);
   InputArray(AccumReadReq, read_req_bits_bnk, kAccBanks);
 
-  Output(bit, read_resp_val);
-  Output(AccumReadResp, read_resp_bits);
-  Input(bit, read_resp_rdy);
+  OutputArray(bit, read_resp_val_bnk, kAccBanks);
+  OutputArray(AccumReadResp, read_resp_bits_bnk, kAccBanks);
+  InputArray(bit, read_resp_rdy_bnk, kAccBanks);
 
   void updateWrite();
   void updateReadReady();

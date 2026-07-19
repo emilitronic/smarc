@@ -13,8 +13,8 @@ namespace smesh {
 Accum::Accum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy_bnk);
-  UPDATE(updateReadRespView).writes(read_resp_val, read_resp_bits);
-  UPDATE(updateReadRespPop).reads(read_resp_rdy);
+  UPDATE(updateReadRespView).writes(read_resp_val_bnk, read_resp_bits_bnk);
+  UPDATE(updateReadRespPop).reads(read_resp_rdy_bnk);
   UPDATE(updateRead).reads(read_req_val_bnk, read_req_bits_bnk);
 }
 
@@ -65,12 +65,25 @@ void Accum::updateReadReady() {
 }
 // shows current response to outside world
 void Accum::updateReadRespView() {
-  read_resp_val = bit(read_resp_valid_);
-  read_resp_bits = read_resp_valid_ ? read_resp_entry_ : AccumReadResp{}; // if  not valid, drive blank response
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    read_resp_val_bnk[bank] = 0;
+    read_resp_bits_bnk[bank] = AccumReadResp{};
+  }
+
+  if (read_resp_valid_) {
+    const auto bank = read_resp_entry_.laddr.acc_bank();
+    read_resp_val_bnk[bank] = 1;
+    read_resp_bits_bnk[bank] = read_resp_entry_;
+  }
 }
 // consumes/clears response when downsream block is ready
 void Accum::updateReadRespPop() {
-  if (read_resp_valid_ && read_resp_rdy != 0) {
+  if (!read_resp_valid_) {
+    return;
+  }
+
+  const auto bank = read_resp_entry_.laddr.acc_bank();
+  if (read_resp_rdy_bnk[bank] != 0) {
     read_resp_valid_ = false;
     read_resp_entry_ = AccumReadResp{};
   }

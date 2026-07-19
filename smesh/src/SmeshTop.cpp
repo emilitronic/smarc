@@ -66,7 +66,6 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   }
   write_norm_queue_->clk     << clk;
   st_norm_ctrl_->clk         << clk;
-  st_norm_ctrl_->bank_index  << u32(0); // we don't have banks structures defined yet, set to 0 for now
   normalizer_->clk           << clk;
   acc_scale_unit_->clk       << clk;
   st_scale_ctrl_->clk        << clk;
@@ -202,9 +201,11 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     accum_->read_req_bits_bnk[bank]   << arb_read_accum_[bank]->read_req_bits;
   }
   acc_scale_unit_->out_rdy << st_issue_ctrl_->acc_data_rdy;
-  st_norm_ctrl_->accum_read_resp_val  << accum_->read_resp_val;
-  st_norm_ctrl_->accum_read_resp_bits << accum_->read_resp_bits;
-  accum_->read_resp_rdy               << st_norm_ctrl_->accum_read_resp_rdy;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    st_norm_ctrl_->accum_read_resp_val[bank]  << accum_->read_resp_val_bnk[bank];
+    st_norm_ctrl_->accum_read_resp_bits[bank] << accum_->read_resp_bits_bnk[bank];
+    accum_->read_resp_rdy_bnk[bank]           << st_norm_ctrl_->accum_read_resp_rdy[bank];
+  }
   completion_mux_->spad_in  << spad_->dma_resp;         
   completion_mux_->accum_in << accum_->dma_resp;       
   ld_ctrl_->dma_resp        << completion_mux_->dma_resp;     

@@ -44,8 +44,7 @@ StNormCtrl::StNormCtrl(std::string /*name*/, IMPL_CTOR) {
                        accum_read_resp_val,
                        accum_read_resp_bits,
                        normalizer_cmd_rdy,
-                       scale_enq_rdy,
-                       bank_index)
+                       scale_enq_rdy)
                 .writes(norm_deq_rdy,
                         scale_enq_val,
                         normalizer_cmd_val,
@@ -55,16 +54,16 @@ StNormCtrl::StNormCtrl(std::string /*name*/, IMPL_CTOR) {
 
 void StNormCtrl::update() {
   const auto req = *norm_deq_bits;
-  const auto acc_resp = *accum_read_resp_bits;
   const auto laddr = req.laddr;
+  const auto acc_bank = laddr.acc_bank();
+  const auto acc_resp = *accum_read_resp_bits[acc_bank];
 
   const bool is_scratchpad = !laddr.is_acc_addr(); // metadata says we're writing from spad
   const bool is_garbage    = laddr.is_garbage();   // metadata says this is not a real write
   const bool bypass_normalizer = is_garbage || is_scratchpad; // not from accum, so bypass normalizer stage
   const bool targets_this_accum_bank =
       laddr.is_acc_addr() &&
-      !is_garbage &&
-      laddr.acc_bank() == static_cast<std::uint32_t>(bank_index); // metadata says this is write from accum
+      !is_garbage; // metadata says this is write from accum
   const bool writes_to_main_memory = normCmdWritesToMainMemory(laddr.norm_cmd()); // is subfield norm_cmd==RESET?
 
   // just using next_* as a convenience (clear C++/Cascade separation)
@@ -87,17 +86,17 @@ void StNormCtrl::update() {
   else if (targets_this_accum_bank) {
     // all relevant parts have valid data and room to consume
     const bool accum_move = norm_deq_val != 0 &&
-                            accum_read_resp_val != 0 &&
+                            accum_read_resp_val[acc_bank] != 0 &&
                             normalizer_cmd_rdy != 0 &&
                             scale_enq_rdy != 0;
     // let valid norm metadata pop if there's valid accum data, normalizer is ready, and scale queue is ready
-    next_norm_deq_rdy = accum_read_resp_val != 0 &&
+    next_norm_deq_rdy = accum_read_resp_val[acc_bank] != 0 &&
                         normalizer_cmd_rdy != 0 &&
                         scale_enq_rdy != 0;
     // let normalizer consume if there's valid norm medatdata, valid accum data, and scale queue is ready
     // (note: we don't necessarily have to wait for scale queue if norm_cmd != RESET, but we're too dumb to add this nuance)
     next_normalizer_cmd_val = norm_deq_val != 0 &&
-                              accum_read_resp_val != 0 &&
+                              accum_read_resp_val[acc_bank] != 0 &&
                               scale_enq_rdy != 0;
     // let valid accum data pop if there's valid norm metadata, normalizer is ready, and scale queue is ready
     next_accum_read_resp_rdy = norm_deq_val != 0 &&
@@ -111,7 +110,9 @@ void StNormCtrl::update() {
   scale_enq_val = bit(next_scale_enq_val);
   normalizer_cmd_val = bit(next_normalizer_cmd_val);
   normalizer_req_bits = next_normalizer_req;
-  accum_read_resp_rdy = bit(next_accum_read_resp_rdy);
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    accum_read_resp_rdy[bank] = bit(next_accum_read_resp_rdy && bank == acc_bank);
+  }
 }
 
 } // namespace smesh
