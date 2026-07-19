@@ -117,7 +117,9 @@ int main(int argc, char* argv[]) {
   spad.write_in << pixel_repeater.data_out;
   spad.read_req_val_bnk[0] << bit(0);
   spad.read_req_bits_bnk[0] << zero_spad_read.read_req;
-  spad.read_resp_rdy << bit(1);
+  for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+    spad.read_resp_rdy_bnk[bank] << bit(1);
+  }
   ld_ctrl.dma_resp << spad.dma_resp;
   mem.in_core_req.setDelay(1);
   dram.s_req << mem.s_req;

@@ -175,8 +175,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank]->resp_val  << spad_->read_resp_val_bnk[bank];
     spad_dma_read_pipe_[bank]->resp_bits << spad_->read_resp_bits_bnk[bank];
+    spad_->read_resp_rdy_bnk[bank]       << spad_dma_read_pipe_[bank]->resp_rdy;
   }
-  spad_->read_resp_rdy          << spad_dma_read_pipe_[0]->resp_rdy;
   spad_dma_read_pipe_[0]->out_rdy << st_issue_ctrl_->spad_data_rdy;
   for (std::size_t bank = 1; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank]->out_rdy << bit(0);

@@ -13,11 +13,9 @@ namespace smesh {
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy_bnk);
-  UPDATE(updateReadRespView).writes(read_resp_val,
-                                    read_resp_bits,
-                                    read_resp_val_bnk,
+  UPDATE(updateReadRespView).writes(read_resp_val_bnk,
                                     read_resp_bits_bnk);
-  UPDATE(updateReadRespPop).reads(read_resp_rdy);
+  UPDATE(updateReadRespPop).reads(read_resp_rdy_bnk);
   UPDATE(updateRead).reads(read_req_val_bnk, read_req_bits_bnk);
 }
 
@@ -67,9 +65,6 @@ void Spad::updateReadReady() {
 }
 // expose current held spad read response onto o/p ports
 void Spad::updateReadRespView() {
-  read_resp_val = bit(read_resp_valid_);
-  read_resp_bits = read_resp_valid_ ? read_resp_entry_ : SpadReadResp{};
-
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     read_resp_val_bnk[bank] = 0;
     read_resp_bits_bnk[bank] = SpadReadResp{};
@@ -83,7 +78,12 @@ void Spad::updateReadRespView() {
 }
 
 void Spad::updateReadRespPop() {
-  if (read_resp_valid_ && read_resp_rdy != 0) {
+  if (!read_resp_valid_) {
+    return;
+  }
+
+  const auto bank = read_resp_entry_.laddr.sp_bank();
+  if (read_resp_rdy_bnk[bank] != 0) {
     read_resp_valid_ = false;
     read_resp_entry_ = SpadReadResp{};
   }

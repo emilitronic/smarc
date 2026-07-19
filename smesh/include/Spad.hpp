@@ -34,9 +34,6 @@ class Spad : public Component {
   OutputArray(bit, read_req_rdy_bnk, kSpBanks);
   InputArray(SpadReadReq, read_req_bits_bnk, kSpBanks);
 
-  Output(bit, read_resp_val);
-  Output(SpadReadResp, read_resp_bits);
-  Input(bit, read_resp_rdy);
   OutputArray(bit, read_resp_val_bnk, kSpBanks);
   OutputArray(SpadReadResp, read_resp_bits_bnk, kSpBanks);
   InputArray(bit, read_resp_rdy_bnk, kSpBanks);
