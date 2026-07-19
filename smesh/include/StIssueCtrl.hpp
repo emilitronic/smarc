@@ -28,13 +28,12 @@ class StIssueCtrl : public Component {
   Input(bit, dma_writer_req_rdy);   // DmaWriter can accept selected metadata/data this cycle
   Input(bit, spad_writer_req_rdy);  // SpadWriter can accept selected metadata/data this cycle
 
-  Input(bit, spad_data_val);        // SpadDmaReadPipe has normal-width data available
-  Input(SpadReadResp, spad_data_bits); // SpadDmaReadPipe data payload
+  InputArray(bit, spad_data_val, kSpBanks); // SpadDmaReadPipe[i] has normal-width data available
 
   Input(bit, acc_data_val);         // AccScaleUnit has accumulator-sourced data available
   Input(AccScaleResp, acc_data_bits); // AccScaleUnit data payload
 
-  Output(bit, spad_data_rdy); // tells SpadDmaReadPipe output it may be consumed
+  OutputArray(bit, spad_data_rdy, kSpBanks); // tells selected SpadDmaReadPipe output it may be consumed
   Output(bit, acc_data_rdy);  // tells AccScaleUnit output it may be consumed
 
   Output(bit, dma_writer_req_val);  // tells DmaWriter this cycle's selected metadata/data is valid

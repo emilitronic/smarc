@@ -23,7 +23,7 @@ class StIssueMux : public Component {
   Clock(clk);
 
   Input(DmaWriteReq, issue_bits);
-  Input(SpadReadResp, spad_data_bits);
+  InputArray(SpadReadResp, spad_data_bits, kSpBanks);
   Input(AccScaleResp, acc_data_bits);
 
   Input(u8, data_source_sel);

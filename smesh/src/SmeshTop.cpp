@@ -139,12 +139,15 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_issue_ctrl_->issue_deq_bits << write_issue_queue_->deq_bits;
   st_issue_ctrl_->dma_writer_req_rdy  << dma_writer_->req_rdy;
   st_issue_ctrl_->spad_writer_req_rdy << spad_writer_->req_rdy;
-  st_issue_ctrl_->spad_data_val       << spad_dma_read_pipe_[0]->out_val;
-  st_issue_ctrl_->spad_data_bits      << spad_dma_read_pipe_[0]->out_bits;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    st_issue_ctrl_->spad_data_val[bank] << spad_dma_read_pipe_[bank]->out_val;
+  }
   st_issue_ctrl_->acc_data_val        << acc_scale_unit_->out_val;
   st_issue_ctrl_->acc_data_bits       << acc_scale_unit_->out_bits;
   st_issue_mux_->issue_bits       << write_issue_queue_->deq_bits;
-  st_issue_mux_->spad_data_bits   << spad_dma_read_pipe_[0]->out_bits;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    st_issue_mux_->spad_data_bits[bank] << spad_dma_read_pipe_[bank]->out_bits;
+  }
   st_issue_mux_->acc_data_bits    << acc_scale_unit_->out_bits;
   st_issue_mux_->data_source_sel  << st_issue_ctrl_->data_source_sel;
   st_issue_mux_->final_data_sel   << st_issue_ctrl_->final_data_sel;
@@ -185,9 +188,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     // TODO: once ExCtrl produces real spad reads, combine DMA and execute pipe ready.
     spad_->read_resp_rdy_bnk[bank]       << spad_dma_read_pipe_[bank]->resp_rdy;
   }
-  spad_dma_read_pipe_[0]->out_rdy << st_issue_ctrl_->spad_data_rdy;
-  for (std::size_t bank = 1; bank < kSpBanks; ++bank) {
-    spad_dma_read_pipe_[bank]->out_rdy << bit(0);
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_dma_read_pipe_[bank]->out_rdy << st_issue_ctrl_->spad_data_rdy[bank];
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_read_accum_[bank]->exread_val    << ex_ctrl_->accum_read_req_val[bank];

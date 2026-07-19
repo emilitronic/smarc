@@ -50,7 +50,7 @@ StIssueMux::StIssueMux(std::string /*name*/, IMPL_CTOR) {
 void StIssueMux::update() {
   // payloads come into mux
   const auto issue = *issue_bits;
-  const auto spad  = *spad_data_bits;
+  const auto spad  = *spad_data_bits[issue.laddr.sp_bank()];
   const auto acc   = *acc_data_bits;
 
   StWriterReq req{}; // blank o/p request and default settings (below)
