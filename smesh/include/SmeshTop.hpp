@@ -65,7 +65,7 @@ class SmeshTop : public Component {
   const SmeshRS& rs()     const { return *rs_; }
   const LdCtrl&  ldCtrl() const { return *ld_ctrl_; }
   const Spad&    spad()   const { return *spad_; }
-  const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_; }
+  const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_[0]; }
   const Accum&   accum()  const { return *accum_; }
 
   // Store-path monitor taps for testbench-only checkers.
@@ -110,7 +110,7 @@ class SmeshTop : public Component {
   MvinPixelRepeater*       pixel_repeater_ = nullptr;
   MvinLocalRouter*         local_router_ = nullptr;
   Spad*                    spad_ = nullptr;
-  SpadDmaReadPipe*         spad_dma_read_pipe_ = nullptr;
+  std::array<SpadDmaReadPipe*, kSpBanks> spad_dma_read_pipe_{};
   Accum*                   accum_ = nullptr;
   DmaReadCompletionMux*    completion_mux_ = nullptr;
 };

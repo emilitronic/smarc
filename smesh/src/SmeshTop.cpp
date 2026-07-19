@@ -42,7 +42,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
   local_router_         = new MvinLocalRouter("MvinLocalRouter");
   spad_                 = new Spad("Spad");
-  spad_dma_read_pipe_   = new SpadDmaReadPipe("SpadDmaReadPipe");
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_dma_read_pipe_[bank] = new SpadDmaReadPipe("SpadDmaReadPipe");
+  }
   accum_                = new Accum("Accum");
   completion_mux_       = new DmaReadCompletionMux("DmaReadCompletionMux");
 
@@ -78,7 +80,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   pixel_repeater_->clk       << clk;
   local_router_->clk         << clk;
   spad_->clk                 << clk;
-  spad_dma_read_pipe_->clk   << clk;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_dma_read_pipe_[bank]->clk << clk;
+  }
   accum_->clk                << clk;
   completion_mux_->clk       << clk;
 
@@ -133,12 +137,12 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_issue_ctrl_->issue_deq_bits << write_issue_queue_->deq_bits;
   st_issue_ctrl_->dma_writer_req_rdy  << dma_writer_->req_rdy;
   st_issue_ctrl_->spad_writer_req_rdy << spad_writer_->req_rdy;
-  st_issue_ctrl_->spad_data_val       << spad_dma_read_pipe_->out_val;
-  st_issue_ctrl_->spad_data_bits      << spad_dma_read_pipe_->out_bits;
+  st_issue_ctrl_->spad_data_val       << spad_dma_read_pipe_[0]->out_val;
+  st_issue_ctrl_->spad_data_bits      << spad_dma_read_pipe_[0]->out_bits;
   st_issue_ctrl_->acc_data_val        << acc_scale_unit_->out_val;
   st_issue_ctrl_->acc_data_bits       << acc_scale_unit_->out_bits;
   st_issue_mux_->issue_bits       << write_issue_queue_->deq_bits;
-  st_issue_mux_->spad_data_bits   << spad_dma_read_pipe_->out_bits;
+  st_issue_mux_->spad_data_bits   << spad_dma_read_pipe_[0]->out_bits;
   st_issue_mux_->acc_data_bits    << acc_scale_unit_->out_bits;
   st_issue_mux_->data_source_sel  << st_issue_ctrl_->data_source_sel;
   st_issue_mux_->final_data_sel   << st_issue_ctrl_->final_data_sel;
@@ -168,10 +172,15 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     spad_->read_req_val_bnk[bank]    << arb_read_spad_[bank]->read_req_val;
     spad_->read_req_bits_bnk[bank]   << arb_read_spad_[bank]->read_req_bits;
   }
-  spad_dma_read_pipe_->resp_val  << spad_->read_resp_val;
-  spad_dma_read_pipe_->resp_bits << spad_->read_resp_bits;
-  spad_->read_resp_rdy          << spad_dma_read_pipe_->resp_rdy;
-  spad_dma_read_pipe_->out_rdy << st_issue_ctrl_->spad_data_rdy;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_dma_read_pipe_[bank]->resp_val  << spad_->read_resp_val_bnk[bank];
+    spad_dma_read_pipe_[bank]->resp_bits << spad_->read_resp_bits_bnk[bank];
+  }
+  spad_->read_resp_rdy          << spad_dma_read_pipe_[0]->resp_rdy;
+  spad_dma_read_pipe_[0]->out_rdy << st_issue_ctrl_->spad_data_rdy;
+  for (std::size_t bank = 1; bank < kSpBanks; ++bank) {
+    spad_dma_read_pipe_[bank]->out_rdy << bit(0);
+  }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_read_accum_[bank]->exread_val    << ex_ctrl_->accum_read_req_val[bank];
     arb_read_accum_[bank]->exread_bits   << ex_ctrl_->accum_read_req_bits[bank];
@@ -198,7 +207,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
 SmeshTop::~SmeshTop() {
   delete completion_mux_;
   delete accum_;
-  delete spad_dma_read_pipe_;
+  for (auto* pipe : spad_dma_read_pipe_) {
+    delete pipe;
+  }
   delete spad_;
   delete local_router_;
   delete pixel_repeater_;
