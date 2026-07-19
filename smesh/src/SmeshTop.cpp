@@ -23,7 +23,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_read_spad_[bank] = new ArbReadSpad("ArbReadSpad");
   }
-  arb_read_accum_       = new ArbReadAccum("ArbReadAccum");
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    arb_read_accum_[bank] = new ArbReadAccum("ArbReadAccum");
+  }
   write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
   st_norm_ctrl_         = new StNormCtrl("StNormCtrl");
   normalizer_           = new Normalizer("Normalizer");
@@ -56,7 +58,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_read_spad_[bank]->clk << clk;
   }
-  arb_read_accum_->clk       << clk;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    arb_read_accum_[bank]->clk << clk;
+  }
   write_norm_queue_->clk     << clk;
   st_norm_ctrl_->clk         << clk;
   st_norm_ctrl_->bank_index  << u32(0); // we don't have banks structures defined yet, set to 0 for now
@@ -98,7 +102,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     st_read_ctrl_->spad_read_req_rdy[bank] << arb_read_spad_[bank]->dmawrite_rdy;
   }
-  st_read_ctrl_->accum_read_req_rdy << arb_read_accum_->dmawrite_rdy;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    st_read_ctrl_->accum_read_req_rdy[bank] << arb_read_accum_[bank]->dmawrite_rdy;
+  }
   write_dispatch_queue_->deq_rdy << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_val   << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_bits  << write_dispatch_queue_->deq_bits;
@@ -158,22 +164,24 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     ex_ctrl_->spad_read_req_rdy[bank]   << arb_read_spad_[bank]->exread_rdy;
     arb_read_spad_[bank]->dmawrite_val  << st_read_ctrl_->dmawrite_spad[bank];
     arb_read_spad_[bank]->dmawrite_bits << st_read_ctrl_->spad_req_bits[bank];
-    arb_read_spad_[bank]->read_req_rdy  << spad_->read_req_rdy_banked[bank];
-    spad_->read_req_val_banked[bank]    << arb_read_spad_[bank]->read_req_val;
-    spad_->read_req_bits_banked[bank]   << arb_read_spad_[bank]->read_req_bits;
+    arb_read_spad_[bank]->read_req_rdy  << spad_->read_req_rdy_bnk[bank];
+    spad_->read_req_val_bnk[bank]    << arb_read_spad_[bank]->read_req_val;
+    spad_->read_req_bits_bnk[bank]   << arb_read_spad_[bank]->read_req_bits;
   }
   spad_dma_read_pipe_->resp_val  << spad_->read_resp_val;
   spad_dma_read_pipe_->resp_bits << spad_->read_resp_bits;
   spad_->read_resp_rdy          << spad_dma_read_pipe_->resp_rdy;
   spad_dma_read_pipe_->out_rdy << st_issue_ctrl_->spad_data_rdy;
-  arb_read_accum_->exread_val   << ex_ctrl_->accum_read_req_val;
-  arb_read_accum_->exread_bits  << ex_ctrl_->accum_read_req_bits;
-  ex_ctrl_->accum_read_req_rdy  << arb_read_accum_->exread_rdy;
-  arb_read_accum_->dmawrite_val << st_read_ctrl_->dmawrite_accum;
-  arb_read_accum_->dmawrite_bits << st_read_ctrl_->accum_req_bits;
-  arb_read_accum_->read_req_rdy << accum_->read_req_rdy;
-  accum_->read_req_val     << arb_read_accum_->read_req_val;
-  accum_->read_req_bits    << arb_read_accum_->read_req_bits;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    arb_read_accum_[bank]->exread_val    << ex_ctrl_->accum_read_req_val[bank];
+    arb_read_accum_[bank]->exread_bits   << ex_ctrl_->accum_read_req_bits[bank];
+    ex_ctrl_->accum_read_req_rdy[bank]   << arb_read_accum_[bank]->exread_rdy;
+    arb_read_accum_[bank]->dmawrite_val  << st_read_ctrl_->dmawrite_accum[bank];
+    arb_read_accum_[bank]->dmawrite_bits << st_read_ctrl_->accum_req_bits[bank];
+    arb_read_accum_[bank]->read_req_rdy  << accum_->read_req_rdy_bnk[bank];
+    accum_->read_req_val_bnk[bank]    << arb_read_accum_[bank]->read_req_val;
+    accum_->read_req_bits_bnk[bank]   << arb_read_accum_[bank]->read_req_bits;
+  }
   acc_scale_unit_->out_rdy << st_issue_ctrl_->acc_data_rdy;
   st_norm_ctrl_->accum_read_resp_val  << accum_->read_resp_val;
   st_norm_ctrl_->accum_read_resp_bits << accum_->read_resp_bits;
@@ -207,7 +215,9 @@ SmeshTop::~SmeshTop() {
   delete normalizer_;
   delete st_norm_ctrl_;
   delete write_norm_queue_;
-  delete arb_read_accum_;
+  for (auto* arb : arb_read_accum_) {
+    delete arb;
+  }
   for (auto* arb : arb_read_spad_) {
     delete arb;
   }

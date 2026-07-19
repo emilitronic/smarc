@@ -27,11 +27,11 @@ class StReadCtrl : public Component {
   Input(DmaWriteReq, dispatch_bits);
   Input(bit, norm_rdy);              // is norm queue signal ready
   InputArray(bit, spad_read_req_rdy, kSpBanks); // spad read req ready, one per bank
-  Input(bit, accum_read_req_rdy);    // is accum read req ready
+  InputArray(bit, accum_read_req_rdy, kAccBanks); // accum read req ready, one per bank
   OutputArray(bit, dmawrite_spad, kSpBanks);
-  Output(bit, dmawrite_accum);
+  OutputArray(bit, dmawrite_accum, kAccBanks);
   OutputArray(SpadReadReq, spad_req_bits, kSpBanks); // spad read req payload, one per bank
-  Output(AccumReadReq, accum_req_bits); // tap off accum read req payload for accum to consume
+  OutputArray(AccumReadReq, accum_req_bits, kAccBanks); // accum read req payload, one per bank
   Output(bit, read_req_fire);
 
   void updateReadReq();  //request-valid gen signals to arbiter...

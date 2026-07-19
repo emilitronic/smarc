@@ -12,10 +12,10 @@ namespace smesh {
 
 Accum::Accum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWrite).reads(write_in).writes(dma_resp);
-  UPDATE(updateReadReady).writes(read_req_rdy);
+  UPDATE(updateReadReady).writes(read_req_rdy_bnk);
   UPDATE(updateReadRespView).writes(read_resp_val, read_resp_bits);
   UPDATE(updateReadRespPop).reads(read_resp_rdy);
-  UPDATE(updateRead).reads(read_req_val, read_req_bits);
+  UPDATE(updateRead).reads(read_req_val_bnk, read_req_bits_bnk);
 }
 
 void Accum::updateWrite() {
@@ -59,7 +59,9 @@ void Accum::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Accum::updateReadReady() {
-  read_req_rdy = bit(!read_resp_valid_);
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    read_req_rdy_bnk[bank] = bit(!read_resp_valid_);
+  }
 }
 // shows current response to outside world
 void Accum::updateReadRespView() {
@@ -76,8 +78,17 @@ void Accum::updateReadRespPop() {
 
 void Accum::updateRead() {
   const bool exread = false; // TODO: execute read wins once ExCtrl has a local-memory read port
-  const bool dmawrite = read_req_val != 0;
-  if (!exread && !dmawrite) {
+  bool has_request = false;
+  AccumReadReq req{};
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    if (read_req_val_bnk[bank] != 0) {
+      req = *read_req_bits_bnk[bank];
+      has_request = true;
+      break;
+    }
+  }
+
+  if (!exread && !has_request) {
     return;
   }
   if (exread) {
@@ -87,7 +98,6 @@ void Accum::updateRead() {
     return;
   }
 
-  const auto req = *read_req_bits;
   assert_always(req.laddr.is_acc_addr(), "Accum read received a scratchpad address");
 
   const auto& source = banks_[req.laddr.acc_bank()][req.laddr.acc_row()];

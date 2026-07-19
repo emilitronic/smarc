@@ -30,9 +30,10 @@ class Accum : public Component {
   FifoInput(DmaReadResp, write_in);        // accum's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last accum write is done
 
-  Input(bit, read_req_val);                // accum's read req valid signal
-  Output(bit, read_req_rdy);               // tap out read req ready signal for StReadCtrl to inspect
-  Input(AccumReadReq, read_req_bits);      // accum's read req payload
+  // Banked read request ports. For now Accum accepts at most one read per cycle.
+  InputArray(bit, read_req_val_bnk, kAccBanks);
+  OutputArray(bit, read_req_rdy_bnk, kAccBanks);
+  InputArray(AccumReadReq, read_req_bits_bnk, kAccBanks);
 
   Output(bit, read_resp_val);
   Output(AccumReadResp, read_resp_bits);

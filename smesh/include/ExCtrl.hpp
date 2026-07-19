@@ -32,9 +32,9 @@ class ExCtrl : public Component {
   Input(SpadReadResp, spad_read_resp_bits);
   Output(bit, spad_read_resp_rdy);
 
-  Output(bit, accum_read_req_val);
-  Input(bit, accum_read_req_rdy);
-  Output(AccumReadReq, accum_read_req_bits);
+  OutputArray(bit, accum_read_req_val, kAccBanks);
+  InputArray(bit, accum_read_req_rdy, kAccBanks);
+  OutputArray(AccumReadReq, accum_read_req_bits, kAccBanks);
   Input(bit, accum_read_resp_val);
   Input(AccumReadResp, accum_read_resp_bits);
   Output(bit, accum_read_resp_rdy);

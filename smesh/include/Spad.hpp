@@ -30,9 +30,9 @@ class Spad : public Component {
   FifoInput(DmaReadResp, write_in);        // spad's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last spad write is done
   // Banked read request ports. For now Spad accepts at most one read per cycle.
-  InputArray(bit, read_req_val_banked, kSpBanks);
-  OutputArray(bit, read_req_rdy_banked, kSpBanks);
-  InputArray(SpadReadReq, read_req_bits_banked, kSpBanks);
+  InputArray(bit, read_req_val_bnk, kSpBanks);
+  OutputArray(bit, read_req_rdy_bnk, kSpBanks);
+  InputArray(SpadReadReq, read_req_bits_bnk, kSpBanks);
 
   Output(bit, read_resp_val);
   Output(SpadReadResp, read_resp_bits);
