@@ -29,6 +29,10 @@ class Accum : public Component {
 
   FifoInput(DmaReadResp, write_in);        // accum's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last accum write is done
+  // Banked write ports. For now Accum accepts at most one write per cycle.
+  InputArray(bit, write_val_bnk, kAccBanks);
+  OutputArray(bit, write_rdy_bnk, kAccBanks);
+  InputArray(DmaReadResp, write_bits_bnk, kAccBanks);
 
   // Banked read request ports. For now Accum accepts at most one read per cycle.
   InputArray(bit, read_req_val_bnk, kAccBanks);
@@ -39,6 +43,7 @@ class Accum : public Component {
   OutputArray(AccumReadResp, read_resp_bits_bnk, kAccBanks);
   InputArray(bit, read_resp_rdy_bnk, kAccBanks);
 
+  void updateWriteReady();
   void updateWrite();
   void updateReadReady();
   void updateReadRespView();

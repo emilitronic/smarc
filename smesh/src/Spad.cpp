@@ -11,7 +11,8 @@ Standalone smesh scratchpad memory implementation.
 namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateWrite).reads(write_in).writes(dma_resp);
+  UPDATE(updateWriteReady).reads(write_in, write_val_bnk, write_bits_bnk).writes(write_rdy_bnk);
+  UPDATE(updateWrite).reads(write_in, write_val_bnk, write_bits_bnk).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy_bnk);
   UPDATE(updateReadRespView).writes(read_resp_val_bnk,
                                     read_resp_bits_bnk);
@@ -19,17 +20,48 @@ Spad::Spad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateRead).reads(read_req_val_bnk, read_req_bits_bnk);
 }
 
-void Spad::updateWrite() {
-  if (write_in.empty()) {
-    return;
+void Spad::updateWriteReady() {
+  const bool legacy_write_waiting = !write_in.empty();
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    const auto pending = *write_bits_bnk[bank];
+    const bool completion_blocked = write_val_bnk[bank] != 0 &&
+                                    static_cast<bool>(pending.last) &&
+                                    dma_resp.full();
+    write_rdy_bnk[bank] = bit(!legacy_write_waiting && !completion_blocked);
   }
-  // wait until completion FIFO to LdCtrl has room before performing final write
-  const auto& pending = write_in.peek();
-  if (static_cast<bool>(pending.last) && dma_resp.full()) {
+}
+
+void Spad::updateWrite() {
+  bool has_write = false;
+  DmaReadResp write{};
+
+  if (!write_in.empty()) {
+    // wait until completion FIFO to LdCtrl has room before performing final write
+    const auto& pending = write_in.peek();
+    if (static_cast<bool>(pending.last) && dma_resp.full()) {
+      return;
+    }
+    write = write_in.pop();
+    has_write = true;
+  } else {
+    for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+      if (write_val_bnk[bank] == 0) {
+        continue;
+      }
+      const auto pending = *write_bits_bnk[bank];
+      if (static_cast<bool>(pending.last) && dma_resp.full()) {
+        return;
+      }
+      write = pending;
+      has_write = true;
+      break;
+    }
+  }
+
+  if (!has_write) {
     return;
   }
 
-  const auto write = write_in.pop();
   assert_always(!write.laddr.is_acc_addr(),
                 "Spad write received an accumulator address");
 
