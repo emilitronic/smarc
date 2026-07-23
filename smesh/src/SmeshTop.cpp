@@ -174,11 +174,11 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   mvin_scale_split_->data_in << dma_reader_->resp_out;
   mvin_scale_->data_in       << mvin_scale_split_->normal_out;
   mvin_scale_acc_->data_in   << mvin_scale_split_->acc_out;
-  mvin_scale_acc_->data_out.sendToBitBucket();             // later: route to dmaread_accum_full
+  mvin_scale_acc_->data_out.sendToBitBucket();             // dmaread_accum_full source; later connect to accum write arbitration
   pixel_repeater_->data_in << mvin_scale_->data_out;    
   local_router_->data_in   << pixel_repeater_->data_out; 
-  spad_->write_in          << local_router_->spad_out; 
-  accum_->write_in         << local_router_->accum_out; 
+  spad_->write_in          << local_router_->dmaread_spad; 
+  accum_->write_in         << local_router_->dmaread_accum; 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_read_spad_[bank]->exread_val    << ex_ctrl_->spad_read_req_val[bank];
     arb_read_spad_[bank]->exread_bits   << ex_ctrl_->spad_read_req_bits[bank];

@@ -23,8 +23,8 @@ class MvinLocalRouter : public Component {
   Clock(clk);
 
   FifoInput(DmaReadResp, data_in);
-  FifoOutput(DmaReadResp, spad_out);
-  FifoOutput(DmaReadResp, accum_out);
+  FifoOutput(DmaReadResp, dmaread_spad);
+  FifoOutput(DmaReadResp, dmaread_accum);
 
   void update();
 };
