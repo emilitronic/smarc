@@ -246,7 +246,7 @@ int main(int argc, char* argv[]) {
             resp.len == smesh::kDim &&
             resp.mask == ((1u << smesh::kDim) - 1u);
   for (std::size_t c = 0; c < smesh::kDim; ++c) {
-    const auto byte = static_cast<std::uint8_t>((resp.data >> (c * 8)) & 0xffu);
+    const auto byte = resp.data[c];
     pipe_ok = pipe_ok && byte == rows[c];
   }
 
@@ -275,7 +275,7 @@ int main(int argc, char* argv[]) {
                 static_cast<unsigned>(resp.laddr.raw),
                 static_cast<unsigned>(resp.len),
                 static_cast<unsigned>(resp.mask),
-                static_cast<unsigned long long>(resp.data));
+                static_cast<unsigned long long>(smesh::low64DmaReadData(resp.data)));
   }
 
   std::printf("[SMESH_TOP_SPAD_STORE] %s spad_store_read_path\n", ok ? "PASS" : "FAIL");

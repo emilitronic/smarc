@@ -34,7 +34,7 @@ void Spad::updateWrite() {
                 "Spad write received an accumulator address");
 
   auto& destination = banks_[write.laddr.sp_bank()][write.laddr.sp_row()];
-  const auto data = static_cast<std::uint64_t>(write.data);
+  const auto data = low64DmaReadData(write.data);
   const auto mask = static_cast<std::uint8_t>(write.mask);
   for (std::size_t lane = 0; lane < kDim; ++lane) {
     if ((mask & (std::uint8_t{1} << lane)) != 0) {

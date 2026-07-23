@@ -33,7 +33,7 @@ void Accum::updateWrite() {
   assert_always(write.laddr.is_acc_addr(), "Accum write received a scratchpad address");  // check that dest is actual accum addr
 
   auto& destination = banks_[write.laddr.acc_bank()][write.laddr.acc_row()];  // select accum bank & row
-  const auto data = static_cast<std::uint64_t>(write.data);
+  const auto data = low64DmaReadData(write.data);
   const auto mask = static_cast<std::uint8_t>(write.mask);
   for (std::size_t lane = 0; lane < kDim; ++lane) { // for ea. lane (i.e., col of memory row)
     if ((mask & (std::uint8_t{1} << lane)) != 0) {  // if mask bit is set...

@@ -10,6 +10,7 @@ A collection of ports between smesh components.
 #include <cascade/Cascade.hpp>
 
 #include "SmeshLocalAddr.hpp"
+#include "SmeshTypes.hpp"
 
 #include <array>
 #include <cstdint>
@@ -64,10 +65,32 @@ struct DmaReadReq {
   u16 cmd_id = 0;
 };
 // interface between memory controller and LdCtrl (via other components)
+using DmaReadData = std::array<std::uint8_t, kDim * sizeof(Acc)>; // DMA reader's data is set to max possible widht (dim*accum_width)
+// temp glue helper converts uint64_t to reader's byte-array payload
+inline DmaReadData packDmaReadData(std::uint64_t value) {
+  DmaReadData data{};
+  for (std::size_t i = 0; i < data.size() && i < sizeof(value); ++i) {
+    data[i] = static_cast<std::uint8_t>((value >> (8 * i)) & 0xffu);
+  }
+  return data;
+}
+// temp glue helper takes low bytes out of reader's byte-array payload
+inline std::uint64_t low64DmaReadData(const DmaReadData& data) {
+  std::uint64_t value = 0;
+  for (std::size_t i = 0; i < data.size() && i < sizeof(value); ++i) {
+    value |= static_cast<std::uint64_t>(data[i]) << (8 * i);
+  }
+  return value;
+}
+
 struct DmaReadResp {
-  u64 data = 0;
+  DmaReadData data{};
   SmeshLocalAddr laddr{};
   u8 mask = 0;
+  bit has_acc_bitwidth = false;
+  u32 scale = 0;
+  u16 repeats = 0;
+  u16 len = 0;
   u16 bytes_read = 0;
   u8 pixel_repeats = 1;
   u16 cmd_id = 0;
