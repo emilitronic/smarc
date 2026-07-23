@@ -38,7 +38,11 @@ class MvinScaleAcc : public Component {
 
   FifoInput(DmaReadResp, data_in);
   FifoOutput(DmaReadResp, data_out);
+  Output(bit, data_val);
+  Output(DmaReadResp, data_bits);
+  Input(bit, data_rdy);
 
+  void updateView();
   void update();
 };
 

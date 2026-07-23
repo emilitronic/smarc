@@ -174,6 +174,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   mvin_scale_split_->data_in << dma_reader_->resp_out;
   mvin_scale_->data_in       << mvin_scale_split_->normal_out;
   mvin_scale_acc_->data_in   << mvin_scale_split_->acc_out;
+  mvin_scale_acc_->data_rdy  << mvin_scale_acc_data_rdy_zero_;
   mvin_scale_acc_->data_out.sendToBitBucket();             // dmaread_accum_full source; later connect to accum write arbitration
   pixel_repeater_->data_in << mvin_scale_->data_out;    
   local_router_->data_in   << pixel_repeater_->data_out; 
@@ -231,7 +232,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   rs_->setStoreIssuePortEnabled(true);
 
   UPDATE(update).writes(local_router_dmaread_spad_rdy_zero_,
-                        local_router_dmaread_accum_rdy_zero_);
+                        local_router_dmaread_accum_rdy_zero_,
+                        mvin_scale_acc_data_rdy_zero_);
 }
 
 SmeshTop::~SmeshTop() {
@@ -286,6 +288,7 @@ void SmeshTop::update() {
   rs_->setStoreIssuePortEnabled(true);
   local_router_dmaread_spad_rdy_zero_ = 0;
   local_router_dmaread_accum_rdy_zero_ = 0;
+  mvin_scale_acc_data_rdy_zero_ = 0;
 }
 
 void SmeshTop::reset() {
@@ -293,6 +296,7 @@ void SmeshTop::reset() {
   rs_->setStoreIssuePortEnabled(true);
   local_router_dmaread_spad_rdy_zero_.reset(0);
   local_router_dmaread_accum_rdy_zero_.reset(0);
+  mvin_scale_acc_data_rdy_zero_.reset(0);
   trace("smesh_top: reset");
 }
 
