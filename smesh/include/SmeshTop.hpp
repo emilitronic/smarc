@@ -94,6 +94,7 @@ class SmeshTop : public Component {
   StReadCtrl*              st_read_ctrl_ = nullptr;
   std::array<ArbReadSpad*, kSpBanks> arb_read_spad_{};
   std::array<ArbReadAccum*, kAccBanks> arb_read_accum_{};
+  std::array<ArbRespSpad*, kSpBanks> arb_resp_spad_{};
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;
   Normalizer*              normalizer_ = nullptr;

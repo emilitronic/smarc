@@ -44,4 +44,16 @@ void ArbReadAccum::update() {
   dmawrite_rdy = bit(!exread && dmawrite && read_req_rdy != 0);
 }
 
+ArbRespSpad::ArbRespSpad(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update)
+      .reads(read_resp_val, read_resp_bits, dma_resp_rdy, ex_resp_rdy)
+      .writes(read_resp_rdy);
+}
+
+void ArbRespSpad::update() {
+  const auto resp = *read_resp_bits;
+  const bool selected_ready = resp.from_dma != 0 ? dma_resp_rdy != 0 : ex_resp_rdy != 0;
+  read_resp_rdy = bit(read_resp_val != 0 && selected_ready);
+}
+
 } // namespace smesh

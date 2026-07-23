@@ -60,4 +60,22 @@ class ArbReadAccum : public Component {
   void update();
 };
 
+class ArbRespSpad : public Component {
+  DECLARE_COMPONENT(ArbRespSpad);
+
+ public:
+  ArbRespSpad(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  Input(bit, read_resp_val);
+  Input(SpadReadResp, read_resp_bits);
+  Input(bit, dma_resp_rdy);
+  Input(bit, ex_resp_rdy);
+
+  Output(bit, read_resp_rdy);
+
+  void update();
+};
+
 } // namespace smesh

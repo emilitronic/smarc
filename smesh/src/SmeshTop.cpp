@@ -26,6 +26,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_read_accum_[bank] = new ArbReadAccum("ArbReadAccum");
   }
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_resp_spad_[bank] = new ArbRespSpad("ArbRespSpad");
+  }
   write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
   st_norm_ctrl_         = new StNormCtrl("StNormCtrl");
   normalizer_           = new Normalizer("Normalizer");
@@ -63,6 +66,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_read_accum_[bank]->clk << clk;
+  }
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_resp_spad_[bank]->clk << clk;
   }
   write_norm_queue_->clk     << clk;
   st_norm_ctrl_->clk         << clk;
@@ -184,8 +190,11 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     ex_ctrl_->spad_read_resp_val[bank]   << spad_ex_read_pipe_[bank]->out_val;
     ex_ctrl_->spad_read_resp_bits[bank]  << spad_ex_read_pipe_[bank]->out_bits;
     spad_ex_read_pipe_[bank]->out_rdy    << ex_ctrl_->spad_read_resp_rdy[bank];
-    // TODO: once ExCtrl produces real spad reads, combine DMA and execute pipe ready.
-    spad_->read_resp_rdy_bnk[bank]       << spad_dma_read_pipe_[bank]->resp_rdy;
+    arb_resp_spad_[bank]->read_resp_val  << spad_->read_resp_val_bnk[bank];
+    arb_resp_spad_[bank]->read_resp_bits << spad_->read_resp_bits_bnk[bank];
+    arb_resp_spad_[bank]->dma_resp_rdy   << spad_dma_read_pipe_[bank]->resp_rdy;
+    arb_resp_spad_[bank]->ex_resp_rdy    << spad_ex_read_pipe_[bank]->resp_rdy;
+    spad_->read_resp_rdy_bnk[bank]       << arb_resp_spad_[bank]->read_resp_rdy;
   }
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank]->out_rdy << st_issue_ctrl_->spad_data_rdy[bank];
@@ -240,6 +249,9 @@ SmeshTop::~SmeshTop() {
   delete normalizer_;
   delete st_norm_ctrl_;
   delete write_norm_queue_;
+  for (auto* arb : arb_resp_spad_) {
+    delete arb;
+  }
   for (auto* arb : arb_read_accum_) {
     delete arb;
   }
