@@ -26,6 +26,7 @@ add_library(smesh_model
   src/StNormCtrl.cpp
   src/StReadCtrl.cpp
   src/StScaleCtrl.cpp
+  src/WriteCtrl.cpp
 )
 
 target_include_directories(smesh_model
