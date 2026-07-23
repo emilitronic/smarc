@@ -41,6 +41,7 @@ easy to inspect.
 #include "StNormCtrl.hpp"
 #include "StReadCtrl.hpp"
 #include "StScaleCtrl.hpp"
+#include "WriteCtrl.hpp"
 #include "smem/MemTypes.hpp"
 
 namespace smesh {
@@ -99,6 +100,7 @@ class SmeshTop : public Component {
   std::array<ArbWriteAccum*, kAccBanks> arb_write_accum_{};
   Output(bit, write_arb_zero_val_);
   Output(DmaReadResp, write_arb_zero_bits_);
+  WriteCtrl*               write_ctrl_ = nullptr;
   std::array<ArbRespSpad*, kSpBanks> arb_resp_spad_{};
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;

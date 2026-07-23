@@ -32,6 +32,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_write_accum_[bank] = new ArbWriteAccum("ArbWriteAccum");
   }
+  write_ctrl_ = new WriteCtrl("WriteCtrl");
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_resp_spad_[bank] = new ArbRespSpad("ArbRespSpad");
   }
@@ -81,6 +82,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_write_accum_[bank]->clk << clk;
   }
+  write_ctrl_->clk << clk;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_resp_spad_[bank]->clk << clk;
   }
@@ -304,6 +306,7 @@ SmeshTop::~SmeshTop() {
   for (auto* arb : arb_resp_spad_) {
     delete arb;
   }
+  delete write_ctrl_;
   for (auto* arb : arb_write_accum_) {
     delete arb;
   }
