@@ -196,11 +196,18 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   local_router_->dmaread_accum_rdy << local_router_dmaread_accum_rdy_zero_;   // later: WriteCtrl consumes explicit dmaread_accum view
   spad_->write_in          << local_router_->dmaread_spad; 
   accum_->write_in         << local_router_->dmaread_accum; 
+  write_ctrl_->dmaread_spad_val        << write_arb_zero_val_;
+  write_ctrl_->dmaread_spad_bits       << write_arb_zero_bits_;
+  write_ctrl_->dmaread_accum_val       << write_arb_zero_val_;
+  write_ctrl_->dmaread_accum_bits      << write_arb_zero_bits_;
+  write_ctrl_->dmaread_accum_full_val  << write_arb_zero_val_;
+  write_ctrl_->dmaread_accum_full_bits << write_arb_zero_bits_;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_write_spad_[bank]->exwrite_val    << write_arb_zero_val_;
     arb_write_spad_[bank]->exwrite_bits   << write_arb_zero_bits_;
-    arb_write_spad_[bank]->dmaread_val    << write_arb_zero_val_;
-    arb_write_spad_[bank]->dmaread_bits   << write_arb_zero_bits_;
+    arb_write_spad_[bank]->dmaread_val    << write_ctrl_->arb_spad_dmaread_val[bank];
+    arb_write_spad_[bank]->dmaread_bits   << write_ctrl_->arb_spad_dmaread_bits[bank];
+    write_ctrl_->arb_spad_dmaread_rdy[bank] << arb_write_spad_[bank]->dmaread_rdy;
     arb_write_spad_[bank]->zerowrite_val  << write_arb_zero_val_;
     arb_write_spad_[bank]->zerowrite_bits << write_arb_zero_bits_;
     arb_write_spad_[bank]->write_rdy      << spad_->write_rdy_bnk[bank];
@@ -210,10 +217,12 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_write_accum_[bank]->exwrite_val       << write_arb_zero_val_;
     arb_write_accum_[bank]->exwrite_bits      << write_arb_zero_bits_;
-    arb_write_accum_[bank]->dmaread_val       << write_arb_zero_val_;
-    arb_write_accum_[bank]->dmaread_bits      << write_arb_zero_bits_;
-    arb_write_accum_[bank]->dmaread_full_val  << write_arb_zero_val_;
-    arb_write_accum_[bank]->dmaread_full_bits << write_arb_zero_bits_;
+    arb_write_accum_[bank]->dmaread_val       << write_ctrl_->arb_accum_dmaread_val[bank];
+    arb_write_accum_[bank]->dmaread_bits      << write_ctrl_->arb_accum_dmaread_bits[bank];
+    write_ctrl_->arb_accum_dmaread_rdy[bank]  << arb_write_accum_[bank]->dmaread_rdy;
+    arb_write_accum_[bank]->dmaread_full_val  << write_ctrl_->arb_accum_dmaread_full_val[bank];
+    arb_write_accum_[bank]->dmaread_full_bits << write_ctrl_->arb_accum_dmaread_full_bits[bank];
+    write_ctrl_->arb_accum_dmaread_full_rdy[bank] << arb_write_accum_[bank]->dmaread_full_rdy;
     arb_write_accum_[bank]->zerowrite_val     << write_arb_zero_val_;
     arb_write_accum_[bank]->zerowrite_bits    << write_arb_zero_bits_;
     arb_write_accum_[bank]->write_rdy         << accum_->write_rdy_bnk[bank];
