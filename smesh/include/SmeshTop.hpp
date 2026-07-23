@@ -19,6 +19,7 @@ easy to inspect.
 #include "Accum.hpp"
 #include "AccScaleUnit.hpp"
 #include "ArbReadLocal.hpp"
+#include "ArbWriteLocal.hpp"
 #include "DmaIssueQueues.hpp"
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
@@ -94,6 +95,10 @@ class SmeshTop : public Component {
   StReadCtrl*              st_read_ctrl_ = nullptr;
   std::array<ArbReadSpad*, kSpBanks> arb_read_spad_{};
   std::array<ArbReadAccum*, kAccBanks> arb_read_accum_{};
+  std::array<ArbWriteSpad*, kSpBanks> arb_write_spad_{};
+  std::array<ArbWriteAccum*, kAccBanks> arb_write_accum_{};
+  Output(bit, write_arb_zero_val_);
+  Output(DmaReadResp, write_arb_zero_bits_);
   std::array<ArbRespSpad*, kSpBanks> arb_resp_spad_{};
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;

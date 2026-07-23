@@ -27,6 +27,12 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     arb_read_accum_[bank] = new ArbReadAccum("ArbReadAccum");
   }
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_write_spad_[bank] = new ArbWriteSpad("ArbWriteSpad");
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    arb_write_accum_[bank] = new ArbWriteAccum("ArbWriteAccum");
+  }
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_resp_spad_[bank] = new ArbRespSpad("ArbRespSpad");
   }
   write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
@@ -68,6 +74,12 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_read_accum_[bank]->clk << clk;
+  }
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_write_spad_[bank]->clk << clk;
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    arb_write_accum_[bank]->clk << clk;
   }
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_resp_spad_[bank]->clk << clk;
@@ -183,6 +195,30 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_->write_in          << local_router_->dmaread_spad; 
   accum_->write_in         << local_router_->dmaread_accum; 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_write_spad_[bank]->exwrite_val    << write_arb_zero_val_;
+    arb_write_spad_[bank]->exwrite_bits   << write_arb_zero_bits_;
+    arb_write_spad_[bank]->dmaread_val    << write_arb_zero_val_;
+    arb_write_spad_[bank]->dmaread_bits   << write_arb_zero_bits_;
+    arb_write_spad_[bank]->zerowrite_val  << write_arb_zero_val_;
+    arb_write_spad_[bank]->zerowrite_bits << write_arb_zero_bits_;
+    arb_write_spad_[bank]->write_rdy      << spad_->write_rdy_bnk[bank];
+    spad_->write_val_bnk[bank]            << arb_write_spad_[bank]->write_val;
+    spad_->write_bits_bnk[bank]           << arb_write_spad_[bank]->write_bits;
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    arb_write_accum_[bank]->exwrite_val       << write_arb_zero_val_;
+    arb_write_accum_[bank]->exwrite_bits      << write_arb_zero_bits_;
+    arb_write_accum_[bank]->dmaread_val       << write_arb_zero_val_;
+    arb_write_accum_[bank]->dmaread_bits      << write_arb_zero_bits_;
+    arb_write_accum_[bank]->dmaread_full_val  << write_arb_zero_val_;
+    arb_write_accum_[bank]->dmaread_full_bits << write_arb_zero_bits_;
+    arb_write_accum_[bank]->zerowrite_val     << write_arb_zero_val_;
+    arb_write_accum_[bank]->zerowrite_bits    << write_arb_zero_bits_;
+    arb_write_accum_[bank]->write_rdy         << accum_->write_rdy_bnk[bank];
+    accum_->write_val_bnk[bank]               << arb_write_accum_[bank]->write_val;
+    accum_->write_bits_bnk[bank]              << arb_write_accum_[bank]->write_bits;
+  }
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_read_spad_[bank]->exread_val    << ex_ctrl_->spad_read_req_val[bank];
     arb_read_spad_[bank]->exread_bits   << ex_ctrl_->spad_read_req_bits[bank];
     ex_ctrl_->spad_read_req_rdy[bank]   << arb_read_spad_[bank]->exread_rdy;
@@ -233,7 +269,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
 
   UPDATE(update).writes(local_router_dmaread_spad_rdy_zero_,
                         local_router_dmaread_accum_rdy_zero_,
-                        mvin_scale_acc_data_rdy_zero_);
+                        mvin_scale_acc_data_rdy_zero_,
+                        write_arb_zero_val_,
+                        write_arb_zero_bits_);
 }
 
 SmeshTop::~SmeshTop() {
@@ -266,6 +304,12 @@ SmeshTop::~SmeshTop() {
   for (auto* arb : arb_resp_spad_) {
     delete arb;
   }
+  for (auto* arb : arb_write_accum_) {
+    delete arb;
+  }
+  for (auto* arb : arb_write_spad_) {
+    delete arb;
+  }
   for (auto* arb : arb_read_accum_) {
     delete arb;
   }
@@ -289,6 +333,8 @@ void SmeshTop::update() {
   local_router_dmaread_spad_rdy_zero_ = 0;
   local_router_dmaread_accum_rdy_zero_ = 0;
   mvin_scale_acc_data_rdy_zero_ = 0;
+  write_arb_zero_val_ = 0;
+  write_arb_zero_bits_ = DmaReadResp{};
 }
 
 void SmeshTop::reset() {
@@ -297,6 +343,8 @@ void SmeshTop::reset() {
   local_router_dmaread_spad_rdy_zero_.reset(0);
   local_router_dmaread_accum_rdy_zero_.reset(0);
   mvin_scale_acc_data_rdy_zero_.reset(0);
+  write_arb_zero_val_.reset(0);
+  write_arb_zero_bits_.reset(DmaReadResp{});
   trace("smesh_top: reset");
 }
 
