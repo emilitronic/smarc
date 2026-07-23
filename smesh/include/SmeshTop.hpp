@@ -107,7 +107,9 @@ class SmeshTop : public Component {
   DmaWriter*               dma_writer_ = nullptr;
   SpadWriter*              spad_writer_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
+  MvinScaleSplit*          mvin_scale_split_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
+  MvinScaleAcc*            mvin_scale_acc_ = nullptr;
   MvinPixelRepeater*       pixel_repeater_ = nullptr;
   MvinLocalRouter*         local_router_ = nullptr;
   Spad*                    spad_ = nullptr;

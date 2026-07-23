@@ -41,7 +41,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   dma_writer_           = new DmaWriter("DmaWriter");
   spad_writer_          = new SpadWriter("SpadWriter");
   dma_reader_           = new DmaReader("DmaReader");
+  mvin_scale_split_     = new MvinScaleSplit("MvinScaleSplit");
   mvin_scale_           = new MvinScale("MvinScale");
+  mvin_scale_acc_       = new MvinScaleAcc("MvinScaleAcc");
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
   local_router_         = new MvinLocalRouter("MvinLocalRouter");
   spad_                 = new Spad("Spad");
@@ -82,7 +84,9 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   dma_writer_->clk           << clk;
   spad_writer_->clk          << clk;
   dma_reader_->clk           << clk;
+  mvin_scale_split_->clk     << clk;
   mvin_scale_->clk           << clk;
+  mvin_scale_acc_->clk       << clk;
   pixel_repeater_->clk       << clk;
   local_router_->clk         << clk;
   spad_->clk                 << clk;
@@ -167,7 +171,10 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_issue_queue_->deq_rdy << st_issue_ctrl_->issue_deq_rdy;
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   st_ctrl_->completed.wireToZero();
-  mvin_scale_->data_in     << dma_reader_->resp_out;       
+  mvin_scale_split_->data_in << dma_reader_->resp_out;
+  mvin_scale_->data_in       << mvin_scale_split_->normal_out;
+  mvin_scale_acc_->data_in   << mvin_scale_split_->acc_out;
+  mvin_scale_acc_->data_out.sendToBitBucket();             // later: route to dmaread_accum_full
   pixel_repeater_->data_in << mvin_scale_->data_out;    
   local_router_->data_in   << pixel_repeater_->data_out; 
   spad_->write_in          << local_router_->spad_out; 
@@ -236,7 +243,9 @@ SmeshTop::~SmeshTop() {
   delete spad_;
   delete local_router_;
   delete pixel_repeater_;
+  delete mvin_scale_acc_;
   delete mvin_scale_;
+  delete mvin_scale_split_;
   delete dma_reader_;
   delete spad_writer_;
   delete dma_writer_;

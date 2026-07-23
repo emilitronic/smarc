@@ -9,7 +9,7 @@ Load-path scaling stage implementation.
 #include "MvinScale.hpp"
 
 namespace smesh {
-
+// scale normal width data coming from DMA reader
 MvinScale::MvinScale(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).reads(data_in).writes(data_out);
 }
@@ -22,6 +22,54 @@ void MvinScale::update() {
   const auto data = data_in.pop();
   data_out.push(data);
   trace("mvin_scale: identity data cmd_id=%u last=%u", static_cast<unsigned>(data.cmd_id), static_cast<unsigned>(data.last));
+}
+// scale accumulator-width data coming from DMA reader
+MvinScaleAcc::MvinScaleAcc(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).reads(data_in).writes(data_out);
+}
+
+void MvinScaleAcc::update() {
+  if (data_in.empty() || data_out.full()) {
+    return;
+  }
+
+  const auto data = data_in.pop();
+  data_out.push(data);
+  trace("mvin_scale_acc: identity data cmd_id=%u last=%u",
+        static_cast<unsigned>(data.cmd_id),
+        static_cast<unsigned>(data.last));
+}
+// split incoming data into normal-width path and accumulator-width path
+MvinScaleSplit::MvinScaleSplit(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).reads(data_in).writes(normal_out, acc_out);
+}
+
+void MvinScaleSplit::update() {
+  if (data_in.empty()) {
+    return;
+  }
+
+  const auto& pending = data_in.peek();
+  const bool use_acc_path = pending.laddr.is_acc_addr() &&
+                            pending.has_acc_bitwidth != 0;
+  if (use_acc_path) {
+    if (acc_out.full()) {
+      return;
+    }
+    const auto data = data_in.pop();
+    acc_out.push(data);
+    trace("mvin_scale_split: to acc-width path cmd_id=%u",
+          static_cast<unsigned>(data.cmd_id));
+    return;
+  }
+
+  if (normal_out.full()) {
+    return;
+  }
+  const auto data = data_in.pop();
+  normal_out.push(data);
+  trace("mvin_scale_split: to normal path cmd_id=%u",
+        static_cast<unsigned>(data.cmd_id));
 }
 
 } // namespace smesh

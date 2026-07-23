@@ -28,4 +28,33 @@ class MvinScale : public Component {
   void update();
 };
 
+class MvinScaleAcc : public Component {
+  DECLARE_COMPONENT(MvinScaleAcc);
+
+ public:
+  MvinScaleAcc(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  FifoInput(DmaReadResp, data_in);
+  FifoOutput(DmaReadResp, data_out);
+
+  void update();
+};
+
+class MvinScaleSplit : public Component {
+  DECLARE_COMPONENT(MvinScaleSplit);
+
+ public:
+  MvinScaleSplit(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  FifoInput(DmaReadResp, data_in);
+  FifoOutput(DmaReadResp, normal_out);
+  FifoOutput(DmaReadResp, acc_out);
+
+  void update();
+};
+
 } // namespace smesh
