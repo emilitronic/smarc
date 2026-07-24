@@ -33,6 +33,7 @@ class StReadCtrl : public Component {
   OutputArray(SpadReadReq, spad_req_bits, kSpBanks); // spad read req payload, one per bank
   OutputArray(AccumReadReq, accum_req_bits, kAccBanks); // accum read req payload, one per bank
   Output(bit, read_req_fire);
+  FifoOutput(DmaWriteResp, dma_resp); // response to StCtrl when dispatch entry is accepted by store-read path
 
   void updateReadReq();  //request-valid gen signals to arbiter...
   void updateReadFire(); // ...and read-fire gen based on arbiter readiness (split to avoid combinational cycle)

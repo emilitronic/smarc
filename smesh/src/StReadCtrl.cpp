@@ -12,11 +12,11 @@ namespace smesh {
 
 StReadCtrl::StReadCtrl(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReadReq)
-      .reads(dispatch_val, dispatch_bits, norm_rdy)
+      .reads(dispatch_val, dispatch_bits, norm_rdy, dma_resp)
       .writes(dmawrite_spad, dmawrite_accum, spad_req_bits, accum_req_bits);
   UPDATE(updateReadFire)
-      .reads(dispatch_val, dispatch_bits, norm_rdy, spad_read_req_rdy, accum_read_req_rdy)
-      .writes(read_req_fire);
+      .reads(dispatch_val, dispatch_bits, norm_rdy, spad_read_req_rdy, accum_read_req_rdy, dma_resp)
+      .writes(read_req_fire, dma_resp);
   UPDATE(updateInspect).reads(dispatch_val, dispatch_bits, norm_rdy, spad_read_req_rdy, accum_read_req_rdy);
 }
 // do I want a store-side local-memory read? if yes, which memory? what requests bits to present?
@@ -24,14 +24,17 @@ void StReadCtrl::updateReadReq() {
   const auto req = *dispatch_bits;
   const auto laddr = req.laddr;
   const bool is_live = !laddr.is_garbage();
+  const bool resp_ready = !dma_resp.full();
   const bool spad_valid = dispatch_val != 0 &&    // if dispatch queue has a command...
                           is_live &&              // ...and local address is not garbage...
                           !laddr.is_acc_addr() && // ...and local address is not an accum address...
-                          norm_rdy != 0;          // ...and norm queue is ready, then this is a DMA write to spad
+                          norm_rdy != 0 &&        // ...and norm queue is ready...
+                          resp_ready;             // ...and StCtrl can receive the accept response
   const bool accum_valid = dispatch_val != 0 &&
                            is_live &&
                            laddr.is_acc_addr() &&
-                           norm_rdy != 0;
+                           norm_rdy != 0 &&
+                           resp_ready;
   const auto spad_bank = laddr.sp_bank();
   const auto acc_bank = laddr.acc_bank();
 
@@ -69,18 +72,31 @@ void StReadCtrl::updateReadFire() {
   const auto req = *dispatch_bits;
   const auto laddr = req.laddr;
   const bool is_live = !laddr.is_garbage();
+  const bool resp_ready = !dma_resp.full();
+  const bool garbage_fire = dispatch_val != 0 &&
+                            laddr.is_garbage() &&
+                            norm_rdy != 0 &&
+                            resp_ready;
   const bool spad_valid = dispatch_val != 0 &&
                           is_live &&
                           !laddr.is_acc_addr() &&
-                          norm_rdy != 0;
+                          norm_rdy != 0 &&
+                          resp_ready;
   const bool accum_valid = dispatch_val != 0 &&
                            is_live &&
                            laddr.is_acc_addr() &&
-                           norm_rdy != 0;
-  const bool read_fire = (spad_valid && spad_read_req_rdy[laddr.sp_bank()] != 0) ||
+                           norm_rdy != 0 &&
+                           resp_ready;
+  const bool read_fire = garbage_fire ||
+                         (spad_valid && spad_read_req_rdy[laddr.sp_bank()] != 0) ||
                          (accum_valid && accum_read_req_rdy[laddr.acc_bank()] != 0);
   // output
   read_req_fire  = bit(read_fire);
+  if (read_fire) {
+    DmaWriteResp response{};
+    response.cmd_id = req.cmd_id;
+    dma_resp.push(response);
+  }
 }
 // look at dispatch queue command
 void StReadCtrl::updateInspect() {

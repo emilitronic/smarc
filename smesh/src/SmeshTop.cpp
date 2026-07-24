@@ -137,6 +137,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_dispatch_queue_->deq_rdy << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_val   << st_read_ctrl_->read_req_fire;
   write_norm_queue_->enq_bits  << write_dispatch_queue_->deq_bits;
+  st_ctrl_->dma_resp           << st_read_ctrl_->dma_resp;
   st_norm_ctrl_->norm_deq_val  << write_norm_queue_->deq_val;
   st_norm_ctrl_->norm_deq_bits << write_norm_queue_->deq_bits;
   st_norm_ctrl_->normalizer_cmd_rdy << normalizer_->req_rdy;
@@ -184,7 +185,6 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   spad_writer_->spad_write_out.sendToBitBucket();      // later: connect to store-spad destination path
   write_issue_queue_->deq_rdy << st_issue_ctrl_->issue_deq_rdy;
   st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
-  st_ctrl_->completed.wireToZero();
   mvin_scale_split_->data_in << dma_reader_->resp_out;
   mvin_scale_->data_in       << mvin_scale_split_->normal_out;
   mvin_scale_acc_->data_in   << mvin_scale_split_->acc_out;

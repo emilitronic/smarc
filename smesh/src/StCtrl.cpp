@@ -11,6 +11,7 @@ namespace smesh {
 
 StCtrl::StCtrl(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateDispatch).reads(cmd_in).writes(dma_req);
+  UPDATE(updateComplete).reads(dma_resp).writes(completed);
 }
 
 void StCtrl::updateDispatch() {
@@ -40,6 +41,17 @@ void StCtrl::updateDispatch() {
         static_cast<unsigned>(req.len),
         static_cast<unsigned>(req.block),
         static_cast<unsigned>(req.cmd_id));
+}
+
+void StCtrl::updateComplete() {
+  if (dma_resp.empty() || completed.full()) {
+    return;
+  }
+
+  const auto response = dma_resp.pop();
+  completed.push(static_cast<SmeshRsTag>(response.cmd_id));
+
+  trace("st_ctrl: completed tag=%u", static_cast<unsigned>(response.cmd_id));
 }
 
 } // namespace smesh

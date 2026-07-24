@@ -123,6 +123,11 @@ struct DmaWriteReq {
   bit store_en = true;
 };
 
+// store-side response back to StCtrl when one DmaWriteReq is accepted by the store path
+struct DmaWriteResp {
+  u16 cmd_id = 0;
+};
+
 // ifc to scratchpad memory read port
 struct SpadReadReq {
   SmeshLocalAddr laddr{};

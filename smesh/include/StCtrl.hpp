@@ -23,9 +23,11 @@ class StCtrl : public Component {
 
   FifoInput(SmeshIssue, cmd_in);
   FifoOutput(DmaWriteReq, dma_req);
+  FifoInput(DmaWriteResp, dma_resp);
   FifoOutput(SmeshRsTag, completed);
 
   void updateDispatch();
+  void updateComplete();
 };
 
 } // namespace smesh
