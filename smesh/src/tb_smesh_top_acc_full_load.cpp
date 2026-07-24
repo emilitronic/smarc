@@ -168,6 +168,7 @@ int main(int argc, char* argv[]) {
   accum.clk << clk;
   clk.generateClock();
 
+  Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
 

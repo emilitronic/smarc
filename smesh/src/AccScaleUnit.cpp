@@ -13,7 +13,7 @@ namespace smesh {
 AccScaleUnit::AccScaleUnit(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady).writes(req_rdy);
   UPDATE(updateOutView).writes(out_val, out_bits);
-  UPDATE(updateOutPop).reads(out_rdy);
+  UPDATE(updateOutPop).reads(out_rdy_issue, out_rdy_exresp);
   UPDATE(update).reads(req_val, req_bits);
 }
 
@@ -27,7 +27,9 @@ void AccScaleUnit::updateOutView() {
 }
 
 void AccScaleUnit::updateOutPop() {
-  if (out_valid_ && out_rdy != 0) {
+  const bool selected_ready = out_entry_.from_dma != 0 ? out_rdy_issue != 0
+                                                       : out_rdy_exresp != 0;
+  if (out_valid_ && selected_ready) {
     out_valid_ = false;
     out_entry_ = AccScaleResp{};
   }

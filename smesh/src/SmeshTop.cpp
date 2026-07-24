@@ -266,7 +266,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     accum_->read_req_val_bnk[bank]    << arb_read_accum_[bank]->read_req_val;
     accum_->read_req_bits_bnk[bank]   << arb_read_accum_[bank]->read_req_bits;
   }
-  acc_scale_unit_->out_rdy << st_issue_ctrl_->acc_data_rdy;
+  acc_scale_unit_->out_rdy_issue  << st_issue_ctrl_->acc_data_rdy;
+  acc_scale_unit_->out_rdy_exresp << write_arb_zero_val_;
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     st_norm_ctrl_->accum_read_resp_val[bank]  << accum_->read_resp_val_bnk[bank];
     st_norm_ctrl_->accum_read_resp_bits[bank] << accum_->read_resp_bits_bnk[bank];

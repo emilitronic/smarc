@@ -27,7 +27,8 @@ class AccScaleUnit : public Component {
   Input(AccScaleReq, req_bits);
   Output(bit, out_val);
   Output(AccScaleResp, out_bits);
-  Input(bit, out_rdy);
+  Input(bit, out_rdy_issue);
+  Input(bit, out_rdy_exresp);
 
   void updateReady();
   void updateOutView();
