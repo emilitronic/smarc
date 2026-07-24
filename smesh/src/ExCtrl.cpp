@@ -42,8 +42,8 @@ void ExCtrl::updateReadPorts() {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_val[bank] = 0;
     accum_read_req_bits[bank] = AccumReadReq{};
+    accum_read_resp_rdy[bank] = 0;
   }
-  accum_read_resp_rdy = 0;
 }
 
 void ExCtrl::updateWritePorts() {
@@ -64,8 +64,8 @@ void ExCtrl::reset() {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_val[bank].reset(0);
     accum_read_req_bits[bank].reset(AccumReadReq{});
+    accum_read_resp_rdy[bank].reset(0);
   }
-  accum_read_resp_rdy.reset(0);
 
   spad_write_val.reset(0);
   spad_write_bits.reset(DmaReadResp{});
