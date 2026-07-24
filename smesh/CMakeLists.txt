@@ -122,6 +122,19 @@ target_link_libraries(tb_smesh_top_acc_load
     -lpthread
 )
 
+add_executable(tb_smesh_top_acc_full_load
+  src/tb_smesh_top_acc_full_load.cpp
+)
+
+target_link_libraries(tb_smesh_top_acc_full_load
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_smesh_top_spad_store
   src/tb_smesh_top_spad_store.cpp
 )

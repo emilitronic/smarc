@@ -11,7 +11,7 @@ Standalone smesh accumulator memory implementation.
 namespace smesh {
 
 Accum::Accum(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateWriteReady).reads(write_in, write_val_bnk, write_bits_bnk).writes(write_rdy_bnk);
+  UPDATE(updateWriteReady).writes(write_rdy_bnk);
   UPDATE(updateWrite).reads(write_in, write_val_bnk, write_bits_bnk).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy_bnk);
   UPDATE(updateReadRespView).writes(read_resp_val_bnk, read_resp_bits_bnk);
@@ -20,13 +20,9 @@ Accum::Accum(std::string /*name*/, IMPL_CTOR) {
 }
 
 void Accum::updateWriteReady() {
-  const bool legacy_write_waiting = !write_in.empty();
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    const auto pending = *write_bits_bnk[bank];
-    const bool completion_blocked = write_val_bnk[bank] != 0 &&
-                                    static_cast<bool>(pending.last) &&
-                                    dma_resp.full();
-    write_rdy_bnk[bank] = bit(!legacy_write_waiting && !completion_blocked);
+    const bool completion_blocked = dma_resp.full();
+    write_rdy_bnk[bank] = bit(!completion_blocked);
   }
 }
 
@@ -64,12 +60,19 @@ void Accum::updateWrite() {
   assert_always(write.laddr.is_acc_addr(), "Accum write received a scratchpad address");  // check that dest is actual accum addr
 
   auto& destination = banks_[write.laddr.acc_bank()][write.laddr.acc_row()];  // select accum bank & row
-  const auto data = low64DmaReadData(write.data);
   const auto mask = static_cast<std::uint8_t>(write.mask);
   for (std::size_t lane = 0; lane < kDim; ++lane) { // for ea. lane (i.e., col of memory row)
     if ((mask & (std::uint8_t{1} << lane)) != 0) {  // if mask bit is set...
-      const auto byte = static_cast<std::uint8_t>((data >> (lane * 8)) & 0xffu); // ...copy byte from writ.data
-      destination[lane] = static_cast<Acc>(static_cast<Elem>(byte));             // ...to accum row lane (sign-extended to 32 bits)
+      if (write.has_acc_bitwidth != 0) {
+        std::uint32_t word = 0;
+        for (std::size_t byte = 0; byte < sizeof(Acc); ++byte) {
+          word |= static_cast<std::uint32_t>(write.data[lane * sizeof(Acc) + byte]) << (8 * byte);
+        }
+        destination[lane] = static_cast<Acc>(word);
+      } else {
+        const auto byte = static_cast<std::uint8_t>(write.data[lane]);            // ...copy byte from writ.data
+        destination[lane] = static_cast<Acc>(static_cast<Elem>(byte));             // ...to accum row lane (sign-extended to 32 bits)
+      }
     }
   }
   // if this write is marked last, push completion message to LdCtrl completion FIFO

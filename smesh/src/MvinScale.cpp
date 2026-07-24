@@ -25,36 +25,28 @@ void MvinScale::update() {
 }
 // scale accumulator-width data coming from DMA reader
 MvinScaleAcc::MvinScaleAcc(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateView)
-      .reads(data_in)
-      .writes(data_val, data_bits);
   UPDATE(update)
       .reads(data_in, data_rdy)
       .writes(data_out);
-}
-
-void MvinScaleAcc::updateView() {
-  data_val = 0;
-  data_bits = DmaReadResp{};
-
-  if (data_in.empty()) {
-    return;
-  }
-
-  data_val = 1;
-  data_bits = data_in.peek();
+  UPDATE(updateView).writes(data_val, data_bits);
 }
 
 void MvinScaleAcc::update() {
-  if (data_in.empty()) {
+  if (!entry_valid_) {
+    if (data_in.empty()) {
+      return;
+    }
+    entry_ = data_in.pop();
+    entry_valid_ = true;
     return;
   }
 
   if (data_rdy != 0) {
-    const auto data = data_in.pop();
     trace("mvin_scale_acc: explicit data cmd_id=%u last=%u",
-          static_cast<unsigned>(data.cmd_id),
-          static_cast<unsigned>(data.last));
+          static_cast<unsigned>(entry_.cmd_id),
+          static_cast<unsigned>(entry_.last));
+    entry_ = DmaReadResp{};
+    entry_valid_ = false;
     return;
   }
 
@@ -62,11 +54,22 @@ void MvinScaleAcc::update() {
     return;
   }
 
-  const auto data = data_in.pop();
-  data_out.push(data);
+  data_out.push(entry_);
   trace("mvin_scale_acc: identity data cmd_id=%u last=%u",
-        static_cast<unsigned>(data.cmd_id),
-        static_cast<unsigned>(data.last));
+        static_cast<unsigned>(entry_.cmd_id),
+        static_cast<unsigned>(entry_.last));
+  entry_ = DmaReadResp{};
+  entry_valid_ = false;
+}
+
+void MvinScaleAcc::updateView() {
+  data_val = bit(entry_valid_);
+  data_bits = entry_valid_ ? entry_ : DmaReadResp{};
+}
+
+void MvinScaleAcc::reset() {
+  entry_valid_ = false;
+  entry_ = DmaReadResp{};
 }
 // split incoming data into normal-width path and accumulator-width path
 MvinScaleSplit::MvinScaleSplit(std::string /*name*/, IMPL_CTOR) {

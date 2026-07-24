@@ -11,22 +11,28 @@ Local-memory write arbiter implementations.
 namespace smesh {
 
 ArbWriteSpad::ArbWriteSpad(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
+  UPDATE(updateReady)
+      .reads(write_rdy)
+      .writes(exwrite_rdy, dmaread_rdy, zerowrite_rdy);
+  UPDATE(updateWrite)
       .reads(exwrite_val,
              exwrite_bits,
              dmaread_val,
              dmaread_bits,
              zerowrite_val,
-             zerowrite_bits,
-             write_rdy)
-      .writes(exwrite_rdy,
-              dmaread_rdy,
-              zerowrite_rdy,
-              write_val,
-              write_bits);
+             zerowrite_bits)
+      .writes(write_val, write_bits);
 }
 
-void ArbWriteSpad::update() {
+void ArbWriteSpad::updateReady() {
+  // TODO: once multiple write sources can be active, refine source-ready
+  // backpressure to account for priority without creating valid/ready loops.
+  exwrite_rdy   = bit(write_rdy != 0);
+  dmaread_rdy   = bit(write_rdy != 0);
+  zerowrite_rdy = bit(write_rdy != 0);
+}
+
+void ArbWriteSpad::updateWrite() {
   const bool exwrite   = exwrite_val   != 0;
   const bool dmaread   = dmaread_val   != 0;
   const bool zerowrite = zerowrite_val != 0;
@@ -40,13 +46,13 @@ void ArbWriteSpad::update() {
     write_bits = *zerowrite_bits;
   }
 
-  exwrite_rdy   = bit(exwrite && write_rdy != 0);
-  dmaread_rdy   = bit(!exwrite && dmaread && write_rdy != 0);
-  zerowrite_rdy = bit(!exwrite && !dmaread && zerowrite && write_rdy != 0);
 }
 
 ArbWriteAccum::ArbWriteAccum(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
+  UPDATE(updateReady)
+      .reads(write_rdy)
+      .writes(exwrite_rdy, dmaread_full_rdy, dmaread_rdy, zerowrite_rdy);
+  UPDATE(updateWrite)
       .reads(exwrite_val,
              exwrite_bits,
              dmaread_full_val,
@@ -55,16 +61,19 @@ ArbWriteAccum::ArbWriteAccum(std::string /*name*/, IMPL_CTOR) {
              dmaread_bits,
              zerowrite_val,
              zerowrite_bits)
-      .reads(write_rdy)
-      .writes(exwrite_rdy,
-              dmaread_full_rdy,
-              dmaread_rdy,
-              zerowrite_rdy,
-              write_val,
-              write_bits);
+      .writes(write_val, write_bits);
 }
 
-void ArbWriteAccum::update() {
+void ArbWriteAccum::updateReady() {
+  // TODO: once multiple write sources can be active, refine source-ready
+  // backpressure to account for priority without creating valid/ready loops.
+  exwrite_rdy = bit(write_rdy != 0);
+  dmaread_full_rdy = bit(write_rdy != 0);
+  dmaread_rdy = bit(write_rdy != 0);
+  zerowrite_rdy = bit(write_rdy != 0);
+}
+
+void ArbWriteAccum::updateWrite() {
   const bool exwrite      = exwrite_val      != 0;
   const bool dmaread_full = dmaread_full_val != 0;
   const bool dmaread      = dmaread_val      != 0;
@@ -81,10 +90,6 @@ void ArbWriteAccum::update() {
     write_bits = *zerowrite_bits;
   }
 
-  exwrite_rdy = bit(exwrite && write_rdy != 0);
-  dmaread_full_rdy = bit(!exwrite && dmaread_full && write_rdy != 0);
-  dmaread_rdy = bit(!exwrite && !dmaread_full && dmaread && write_rdy != 0);
-  zerowrite_rdy = bit(!exwrite && !dmaread_full && !dmaread && zerowrite && write_rdy != 0);
 }
 
 } // namespace smesh

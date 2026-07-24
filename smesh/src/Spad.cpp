@@ -11,7 +11,7 @@ Standalone smesh scratchpad memory implementation.
 namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateWriteReady).reads(write_in, write_val_bnk, write_bits_bnk).writes(write_rdy_bnk);
+  UPDATE(updateWriteReady).writes(write_rdy_bnk);
   UPDATE(updateWrite).reads(write_in, write_val_bnk, write_bits_bnk).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy_bnk);
   UPDATE(updateReadRespView).writes(read_resp_val_bnk,
@@ -21,13 +21,9 @@ Spad::Spad(std::string /*name*/, IMPL_CTOR) {
 }
 
 void Spad::updateWriteReady() {
-  const bool legacy_write_waiting = !write_in.empty();
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    const auto pending = *write_bits_bnk[bank];
-    const bool completion_blocked = write_val_bnk[bank] != 0 &&
-                                    static_cast<bool>(pending.last) &&
-                                    dma_resp.full();
-    write_rdy_bnk[bank] = bit(!legacy_write_waiting && !completion_blocked);
+    const bool completion_blocked = dma_resp.full();
+    write_rdy_bnk[bank] = bit(!completion_blocked);
   }
 }
 

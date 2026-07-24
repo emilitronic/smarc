@@ -38,7 +38,8 @@ class ArbWriteSpad : public Component {
   Input(bit, write_rdy);
   Output(DmaReadResp, write_bits);
 
-  void update();
+  void updateReady();
+  void updateWrite();
 };
 
 class ArbWriteAccum : public Component {
@@ -69,7 +70,8 @@ class ArbWriteAccum : public Component {
   Input(bit, write_rdy);
   Output(DmaReadResp, write_bits);
 
-  void update();
+  void updateReady();
+  void updateWrite();
 };
 
 } // namespace smesh

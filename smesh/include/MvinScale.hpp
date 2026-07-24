@@ -42,8 +42,13 @@ class MvinScaleAcc : public Component {
   Output(DmaReadResp, data_bits);
   Input(bit, data_rdy);
 
-  void updateView();
   void update();
+  void updateView();
+  void reset();
+
+ private:
+  bool entry_valid_ = false;
+  DmaReadResp entry_{};
 };
 
 class MvinScaleSplit : public Component {

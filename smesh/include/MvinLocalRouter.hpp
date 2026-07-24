@@ -32,8 +32,13 @@ class MvinLocalRouter : public Component {
   Output(DmaReadResp, dmaread_accum_bits);
   Input(bit, dmaread_accum_rdy);
 
-  void updateDeqView();
   void update();
+  void updateView();
+  void reset();
+
+ private:
+  bool entry_valid_ = false;
+  DmaReadResp entry_{};
 };
 
 } // namespace smesh
