@@ -12,7 +12,7 @@ namespace smesh {
 
 Accum::Accum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWriteReady).writes(write_rdy_bnk);
-  UPDATE(updateWrite).reads(write_in, write_val_bnk, write_bits_bnk).writes(dma_resp);
+  UPDATE(updateWrite).reads(write_val_bnk, write_bits_bnk).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy_bnk);
   UPDATE(updateReadRespView).writes(read_resp_val_bnk, read_resp_bits_bnk);
   UPDATE(updateReadRespPop).reads(read_resp_rdy_bnk);
@@ -30,27 +30,17 @@ void Accum::updateWrite() {
   bool has_write = false;
   DmaReadResp write{};
 
-  if (!write_in.empty()) {
-    const auto& pending = write_in.peek(); // look at pending write
-    // if this is final beat of write & LdCtrl completion FIFO is full, wait
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    if (write_val_bnk[bank] == 0) {
+      continue;
+    }
+    const auto pending = *write_bits_bnk[bank];
     if (static_cast<bool>(pending.last) && dma_resp.full()) {
       return;
     }
-    write = write_in.pop(); // safe to write, so pop it
+    write = pending;
     has_write = true;
-  } else {
-    for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-      if (write_val_bnk[bank] == 0) {
-        continue;
-      }
-      const auto pending = *write_bits_bnk[bank];
-      if (static_cast<bool>(pending.last) && dma_resp.full()) {
-        return;
-      }
-      write = pending;
-      has_write = true;
-      break;
-    }
+    break;
   }
 
   if (!has_write) {
@@ -175,6 +165,12 @@ void Accum::reset() {
   write_accepted_ = false;
   read_resp_valid_ = false;
   read_resp_entry_ = AccumReadResp{};
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    write_rdy_bnk[bank].reset(1);
+    read_req_rdy_bnk[bank].reset(1);
+    read_resp_val_bnk[bank].reset(0);
+    read_resp_bits_bnk[bank].reset(AccumReadResp{});
+  }
 }
 
 const Accum::Row& Accum::row(SmeshLocalAddr addr) const {

@@ -43,6 +43,10 @@ TopLoadDriver::TopLoadDriver(std::string /*name*/, IMPL_CTOR) {
 
 void TopLoadDriver::update() {
   cmd_valid = 0;
+  cmd_bits = smesh::SmeshCmd{};
+  if (Sim::state == Sim::SimResetting) {
+    return;
+  }
   if (next_command_ >= 2) {
     return;
   }
@@ -97,6 +101,7 @@ int main(int argc, char* argv[]) {
   dram.clk << clk;
   clk.generateClock();
 
+  Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
 

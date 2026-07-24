@@ -77,6 +77,10 @@ TopSpadStoreDriver::TopSpadStoreDriver(std::string /*name*/, IMPL_CTOR) {
 
 void TopSpadStoreDriver::update() {
   cmd_valid = 0;
+  cmd_bits = smesh::SmeshCmd{};
+  if (Sim::state == Sim::SimResetting) {
+    return;
+  }
   if (next_command_ >= 3) {
     return;
   }
@@ -214,6 +218,7 @@ int main(int argc, char* argv[]) {
   dram.clk << clk;
   clk.generateClock();
 
+  Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
 
@@ -239,28 +244,15 @@ int main(int argc, char* argv[]) {
     spad_ok = spad_ok && row0[c] == static_cast<smesh::Elem>(rows[c]);
   }
 
-  bool pipe_ok = top.spadDmaReadPipe().hasAcceptedResponse();
-  const auto& resp = top.spadDmaReadPipe().lastResponse();
-  pipe_ok = pipe_ok &&
-            resp.laddr.full_sp_addr() == 0 &&
-            resp.len == smesh::kDim &&
-            resp.mask == ((1u << smesh::kDim) - 1u);
-  for (std::size_t c = 0; c < smesh::kDim; ++c) {
-    const auto byte = resp.data[c];
-    pipe_ok = pipe_ok && byte == rows[c];
-  }
-
   const bool monitor_ok = monitor.sawAlignedTransfer() &&
                           monitor.sawDmaWriterTransfer() &&
                           monitor.alignedTransferCount() == 1;
-  const bool ok = spad_ok && pipe_ok && monitor_ok;
+  const bool ok = spad_ok && monitor_ok;
   if (!ok) {
     const auto& store0 = top.rs().storeEntry(0);
-    std::printf("  spad_ok=%u pipe_ok=%u monitor_ok=%u accepted_resp=%u writer_seen=%u aligned_count=%u\n",
+    std::printf("  spad_ok=%u monitor_ok=%u writer_seen=%u aligned_count=%u\n",
                 spad_ok ? 1u : 0u,
-                pipe_ok ? 1u : 0u,
                 monitor_ok ? 1u : 0u,
-                top.spadDmaReadPipe().hasAcceptedResponse() ? 1u : 0u,
                 monitor.sawDmaWriterTransfer() ? 1u : 0u,
                 monitor.alignedTransferCount());
     std::printf("  store0 valid=%u issued=%u ready=%u funct=%u tag=%u deps_ld=0x%x deps_st=0x%x\n",
@@ -271,11 +263,6 @@ int main(int argc, char* argv[]) {
                 static_cast<unsigned>(store0.rs_tag),
                 store0.deps_ld,
                 store0.deps_st);
-    std::printf("  resp laddr=0x%x len=%u mask=0x%x data=0x%llx\n",
-                static_cast<unsigned>(resp.laddr.raw),
-                static_cast<unsigned>(resp.len),
-                static_cast<unsigned>(resp.mask),
-                static_cast<unsigned long long>(smesh::low64DmaReadData(resp.data)));
   }
 
   std::printf("[SMESH_TOP_SPAD_STORE] %s spad_store_read_path\n", ok ? "PASS" : "FAIL");

@@ -22,6 +22,10 @@ MvinLocalRouter::MvinLocalRouter(std::string /*name*/, IMPL_CTOR) {
 }
 
 void MvinLocalRouter::update() {
+  if (Sim::state == Sim::SimResetting) {
+    return;
+  }
+
   if (!entry_valid_) {
     if (data_in.empty()) {
       return;
@@ -92,6 +96,10 @@ void MvinLocalRouter::updateView() {
 void MvinLocalRouter::reset() {
   entry_valid_ = false;
   entry_ = DmaReadResp{};
+  dmaread_spad_val.reset(0);
+  dmaread_spad_bits.reset(DmaReadResp{});
+  dmaread_accum_val.reset(0);
+  dmaread_accum_bits.reset(DmaReadResp{});
 }
 
 } // namespace smesh

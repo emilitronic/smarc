@@ -72,4 +72,21 @@ void WriteCtrl::update() {
   }
 }
 
+void WriteCtrl::reset() {
+  dmaread_spad_rdy.reset(0);
+  dmaread_accum_rdy.reset(0);
+  dmaread_accum_full_rdy.reset(0);
+
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    arb_spad_dmaread_val[bank].reset(0);
+    arb_spad_dmaread_bits[bank].reset(DmaReadResp{});
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    arb_accum_dmaread_val[bank].reset(0);
+    arb_accum_dmaread_bits[bank].reset(DmaReadResp{});
+    arb_accum_dmaread_full_val[bank].reset(0);
+    arb_accum_dmaread_full_bits[bank].reset(DmaReadResp{});
+  }
+}
+
 } // namespace smesh

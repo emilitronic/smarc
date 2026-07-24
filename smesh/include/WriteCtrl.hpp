@@ -48,6 +48,7 @@ class WriteCtrl : public Component {
   OutputArray(DmaReadResp, arb_accum_dmaread_full_bits, kAccBanks);
 
   void update();
+  void reset();
 };
 
 } // namespace smesh

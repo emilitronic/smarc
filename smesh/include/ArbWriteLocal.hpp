@@ -40,6 +40,7 @@ class ArbWriteSpad : public Component {
 
   void updateReady();
   void updateWrite();
+  void reset();
 };
 
 class ArbWriteAccum : public Component {
@@ -72,6 +73,7 @@ class ArbWriteAccum : public Component {
 
   void updateReady();
   void updateWrite();
+  void reset();
 };
 
 } // namespace smesh

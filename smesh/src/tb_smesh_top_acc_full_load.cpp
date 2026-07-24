@@ -149,7 +149,6 @@ int main(int argc, char* argv[]) {
     accum.write_val_bnk[bank] << arb_accum[bank]->write_val;
     accum.write_bits_bnk[bank] << arb_accum[bank]->write_bits;
   }
-  accum.write_in.wireToZero();
   accum.dma_resp.sendToBitBucket();
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
     accum.read_req_val_bnk[bank] << tie_off.zero_bit;

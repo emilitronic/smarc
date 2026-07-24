@@ -48,6 +48,14 @@ void ArbWriteSpad::updateWrite() {
 
 }
 
+void ArbWriteSpad::reset() {
+  exwrite_rdy.reset(1);
+  dmaread_rdy.reset(1);
+  zerowrite_rdy.reset(1);
+  write_val.reset(0);
+  write_bits.reset(DmaReadResp{});
+}
+
 ArbWriteAccum::ArbWriteAccum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady)
       .reads(write_rdy)
@@ -90,6 +98,15 @@ void ArbWriteAccum::updateWrite() {
     write_bits = *zerowrite_bits;
   }
 
+}
+
+void ArbWriteAccum::reset() {
+  exwrite_rdy.reset(1);
+  dmaread_full_rdy.reset(1);
+  dmaread_rdy.reset(1);
+  zerowrite_rdy.reset(1);
+  write_val.reset(0);
+  write_bits.reset(DmaReadResp{});
 }
 
 } // namespace smesh

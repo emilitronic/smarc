@@ -12,7 +12,7 @@ namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateWriteReady).writes(write_rdy_bnk);
-  UPDATE(updateWrite).reads(write_in, write_val_bnk, write_bits_bnk).writes(dma_resp);
+  UPDATE(updateWrite).reads(write_val_bnk, write_bits_bnk).writes(dma_resp);
   UPDATE(updateReadReady).writes(read_req_rdy_bnk);
   UPDATE(updateReadRespView).writes(read_resp_val_bnk,
                                     read_resp_bits_bnk);
@@ -31,27 +31,17 @@ void Spad::updateWrite() {
   bool has_write = false;
   DmaReadResp write{};
 
-  if (!write_in.empty()) {
-    // wait until completion FIFO to LdCtrl has room before performing final write
-    const auto& pending = write_in.peek();
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    if (write_val_bnk[bank] == 0) {
+      continue;
+    }
+    const auto pending = *write_bits_bnk[bank];
     if (static_cast<bool>(pending.last) && dma_resp.full()) {
       return;
     }
-    write = write_in.pop();
+    write = pending;
     has_write = true;
-  } else {
-    for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-      if (write_val_bnk[bank] == 0) {
-        continue;
-      }
-      const auto pending = *write_bits_bnk[bank];
-      if (static_cast<bool>(pending.last) && dma_resp.full()) {
-        return;
-      }
-      write = pending;
-      has_write = true;
-      break;
-    }
+    break;
   }
 
   if (!has_write) {
@@ -167,6 +157,12 @@ void Spad::reset() {
   write_accepted_ = false;
   read_resp_valid_ = false;
   read_resp_entry_ = SpadReadResp{};
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    write_rdy_bnk[bank].reset(1);
+    read_req_rdy_bnk[bank].reset(1);
+    read_resp_val_bnk[bank].reset(0);
+    read_resp_bits_bnk[bank].reset(SpadReadResp{});
+  }
 }
 
 const Spad::Row& Spad::row(SmeshLocalAddr addr) const {

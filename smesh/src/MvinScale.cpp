@@ -32,6 +32,10 @@ MvinScaleAcc::MvinScaleAcc(std::string /*name*/, IMPL_CTOR) {
 }
 
 void MvinScaleAcc::update() {
+  if (Sim::state == Sim::SimResetting) {
+    return;
+  }
+
   if (!entry_valid_) {
     if (data_in.empty()) {
       return;
@@ -70,6 +74,8 @@ void MvinScaleAcc::updateView() {
 void MvinScaleAcc::reset() {
   entry_valid_ = false;
   entry_ = DmaReadResp{};
+  data_val.reset(0);
+  data_bits.reset(DmaReadResp{});
 }
 // split incoming data into normal-width path and accumulator-width path
 MvinScaleSplit::MvinScaleSplit(std::string /*name*/, IMPL_CTOR) {

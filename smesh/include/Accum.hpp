@@ -27,7 +27,6 @@ class Accum : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaReadResp, write_in);        // accum's write port
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last accum write is done
   // Banked write ports. For now Accum accepts at most one write per cycle.
   InputArray(bit, write_val_bnk, kAccBanks);
