@@ -188,8 +188,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   mvin_scale_split_->data_in << dma_reader_->resp_out;
   mvin_scale_->data_in       << mvin_scale_split_->normal_out;
   mvin_scale_acc_->data_in   << mvin_scale_split_->acc_out;
-  mvin_scale_acc_->data_rdy  << mvin_scale_acc_data_rdy_zero_;
-  mvin_scale_acc_->data_out.sendToBitBucket();             // dmaread_accum_full source; later connect to accum write arbitration
+  mvin_scale_acc_->data_rdy  << write_ctrl_->dmaread_accum_full_rdy;
+  mvin_scale_acc_->data_out.sendToBitBucket();
   pixel_repeater_->data_in << mvin_scale_->data_out;    
   local_router_->data_in   << pixel_repeater_->data_out; 
   local_router_->dmaread_spad_rdy << write_ctrl_->dmaread_spad_rdy;
@@ -200,8 +200,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   write_ctrl_->dmaread_spad_bits       << local_router_->dmaread_spad_bits;
   write_ctrl_->dmaread_accum_val       << local_router_->dmaread_accum_val;
   write_ctrl_->dmaread_accum_bits      << local_router_->dmaread_accum_bits;
-  write_ctrl_->dmaread_accum_full_val  << write_arb_zero_val_;
-  write_ctrl_->dmaread_accum_full_bits << write_arb_zero_bits_;
+  write_ctrl_->dmaread_accum_full_val  << mvin_scale_acc_->data_val;
+  write_ctrl_->dmaread_accum_full_bits << mvin_scale_acc_->data_bits;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_write_spad_[bank]->exwrite_val    << write_arb_zero_val_;
     arb_write_spad_[bank]->exwrite_bits   << write_arb_zero_bits_;
@@ -278,8 +278,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
 
-  UPDATE(update).writes(mvin_scale_acc_data_rdy_zero_,
-                        write_arb_zero_val_,
+  UPDATE(update).writes(write_arb_zero_val_,
                         write_arb_zero_bits_);
 }
 
@@ -340,7 +339,6 @@ SmeshTop::~SmeshTop() {
 void SmeshTop::update() {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
-  mvin_scale_acc_data_rdy_zero_ = 0;
   write_arb_zero_val_ = 0;
   write_arb_zero_bits_ = DmaReadResp{};
 }
@@ -348,7 +346,6 @@ void SmeshTop::update() {
 void SmeshTop::reset() {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
-  mvin_scale_acc_data_rdy_zero_.reset(0);
   write_arb_zero_val_.reset(0);
   write_arb_zero_bits_.reset(DmaReadResp{});
   trace("smesh_top: reset");

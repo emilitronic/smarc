@@ -117,7 +117,6 @@ class SmeshTop : public Component {
   MvinScaleSplit*          mvin_scale_split_ = nullptr;
   MvinScale*               mvin_scale_ = nullptr;
   MvinScaleAcc*            mvin_scale_acc_ = nullptr;
-  Output(bit, mvin_scale_acc_data_rdy_zero_);
   MvinPixelRepeater*       pixel_repeater_ = nullptr;
   MvinLocalRouter*         local_router_ = nullptr;
   Spad*                    spad_ = nullptr;
