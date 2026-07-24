@@ -120,7 +120,6 @@ class SmeshTop : public Component {
   Output(bit, mvin_scale_acc_data_rdy_zero_);
   MvinPixelRepeater*       pixel_repeater_ = nullptr;
   MvinLocalRouter*         local_router_ = nullptr;
-  Output(bit, local_router_dmaread_accum_rdy_zero_);
   Spad*                    spad_ = nullptr;
   std::array<SpadDmaReadPipe*, kSpBanks> spad_dma_read_pipe_{};
   std::array<SpadExReadPipe*, kSpBanks> spad_ex_read_pipe_{};
