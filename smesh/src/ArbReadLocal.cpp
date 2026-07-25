@@ -55,5 +55,29 @@ void ArbRespSpad::update() {
   const bool selected_ready = resp.from_dma != 0 ? dma_resp_rdy != 0 : ex_resp_rdy != 0;
   read_resp_rdy = bit(read_resp_val != 0 && selected_ready);
 }
+// send respones back to ExCtrl (for ex to accum read reqs)
+AccumExResp::AccumExResp(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update)
+      .reads(acc_val, acc_bits, ex_resp_rdy)
+      .writes(acc_rdy_exresp, ex_resp_val, ex_resp_bits);
+}
+
+void AccumExResp::update() {
+  const auto acc = *acc_bits;
+  const bool is_ex_resp = acc_val != 0 && acc.from_dma == 0;
+  const auto bank = static_cast<std::size_t>(acc.acc_bank_id);
+
+  for (std::size_t i = 0; i < kAccBanks; ++i) {
+    ex_resp_val[i] = bit(is_ex_resp && i == bank);
+
+    AccumReadResp resp{};
+    resp.data = acc.data;
+    resp.full = true;
+    resp.from_dma = false;
+    ex_resp_bits[i] = resp;
+  }
+
+  acc_rdy_exresp = bit(is_ex_resp && bank < kAccBanks && ex_resp_rdy[bank] != 0);
+}
 
 } // namespace smesh

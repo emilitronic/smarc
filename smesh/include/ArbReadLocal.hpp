@@ -78,4 +78,23 @@ class ArbRespSpad : public Component {
   void update();
 };
 
+class AccumExResp : public Component {
+  DECLARE_COMPONENT(AccumExResp);
+
+ public:
+  AccumExResp(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  Input(bit, acc_val);
+  Input(AccScaleResp, acc_bits);
+  Output(bit, acc_rdy_exresp);
+
+  OutputArray(bit, ex_resp_val, kAccBanks);
+  OutputArray(AccumReadResp, ex_resp_bits, kAccBanks);
+  InputArray(bit, ex_resp_rdy, kAccBanks);
+
+  void update();
+};
+
 } // namespace smesh

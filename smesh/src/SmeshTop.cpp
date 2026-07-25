@@ -40,6 +40,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_norm_ctrl_         = new StNormCtrl("StNormCtrl");
   normalizer_           = new Normalizer("Normalizer");
   acc_scale_unit_       = new AccScaleUnit("AccScaleUnit");
+  accum_ex_resp_        = new AccumExResp("AccumExResp");
   st_scale_ctrl_        = new StScaleCtrl("StScaleCtrl");
   write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");
   write_issue_queue_    = new DmaWriteIssueQueue("DmaWriteIssueQueue");
@@ -90,6 +91,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   st_norm_ctrl_->clk         << clk;
   normalizer_->clk           << clk;
   acc_scale_unit_->clk       << clk;
+  accum_ex_resp_->clk        << clk;
   st_scale_ctrl_->clk        << clk;
   write_scale_queue_->clk    << clk;
   write_issue_queue_->clk    << clk;
@@ -122,7 +124,6 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   dma_reader_->req_in       << read_issue_queue_->req_out;   
   ex_ctrl_->cmd_in << rs_->issue_ex;
   ex_ctrl_->completed.sendToBitBucket();
-  ex_ctrl_->completed.wireToZero();
   st_ctrl_->cmd_in << rs_->issue_st;                   
   write_dispatch_queue_->req_in << st_ctrl_->dma_req;  
   st_read_ctrl_->dispatch_val       << write_dispatch_queue_->deq_val;
@@ -267,7 +268,14 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
     accum_->read_req_bits_bnk[bank]   << arb_read_accum_[bank]->read_req_bits;
   }
   acc_scale_unit_->out_rdy_issue  << st_issue_ctrl_->acc_data_rdy;
-  acc_scale_unit_->out_rdy_exresp << write_arb_zero_val_;
+  acc_scale_unit_->out_rdy_exresp << accum_ex_resp_->acc_rdy_exresp;
+  accum_ex_resp_->acc_val         << acc_scale_unit_->out_val;
+  accum_ex_resp_->acc_bits        << acc_scale_unit_->out_bits;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    ex_ctrl_->accum_read_resp_val[bank]  << accum_ex_resp_->ex_resp_val[bank];
+    ex_ctrl_->accum_read_resp_bits[bank] << accum_ex_resp_->ex_resp_bits[bank];
+    accum_ex_resp_->ex_resp_rdy[bank]    << ex_ctrl_->accum_read_resp_rdy[bank];
+  }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     st_norm_ctrl_->accum_read_resp_val[bank]  << accum_->read_resp_val_bnk[bank];
     st_norm_ctrl_->accum_read_resp_bits[bank] << accum_->read_resp_bits_bnk[bank];
@@ -306,6 +314,7 @@ SmeshTop::~SmeshTop() {
   delete st_issue_ctrl_;
   delete write_scale_queue_;
   delete st_scale_ctrl_;
+  delete accum_ex_resp_;
   delete acc_scale_unit_;
   delete normalizer_;
   delete st_norm_ctrl_;

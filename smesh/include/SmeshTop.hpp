@@ -106,6 +106,7 @@ class SmeshTop : public Component {
   StNormCtrl*              st_norm_ctrl_ = nullptr;
   Normalizer*              normalizer_ = nullptr;
   AccScaleUnit*            acc_scale_unit_ = nullptr;
+  AccumExResp*             accum_ex_resp_ = nullptr;
   StScaleCtrl*             st_scale_ctrl_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;
   DmaWriteIssueQueue*      write_issue_queue_ = nullptr;
