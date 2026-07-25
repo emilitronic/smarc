@@ -1,6 +1,7 @@
 add_library(smesh_model
   src/AccScaleUnit.cpp
   src/Accum.cpp
+  src/ArbComplete.cpp
   src/ArbReadLocal.cpp
   src/ArbWriteLocal.cpp
   src/DmaIssueQueues.cpp

@@ -18,6 +18,7 @@ easy to inspect.
 
 #include "Accum.hpp"
 #include "AccScaleUnit.hpp"
+#include "ArbComplete.hpp"
 #include "ArbReadLocal.hpp"
 #include "ArbWriteLocal.hpp"
 #include "DmaIssueQueues.hpp"
@@ -88,6 +89,7 @@ class SmeshTop : public Component {
   SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
+  ArbExLdStComplete*       completion_arb_ = nullptr;
   LdCtrl*                  ld_ctrl_ = nullptr;
   DmaReadIssueQueue*       read_issue_queue_ = nullptr;
   ExCtrl*                  ex_ctrl_ = nullptr;

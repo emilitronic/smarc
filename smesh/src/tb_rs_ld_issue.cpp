@@ -183,6 +183,7 @@ int main(int argc, char* argv[]) {
   dram.clk << clk;
   clk.generateClock();
 
+  Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
   const std::array<std::uint8_t, smesh::kDim * smesh::kDim> rows{{

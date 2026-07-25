@@ -14,6 +14,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_            = new SmeshCmdQueue("CmdQueue");
   unrolled_cmd_queue_   = new SmeshUnrolledCmdQueue("UnrolledCmdQueue");
   rs_                   = new SmeshRS("RS");
+  completion_arb_       = new ArbExLdStComplete("ArbExLdStComplete");
   ld_ctrl_              = new LdCtrl("LdCtrl");
   read_issue_queue_     = new DmaReadIssueQueue("DmaReadIssueQueue");
   ex_ctrl_              = new ExCtrl("ExCtrl");
@@ -65,6 +66,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_->clk            << clk;
   unrolled_cmd_queue_->clk   << clk;
   rs_->clk                   << clk;
+  completion_arb_->clk       << clk;
   ld_ctrl_->clk              << clk;
   read_issue_queue_->clk     << clk;
   ex_ctrl_->clk              << clk;
@@ -119,11 +121,13 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out;  
   rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;       
   ld_ctrl_->cmd_in << rs_->issue_ld;                   
-  rs_->completed   << ld_ctrl_->completed;               
+  completion_arb_->ld_completed << ld_ctrl_->completed;
+  completion_arb_->ex_completed << ex_ctrl_->completed;
+  completion_arb_->st_completed << st_ctrl_->completed;
+  rs_->completed   << completion_arb_->rs_completed;
   read_issue_queue_->req_in << ld_ctrl_->dma_req;      
   dma_reader_->req_in       << read_issue_queue_->req_out;   
   ex_ctrl_->cmd_in << rs_->issue_ex;
-  ex_ctrl_->completed.sendToBitBucket();
   st_ctrl_->cmd_in << rs_->issue_st;                   
   write_dispatch_queue_->req_in << st_ctrl_->dma_req;  
   st_read_ctrl_->dispatch_val       << write_dispatch_queue_->deq_val;
@@ -185,7 +189,6 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   dma_writer_->mem_req.sendToBitBucket();              // later: connect to store-side external memory boundary
   spad_writer_->spad_write_out.sendToBitBucket();      // later: connect to store-spad destination path
   write_issue_queue_->deq_rdy << st_issue_ctrl_->issue_deq_rdy;
-  st_ctrl_->completed.sendToBitBucket();               // later: store completions will join RS completion arbitration
   mvin_scale_split_->data_in << dma_reader_->resp_out;
   mvin_scale_->data_in       << mvin_scale_split_->normal_out;
   mvin_scale_acc_->data_in   << mvin_scale_split_->acc_out;
@@ -341,6 +344,7 @@ SmeshTop::~SmeshTop() {
   delete ex_ctrl_;
   delete read_issue_queue_;
   delete ld_ctrl_;
+  delete completion_arb_;
   delete rs_;
   delete unrolled_cmd_queue_;
   delete cmd_queue_;
