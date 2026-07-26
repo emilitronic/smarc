@@ -10,8 +10,10 @@ namespace smesh {
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_ = new ExCtrlCmdQueue("ExCtrlCmdQueue");
   cmd_decoder_ = new ExCtrlDecoder("ExCtrlDecoder");
-  cmd_queue_->clk << clk;
+
+  cmd_queue_->clk   << clk;
   cmd_decoder_->clk << clk;
+  
   cmd_queue_->cmd_in << cmd_in;
   cmd_queue_->pop_count << cmd_queue_pop_count_;
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
