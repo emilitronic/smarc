@@ -9,9 +9,19 @@ namespace smesh {
 
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_ = new ExCtrlCmdQueue("ExCtrlCmdQueue");
+  cmd_decoder_ = new ExCtrlDecoder("ExCtrlDecoder");
   cmd_queue_->clk << clk;
+  cmd_decoder_->clk << clk;
   cmd_queue_->cmd_in << cmd_in;
   cmd_queue_->pop_count << cmd_queue_pop_count_;
+  for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
+    cmd_decoder_->head_val[i] << cmd_queue_->head_val[i];
+    cmd_decoder_->head_bits[i] << cmd_queue_->head_bits[i];
+  }
+  cmd_decoder_->current_dataflow << decoder_dataflow_;
+  cmd_decoder_->a_transpose << decoder_a_transpose_;
+  cmd_decoder_->bd_transpose << decoder_bd_transpose_;
+  cmd_decoder_->raw_hazards_are_impossible_in << decoder_raw_hazards_are_impossible_;
 
   UPDATE(updateCommandPipeline)
       .reads(cmd_queue_->head_val[0], cmd_queue_->head_bits[0])
@@ -26,9 +36,14 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   spad_write_bits,
                                   accum_write_val,
                                   accum_write_bits);
+  UPDATE(updateDecoderInputs).writes(decoder_dataflow_,
+                                     decoder_a_transpose_,
+                                     decoder_bd_transpose_,
+                                     decoder_raw_hazards_are_impossible_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete cmd_decoder_;
   delete cmd_queue_;
 }
 
@@ -70,8 +85,19 @@ void ExCtrl::updateWritePorts() {
   accum_write_bits = DmaReadResp{};
 }
 
+void ExCtrl::updateDecoderInputs() {
+  decoder_dataflow_ = kExDataflowWS;
+  decoder_a_transpose_ = 0;
+  decoder_bd_transpose_ = 0;
+  decoder_raw_hazards_are_impossible_ = 1;
+}
+
 void ExCtrl::reset() {
   cmd_queue_pop_count_.reset(0);
+  decoder_dataflow_.reset(kExDataflowWS);
+  decoder_a_transpose_.reset(0);
+  decoder_bd_transpose_.reset(0);
+  decoder_raw_hazards_are_impossible_.reset(1);
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);

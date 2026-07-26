@@ -9,6 +9,7 @@ add_library(smesh_model
   src/DmaReader.cpp
   src/DmaWriter.cpp
   src/ExCtrl.cpp
+  src/ExCtrlDecoder.cpp
   src/ExCtrlQueues.cpp
   src/LdCtrl.cpp
   src/MvinLocalRouter.cpp
@@ -87,6 +88,19 @@ add_executable(tb_ex_ctrl_arch
 )
 
 target_link_libraries(tb_ex_ctrl_arch
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+add_executable(tb_ex_ctrl_decoder
+  src/tb_ex_ctrl_decoder.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_decoder
   PRIVATE
     smesh_model
     cascade
