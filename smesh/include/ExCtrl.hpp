@@ -10,6 +10,7 @@ Structural shell for the smesh execute controller.
 
 #include <cascade/Cascade.hpp>
 
+#include "ExCtrlQueues.hpp"
 #include "SmeshPorts.hpp"
 #include "SmeshTypes.hpp"
 
@@ -20,6 +21,7 @@ class ExCtrl : public Component {
 
  public:
   ExCtrl(std::string name, COMPONENT_CTOR);
+  ~ExCtrl() override;
 
   Clock(clk);
 
@@ -54,8 +56,8 @@ class ExCtrl : public Component {
   void reset();
 
  private:
-  bool active_valid_ = false;
-  SmeshIssue active_{};
+  ExCtrlCmdQueue* cmd_queue_ = nullptr;
+  Output(u8, cmd_queue_pop_count_);
 };
 
 } // namespace smesh

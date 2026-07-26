@@ -8,7 +8,14 @@
 namespace smesh {
 
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateCommandPipeline).reads(cmd_in).writes(completed);
+  cmd_queue_ = new ExCtrlCmdQueue("ExCtrlCmdQueue");
+  cmd_queue_->clk << clk;
+  cmd_queue_->cmd_in << cmd_in;
+  cmd_queue_->pop_count << cmd_queue_pop_count_;
+
+  UPDATE(updateCommandPipeline)
+      .reads(cmd_queue_->head_val[0], cmd_queue_->head_bits[0])
+      .writes(completed, cmd_queue_pop_count_);
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -21,29 +28,24 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_bits);
 }
 
+ExCtrl::~ExCtrl() {
+  delete cmd_queue_;
+}
+
 void ExCtrl::updateCommandPipeline() {
-  if (active_valid_) {
-    if (completed.full()) {
-      return;
-    }
+  cmd_queue_pop_count_ = 0;
 
-    completed.push(active_.rs_tag);
-    trace("ex_ctrl: completed placeholder cmd tag=%u funct=%u",
-          static_cast<unsigned>(active_.rs_tag),
-          static_cast<unsigned>(active_.cmd.funct));
-    active_valid_ = false;
+  if (cmd_queue_->head_val[0] == 0 || completed.full()) {
     return;
   }
 
-  if (cmd_in.empty()) {
-    return;
-  }
+  const auto issue = *cmd_queue_->head_bits[0];
+  completed.push(issue.rs_tag);
+  cmd_queue_pop_count_ = 1;
 
-  active_ = cmd_in.pop();
-  active_valid_ = true;
-  trace("ex_ctrl: accepted cmd tag=%u funct=%u",
-        static_cast<unsigned>(active_.rs_tag),
-        static_cast<unsigned>(active_.cmd.funct));
+  trace("ex_ctrl: completed placeholder cmd tag=%u funct=%u",
+        static_cast<unsigned>(issue.rs_tag),
+        static_cast<unsigned>(issue.cmd.funct));
 }
 
 void ExCtrl::updateReadPorts() {
@@ -69,8 +71,7 @@ void ExCtrl::updateWritePorts() {
 }
 
 void ExCtrl::reset() {
-  active_valid_ = false;
-  active_ = SmeshIssue{};
+  cmd_queue_pop_count_.reset(0);
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);

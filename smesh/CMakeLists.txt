@@ -9,6 +9,7 @@ add_library(smesh_model
   src/DmaReader.cpp
   src/DmaWriter.cpp
   src/ExCtrl.cpp
+  src/ExCtrlQueues.cpp
   src/LdCtrl.cpp
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp

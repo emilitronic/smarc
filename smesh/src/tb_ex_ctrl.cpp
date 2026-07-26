@@ -79,6 +79,7 @@ int main(int argc, char* argv[]) {
   driver.clk << clk;
   clk.generateClock();
 
+  Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
   for (int i = 0; i < 8 && !driver.done(); ++i) {
