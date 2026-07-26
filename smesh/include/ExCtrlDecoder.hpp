@@ -45,9 +45,9 @@ class ExCtrlDecoder : public Component {
   OutputArray(bit, do_computes, kExCtrlCmdWindow);
   OutputArray(bit, do_preloads, kExCtrlCmdWindow);
 
-  Output(u8, preload_cmd_place);
-  Output(u8, a_address_place);
-  Output(u8, b_address_place);
+  Output(u8, preload_cmd_place); // which cmd slot has PRELOAD, 0 or 1
+  Output(u8, a_address_place);   // which slot loads A operand, 0, 1, or 2
+  Output(u8, b_address_place);   // which slot loads B operand, 0, 1, or 2
 
   Output(SmeshLocalAddr, a_address_rs1);
   Output(SmeshLocalAddr, b_address_rs2);
