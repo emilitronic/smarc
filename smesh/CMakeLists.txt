@@ -81,6 +81,19 @@ target_link_libraries(tb_ex_ctrl
     -lpthread
 )
 
+add_executable(tb_ex_ctrl_arch
+  src/tb_ex_ctrl_arch.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_arch
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_rs_ld_issue
   src/tb_rs_ld_issue.cpp
 )

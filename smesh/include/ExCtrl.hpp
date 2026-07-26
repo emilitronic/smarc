@@ -4,6 +4,7 @@
 // Sebastian Claudiusz Magierowski Jul 1 2026
 /*
 Structural shell for the smesh execute controller.
+
 */
 #pragma once
 
@@ -47,10 +48,14 @@ class ExCtrl : public Component {
   Input(bit, accum_write_rdy);
   Output(DmaReadResp, accum_write_bits);
 
-  void updateCmdSink();
+  void updateCommandPipeline();
   void updateReadPorts();
   void updateWritePorts();
   void reset();
+
+ private:
+  bool active_valid_ = false;
+  SmeshIssue active_{};
 };
 
 } // namespace smesh

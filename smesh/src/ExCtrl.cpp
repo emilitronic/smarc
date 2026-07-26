@@ -8,7 +8,7 @@
 namespace smesh {
 
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateCmdSink).reads(cmd_in).writes(completed);
+  UPDATE(updateCommandPipeline).reads(cmd_in).writes(completed);
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -21,16 +21,29 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_bits);
 }
 
-void ExCtrl::updateCmdSink() {
-  if (cmd_in.empty() || completed.full()) {
+void ExCtrl::updateCommandPipeline() {
+  if (active_valid_) {
+    if (completed.full()) {
+      return;
+    }
+
+    completed.push(active_.rs_tag);
+    trace("ex_ctrl: completed placeholder cmd tag=%u funct=%u",
+          static_cast<unsigned>(active_.rs_tag),
+          static_cast<unsigned>(active_.cmd.funct));
+    active_valid_ = false;
     return;
   }
 
-  const auto issue = cmd_in.pop();
-  completed.push(issue.rs_tag);
-  trace("ex_ctrl: dropped unimplemented execute cmd tag=%u funct=%u",
-        static_cast<unsigned>(issue.rs_tag),
-        static_cast<unsigned>(issue.cmd.funct));
+  if (cmd_in.empty()) {
+    return;
+  }
+
+  active_ = cmd_in.pop();
+  active_valid_ = true;
+  trace("ex_ctrl: accepted cmd tag=%u funct=%u",
+        static_cast<unsigned>(active_.rs_tag),
+        static_cast<unsigned>(active_.cmd.funct));
 }
 
 void ExCtrl::updateReadPorts() {
@@ -56,6 +69,9 @@ void ExCtrl::updateWritePorts() {
 }
 
 void ExCtrl::reset() {
+  active_valid_ = false;
+  active_ = SmeshIssue{};
+
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);
     spad_read_req_bits[bank].reset(SpadReadReq{});
