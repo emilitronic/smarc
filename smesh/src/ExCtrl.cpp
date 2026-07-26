@@ -8,11 +8,13 @@
 namespace smesh {
 
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
-  cmd_queue_ = new ExCtrlCmdQueue("ExCtrlCmdQueue");
+  cmd_queue_   = new ExCtrlCmdQueue("ExCtrlCmdQueue");
   cmd_decoder_ = new ExCtrlDecoder("ExCtrlDecoder");
+  cmd_state_   = new ExCtrlState("ExCtrlState");
 
   cmd_queue_->clk   << clk;
   cmd_decoder_->clk << clk;
+  cmd_state_->clk   << clk;
   
   cmd_queue_->cmd_in << cmd_in;
   cmd_queue_->pop_count << cmd_queue_pop_count_;
@@ -45,6 +47,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 }
 
 ExCtrl::~ExCtrl() {
+  delete cmd_state_;
   delete cmd_decoder_;
   delete cmd_queue_;
 }

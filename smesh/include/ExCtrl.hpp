@@ -12,6 +12,7 @@ Structural shell for the smesh execute controller.
 
 #include "ExCtrlDecoder.hpp"
 #include "ExCtrlQueues.hpp"
+#include "ExCtrlState.hpp"
 #include "SmeshPorts.hpp"
 #include "SmeshTypes.hpp"
 
@@ -60,6 +61,7 @@ class ExCtrl : public Component {
  private:
   ExCtrlCmdQueue* cmd_queue_ = nullptr;
   ExCtrlDecoder* cmd_decoder_ = nullptr;
+  ExCtrlState* cmd_state_ = nullptr;
   Output(u8, cmd_queue_pop_count_);
   Output(u8, decoder_dataflow_);
   Output(bit, decoder_a_transpose_);

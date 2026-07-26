@@ -11,6 +11,7 @@ add_library(smesh_model
   src/ExCtrl.cpp
   src/ExCtrlDecoder.cpp
   src/ExCtrlQueues.cpp
+  src/ExCtrlState.cpp
   src/LdCtrl.cpp
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
