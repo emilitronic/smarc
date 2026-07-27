@@ -19,20 +19,19 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
       .writes(
               config_val,
               config_rs_tag_valid,
-              config_rs_tag);
+              config_rs_tag,
+              cmd_pop_count);
 }
 
 void ExCtrlState::update() {
   config_val          = 0; // FSM accepts/processes a CONFIG command this cycle
   config_rs_tag_valid = 0;
   config_rs_tag       = 0;
+  cmd_pop_count       = 0;
 
   switch (state_) {
     case ExCtrlFsmState::WaitingForCmd: {
-      if (head_val[0] != 0 &&
-          do_config != 0 &&
-          matmul_in_progress == 0 &&
-          pending_completed_valid == 0) {
+      if (head_val[0] != 0 && do_config != 0 && matmul_in_progress == 0 && pending_completed_valid == 0) {
         const auto issue = *head_bits[0];
         const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
         const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
@@ -40,6 +39,7 @@ void ExCtrlState::update() {
         config_val = 1;
         config_rs_tag_valid = issue.rs_tag_valid;
         config_rs_tag       = issue.rs_tag;
+        cmd_pop_count       = 1;
         if (kind == ConfigKind::Execute) {
           config_initialized_ = true;
           a_transpose_        = unpackConfigExecuteATranspose(rs1);
@@ -89,6 +89,7 @@ void ExCtrlState::reset() {
   config_val.reset(0);
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);
+  cmd_pop_count.reset(0);
 }
 
 } // namespace smesh

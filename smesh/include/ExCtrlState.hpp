@@ -51,6 +51,7 @@ class ExCtrlState : public Component {
   Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle
   Output(bit, config_rs_tag_valid); // valid bit for CONFIG completion tag
   Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
+  Output(u8, cmd_pop_count);        // number of command-window entries consumed this cycle
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
   // Input(bit, raw_hazards_are_impossible);

@@ -54,7 +54,6 @@ class ExCtrl : public Component {
   Input(bit, accum_write_rdy);
   Output(DmaReadResp, accum_write_bits);
 
-  void updateCommandPipeline();
   void updateReadPorts();
   void updateWritePorts();
   void updateDecoderInputs();
@@ -65,7 +64,6 @@ class ExCtrl : public Component {
   ExCtrlCompletion* completion_ = nullptr;
   ExCtrlDecoder* cmd_decoder_ = nullptr;
   ExCtrlState* cmd_state_     = nullptr;
-  Output(u8, cmd_queue_pop_count_);
   Output(bit, decoder_ex_read_from_acc_);
   Output(bit, decoder_ex_write_to_spad_);
   Output(bit, mesh_matmul_in_progress_);

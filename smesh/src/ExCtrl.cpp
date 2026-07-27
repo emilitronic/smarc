@@ -19,7 +19,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_state_->clk   << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
-  cmd_queue_->pop_count << cmd_queue_pop_count_;
+  cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
   // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
     cmd_decoder_->head_val[i]  << cmd_queue_->head_val[i];
@@ -48,9 +48,6 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   completed_val << completion_->completed_val;
   completed_bits << completion_->completed_bits;
 
-  UPDATE(updateCommandPipeline)
-      .reads(cmd_state_->config_val)
-      .writes(cmd_queue_pop_count_);
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -71,10 +68,6 @@ ExCtrl::~ExCtrl() {
   delete cmd_decoder_;
   delete completion_;
   delete cmd_queue_;
-}
-
-void ExCtrl::updateCommandPipeline() {
-  cmd_queue_pop_count_ = cmd_state_->config_val != 0 ? 1 : 0;
 }
 
 void ExCtrl::updateReadPorts() {
@@ -106,7 +99,6 @@ void ExCtrl::updateDecoderInputs() {
 }
 
 void ExCtrl::reset() {
-  cmd_queue_pop_count_.reset(0);
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
   mesh_matmul_in_progress_.reset(0);
