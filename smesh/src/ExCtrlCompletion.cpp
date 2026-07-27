@@ -8,12 +8,21 @@
 namespace smesh {
 
 ExCtrlCompletion::ExCtrlCompletion(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(pending_completed_valid);
+  UPDATE(updatePendingView)
+      .writes(pending_completed_valid);
+  UPDATE(updateConfigCompletion)
+      .reads(config_val, config_rs_tag_valid, config_rs_tag)
+      .writes(completed);
 }
-
-void ExCtrlCompletion::update() {
-  pending_completed_valid =
-      bit(pending_completed_valid_[0] || pending_completed_valid_[1]);
+// are any pending completion registers occupied?
+void ExCtrlCompletion::updatePendingView() {
+  pending_completed_valid = bit(pending_completed_valid_[0] || pending_completed_valid_[1]);
+}
+// direct the correct signal to completion block completed output
+void ExCtrlCompletion::updateConfigCompletion() {
+  if (config_val != 0 && config_rs_tag_valid != 0 && !completed.full()) {
+    completed.push(*config_rs_tag);
+  }
 }
 
 void ExCtrlCompletion::reset() {

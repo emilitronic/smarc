@@ -20,6 +20,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_queue_pop_count_;
+  // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
     cmd_decoder_->head_val[i]  << cmd_queue_->head_val[i];
     cmd_decoder_->head_bits[i] << cmd_queue_->head_bits[i];
@@ -28,19 +29,27 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     cmd_state_->do_preloads[i] << cmd_decoder_->do_preloads[i];
     cmd_state_->do_computes[i] << cmd_decoder_->do_computes[i];
   }
+  cmd_state_->do_config        << cmd_decoder_->do_config;
+  // pass some HW build info to decoder
+  cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;    // const from SmeshConfig.hpp
+  cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;    // const from SmeshConfig.hpp
+  // pass some config info processed by FSM to decoder
   cmd_decoder_->current_dataflow <= cmd_state_->current_dataflow; // dec gets FSM configs
   cmd_decoder_->a_transpose      <= cmd_state_->a_transpose;      // 
   cmd_decoder_->bd_transpose     <= cmd_state_->bd_transpose;     //
-  cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;    // const from SmeshConfig.hpp
-  cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;    // const from SmeshConfig.hpp
-
-  cmd_state_->do_config << cmd_decoder_->do_config;
-  cmd_state_->matmul_in_progress << mesh_matmul_in_progress_;
+  // pass some other status signals to FSM
+  cmd_state_->matmul_in_progress      << mesh_matmul_in_progress_;
   cmd_state_->pending_completed_valid << completion_->pending_completed_valid;
+  // pass some status signals to completion block
+  completion_->config_val          << cmd_state_->config_val;
+  completion_->config_rs_tag_valid << cmd_state_->config_rs_tag_valid;
+  completion_->config_rs_tag       << cmd_state_->config_rs_tag;
+  // send out completed signals from ExCtrl
+  completed << completion_->completed;
 
   UPDATE(updateCommandPipeline)
-      .reads(cmd_queue_->head_val[0], cmd_queue_->head_bits[0])
-      .writes(completed, cmd_queue_pop_count_);
+      .reads(cmd_state_->config_val)
+      .writes(cmd_queue_pop_count_);
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -64,24 +73,7 @@ ExCtrl::~ExCtrl() {
 }
 
 void ExCtrl::updateCommandPipeline() {
-  cmd_queue_pop_count_ = 0;
-
-  if (cmd_queue_->head_val[0] == 0) {
-    return;
-  }
-
-  const auto issue = *cmd_queue_->head_bits[0];
-  if (issue.rs_tag_valid != 0 && completed.full()) {
-    return;
-  }
-  if (issue.rs_tag_valid) {
-    completed.push(issue.rs_tag);
-  }
-  cmd_queue_pop_count_ = 1;
-
-  trace("ex_ctrl: completed placeholder cmd tag=%u funct=%u",
-        static_cast<unsigned>(issue.rs_tag),
-        static_cast<unsigned>(issue.cmd.funct));
+  cmd_queue_pop_count_ = cmd_state_->config_val != 0 ? 1 : 0;
 }
 
 void ExCtrl::updateReadPorts() {

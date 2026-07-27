@@ -15,13 +15,20 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               bd_transpose,
               current_dataflow,
               a_addr_stride,
-              c_addr_stride);
+              c_addr_stride)
+      .writes(
+              config_val,
+              config_rs_tag_valid,
+              config_rs_tag);
 }
 
 void ExCtrlState::update() {
+  config_val          = 0; // FSM accepts/processes a CONFIG command this cycle
+  config_rs_tag_valid = 0;
+  config_rs_tag       = 0;
+
   switch (state_) {
     case ExCtrlFsmState::WaitingForCmd: {
-      // if we have a CONFIG_EX in head(0)
       if (head_val[0] != 0 &&
           do_config != 0 &&
           matmul_in_progress == 0 &&
@@ -30,6 +37,9 @@ void ExCtrlState::update() {
         const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
         const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
         const auto kind  = static_cast<ConfigKind>(rs1 & 0x3u);
+        config_val = 1;
+        config_rs_tag_valid = issue.rs_tag_valid;
+        config_rs_tag = issue.rs_tag;
         if (kind == ConfigKind::Execute) {
           config_initialized_ = true;
           a_transpose_        = unpackConfigExecuteATranspose(rs1);
@@ -76,6 +86,9 @@ void ExCtrlState::reset() {
   current_dataflow.reset(kExDataflowWS);
   a_addr_stride.reset(1);
   c_addr_stride.reset(1);
+  config_val.reset(0);
+  config_rs_tag_valid.reset(0);
+  config_rs_tag.reset(0);
 }
 
 } // namespace smesh

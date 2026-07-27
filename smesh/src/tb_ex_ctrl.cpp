@@ -7,6 +7,7 @@
 #include <descore/Parameter.hpp>
 
 #include "ExCtrl.hpp"
+#include "SmeshCommand.hpp"
 
 #include <cstdio>
 
@@ -27,6 +28,9 @@ class ExCtrlDriver : public Component {
 
     smesh::SmeshIssue issue{};
     issue.rs_tag = expected_rs_tag_;
+    issue.cmd.funct = static_cast<std::uint32_t>(smesh::SmeshFunct::Config);
+    issue.cmd.rs1 = smesh::packConfigExecuteRs1(1);
+    issue.cmd.rs2 = smesh::packConfigExecuteRs2(1);
     cmd_out.push(issue);
     sent_ = true;
   }

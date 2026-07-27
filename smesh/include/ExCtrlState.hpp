@@ -42,12 +42,15 @@ class ExCtrlState : public Component {
   Input(bit, matmul_in_progress);                      // mesh reports an in-flight matmul
   Input(bit, pending_completed_valid);                  // completion block has saved completions
 
-  Output(bit, config_initialized); // CONFIG_EX has initialized execute config registers
-  Output(bit, a_transpose);        // CONFIG_EX A transpose register
-  Output(bit, bd_transpose);       // CONFIG_EX B/D transpose register, TODO: decode when encoded
-  Output(u8, current_dataflow);    // execute dataflow register, TODO: decode when encoded
-  Output(u32, a_addr_stride);      // CONFIG_EX A local-address stride
-  Output(u32, c_addr_stride);      // CONFIG_EX C local-address stride
+  Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
+  Output(bit, a_transpose);         // CONFIG_EX A transpose register
+  Output(bit, bd_transpose);        // CONFIG_EX B/D transpose register, TODO: decode when encoded
+  Output(u8, current_dataflow);     // execute dataflow register, TODO: decode when encoded
+  Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
+  Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
+  Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle
+  Output(bit, config_rs_tag_valid); // info to send back on completed port
+  Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
   // Input(bit, raw_hazards_are_impossible);
