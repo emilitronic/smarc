@@ -59,14 +59,12 @@ class ExCtrl : public Component {
   void reset();
 
  private:
-  ExCtrlCmdQueue* cmd_queue_ = nullptr;
+  ExCtrlCmdQueue* cmd_queue_  = nullptr;
   ExCtrlDecoder* cmd_decoder_ = nullptr;
-  ExCtrlState* cmd_state_ = nullptr;
+  ExCtrlState* cmd_state_     = nullptr;
   Output(u8, cmd_queue_pop_count_);
-  Output(u8, decoder_dataflow_);
-  Output(bit, decoder_a_transpose_);
-  Output(bit, decoder_bd_transpose_);
-  Output(bit, decoder_raw_hazards_are_impossible_);
+  Output(bit, decoder_ex_read_from_acc_);
+  Output(bit, decoder_ex_write_to_spad_);
 };
 
 } // namespace smesh

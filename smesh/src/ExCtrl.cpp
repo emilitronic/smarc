@@ -19,17 +19,19 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_->cmd_in << cmd_in;
   cmd_queue_->pop_count << cmd_queue_pop_count_;
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
-    cmd_decoder_->head_val[i] << cmd_queue_->head_val[i];
+    cmd_decoder_->head_val[i]  << cmd_queue_->head_val[i];
     cmd_decoder_->head_bits[i] << cmd_queue_->head_bits[i];
-    cmd_state_->head_val[i] << cmd_queue_->head_val[i];
-    cmd_state_->head_bits[i] << cmd_queue_->head_bits[i];
+    cmd_state_->head_val[i]    << cmd_queue_->head_val[i];
+    cmd_state_->head_bits[i]   << cmd_queue_->head_bits[i];
     cmd_state_->do_preloads[i] << cmd_decoder_->do_preloads[i];
     cmd_state_->do_computes[i] << cmd_decoder_->do_computes[i];
   }
-  cmd_decoder_->current_dataflow << decoder_dataflow_;
-  cmd_decoder_->a_transpose << decoder_a_transpose_;
-  cmd_decoder_->bd_transpose << decoder_bd_transpose_;
-  cmd_decoder_->raw_hazards_are_impossible_in << decoder_raw_hazards_are_impossible_;
+  cmd_decoder_->current_dataflow << cmd_state_->current_dataflow;
+  cmd_decoder_->a_transpose      << cmd_state_->a_transpose;
+  cmd_decoder_->bd_transpose     << cmd_state_->bd_transpose;
+  cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;  // const from SemshConfig.hpp
+  cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;  // const from SemshConfig.hpp
+
   cmd_state_->do_config << cmd_decoder_->do_config;
 
   UPDATE(updateCommandPipeline)
@@ -45,10 +47,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   spad_write_bits,
                                   accum_write_val,
                                   accum_write_bits);
-  UPDATE(updateDecoderInputs).writes(decoder_dataflow_,
-                                     decoder_a_transpose_,
-                                     decoder_bd_transpose_,
-                                     decoder_raw_hazards_are_impossible_);
+  UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
+                                     decoder_ex_write_to_spad_);
 }
 
 ExCtrl::~ExCtrl() {
@@ -101,18 +101,14 @@ void ExCtrl::updateWritePorts() {
 }
 
 void ExCtrl::updateDecoderInputs() {
-  decoder_dataflow_ = kExDataflowWS;
-  decoder_a_transpose_ = 0;
-  decoder_bd_transpose_ = 0;
-  decoder_raw_hazards_are_impossible_ = 1;
+  decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
+  decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
 }
 
 void ExCtrl::reset() {
   cmd_queue_pop_count_.reset(0);
-  decoder_dataflow_.reset(kExDataflowWS);
-  decoder_a_transpose_.reset(0);
-  decoder_bd_transpose_.reset(0);
-  decoder_raw_hazards_are_impossible_.reset(1);
+  decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
+  decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);

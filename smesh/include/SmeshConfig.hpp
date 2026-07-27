@@ -33,6 +33,9 @@ struct SmeshConfig {
   std::size_t rs_load_entries = 2;
   std::size_t rs_execute_entries = 2;
   std::size_t rs_store_entries = 2;
+
+  bool ex_read_from_acc = true;
+  bool ex_write_to_spad = true;
 };
 
 constexpr SmeshConfig kDefaultConfig{};

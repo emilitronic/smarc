@@ -35,7 +35,8 @@ class ExCtrlDecoder : public Component {
   Input(u8, current_dataflow);
   Input(bit, a_transpose);
   Input(bit, bd_transpose);
-  Input(bit, raw_hazards_are_impossible_in);
+  Input(bit, ex_read_from_acc);
+  Input(bit, ex_write_to_spad);
 
   OutputArray(u32, functs, kExCtrlCmdWindow);
   OutputArray(u64, rs1s, kExCtrlCmdWindow);

@@ -11,6 +11,8 @@ Central execute-controller FSM state holder.
 #include <cascade/Cascade.hpp>
 
 #include "ExCtrlQueues.hpp"
+#include "ExCtrlDecoder.hpp"
+#include "SmeshCommand.hpp"
 #include "SmeshPorts.hpp"
 
 #include <cstdint>
@@ -38,6 +40,13 @@ class ExCtrlState : public Component {
   InputArray(bit, do_preloads, kExCtrlCmdWindow);      // cmd(0/1/2) is preload?
   InputArray(bit, do_computes, kExCtrlCmdWindow);      // cmd(0/1/2) is compute?
 
+  Output(bit, config_initialized); // CONFIG_EX has initialized execute config registers
+  Output(bit, a_transpose);        // CONFIG_EX A transpose register
+  Output(bit, bd_transpose);       // CONFIG_EX B/D transpose register, TODO: decode when encoded
+  Output(u8, current_dataflow);    // execute dataflow register, TODO: decode when encoded
+  Output(u32, a_addr_stride);      // CONFIG_EX A local-address stride
+  Output(u32, c_addr_stride);      // CONFIG_EX C local-address stride
+
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
   // Input(bit, matmul_in_progress);
   // Input(bit, pending_completed_valid);
@@ -54,7 +63,30 @@ class ExCtrlState : public Component {
   void reset();
 
  private:
-  ExCtrlFsmState state_ = ExCtrlFsmState::WaitingForCmd;
+  ExCtrlFsmState state_ = ExCtrlFsmState::WaitingForCmd; // control_state register
+
+  bool config_initialized_ = false;
+  bool a_transpose_ = false;
+  bool bd_transpose_ = false;
+  std::uint8_t current_dataflow_ = kExDataflowWS;
+  std::uint32_t a_addr_stride_ = 1;
+  std::uint32_t c_addr_stride_ = 1;
+
+  // TODO: add later execute config registers:
+  // activation
+  // in_shift
+  // acc_scale
+
+  // TODO: add im2col config registers later:
+  // ocol
+  // kdim2
+  // krow
+  // channel
+  // weight_stride
+  // weight_double_bank
+  // weight_triple_bank
+  // row_left
+  // row_turn
 };
 
 } // namespace smesh

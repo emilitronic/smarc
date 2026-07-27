@@ -55,7 +55,8 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
              current_dataflow,
              a_transpose,
              bd_transpose,
-             raw_hazards_are_impossible_in)
+             ex_read_from_acc,
+             ex_write_to_spad)
       .writes(functs,
               rs1s,
               rs2s,
@@ -157,13 +158,16 @@ void ExCtrlDecoder::update() {
   b_should_be_fed_into_transposer = bit(b_to_transposer);
   d_should_be_fed_into_transposer = bit(d_to_transposer);
 
-  raw_hazards_are_impossible = raw_hazards_are_impossible_in;
+  const bool raw_hazards_impossible = ex_read_from_acc == 0 && ex_write_to_spad == 0;
+  raw_hazards_are_impossible = bit(raw_hazards_impossible);
+  // TODO: compute from mesh tags_in_progress addresses.
   raw_hazard_pre = 0;
+  // TODO: compute from mesh tags_in_progress addresses.
   raw_hazard_mulpre = 0;
   third_instruction_needed = bit(a_place > 1 ||
                                 b_place > 1 ||
                                 preload_place > 1 ||
-                                raw_hazards_are_impossible_in == 0);
+                                !raw_hazards_impossible);
 }
 
 } // namespace smesh

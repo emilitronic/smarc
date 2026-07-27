@@ -24,7 +24,8 @@ class DecoderDriver : public Component {
   Output(u8, current_dataflow);
   Output(bit, a_transpose);
   Output(bit, bd_transpose);
-  Output(bit, raw_hazards_are_impossible);
+  Output(bit, ex_read_from_acc);
+  Output(bit, ex_write_to_spad);
 
   void update();
   void reset();
@@ -87,7 +88,8 @@ DecoderDriver::DecoderDriver(std::string /*name*/, IMPL_CTOR) {
                         current_dataflow,
                         a_transpose,
                         bd_transpose,
-                        raw_hazards_are_impossible);
+                        ex_read_from_acc,
+                        ex_write_to_spad);
 }
 
 void DecoderDriver::update() {
@@ -110,7 +112,8 @@ void DecoderDriver::update() {
   current_dataflow = smesh::kExDataflowWS;
   a_transpose = 0;
   bd_transpose = 0;
-  raw_hazards_are_impossible = 1;
+  ex_read_from_acc = 0;
+  ex_write_to_spad = 0;
 }
 
 void DecoderDriver::reset() {
@@ -121,7 +124,8 @@ void DecoderDriver::reset() {
   current_dataflow.reset(smesh::kExDataflowWS);
   a_transpose.reset(0);
   bd_transpose.reset(0);
-  raw_hazards_are_impossible.reset(1);
+  ex_read_from_acc.reset(0);
+  ex_write_to_spad.reset(0);
 }
 
 DecoderMonitor::DecoderMonitor(std::string /*name*/, IMPL_CTOR) {
@@ -201,7 +205,8 @@ int main(int argc, char* argv[]) {
   decoder.current_dataflow << driver.current_dataflow;
   decoder.a_transpose << driver.a_transpose;
   decoder.bd_transpose << driver.bd_transpose;
-  decoder.raw_hazards_are_impossible_in << driver.raw_hazards_are_impossible;
+  decoder.ex_read_from_acc << driver.ex_read_from_acc;
+  decoder.ex_write_to_spad << driver.ex_write_to_spad;
 
   monitor.do_config << decoder.do_config;
   monitor.preload_cmd_place << decoder.preload_cmd_place;
