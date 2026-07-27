@@ -9,7 +9,7 @@ namespace smesh {
 
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(head_val, head_bits, do_config)
+      .reads(head_val, head_bits, do_config, matmul_in_progress, pending_completed_valid)
       .writes(config_initialized,
               a_transpose,
               bd_transpose,
@@ -22,7 +22,10 @@ void ExCtrlState::update() {
   switch (state_) {
     case ExCtrlFsmState::WaitingForCmd: {
       // if we have a CONFIG_EX in head(0)
-      if (head_val[0] != 0 && do_config != 0) {
+      if (head_val[0] != 0 &&
+          do_config != 0 &&
+          matmul_in_progress == 0 &&
+          pending_completed_valid == 0) {
         const auto issue = *head_bits[0];
         const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
         const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);

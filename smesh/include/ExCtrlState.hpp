@@ -39,6 +39,8 @@ class ExCtrlState : public Component {
   Input(bit, do_config);                               // cmd(0) is config?
   InputArray(bit, do_preloads, kExCtrlCmdWindow);      // cmd(0/1/2) is preload?
   InputArray(bit, do_computes, kExCtrlCmdWindow);      // cmd(0/1/2) is compute?
+  Input(bit, matmul_in_progress);                      // mesh reports an in-flight matmul
+  Input(bit, pending_completed_valid);                  // completion block has saved completions
 
   Output(bit, config_initialized); // CONFIG_EX has initialized execute config registers
   Output(bit, a_transpose);        // CONFIG_EX A transpose register
@@ -48,8 +50,6 @@ class ExCtrlState : public Component {
   Output(u32, c_addr_stride);      // CONFIG_EX C local-address stride
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
-  // Input(bit, matmul_in_progress);
-  // Input(bit, pending_completed_valid);
   // Input(bit, raw_hazards_are_impossible);
   // Input(bit, raw_hazard_pre);
   // Input(bit, raw_hazard_mulpre);

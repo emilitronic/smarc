@@ -10,6 +10,7 @@ Structural shell for the smesh execute controller.
 
 #include <cascade/Cascade.hpp>
 
+#include "ExCtrlCompletion.hpp"
 #include "ExCtrlDecoder.hpp"
 #include "ExCtrlQueues.hpp"
 #include "ExCtrlState.hpp"
@@ -60,11 +61,13 @@ class ExCtrl : public Component {
 
  private:
   ExCtrlCmdQueue* cmd_queue_  = nullptr;
+  ExCtrlCompletion* completion_ = nullptr;
   ExCtrlDecoder* cmd_decoder_ = nullptr;
   ExCtrlState* cmd_state_     = nullptr;
   Output(u8, cmd_queue_pop_count_);
   Output(bit, decoder_ex_read_from_acc_);
   Output(bit, decoder_ex_write_to_spad_);
+  Output(bit, mesh_matmul_in_progress_);
 };
 
 } // namespace smesh

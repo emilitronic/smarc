@@ -9,14 +9,16 @@ namespace smesh {
 
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_   = new ExCtrlCmdQueue("ExCtrlCmdQueue");
+  completion_  = new ExCtrlCompletion("ExCtrlCompletion");
   cmd_decoder_ = new ExCtrlDecoder("ExCtrlDecoder");
   cmd_state_   = new ExCtrlState("ExCtrlState");
 
   cmd_queue_->clk   << clk;
+  completion_->clk  << clk;
   cmd_decoder_->clk << clk;
   cmd_state_->clk   << clk;
   
-  cmd_queue_->cmd_in << cmd_in;
+  cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_queue_pop_count_;
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
     cmd_decoder_->head_val[i]  << cmd_queue_->head_val[i];
@@ -33,6 +35,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;    // const from SmeshConfig.hpp
 
   cmd_state_->do_config << cmd_decoder_->do_config;
+  cmd_state_->matmul_in_progress << mesh_matmul_in_progress_;
+  cmd_state_->pending_completed_valid << completion_->pending_completed_valid;
 
   UPDATE(updateCommandPipeline)
       .reads(cmd_queue_->head_val[0], cmd_queue_->head_bits[0])
@@ -48,12 +52,14 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_val,
                                   accum_write_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
-                                     decoder_ex_write_to_spad_);
+                                     decoder_ex_write_to_spad_,
+                                     mesh_matmul_in_progress_);
 }
 
 ExCtrl::~ExCtrl() {
   delete cmd_state_;
   delete cmd_decoder_;
+  delete completion_;
   delete cmd_queue_;
 }
 
@@ -103,12 +109,14 @@ void ExCtrl::updateWritePorts() {
 void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
+  mesh_matmul_in_progress_  = 0;
 }
 
 void ExCtrl::reset() {
   cmd_queue_pop_count_.reset(0);
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
+  mesh_matmul_in_progress_.reset(0);
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);

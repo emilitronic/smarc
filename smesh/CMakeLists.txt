@@ -9,6 +9,7 @@ add_library(smesh_model
   src/DmaReader.cpp
   src/DmaWriter.cpp
   src/ExCtrl.cpp
+  src/ExCtrlCompletion.cpp
   src/ExCtrlDecoder.cpp
   src/ExCtrlQueues.cpp
   src/ExCtrlState.cpp
