@@ -61,15 +61,17 @@ class FakeRsProgram : public Component {
   bool matched() const { return matched_; }
 
  private:
-  static smesh::SmeshIssue issue(smesh::SmeshRsTag tag, smesh::SmeshFunct funct) {
+  static smesh::SmeshIssue issue(smesh::SmeshRsTag tag, smesh::SmeshFunct funct, bool tag_valid = true) {
     smesh::SmeshIssue out{};
+    out.rs_tag_valid = bit(tag_valid);
     out.rs_tag = tag;
     out.cmd.funct = static_cast<std::uint32_t>(funct);
     return out;
   }
 
-  const std::array<smesh::SmeshIssue, 2> program_{{
+  const std::array<smesh::SmeshIssue, 3> program_{{
       issue(11, smesh::SmeshFunct::Preload),
+      issue(0, smesh::SmeshFunct::Config, false),
       issue(12, smesh::SmeshFunct::ComputeFlip),
   }};
   const std::array<smesh::SmeshRsTag, 2> expected_tags_{{11, 12}};

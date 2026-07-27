@@ -498,6 +498,7 @@ void SmeshRS::updateIssueLoad() {
 
   SmeshIssue issue{};
   issue.cmd = entry->cmd;       // pack in cmd
+  issue.rs_tag_valid = true;
   issue.rs_tag = entry->rs_tag; // pack in rs_tag
   issue_ld.push(issue);         // push the packet through issue_ld output port
   markIssued(entry->rs_tag);    // mark entry as issued
@@ -516,6 +517,7 @@ void SmeshRS::updateIssueExecute() {
 
   SmeshIssue issue{};
   issue.cmd = entry->cmd;
+  issue.rs_tag_valid = true;
   issue.rs_tag = entry->rs_tag;
   issue_ex.push(issue);
   markIssued(entry->rs_tag);
@@ -534,6 +536,7 @@ void SmeshRS::updateIssueStore() {
 
   SmeshIssue issue{};
   issue.cmd = entry->cmd;
+  issue.rs_tag_valid = true;
   issue.rs_tag = entry->rs_tag;
   issue_st.push(issue);
   markIssued(entry->rs_tag);

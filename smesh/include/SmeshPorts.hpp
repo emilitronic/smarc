@@ -47,6 +47,7 @@ struct SmeshQueuedCmd {
 
 struct SmeshIssue {
   SmeshCmd cmd{};
+  bit rs_tag_valid = true; // for completed commands, some helper commands like TransposePreloadUnroller set this false
   SmeshRsTag rs_tag = 0;
 };
 

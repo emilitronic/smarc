@@ -55,12 +55,17 @@ ExCtrl::~ExCtrl() {
 void ExCtrl::updateCommandPipeline() {
   cmd_queue_pop_count_ = 0;
 
-  if (cmd_queue_->head_val[0] == 0 || completed.full()) {
+  if (cmd_queue_->head_val[0] == 0) {
     return;
   }
 
   const auto issue = *cmd_queue_->head_bits[0];
-  completed.push(issue.rs_tag);
+  if (issue.rs_tag_valid != 0 && completed.full()) {
+    return;
+  }
+  if (issue.rs_tag_valid) {
+    completed.push(issue.rs_tag);
+  }
   cmd_queue_pop_count_ = 1;
 
   trace("ex_ctrl: completed placeholder cmd tag=%u funct=%u",
