@@ -21,11 +21,16 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
     cmd_decoder_->head_val[i] << cmd_queue_->head_val[i];
     cmd_decoder_->head_bits[i] << cmd_queue_->head_bits[i];
+    cmd_state_->head_val[i] << cmd_queue_->head_val[i];
+    cmd_state_->head_bits[i] << cmd_queue_->head_bits[i];
+    cmd_state_->do_preloads[i] << cmd_decoder_->do_preloads[i];
+    cmd_state_->do_computes[i] << cmd_decoder_->do_computes[i];
   }
   cmd_decoder_->current_dataflow << decoder_dataflow_;
   cmd_decoder_->a_transpose << decoder_a_transpose_;
   cmd_decoder_->bd_transpose << decoder_bd_transpose_;
   cmd_decoder_->raw_hazards_are_impossible_in << decoder_raw_hazards_are_impossible_;
+  cmd_state_->do_config << cmd_decoder_->do_config;
 
   UPDATE(updateCommandPipeline)
       .reads(cmd_queue_->head_val[0], cmd_queue_->head_bits[0])

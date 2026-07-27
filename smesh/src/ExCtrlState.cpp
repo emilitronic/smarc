@@ -8,16 +8,14 @@
 namespace smesh {
 
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(state);
+  UPDATE(update)
+      .reads(head_val, head_bits, do_config, do_preloads, do_computes);
 }
 
-void ExCtrlState::update() {
-  state = static_cast<std::uint8_t>(state_);
-}
+void ExCtrlState::update() {}
 
 void ExCtrlState::reset() {
   state_ = ExCtrlFsmState::WaitingForCmd;
-  state.reset(static_cast<std::uint8_t>(state_));
 }
 
 } // namespace smesh
