@@ -26,11 +26,11 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     cmd_state_->do_preloads[i] << cmd_decoder_->do_preloads[i];
     cmd_state_->do_computes[i] << cmd_decoder_->do_computes[i];
   }
-  cmd_decoder_->current_dataflow << cmd_state_->current_dataflow;
-  cmd_decoder_->a_transpose      << cmd_state_->a_transpose;
-  cmd_decoder_->bd_transpose     << cmd_state_->bd_transpose;
-  cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;  // const from SemshConfig.hpp
-  cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;  // const from SemshConfig.hpp
+  cmd_decoder_->current_dataflow <= cmd_state_->current_dataflow; // dec gets FSM configs
+  cmd_decoder_->a_transpose      <= cmd_state_->a_transpose;      // 
+  cmd_decoder_->bd_transpose     <= cmd_state_->bd_transpose;     //
+  cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;    // const from SmeshConfig.hpp
+  cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;    // const from SmeshConfig.hpp
 
   cmd_state_->do_config << cmd_decoder_->do_config;
 

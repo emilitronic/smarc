@@ -9,7 +9,7 @@ namespace smesh {
 
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(head_val, head_bits)
+      .reads(head_val, head_bits, do_config)
       .writes(config_initialized,
               a_transpose,
               bd_transpose,
@@ -21,13 +21,13 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
 void ExCtrlState::update() {
   switch (state_) {
     case ExCtrlFsmState::WaitingForCmd: {
-      if (head_val[0] != 0) {
+      // if we have a CONFIG_EX in head(0)
+      if (head_val[0] != 0 && do_config != 0) {
         const auto issue = *head_bits[0];
-        const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(issue.cmd.funct));
         const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
         const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
         const auto kind  = static_cast<ConfigKind>(rs1 & 0x3u);
-        if (funct == SmeshFunct::Config && kind == ConfigKind::Execute) {
+        if (kind == ConfigKind::Execute) {
           config_initialized_ = true;
           a_transpose_        = unpackConfigExecuteATranspose(rs1);
           a_addr_stride_      = unpackConfigExecuteAStride(rs1);
