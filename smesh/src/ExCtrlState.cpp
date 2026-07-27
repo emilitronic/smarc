@@ -19,18 +19,35 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlState::update() {
-  if (head_val[0] != 0) {
-    const auto issue = *head_bits[0];
-    const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(issue.cmd.funct));
-    const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
-    const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
-    const auto kind  = static_cast<ConfigKind>(rs1 & 0x3u);
-    if (funct == SmeshFunct::Config && kind == ConfigKind::Execute) {
-      config_initialized_ = true;
-      a_transpose_        = unpackConfigExecuteATranspose(rs1);
-      a_addr_stride_      = unpackConfigExecuteAStride(rs1);
-      c_addr_stride_      = unpackConfigExecuteCStride(rs2);
+  switch (state_) {
+    case ExCtrlFsmState::WaitingForCmd: {
+      if (head_val[0] != 0) {
+        const auto issue = *head_bits[0];
+        const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(issue.cmd.funct));
+        const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
+        const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
+        const auto kind  = static_cast<ConfigKind>(rs1 & 0x3u);
+        if (funct == SmeshFunct::Config && kind == ConfigKind::Execute) {
+          config_initialized_ = true;
+          a_transpose_        = unpackConfigExecuteATranspose(rs1);
+          a_addr_stride_      = unpackConfigExecuteAStride(rs1);
+          c_addr_stride_      = unpackConfigExecuteCStride(rs2);
+        }
+      }
+      break;
     }
+
+    case ExCtrlFsmState::Compute:
+      // TODO: issue operand reads and wait for all rows to enter the mesh.
+      break;
+
+    case ExCtrlFsmState::Flush:
+      // TODO: send a mesh flush request.
+      break;
+
+    case ExCtrlFsmState::Flushing:
+      // TODO: wait for mesh drain/flush completion.
+      break;
   }
 
   config_initialized = bit(config_initialized_);
