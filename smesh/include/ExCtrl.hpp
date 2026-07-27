@@ -29,7 +29,8 @@ class ExCtrl : public Component {
   Clock(clk);
 
   FifoInput(SmeshIssue, cmd_in);
-  FifoOutput(SmeshRsTag, completed);
+  Output(bit, completed_val);
+  Output(SmeshRsTag, completed_bits);
 
   OutputArray(bit, spad_read_req_val, kSpBanks);
   InputArray(bit, spad_read_req_rdy, kSpBanks);

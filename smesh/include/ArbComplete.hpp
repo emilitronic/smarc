@@ -22,7 +22,8 @@ class ArbExLdStComplete : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshRsTag, ex_completed);
+  Input(bit, ex_completed_val);
+  Input(SmeshRsTag, ex_completed_bits);
   FifoInput(SmeshRsTag, ld_completed);
   FifoInput(SmeshRsTag, st_completed);
 

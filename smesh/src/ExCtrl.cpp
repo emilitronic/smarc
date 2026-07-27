@@ -45,7 +45,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   completion_->config_rs_tag_valid << cmd_state_->config_rs_tag_valid;
   completion_->config_rs_tag       << cmd_state_->config_rs_tag;
   // send out completed signals from ExCtrl
-  completed << completion_->completed;
+  completed_val << completion_->completed_val;
+  completed_bits << completion_->completed_bits;
 
   UPDATE(updateCommandPipeline)
       .reads(cmd_state_->config_val)

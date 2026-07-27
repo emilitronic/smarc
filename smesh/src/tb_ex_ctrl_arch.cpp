@@ -21,7 +21,8 @@ class FakeRsProgram : public Component {
 
   Clock(clk);
   FifoOutput(smesh::SmeshIssue, issue_out);
-  FifoInput(smesh::SmeshRsTag, completed_in);
+  Input(bit, completed_val);
+  Input(smesh::SmeshRsTag, completed_bits);
 
   void updateIssue() {
     if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size() || issue_out.full()) {
@@ -33,11 +34,11 @@ class FakeRsProgram : public Component {
   }
 
   void updateCompleted() {
-    if (Sim::state == Sim::SimResetting || completed_in.empty()) {
+    if (Sim::state == Sim::SimResetting || completed_val == 0) {
       return;
     }
 
-    const auto tag = completed_in.pop();
+    const auto tag = *completed_bits;
     if (next_complete_ >= expected_tags_.size() || tag != expected_tags_[next_complete_]) {
       matched_ = false;
       done_ = true;
@@ -84,7 +85,7 @@ class FakeRsProgram : public Component {
 
 FakeRsProgram::FakeRsProgram(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateIssue).writes(issue_out);
-  UPDATE(updateCompleted).reads(completed_in);
+  UPDATE(updateCompleted).reads(completed_val, completed_bits);
 }
 
 int main(int argc, char* argv[]) {
@@ -96,7 +97,8 @@ int main(int argc, char* argv[]) {
   FakeRsProgram fake_rs("FakeRS");
 
   ctrl.cmd_in << fake_rs.issue_out;
-  fake_rs.completed_in << ctrl.completed;
+  fake_rs.completed_val << ctrl.completed_val;
+  fake_rs.completed_bits << ctrl.completed_bits;
   ctrl.cmd_in.setDelay(1);
 
   Clock clk;

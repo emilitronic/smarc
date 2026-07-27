@@ -19,7 +19,8 @@ class ExCtrlDriver : public Component {
 
   Clock(clk);
   FifoOutput(smesh::SmeshIssue, cmd_out);
-  FifoInput(smesh::SmeshRsTag, completed_in);
+  Input(bit, completed_val);
+  Input(smesh::SmeshRsTag, completed_bits);
 
   void update_issue() {
     if (sent_ || cmd_out.full()) {
@@ -36,11 +37,11 @@ class ExCtrlDriver : public Component {
   }
 
   void update_completion() {
-    if (completed_in.empty()) {
+    if (completed_val == 0) {
       return;
     }
 
-    const auto rs_tag = completed_in.pop();
+    const auto rs_tag = *completed_bits;
     matched_ = rs_tag == expected_rs_tag_;
     done_ = true;
   }
@@ -63,7 +64,7 @@ class ExCtrlDriver : public Component {
 
 ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update_issue).writes(cmd_out);
-  UPDATE(update_completion).reads(completed_in);
+  UPDATE(update_completion).reads(completed_val, completed_bits);
 }
 
 int main(int argc, char* argv[]) {
@@ -75,7 +76,8 @@ int main(int argc, char* argv[]) {
   ExCtrlDriver driver("Driver");
 
   ctrl.cmd_in << driver.cmd_out;
-  driver.completed_in << ctrl.completed;
+  driver.completed_val << ctrl.completed_val;
+  driver.completed_bits << ctrl.completed_bits;
   ctrl.cmd_in.setDelay(1);
 
   Clock clk;

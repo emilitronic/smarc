@@ -122,7 +122,8 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;       
   ld_ctrl_->cmd_in << rs_->issue_ld;                   
   completion_arb_->ld_completed << ld_ctrl_->completed;
-  completion_arb_->ex_completed << ex_ctrl_->completed;
+  completion_arb_->ex_completed_val << ex_ctrl_->completed_val;
+  completion_arb_->ex_completed_bits << ex_ctrl_->completed_bits;
   completion_arb_->st_completed << st_ctrl_->completed;
   rs_->completed   << completion_arb_->rs_completed;
   read_issue_queue_->req_in << ld_ctrl_->dma_req;      

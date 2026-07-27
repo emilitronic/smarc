@@ -39,7 +39,7 @@ void ExCtrlState::update() {
         const auto kind  = static_cast<ConfigKind>(rs1 & 0x3u);
         config_val = 1;
         config_rs_tag_valid = issue.rs_tag_valid;
-        config_rs_tag = issue.rs_tag;
+        config_rs_tag       = issue.rs_tag;
         if (kind == ConfigKind::Execute) {
           config_initialized_ = true;
           a_transpose_        = unpackConfigExecuteATranspose(rs1);

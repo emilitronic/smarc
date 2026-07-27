@@ -12,7 +12,7 @@ namespace smesh {
 
 ArbExLdStComplete::ArbExLdStComplete(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(ex_completed, ld_completed, st_completed)
+      .reads(ex_completed_val, ex_completed_bits, ld_completed, st_completed)
       .writes(rs_completed);
 }
 
@@ -21,8 +21,8 @@ void ArbExLdStComplete::update() {
     return;
   }
 
-  if (!ex_completed.empty()) {
-    rs_completed.push(ex_completed.pop());
+  if (ex_completed_val != 0) {
+    rs_completed.push(*ex_completed_bits);
     return;
   }
 

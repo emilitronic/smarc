@@ -23,9 +23,10 @@ class ExCtrlCompletion : public Component {
   Clock(clk);
 
   Input(bit, config_val);               // FSM accepted a CONFIG command
-  Input(bit, config_rs_tag_valid);
-  Input(SmeshRsTag, config_rs_tag);
-  FifoOutput(SmeshRsTag, completed);    // selected execute completion back toward RS
+  Input(bit, config_rs_tag_valid);      // FSM cmd rs_tag_valid for CONFIG command
+  Input(SmeshRsTag, config_rs_tag);     // FSM cmd rs_tag for CONFIG command
+  Output(bit, completed_val);           // selected execute completion valid
+  Output(SmeshRsTag, completed_bits);   // selected execute completion tag
   Output(bit, pending_completed_valid); // any pending completion register is occupied
 
   void updatePendingView();

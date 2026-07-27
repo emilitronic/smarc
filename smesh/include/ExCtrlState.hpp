@@ -49,7 +49,7 @@ class ExCtrlState : public Component {
   Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
   Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
   Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle
-  Output(bit, config_rs_tag_valid); // info to send back on completed port
+  Output(bit, config_rs_tag_valid); // valid bit for CONFIG completion tag
   Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
