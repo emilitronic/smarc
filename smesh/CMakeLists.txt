@@ -11,6 +11,7 @@ add_library(smesh_model
   src/ExCtrl.cpp
   src/ExCtrlCompletion.cpp
   src/ExCtrlDecoder.cpp
+  src/ExCtrlOperandPack.cpp
   src/ExCtrlQueues.cpp
   src/ExCtrlRowFeedState.cpp
   src/ExCtrlRowAddr.cpp
@@ -118,6 +119,19 @@ add_executable(tb_ex_ctrl_row_addr
 )
 
 target_link_libraries(tb_ex_ctrl_row_addr
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+add_executable(tb_ex_ctrl_operand_pack
+  src/tb_ex_ctrl_operand_pack.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_operand_pack
   PRIVATE
     smesh_model
     cascade
