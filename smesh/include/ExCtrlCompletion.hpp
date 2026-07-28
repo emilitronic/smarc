@@ -36,6 +36,9 @@ class ExCtrlCompletion : public Component {
  private:
   bool pending_completed_valid_[2] = {false, false};
   SmeshRsTag pending_completed_bits_[2] = {0, 0};
+
+  // TODO
+  // complete_bits_count
 };
 
 } // namespace smesh

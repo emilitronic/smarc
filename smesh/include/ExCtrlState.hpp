@@ -84,21 +84,37 @@ class ExCtrlState : public Component {
   std::uint32_t a_addr_stride_ = 1;
   std::uint32_t c_addr_stride_ = 1;
 
-  // TODO: add later execute config registers:
+  // TODO: add later:
+
+  // command mode registers:
+  // perform_single_preload (done)
+  // perform_single_mul
+  // perform_mul_pre
+
+  // programmed execution settings:
   // activation
   // in_shift
   // acc_scale
+  // a_transpose
+  // bd_transpose
+  // config_initialized
+  // a_addr_stride
+  // c_addr_stride
 
-  // TODO: add im2col config registers later:
+  // TODO: add im2col config registers settings:
   // ocol
-  // kdim2
+  // orow
   // krow
-  // channel
   // weight_stride
+  // channel
+  // row_turn
+  // row_left
+  // kdim2
   // weight_double_bank
   // weight_triple_bank
-  // row_left
-  // row_turn
+
+  // TODO: other
+  // in_prop_flush  
 };
 
 } // namespace smesh
