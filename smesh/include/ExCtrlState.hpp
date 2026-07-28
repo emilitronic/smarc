@@ -53,7 +53,7 @@ class ExCtrlState : public Component {
   Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle
   Output(bit, config_rs_tag_valid); // valid bit for CONFIG completion tag
   Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
-  Output(bit, perform_single_preload); // FSM accepts a standalone PRELOAD command this cycle
+  Output(bit, performing_single_preload); // immediately signal standalone PRELOAD active (while latching perform_single_preload)
   Output(u8, cmd_pop_count);        // number of command-window entries consumed this cycle
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
@@ -73,6 +73,7 @@ class ExCtrlState : public Component {
   bool config_initialized_ = false;
   bool a_transpose_ = false;
   bool bd_transpose_ = false;
+  bool perform_single_preload_ = false; // denote standalone PRELOAD mode
   std::uint8_t current_dataflow_ = kExDataflowWS;
   std::uint32_t a_addr_stride_ = 1;
   std::uint32_t c_addr_stride_ = 1;
