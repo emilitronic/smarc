@@ -85,7 +85,6 @@ void ExCtrlState::update() {
         // if (about_to_fire_all_rows) {
         //   finish PRELOAD
         // }
-    }
       }
       // TODO: issue operand reads and wait for all rows to enter the mesh.
       break;

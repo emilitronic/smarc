@@ -12,6 +12,7 @@ add_library(smesh_model
   src/ExCtrlCompletion.cpp
   src/ExCtrlDecoder.cpp
   src/ExCtrlQueues.cpp
+  src/ExCtrlRowAddr.cpp
   src/ExCtrlState.cpp
   src/LdCtrl.cpp
   src/MvinLocalRouter.cpp
@@ -103,6 +104,19 @@ add_executable(tb_ex_ctrl_decoder
 )
 
 target_link_libraries(tb_ex_ctrl_decoder
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+add_executable(tb_ex_ctrl_row_addr
+  src/tb_ex_ctrl_row_addr.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_row_addr
   PRIVATE
     smesh_model
     cascade
