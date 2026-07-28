@@ -9,7 +9,14 @@ namespace smesh {
 
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(head_val, head_bits, do_config, matmul_in_progress, pending_completed_valid)
+      .reads(head_val,
+             head_bits,
+             do_config,
+             do_preloads,
+             matmul_in_progress,
+             pending_completed_valid,
+             raw_hazards_are_impossible,
+             raw_hazard_pre)
       .writes(config_initialized,
               a_transpose,
               bd_transpose,
@@ -20,14 +27,16 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               config_val,
               config_rs_tag_valid,
               config_rs_tag,
+              perform_single_preload,
               cmd_pop_count);
 }
 
 void ExCtrlState::update() {
-  config_val          = 0; // FSM accepts/processes a CONFIG command this cycle
-  config_rs_tag_valid = 0;
-  config_rs_tag       = 0;
-  cmd_pop_count       = 0;
+  config_val             = 0; // FSM accepts/processes a CONFIG command this cycle
+  config_rs_tag_valid    = 0;
+  config_rs_tag          = 0;
+  perform_single_preload = 0;
+  cmd_pop_count          = 0;
 
   switch (state_) {
     case ExCtrlFsmState::WaitingForCmd: {
@@ -46,6 +55,10 @@ void ExCtrlState::update() {
           a_addr_stride_      = unpackConfigExecuteAStride(rs1);
           c_addr_stride_      = unpackConfigExecuteCStride(rs2);
         }
+      } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 &&
+                 (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
+        perform_single_preload = 1;
+        cmd_pop_count = 1;
       }
       break;
     }
@@ -89,6 +102,7 @@ void ExCtrlState::reset() {
   config_val.reset(0);
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);
+  perform_single_preload.reset(0);
   cmd_pop_count.reset(0);
 }
 

@@ -72,10 +72,10 @@ class FakeRsProgram : public Component {
 
   const std::array<smesh::SmeshIssue, 3> program_{{
       issue(11, smesh::SmeshFunct::Config),
+      issue(0, smesh::SmeshFunct::Preload, false),
       issue(12, smesh::SmeshFunct::Config),
-      issue(13, smesh::SmeshFunct::Config),
   }};
-  const std::array<smesh::SmeshRsTag, 3> expected_tags_{{11, 12, 13}};
+  const std::array<smesh::SmeshRsTag, 2> expected_tags_{{11, 12}};
 
   std::size_t next_issue_ = 0;
   std::size_t next_complete_ = 0;

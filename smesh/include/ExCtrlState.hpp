@@ -40,7 +40,9 @@ class ExCtrlState : public Component {
   InputArray(bit, do_preloads, kExCtrlCmdWindow);      // cmd(0/1/2) is preload?
   InputArray(bit, do_computes, kExCtrlCmdWindow);      // cmd(0/1/2) is compute?
   Input(bit, matmul_in_progress);                      // mesh reports an in-flight matmul
-  Input(bit, pending_completed_valid);                  // completion block has saved completions
+  Input(bit, pending_completed_valid);                 // completion block has pending completions
+  Input(bit, raw_hazards_are_impossible);              // no RAW hazards possible for this hardware config
+  Input(bit, raw_hazard_pre);                          // PRELOAD branch has a RAW hazard
 
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
   Output(bit, a_transpose);         // CONFIG_EX A transpose register
@@ -51,11 +53,10 @@ class ExCtrlState : public Component {
   Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle
   Output(bit, config_rs_tag_valid); // valid bit for CONFIG completion tag
   Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
+  Output(bit, perform_single_preload); // FSM accepts a standalone PRELOAD command this cycle
   Output(u8, cmd_pop_count);        // number of command-window entries consumed this cycle
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
-  // Input(bit, raw_hazards_are_impossible);
-  // Input(bit, raw_hazard_pre);
   // Input(bit, raw_hazard_mulpre);
   // Input(bit, third_instruction_needed);
   // Input(bit, about_to_fire_all_rows);

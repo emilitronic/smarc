@@ -30,6 +30,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     cmd_state_->do_computes[i] << cmd_decoder_->do_computes[i];
   }
   cmd_state_->do_config        << cmd_decoder_->do_config;
+  cmd_state_->raw_hazards_are_impossible << cmd_decoder_->raw_hazards_are_impossible;
+  cmd_state_->raw_hazard_pre             << cmd_decoder_->raw_hazard_pre;
   // pass some HW build info to decoder
   cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;    // const from SmeshConfig.hpp
   cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;    // const from SmeshConfig.hpp
