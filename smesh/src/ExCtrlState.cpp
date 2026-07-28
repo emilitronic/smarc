@@ -76,9 +76,16 @@ void ExCtrlState::update() {
 
     case ExCtrlFsmState::Compute:
       if (perform_single_preload_) {
+        // keep issuing one preload row-beat per cycle, if memory/mesh are ready
         start_inputting_a = a_should_be_fed_into_transposer; // false for simple WS
         start_inputting_b = b_should_be_fed_into_transposer; // false for simple WS
         start_inputting_d = 1;
+
+        // TODO: check for completion of the single PRELOAD row-beats
+        // if (about_to_fire_all_rows) {
+        //   finish PRELOAD
+        // }
+    }
       }
       // TODO: issue operand reads and wait for all rows to enter the mesh.
       break;
