@@ -17,6 +17,9 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
              pending_completed_valid,
              raw_hazards_are_impossible,
              raw_hazard_pre)
+      .reads(a_should_be_fed_into_transposer,
+             b_should_be_fed_into_transposer,
+             d_should_be_fed_into_transposer)
       .writes(config_initialized,
               a_transpose,
               bd_transpose,
@@ -28,6 +31,9 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               config_rs_tag_valid,
               config_rs_tag,
               performing_single_preload,
+              start_inputting_a,
+              start_inputting_b,
+              start_inputting_d,
               cmd_pop_count);
 }
 
@@ -36,6 +42,9 @@ void ExCtrlState::update() {
   config_rs_tag_valid    = 0;
   config_rs_tag          = 0;
   performing_single_preload = 0;
+  start_inputting_a      = 0;
+  start_inputting_b      = 0;
+  start_inputting_d      = 0;
   cmd_pop_count          = 0;
   bool taking_single_preload = false;
 
@@ -66,6 +75,11 @@ void ExCtrlState::update() {
     }
 
     case ExCtrlFsmState::Compute:
+      if (perform_single_preload_) {
+        start_inputting_a = a_should_be_fed_into_transposer; // false for simple WS
+        start_inputting_b = b_should_be_fed_into_transposer; // false for simple WS
+        start_inputting_d = 1;
+      }
       // TODO: issue operand reads and wait for all rows to enter the mesh.
       break;
 
@@ -108,6 +122,9 @@ void ExCtrlState::reset() {
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);
   performing_single_preload.reset(0);
+  start_inputting_a.reset(0);
+  start_inputting_b.reset(0);
+  start_inputting_d.reset(0);
   cmd_pop_count.reset(0);
 }
 

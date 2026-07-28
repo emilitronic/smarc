@@ -43,6 +43,9 @@ class ExCtrlState : public Component {
   Input(bit, pending_completed_valid);                 // completion block has pending completions
   Input(bit, raw_hazards_are_impossible);              // no RAW hazards possible for this hardware config
   Input(bit, raw_hazard_pre);                          // PRELOAD branch has a RAW hazard
+  Input(bit, a_should_be_fed_into_transposer);          // decoder says A should start through transposer path
+  Input(bit, b_should_be_fed_into_transposer);          // decoder says B should start through transposer path
+  Input(bit, d_should_be_fed_into_transposer);          // decoder says D should start through transposer path
 
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
   Output(bit, a_transpose);         // CONFIG_EX A transpose register
@@ -54,6 +57,9 @@ class ExCtrlState : public Component {
   Output(bit, config_rs_tag_valid); // valid bit for CONFIG completion tag
   Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
   Output(bit, performing_single_preload); // immediately signal standalone PRELOAD active (while latching perform_single_preload)
+  Output(bit, start_inputting_a);   // begin feeding A operand rows
+  Output(bit, start_inputting_b);   // begin feeding B operand rows
+  Output(bit, start_inputting_d);   // begin feeding D/preload operand rows
   Output(u8, cmd_pop_count);        // number of command-window entries consumed this cycle
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
@@ -71,7 +77,7 @@ class ExCtrlState : public Component {
   ExCtrlFsmState state_ = ExCtrlFsmState::WaitingForCmd; // control_state register
 
   bool config_initialized_ = false;
-  bool a_transpose_ = false;
+  bool a_transpose_  = false;
   bool bd_transpose_ = false;
   bool perform_single_preload_ = false; // denote standalone PRELOAD mode
   std::uint8_t current_dataflow_ = kExDataflowWS;
