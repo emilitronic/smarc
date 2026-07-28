@@ -58,7 +58,6 @@ void ExCtrlState::update() {
       } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 &&
                  (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
         perform_single_preload = 1;
-        cmd_pop_count = 1;
       }
       break;
     }
