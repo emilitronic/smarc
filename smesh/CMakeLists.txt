@@ -12,6 +12,7 @@ add_library(smesh_model
   src/ExCtrlCompletion.cpp
   src/ExCtrlDecoder.cpp
   src/ExCtrlQueues.cpp
+  src/ExCtrlRowFeedState.cpp
   src/ExCtrlRowAddr.cpp
   src/ExCtrlState.cpp
   src/LdCtrl.cpp
