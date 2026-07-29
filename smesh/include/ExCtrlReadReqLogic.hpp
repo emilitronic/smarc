@@ -23,25 +23,25 @@ class ExCtrlReadReqLogic : public Component {
 
   Clock(clk);
 
-  Input(bit, start_inputting_a);
+  Input(bit, start_inputting_a); // begin feeding A operand rows (from FSM)
   Input(bit, start_inputting_b);
   Input(bit, start_inputting_d);
   Input(SmeshLocalAddr, a_address);
   Input(SmeshLocalAddr, b_address);
   Input(SmeshLocalAddr, d_address);
-  Input(bit, a_valid);
+  Input(bit, a_valid); // this operand stream allowed to issue this cycle
   Input(bit, b_valid);
   Input(bit, d_valid);
-  Input(bit, a_row_is_not_all_zeros);
+  Input(bit, a_row_is_not_all_zeros); // from row-padding logic
   Input(bit, b_row_is_not_all_zeros);
   Input(bit, d_row_is_not_all_zeros);
-  Input(bit, multiply_garbage);
-  Input(bit, accumulate_zeros);
-  Input(bit, preload_zeros);
+  Input(bit, multiply_garbage); // A operand is garbage, don't read it
+  Input(bit, accumulate_zeros); // B/accum operand is garbage, use zeros instead of reading it
+  Input(bit, preload_zeros);    // PRELOAD src operand is garbage, use zeros instead of reading it (in WS, use 0's on preload stream)
   Input(bit, a_read_from_acc);
   Input(bit, b_read_from_acc);
   Input(bit, d_read_from_acc);
-  Input(u32, dataAbank);
+  Input(u32, dataAbank); // which SP bank to read A operand from
   Input(u32, dataBbank);
   Input(u32, dataDbank);
   Input(u32, dataABankAcc);
