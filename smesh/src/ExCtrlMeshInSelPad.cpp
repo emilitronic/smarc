@@ -42,24 +42,33 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
              preload_zeros,
              im2colling,
              im2col_data)
-      .reads(a_unpadded_cols,
+      .reads(im2col_val,
+             a_unpadded_cols,
              b_unpadded_cols,
              d_unpadded_cols,
              a_fire,
              b_fire,
              d_fire,
-             spad_read_data)
+             spad_read_val)
+      .reads(accum_read_val, spad_read_data)
       .reads(accum_read_data)
       .writes(mesh_a, mesh_b, mesh_d);
 }
 
 void ExCtrlMeshInSelPad::update() {
-  const auto a_spad = spad_read_data[boundedIndex(a_bank, kSpBanks)]->data;
-  const auto b_spad = spad_read_data[boundedIndex(b_bank, kSpBanks)]->data;
-  const auto d_spad = spad_read_data[boundedIndex(d_bank, kSpBanks)]->data;
-  const auto a_acc = accum_read_data[boundedIndex(a_bank_acc, kAccBanks)]->data;
-  const auto b_acc = accum_read_data[boundedIndex(b_bank_acc, kAccBanks)]->data;
-  const auto d_acc = accum_read_data[boundedIndex(d_bank_acc, kAccBanks)]->data;
+  const auto a_spad_index = boundedIndex(a_bank, kSpBanks);
+  const auto b_spad_index = boundedIndex(b_bank, kSpBanks);
+  const auto d_spad_index = boundedIndex(d_bank, kSpBanks);
+  const auto a_acc_index = boundedIndex(a_bank_acc, kAccBanks);
+  const auto b_acc_index = boundedIndex(b_bank_acc, kAccBanks);
+  const auto d_acc_index = boundedIndex(d_bank_acc, kAccBanks);
+
+  const auto a_spad = spad_read_data[a_spad_index]->data;
+  const auto b_spad = spad_read_data[b_spad_index]->data;
+  const auto d_spad = spad_read_data[d_spad_index]->data;
+  const auto a_acc = accum_read_data[a_acc_index]->data;
+  const auto b_acc = accum_read_data[b_acc_index]->data;
+  const auto d_acc = accum_read_data[d_acc_index]->data;
 
   const auto a_unpadded =
       a_garbage != 0 ? u64{0} :
@@ -75,9 +84,28 @@ void ExCtrlMeshInSelPad::update() {
       d_read_from_acc != 0 ? d_acc :
       d_spad;
 
-  mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(a_fire != 0)};
-  mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(b_fire != 0)};
-  mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(d_fire != 0)};
+  const bool dataA_valid =
+      a_garbage != 0 ||
+      a_unpadded_cols == 0 ||
+      (im2colling != 0 ? im2col_val != 0 :
+       a_read_from_acc != 0 ? accum_read_val[a_acc_index] != 0 :
+       spad_read_val[a_spad_index] != 0);
+  const bool dataB_valid =
+      b_garbage != 0 ||
+      b_unpadded_cols == 0 ||
+      (accumulate_zeros != 0 ? false :
+       b_read_from_acc != 0 ? accum_read_val[b_acc_index] != 0 :
+       spad_read_val[b_spad_index] != 0);
+  const bool dataD_valid =
+      d_garbage != 0 ||
+      d_unpadded_cols == 0 ||
+      (preload_zeros != 0 ? false :
+       d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 :
+       spad_read_val[d_spad_index] != 0);
+
+  mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(a_fire != 0 && dataA_valid)};
+  mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(b_fire != 0 && dataB_valid)};
+  mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(d_fire != 0 && dataD_valid)};
 }
 
 } // namespace smesh

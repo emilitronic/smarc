@@ -34,12 +34,15 @@ class MeshInSelPadDriver : public Component {
   Output(bit, preload_zeros);
   Output(bit, im2colling);
   Output(u64, im2col_data);
+  Output(bit, im2col_val);
   Output(u32, a_unpadded_cols);
   Output(u32, b_unpadded_cols);
   Output(u32, d_unpadded_cols);
   Output(bit, a_fire);
   Output(bit, b_fire);
   Output(bit, d_fire);
+  OutputArray(bit, spad_read_val, smesh::kSpBanks);
+  OutputArray(bit, accum_read_val, smesh::kAccBanks);
   OutputArray(smesh::SpadReadResp, spad_read_data, smesh::kSpBanks);
   OutputArray(smesh::AccumReadResp, accum_read_data, smesh::kAccBanks);
 
@@ -88,13 +91,15 @@ MeshInSelPadDriver::MeshInSelPadDriver(std::string /*name*/, IMPL_CTOR) {
               preload_zeros,
               im2colling,
               im2col_data)
-      .writes(a_unpadded_cols,
+      .writes(im2col_val,
+              a_unpadded_cols,
               b_unpadded_cols,
               d_unpadded_cols,
               a_fire,
               b_fire,
               d_fire,
-              spad_read_data)
+              spad_read_val)
+      .writes(accum_read_val, spad_read_data)
       .writes(accum_read_data);
 }
 
@@ -115,6 +120,7 @@ void MeshInSelPadDriver::update() {
   preload_zeros = 1;
   im2colling = 1;
   im2col_data = 0x88776655u;
+  im2col_val = 1;
   a_unpadded_cols = 3;
   b_unpadded_cols = 2;
   d_unpadded_cols = 4;
@@ -126,6 +132,7 @@ void MeshInSelPadDriver::update() {
     smesh::SpadReadResp resp{};
     resp.data = 0x1000u + bank;
     resp.from_dma = 0;
+    spad_read_val[bank] = 1;
     spad_read_data[bank] = resp;
   }
 
@@ -133,6 +140,7 @@ void MeshInSelPadDriver::update() {
     smesh::AccumReadResp resp{};
     resp.data = 0x2000u + bank;
     resp.from_dma = 0;
+    accum_read_val[bank] = 1;
     accum_read_data[bank] = resp;
   }
 }
@@ -154,6 +162,7 @@ void MeshInSelPadDriver::reset() {
   preload_zeros.reset(0);
   im2colling.reset(0);
   im2col_data.reset(0);
+  im2col_val.reset(0);
   a_unpadded_cols.reset(0);
   b_unpadded_cols.reset(0);
   d_unpadded_cols.reset(0);
@@ -162,9 +171,11 @@ void MeshInSelPadDriver::reset() {
   d_fire.reset(0);
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+    spad_read_val[bank].reset(0);
     spad_read_data[bank].reset(smesh::SpadReadResp{});
   }
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
+    accum_read_val[bank].reset(0);
     accum_read_data[bank].reset(smesh::AccumReadResp{});
   }
 }
@@ -184,7 +195,7 @@ void MeshInSelPadMonitor::update() {
   passed_ =
       a.valid != 0 && a.data == 0x776655u &&
       b.valid != 0 && b.data == 0x002001u &&
-      d.valid != 0 && d.data == 0;
+      d.valid == 0 && d.data == 0;
   checked_ = true;
   done_ = true;
 }
@@ -220,6 +231,7 @@ int main(int argc, char* argv[]) {
   sel_pad.preload_zeros << driver.preload_zeros;
   sel_pad.im2colling << driver.im2colling;
   sel_pad.im2col_data << driver.im2col_data;
+  sel_pad.im2col_val << driver.im2col_val;
   sel_pad.a_unpadded_cols << driver.a_unpadded_cols;
   sel_pad.b_unpadded_cols << driver.b_unpadded_cols;
   sel_pad.d_unpadded_cols << driver.d_unpadded_cols;
@@ -227,9 +239,11 @@ int main(int argc, char* argv[]) {
   sel_pad.b_fire << driver.b_fire;
   sel_pad.d_fire << driver.d_fire;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+    sel_pad.spad_read_val[bank] << driver.spad_read_val[bank];
     sel_pad.spad_read_data[bank] << driver.spad_read_data[bank];
   }
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
+    sel_pad.accum_read_val[bank] << driver.accum_read_val[bank];
     sel_pad.accum_read_data[bank] << driver.accum_read_data[bank];
   }
 

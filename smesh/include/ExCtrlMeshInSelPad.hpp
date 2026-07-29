@@ -44,12 +44,15 @@ class ExCtrlMeshInSelPad : public Component {
   Input(bit, preload_zeros);
   Input(bit, im2colling);
   Input(u64, im2col_data);
+  Input(bit, im2col_val);
   Input(u32, a_unpadded_cols);
   Input(u32, b_unpadded_cols);
   Input(u32, d_unpadded_cols);
   Input(bit, a_fire);
   Input(bit, b_fire);
   Input(bit, d_fire);
+  InputArray(bit, spad_read_val, kSpBanks);
+  InputArray(bit, accum_read_val, kAccBanks);
   InputArray(SpadReadResp, spad_read_data, kSpBanks);
   InputArray(AccumReadResp, accum_read_data, kAccBanks);
 
