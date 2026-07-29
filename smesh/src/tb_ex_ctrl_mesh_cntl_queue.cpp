@@ -21,6 +21,7 @@ class MeshCntlQueueDriver : public Component {
   Input(bit, enq_rdy);
   Input(bit, deq_val);
   Input(smesh::ExCtrlMeshCntl, deq_bits);
+  Input(smesh::ExCtrlMeshReq, mesh_req_bits);
   Output(bit, enq_val);
   Output(smesh::ExCtrlMeshCntl, enq_bits);
   Output(bit, deq_rdy);
@@ -50,9 +51,13 @@ smesh::ExCtrlMeshCntl makeExpected() {
   cntl.c_addr = smesh::makeAccAddr(7);
   cntl.c_rows = 3;
   cntl.c_cols = 4;
+  cntl.a_transpose = 1;
+  cntl.total_rows = 5;
   cntl.rs_tag_valid = 1;
   cntl.rs_tag = 23;
   cntl.dataflow = 1;
+  cntl.prop = 1;
+  cntl.shift = 2;
   cntl.first = 1;
   return cntl;
 }
@@ -74,10 +79,26 @@ bool matchesExpected(const smesh::ExCtrlMeshCntl& cntl) {
          cntl.first == expected.first;
 }
 
+bool meshReqMatchesExpected(const smesh::ExCtrlMeshReq& req) {
+  const auto expected = makeExpected();
+  return req.pe_control.dataflow == expected.dataflow &&
+         req.pe_control.propagate == expected.prop &&
+         req.pe_control.shift == expected.shift &&
+         req.a_transpose == expected.a_transpose &&
+         req.bd_transpose == expected.bd_transpose &&
+         req.total_rows == expected.total_rows &&
+         req.tag.rs_tag_valid == expected.rs_tag_valid &&
+         req.tag.rs_tag == expected.rs_tag &&
+         req.tag.addr.raw == expected.c_addr.raw &&
+         req.tag.rows == expected.c_rows &&
+         req.tag.cols == expected.c_cols &&
+         req.flush == 0;
+}
+
 } // namespace
 
 MeshCntlQueueDriver::MeshCntlQueueDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(enq_rdy, deq_val, deq_bits).writes(enq_val, enq_bits, deq_rdy);
+  UPDATE(update).reads(enq_rdy, deq_val, deq_bits, mesh_req_bits).writes(enq_val, enq_bits, deq_rdy);
 }
 
 void MeshCntlQueueDriver::update() {
@@ -93,7 +114,7 @@ void MeshCntlQueueDriver::update() {
   }
 
   if (sent_ && deq_val != 0) {
-    passed_ = matchesExpected(*deq_bits);
+    passed_ = matchesExpected(*deq_bits) && meshReqMatchesExpected(*mesh_req_bits);
     deq_rdy = 1;
     done_ = true;
   }
@@ -122,6 +143,7 @@ int main(int argc, char* argv[]) {
   driver.enq_rdy << queue.enq_rdy;
   driver.deq_val << queue.deq_val;
   driver.deq_bits << queue.deq_bits;
+  driver.mesh_req_bits << queue.mesh_req_bits;
   queue.deq_rdy << driver.deq_rdy;
 
   Clock clk;

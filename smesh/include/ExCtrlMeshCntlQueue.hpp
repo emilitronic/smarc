@@ -56,6 +56,29 @@ struct ExCtrlMeshCntl {
   bit first = 0;
 };
 
+struct ExCtrlMeshPeControl {
+  std::uint32_t dataflow = 0;
+  bit propagate = 0;
+  std::uint32_t shift = 0;
+};
+
+struct ExCtrlMeshTag {
+  bit rs_tag_valid = 0;
+  SmeshRsTag rs_tag = 0;
+  SmeshLocalAddr addr{};
+  std::uint32_t rows = 0;
+  std::uint32_t cols = 0;
+};
+
+struct ExCtrlMeshReq {
+  ExCtrlMeshPeControl pe_control{};
+  bit a_transpose = 0;
+  bit bd_transpose = 0;
+  std::uint32_t total_rows = 0;
+  ExCtrlMeshTag tag{};
+  bit flush = 0;
+};
+
 class ExCtrlMeshCntlQueue : public Component {
   DECLARE_COMPONENT(ExCtrlMeshCntlQueue);
 
@@ -70,6 +93,7 @@ class ExCtrlMeshCntlQueue : public Component {
   Output(bit, deq_val);
   Input(bit, deq_rdy);
   Output(ExCtrlMeshCntl, deq_bits);
+  Output(ExCtrlMeshReq, mesh_req_bits);
 
   void updateEnqReady();
   void updateEnqAccept();
