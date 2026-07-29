@@ -55,8 +55,7 @@ void ExCtrlRowAddr::update() {
 
   const auto a_current = a_base + static_cast<std::uint32_t>(*a_addr_offset);
   const auto b_current = b_base + static_cast<std::uint32_t>(*b_fire_counter);
-  const auto d_current = d_base + reverseRowOffset(static_cast<std::uint32_t>(*block_size),
-                                                  static_cast<std::uint32_t>(*d_fire_counter));
+  const auto d_current = d_base + reverseRowOffset(static_cast<std::uint32_t>(*block_size), static_cast<std::uint32_t>(*d_fire_counter));
 
   a_address = a_current;
   b_address = b_current;

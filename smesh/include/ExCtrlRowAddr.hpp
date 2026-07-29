@@ -22,9 +22,9 @@ class ExCtrlRowAddr : public Component {
 
   Clock(clk);
 
-  Input(SmeshLocalAddr, a_address_rs1);
+  Input(SmeshLocalAddr, a_address_rs1); // A laddr in rs1 of selected command slot (a_address_place figured out which slot)
   Input(SmeshLocalAddr, b_address_rs2);
-  Input(SmeshLocalAddr, d_address_rs1);
+  Input(SmeshLocalAddr, d_address_rs1); // B laddr in rs1, for PRELOAD in WS
   Input(u32, a_addr_offset);
   Input(u32, b_fire_counter);
   Input(u32, d_fire_counter);

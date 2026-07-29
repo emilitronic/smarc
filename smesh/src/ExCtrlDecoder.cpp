@@ -117,12 +117,12 @@ void ExCtrlDecoder::update() {
   const bool a_to_transposer = dataflow_os ? a_transpose == 0 : a_transpose != 0;
   const bool b_to_transposer = dataflow_os && bd_transpose != 0;
   const bool d_to_transposer = dataflow_ws && bd_transpose != 0;
-  const std::uint8_t a_place = preload_place == 0 ? 1 : (a_to_transposer ? 2 : 0);
-  const std::uint8_t b_place = preload_place == 0 ? 1 : (b_to_transposer ? 2 : 0);
+  const std::uint8_t a_place = preload_place == 0 ? 1 : (a_to_transposer ? 2 : 0); // determine place of A operand in cmd queue head (depends on sensed code seq)
+  const std::uint8_t b_place = preload_place == 0 ? 1 : (b_to_transposer ? 2 : 0); // determine place of B operand in cmd queue head (depends on sensed code seq)
   // determine place of preload command and addresses of operands
   preload_cmd_place = preload_place;
   a_address_place = a_place; // loc of A operand in cmd queue head (depends on sensed code seq)
-  b_address_place = b_place;
+  b_address_place = b_place; // loc of B operand in cmd queue head (depends on sensed code seq)
 
   const auto a_rs1 = rs1[a_place];
   const auto b_rs2 = rs2[b_place];
