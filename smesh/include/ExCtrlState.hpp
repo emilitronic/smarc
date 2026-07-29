@@ -68,7 +68,7 @@ class ExCtrlState : public Component {
   // Input(bit, about_to_fire_all_rows);
   // Input(u8, current_dataflow);
   // Input(bit, mesh_req_fire);
-  // Input(bit, mesh_req_ready);
+  // Input(bit, mesh_req_rdy);
 
   void update();
   void reset();

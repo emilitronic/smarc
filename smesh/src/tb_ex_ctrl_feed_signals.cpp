@@ -27,6 +27,17 @@ class FeedSignalDriver : public Component {
   Output(bit, a_ready);
   Output(bit, b_ready);
   Output(bit, d_ready);
+  Output(bit, cntl_a_fire);
+  Output(bit, cntl_b_fire);
+  Output(bit, cntl_d_fire);
+  Output(bit, cntl_first);
+  Output(bit, mesh_a_fire);
+  Output(bit, mesh_b_fire);
+  Output(bit, mesh_d_fire);
+  Output(bit, mesh_a_rdy);
+  Output(bit, mesh_b_rdy);
+  Output(bit, mesh_d_rdy);
+  Output(bit, mesh_req_rdy);
 
   void update();
   void reset();
@@ -43,6 +54,7 @@ class FeedSignalMonitor : public Component {
   Input(bit, a_fire);
   Input(bit, b_fire);
   Input(bit, d_fire);
+  Input(bit, mesh_cntl_deq_rdy);
 
   void update();
   void reset();
@@ -66,7 +78,15 @@ FeedSignalDriver::FeedSignalDriver(std::string /*name*/, IMPL_CTOR) {
               d_valid,
               a_ready,
               b_ready)
-      .writes(d_ready);
+      .writes(d_ready,
+              cntl_a_fire,
+              cntl_b_fire,
+              cntl_d_fire,
+              cntl_first,
+              mesh_a_fire,
+              mesh_b_fire,
+              mesh_d_fire)
+      .writes(mesh_a_rdy, mesh_b_rdy, mesh_d_rdy, mesh_req_rdy);
 }
 
 void FeedSignalDriver::update() {
@@ -79,6 +99,17 @@ void FeedSignalDriver::update() {
   a_ready = 1;
   b_ready = 0;
   d_ready = 1;
+  cntl_a_fire = 1;
+  cntl_b_fire = 1;
+  cntl_d_fire = 1;
+  cntl_first = 1;
+  mesh_a_fire = 1;
+  mesh_b_fire = 0;
+  mesh_d_fire = 0;
+  mesh_a_rdy = 1;
+  mesh_b_rdy = 0;
+  mesh_d_rdy = 0;
+  mesh_req_rdy = 1;
 }
 
 void FeedSignalDriver::reset() {
@@ -91,10 +122,21 @@ void FeedSignalDriver::reset() {
   a_ready.reset(0);
   b_ready.reset(0);
   d_ready.reset(0);
+  cntl_a_fire.reset(0);
+  cntl_b_fire.reset(0);
+  cntl_d_fire.reset(0);
+  cntl_first.reset(0);
+  mesh_a_fire.reset(0);
+  mesh_b_fire.reset(0);
+  mesh_d_fire.reset(0);
+  mesh_a_rdy.reset(0);
+  mesh_b_rdy.reset(0);
+  mesh_d_rdy.reset(0);
+  mesh_req_rdy.reset(0);
 }
 
 FeedSignalMonitor::FeedSignalMonitor(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(firing, a_fire, b_fire, d_fire);
+  UPDATE(update).reads(firing, a_fire, b_fire, d_fire, mesh_cntl_deq_rdy);
 }
 
 void FeedSignalMonitor::update() {
@@ -102,7 +144,12 @@ void FeedSignalMonitor::update() {
     return;
   }
 
-  passed_ = firing != 0 && a_fire != 0 && b_fire == 0 && d_fire != 0;
+  passed_ =
+      firing != 0 &&
+      a_fire != 0 &&
+      b_fire == 0 &&
+      d_fire != 0 &&
+      mesh_cntl_deq_rdy != 0;
   checked_ = true;
   done_ = true;
 }
@@ -131,11 +178,23 @@ int main(int argc, char* argv[]) {
   signals.a_ready << driver.a_ready;
   signals.b_ready << driver.b_ready;
   signals.d_ready << driver.d_ready;
+  signals.cntl_a_fire << driver.cntl_a_fire;
+  signals.cntl_b_fire << driver.cntl_b_fire;
+  signals.cntl_d_fire << driver.cntl_d_fire;
+  signals.cntl_first << driver.cntl_first;
+  signals.mesh_a_fire << driver.mesh_a_fire;
+  signals.mesh_b_fire << driver.mesh_b_fire;
+  signals.mesh_d_fire << driver.mesh_d_fire;
+  signals.mesh_a_rdy << driver.mesh_a_rdy;
+  signals.mesh_b_rdy << driver.mesh_b_rdy;
+  signals.mesh_d_rdy << driver.mesh_d_rdy;
+  signals.mesh_req_rdy << driver.mesh_req_rdy;
 
   monitor.firing << signals.firing;
   monitor.a_fire << signals.a_fire;
   monitor.b_fire << signals.b_fire;
   monitor.d_fire << signals.d_fire;
+  monitor.mesh_cntl_deq_rdy << signals.mesh_cntl_deq_rdy;
 
   Clock clk;
   driver.clk << clk;
