@@ -37,6 +37,13 @@ class ExCtrlMeshInSelPad : public Component {
   Input(bit, a_read_from_acc);
   Input(bit, b_read_from_acc);
   Input(bit, d_read_from_acc);
+  Input(bit, a_garbage);
+  Input(bit, b_garbage);
+  Input(bit, d_garbage);
+  Input(bit, accumulate_zeros);
+  Input(bit, preload_zeros);
+  Input(bit, im2colling);
+  Input(u64, im2col_data);
   Input(u32, a_unpadded_cols);
   Input(u32, b_unpadded_cols);
   Input(u32, d_unpadded_cols);

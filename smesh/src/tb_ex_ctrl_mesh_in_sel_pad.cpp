@@ -27,6 +27,13 @@ class MeshInSelPadDriver : public Component {
   Output(bit, a_read_from_acc);
   Output(bit, b_read_from_acc);
   Output(bit, d_read_from_acc);
+  Output(bit, a_garbage);
+  Output(bit, b_garbage);
+  Output(bit, d_garbage);
+  Output(bit, accumulate_zeros);
+  Output(bit, preload_zeros);
+  Output(bit, im2colling);
+  Output(u64, im2col_data);
   Output(u32, a_unpadded_cols);
   Output(u32, b_unpadded_cols);
   Output(u32, d_unpadded_cols);
@@ -74,7 +81,14 @@ MeshInSelPadDriver::MeshInSelPadDriver(std::string /*name*/, IMPL_CTOR) {
               a_read_from_acc,
               b_read_from_acc)
       .writes(d_read_from_acc,
-              a_unpadded_cols,
+              a_garbage,
+              b_garbage,
+              d_garbage,
+              accumulate_zeros,
+              preload_zeros,
+              im2colling,
+              im2col_data)
+      .writes(a_unpadded_cols,
               b_unpadded_cols,
               d_unpadded_cols,
               a_fire,
@@ -94,12 +108,19 @@ void MeshInSelPadDriver::update() {
   a_read_from_acc = 0;
   b_read_from_acc = 1;
   d_read_from_acc = 0;
-  a_unpadded_cols = 4;
-  b_unpadded_cols = 3;
-  d_unpadded_cols = 2;
+  a_garbage = 0;
+  b_garbage = 0;
+  d_garbage = 0;
+  accumulate_zeros = 0;
+  preload_zeros = 1;
+  im2colling = 1;
+  im2col_data = 0x88776655u;
+  a_unpadded_cols = 3;
+  b_unpadded_cols = 2;
+  d_unpadded_cols = 4;
   a_fire = 1;
   b_fire = 1;
-  d_fire = 0;
+  d_fire = 1;
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     smesh::SpadReadResp resp{};
@@ -126,6 +147,13 @@ void MeshInSelPadDriver::reset() {
   a_read_from_acc.reset(0);
   b_read_from_acc.reset(0);
   d_read_from_acc.reset(0);
+  a_garbage.reset(0);
+  b_garbage.reset(0);
+  d_garbage.reset(0);
+  accumulate_zeros.reset(0);
+  preload_zeros.reset(0);
+  im2colling.reset(0);
+  im2col_data.reset(0);
   a_unpadded_cols.reset(0);
   b_unpadded_cols.reset(0);
   d_unpadded_cols.reset(0);
@@ -154,9 +182,9 @@ void MeshInSelPadMonitor::update() {
   const auto b = *mesh_b;
   const auto d = *mesh_d;
   passed_ =
-      a.valid == 0 && a.data == 0 &&
-      b.valid == 0 && b.data == 0 &&
-      d.valid == 0 && d.data == 0;
+      a.valid != 0 && a.data == 0x776655u &&
+      b.valid != 0 && b.data == 0x002001u &&
+      d.valid != 0 && d.data == 0;
   checked_ = true;
   done_ = true;
 }
@@ -185,6 +213,13 @@ int main(int argc, char* argv[]) {
   sel_pad.a_read_from_acc << driver.a_read_from_acc;
   sel_pad.b_read_from_acc << driver.b_read_from_acc;
   sel_pad.d_read_from_acc << driver.d_read_from_acc;
+  sel_pad.a_garbage << driver.a_garbage;
+  sel_pad.b_garbage << driver.b_garbage;
+  sel_pad.d_garbage << driver.d_garbage;
+  sel_pad.accumulate_zeros << driver.accumulate_zeros;
+  sel_pad.preload_zeros << driver.preload_zeros;
+  sel_pad.im2colling << driver.im2colling;
+  sel_pad.im2col_data << driver.im2col_data;
   sel_pad.a_unpadded_cols << driver.a_unpadded_cols;
   sel_pad.b_unpadded_cols << driver.b_unpadded_cols;
   sel_pad.d_unpadded_cols << driver.d_unpadded_cols;
@@ -216,6 +251,6 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ok = monitor.done() && monitor.passed();
-  std::printf("[EX_CTRL_MESH_IN_SEL_PAD] %s skeleton_outputs\n", ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL_MESH_IN_SEL_PAD] %s mux_pad\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
 }
