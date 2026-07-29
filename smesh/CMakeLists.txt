@@ -14,6 +14,7 @@ add_library(smesh_model
   src/ExCtrlOperandPack.cpp
   src/ExCtrlQueues.cpp
   src/ExCtrlReadPriority.cpp
+  src/ExCtrlReadReqLogic.cpp
   src/ExCtrlRowFeedState.cpp
   src/ExCtrlRowAddr.cpp
   src/ExCtrlState.cpp
@@ -146,6 +147,19 @@ add_executable(tb_ex_ctrl_read_priority
 )
 
 target_link_libraries(tb_ex_ctrl_read_priority
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+add_executable(tb_ex_ctrl_read_req_logic
+  src/tb_ex_ctrl_read_req_logic.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_read_req_logic
   PRIVATE
     smesh_model
     cascade
