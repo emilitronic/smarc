@@ -19,12 +19,12 @@ class MeshCntlQueueDriver : public Component {
 
   Clock(clk);
   Input(bit, enq_rdy);
-  Input(bit, deq_val);
-  Input(smesh::ExCtrlMeshCntl, deq_bits);
+  Input(bit, cntl_val);
+  Input(smesh::ExCtrlMeshCntl, cntl_bits);
   Input(smesh::ExCtrlMeshReq, mesh_req_bits);
   Output(bit, enq_val);
   Output(smesh::ExCtrlMeshCntl, enq_bits);
-  Output(bit, deq_rdy);
+  Output(bit, mesh_cntl_deq_rdy);
 
   void update();
   void reset();
@@ -98,13 +98,13 @@ bool meshReqMatchesExpected(const smesh::ExCtrlMeshReq& req) {
 } // namespace
 
 MeshCntlQueueDriver::MeshCntlQueueDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(enq_rdy, deq_val, deq_bits, mesh_req_bits).writes(enq_val, enq_bits, deq_rdy);
+  UPDATE(update).reads(enq_rdy, cntl_val, cntl_bits, mesh_req_bits).writes(enq_val, enq_bits, mesh_cntl_deq_rdy);
 }
 
 void MeshCntlQueueDriver::update() {
   enq_val = 0;
   enq_bits = smesh::ExCtrlMeshCntl{};
-  deq_rdy = 0;
+  mesh_cntl_deq_rdy = 0;
 
   if (!sent_ && enq_rdy != 0) {
     enq_val = 1;
@@ -113,9 +113,9 @@ void MeshCntlQueueDriver::update() {
     return;
   }
 
-  if (sent_ && deq_val != 0) {
-    passed_ = matchesExpected(*deq_bits) && meshReqMatchesExpected(*mesh_req_bits);
-    deq_rdy = 1;
+  if (sent_ && cntl_val != 0) {
+    passed_ = matchesExpected(*cntl_bits) && meshReqMatchesExpected(*mesh_req_bits);
+    mesh_cntl_deq_rdy = 1;
     done_ = true;
   }
 }
@@ -127,7 +127,7 @@ void MeshCntlQueueDriver::reset() {
 
   enq_val.reset(0);
   enq_bits.reset(smesh::ExCtrlMeshCntl{});
-  deq_rdy.reset(0);
+  mesh_cntl_deq_rdy.reset(0);
 }
 
 int main(int argc, char* argv[]) {
@@ -141,10 +141,10 @@ int main(int argc, char* argv[]) {
   queue.enq_val << driver.enq_val;
   queue.enq_bits << driver.enq_bits;
   driver.enq_rdy << queue.enq_rdy;
-  driver.deq_val << queue.deq_val;
-  driver.deq_bits << queue.deq_bits;
+  driver.cntl_val << queue.cntl_val;
+  driver.cntl_bits << queue.cntl_bits;
   driver.mesh_req_bits << queue.mesh_req_bits;
-  queue.deq_rdy << driver.deq_rdy;
+  queue.mesh_cntl_deq_rdy << driver.mesh_cntl_deq_rdy;
 
   Clock clk;
   queue.clk << clk;

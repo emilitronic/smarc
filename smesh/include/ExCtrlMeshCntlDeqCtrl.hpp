@@ -25,6 +25,7 @@ class ExCtrlMeshCntlDeqCtrl : public Component {
 
   Clock(clk);
 
+  Input(bit, cntl_val);            // ExCtrlMeshCntlQueue has a valid head entry
   Input(ExCtrlMeshCntl, cntl_bits); // head entry from ExCtrlMeshCntlQueue
   Input(bit, mesh_a_fire);          // Mesher A input accepted this cycle
   Input(bit, mesh_b_fire);          // Mesher B input accepted this cycle
@@ -35,6 +36,7 @@ class ExCtrlMeshCntlDeqCtrl : public Component {
   Input(bit, mesh_req_rdy);         // Mesher request port is ready
 
   Output(bit, mesh_cntl_deq_rdy);   // mesh-control queue can release head entry
+  Output(bit, mesh_cntl_deq_fire);  // valid head entry is released this cycle
 
   void update();
 };

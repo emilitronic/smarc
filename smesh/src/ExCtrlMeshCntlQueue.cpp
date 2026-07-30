@@ -31,8 +31,8 @@ ExCtrlMeshReq makeMeshReq(const ExCtrlMeshCntl& cntl) {
 ExCtrlMeshCntlQueue::ExCtrlMeshCntlQueue(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateEnqReady).writes(enq_rdy);
   UPDATE(updateEnqAccept).reads(enq_val, enq_bits);
-  UPDATE(updateDeqView).writes(deq_val, deq_bits, mesh_req_bits);
-  UPDATE(updateDeqPop).reads(deq_rdy);
+  UPDATE(updateDeqView).writes(cntl_val, cntl_bits, mesh_req_bits);
+  UPDATE(updateDeqPop).reads(mesh_cntl_deq_rdy);
 }
 
 void ExCtrlMeshCntlQueue::updateEnqReady() {
@@ -58,13 +58,13 @@ void ExCtrlMeshCntlQueue::updateEnqAccept() {
 }
 
 void ExCtrlMeshCntlQueue::updateDeqView() {
-  deq_val = bit(valid_);
-  deq_bits = valid_ ? entry_ : ExCtrlMeshCntl{};
+  cntl_val = bit(valid_);
+  cntl_bits = valid_ ? entry_ : ExCtrlMeshCntl{};
   mesh_req_bits = valid_ ? makeMeshReq(entry_) : ExCtrlMeshReq{};
 }
 
 void ExCtrlMeshCntlQueue::updateDeqPop() {
-  if (!valid_ || deq_rdy == 0) {
+  if (!valid_ || mesh_cntl_deq_rdy == 0) {
     return;
   }
 
@@ -79,8 +79,8 @@ void ExCtrlMeshCntlQueue::reset() {
   entry_ = ExCtrlMeshCntl{};
 
   enq_rdy.reset(0);
-  deq_val.reset(0);
-  deq_bits.reset(ExCtrlMeshCntl{});
+  cntl_val.reset(0);
+  cntl_bits.reset(ExCtrlMeshCntl{});
   mesh_req_bits.reset(ExCtrlMeshReq{});
 }
 

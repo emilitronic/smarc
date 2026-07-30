@@ -73,38 +73,13 @@ void ExCtrlMeshInSelPad::update() {
   const auto b_acc = accum_read_data[b_acc_index]->data;
   const auto d_acc = accum_read_data[d_acc_index]->data;
 
-  const auto a_unpadded =
-      a_garbage != 0 ? u64{0} :
-      im2colling != 0 ? *im2col_data :
-      a_read_from_acc != 0 ? a_acc :
-      a_spad;
-  const auto b_unpadded =
-      (b_garbage != 0 || accumulate_zeros != 0) ? u64{0} :
-      b_read_from_acc != 0 ? b_acc :
-      b_spad;
-  const auto d_unpadded =
-      (d_garbage != 0 || preload_zeros != 0) ? u64{0} :
-      d_read_from_acc != 0 ? d_acc :
-      d_spad;
+  const auto a_unpadded = a_garbage != 0 ? u64{0} : im2colling != 0 ? *im2col_data : a_read_from_acc != 0 ? a_acc : a_spad;
+  const auto b_unpadded = (b_garbage != 0 || accumulate_zeros != 0) ? u64{0} : b_read_from_acc != 0 ? b_acc : b_spad;
+  const auto d_unpadded = (d_garbage != 0 || preload_zeros != 0) ? u64{0} : d_read_from_acc != 0 ? d_acc : d_spad;
 
-  const bool dataA_valid =
-      a_garbage != 0 ||
-      a_unpadded_cols == 0 ||
-      (im2colling != 0 ? im2col_val != 0 :
-       a_read_from_acc != 0 ? accum_read_val[a_acc_index] != 0 :
-       spad_read_val[a_spad_index] != 0);
-  const bool dataB_valid =
-      b_garbage != 0 ||
-      b_unpadded_cols == 0 ||
-      (accumulate_zeros != 0 ? false :
-       b_read_from_acc != 0 ? accum_read_val[b_acc_index] != 0 :
-       spad_read_val[b_spad_index] != 0);
-  const bool dataD_valid =
-      d_garbage != 0 ||
-      d_unpadded_cols == 0 ||
-      (preload_zeros != 0 ? false :
-       d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 :
-       spad_read_val[d_spad_index] != 0);
+  const bool dataA_valid = a_garbage != 0 || a_unpadded_cols == 0 || (im2colling != 0 ? im2col_val != 0 :  a_read_from_acc != 0 ? accum_read_val[a_acc_index] != 0 : spad_read_val[a_spad_index] != 0);
+  const bool dataB_valid = b_garbage != 0 || b_unpadded_cols == 0 || (accumulate_zeros != 0 ? false : b_read_from_acc != 0 ? accum_read_val[b_acc_index] != 0 : spad_read_val[b_spad_index] != 0);
+  const bool dataD_valid = d_garbage != 0 || d_unpadded_cols == 0 || (preload_zeros != 0 ? false : d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 : spad_read_val[d_spad_index] != 0);
 
   const auto next_mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(cntl_a_fire != 0 && dataA_valid)};
   const auto next_mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(cntl_b_fire != 0 && dataB_valid)};

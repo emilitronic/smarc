@@ -90,9 +90,9 @@ class ExCtrlMeshCntlQueue : public Component {
   Input(bit, enq_val);
   Output(bit, enq_rdy);
   Input(ExCtrlMeshCntl, enq_bits);
-  Output(bit, deq_val);
-  Input(bit, deq_rdy);
-  Output(ExCtrlMeshCntl, deq_bits);
+  Output(bit, cntl_val);
+  Input(bit, mesh_cntl_deq_rdy);
+  Output(ExCtrlMeshCntl, cntl_bits);
   Output(ExCtrlMeshReq, mesh_req_bits);
 
   void updateEnqReady();

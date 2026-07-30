@@ -18,6 +18,7 @@ class MeshCntlDeqCtrlDriver : public Component {
   MeshCntlDeqCtrlDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
+  Output(bit, cntl_val);
   Output(smesh::ExCtrlMeshCntl, cntl_bits);
   Output(bit, mesh_a_fire);
   Output(bit, mesh_b_fire);
@@ -39,6 +40,7 @@ class MeshCntlDeqCtrlMonitor : public Component {
 
   Clock(clk);
   Input(bit, mesh_cntl_deq_rdy);
+  Input(bit, mesh_cntl_deq_fire);
 
   void update();
   void reset();
@@ -54,14 +56,15 @@ class MeshCntlDeqCtrlMonitor : public Component {
 
 MeshCntlDeqCtrlDriver::MeshCntlDeqCtrlDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .writes(cntl_bits,
+      .writes(cntl_val,
+              cntl_bits,
               mesh_a_fire,
               mesh_b_fire,
               mesh_d_fire,
               mesh_a_rdy,
               mesh_b_rdy,
-              mesh_d_rdy,
-              mesh_req_rdy);
+              mesh_d_rdy)
+      .writes(mesh_req_rdy);
 }
 
 void MeshCntlDeqCtrlDriver::update() {
@@ -71,6 +74,7 @@ void MeshCntlDeqCtrlDriver::update() {
   cntl.d_fire = 1;
   cntl.first = 1;
 
+  cntl_val = 1;
   cntl_bits = cntl;
   mesh_a_fire = 1;
   mesh_b_fire = 0;
@@ -82,6 +86,7 @@ void MeshCntlDeqCtrlDriver::update() {
 }
 
 void MeshCntlDeqCtrlDriver::reset() {
+  cntl_val.reset(0);
   cntl_bits.reset(smesh::ExCtrlMeshCntl{});
   mesh_a_fire.reset(0);
   mesh_b_fire.reset(0);
@@ -93,7 +98,7 @@ void MeshCntlDeqCtrlDriver::reset() {
 }
 
 MeshCntlDeqCtrlMonitor::MeshCntlDeqCtrlMonitor(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(mesh_cntl_deq_rdy);
+  UPDATE(update).reads(mesh_cntl_deq_rdy, mesh_cntl_deq_fire);
 }
 
 void MeshCntlDeqCtrlMonitor::update() {
@@ -101,7 +106,7 @@ void MeshCntlDeqCtrlMonitor::update() {
     return;
   }
 
-  passed_ = mesh_cntl_deq_rdy != 0;
+  passed_ = mesh_cntl_deq_rdy != 0 && mesh_cntl_deq_fire != 0;
   checked_ = true;
   done_ = true;
 }
@@ -121,6 +126,7 @@ int main(int argc, char* argv[]) {
   smesh::ExCtrlMeshCntlDeqCtrl deq_ctrl("DeqCtrl");
   MeshCntlDeqCtrlMonitor monitor("Monitor");
 
+  deq_ctrl.cntl_val << driver.cntl_val;
   deq_ctrl.cntl_bits << driver.cntl_bits;
   deq_ctrl.mesh_a_fire << driver.mesh_a_fire;
   deq_ctrl.mesh_b_fire << driver.mesh_b_fire;
@@ -131,6 +137,7 @@ int main(int argc, char* argv[]) {
   deq_ctrl.mesh_req_rdy << driver.mesh_req_rdy;
 
   monitor.mesh_cntl_deq_rdy << deq_ctrl.mesh_cntl_deq_rdy;
+  monitor.mesh_cntl_deq_fire << deq_ctrl.mesh_cntl_deq_fire;
 
   Clock clk;
   driver.clk << clk;
