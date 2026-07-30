@@ -34,7 +34,7 @@ void ExCtrlMeshCntlDeqCtrl::update() {
 
   mesh_cntl_deq_rdy = next_mesh_cntl_deq_rdy;
   mesh_cntl_deq_fire = bit(cntl_val != 0 && next_mesh_cntl_deq_rdy != 0);
-  
+  // valid signal to mesher's request port
   mesh_cntl_req_val = bit(control_state == static_cast<std::uint8_t>(ExCtrlFsmState::Flush));
   if (cntl_val != 0) {
     mesh_cntl_req_val = bit(mesh_cntl_deq_fire != 0 && (cntl.a_fire != 0 || cntl.b_fire != 0 || cntl.d_fire != 0));
