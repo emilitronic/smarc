@@ -38,9 +38,9 @@ class MeshInSelPadDriver : public Component {
   Output(u32, a_unpadded_cols);
   Output(u32, b_unpadded_cols);
   Output(u32, d_unpadded_cols);
-  Output(bit, a_fire);
-  Output(bit, b_fire);
-  Output(bit, d_fire);
+  Output(bit, cntl_a_fire);
+  Output(bit, cntl_b_fire);
+  Output(bit, cntl_d_fire);
   OutputArray(bit, spad_read_val, smesh::kSpBanks);
   OutputArray(bit, accum_read_val, smesh::kAccBanks);
   OutputArray(smesh::SpadReadResp, spad_read_data, smesh::kSpBanks);
@@ -95,9 +95,9 @@ MeshInSelPadDriver::MeshInSelPadDriver(std::string /*name*/, IMPL_CTOR) {
               a_unpadded_cols,
               b_unpadded_cols,
               d_unpadded_cols,
-              a_fire,
-              b_fire,
-              d_fire,
+              cntl_a_fire,
+              cntl_b_fire,
+              cntl_d_fire,
               spad_read_val)
       .writes(accum_read_val, spad_read_data)
       .writes(accum_read_data);
@@ -124,9 +124,9 @@ void MeshInSelPadDriver::update() {
   a_unpadded_cols = 3;
   b_unpadded_cols = 2;
   d_unpadded_cols = 4;
-  a_fire = 1;
-  b_fire = 1;
-  d_fire = 1;
+  cntl_a_fire = 1;
+  cntl_b_fire = 1;
+  cntl_d_fire = 1;
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     smesh::SpadReadResp resp{};
@@ -166,9 +166,9 @@ void MeshInSelPadDriver::reset() {
   a_unpadded_cols.reset(0);
   b_unpadded_cols.reset(0);
   d_unpadded_cols.reset(0);
-  a_fire.reset(0);
-  b_fire.reset(0);
-  d_fire.reset(0);
+  cntl_a_fire.reset(0);
+  cntl_b_fire.reset(0);
+  cntl_d_fire.reset(0);
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad_read_val[bank].reset(0);
@@ -235,9 +235,9 @@ int main(int argc, char* argv[]) {
   sel_pad.a_unpadded_cols << driver.a_unpadded_cols;
   sel_pad.b_unpadded_cols << driver.b_unpadded_cols;
   sel_pad.d_unpadded_cols << driver.d_unpadded_cols;
-  sel_pad.a_fire << driver.a_fire;
-  sel_pad.b_fire << driver.b_fire;
-  sel_pad.d_fire << driver.d_fire;
+  sel_pad.cntl_a_fire << driver.cntl_a_fire;
+  sel_pad.cntl_b_fire << driver.cntl_b_fire;
+  sel_pad.cntl_d_fire << driver.cntl_d_fire;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     sel_pad.spad_read_val[bank] << driver.spad_read_val[bank];
     sel_pad.spad_read_data[bank] << driver.spad_read_data[bank];

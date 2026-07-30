@@ -46,9 +46,9 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
              a_unpadded_cols,
              b_unpadded_cols,
              d_unpadded_cols,
-             a_fire,
-             b_fire,
-             d_fire,
+             cntl_a_fire,
+             cntl_b_fire,
+             cntl_d_fire,
              spad_read_val)
       .reads(accum_read_val, spad_read_data)
       .reads(accum_read_data)
@@ -103,9 +103,9 @@ void ExCtrlMeshInSelPad::update() {
        d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 :
        spad_read_val[d_spad_index] != 0);
 
-  mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(a_fire != 0 && dataA_valid)};
-  mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(b_fire != 0 && dataB_valid)};
-  mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(d_fire != 0 && dataD_valid)};
+  mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(cntl_a_fire != 0 && dataA_valid)};
+  mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(cntl_b_fire != 0 && dataB_valid)};
+  mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(cntl_d_fire != 0 && dataD_valid)};
 }
 
 } // namespace smesh
