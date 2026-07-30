@@ -18,6 +18,7 @@ class MeshCntlDeqCtrlDriver : public Component {
   MeshCntlDeqCtrlDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
+  Output(u8, control_state);
   Output(bit, cntl_val);
   Output(smesh::ExCtrlMeshCntl, cntl_bits);
   Output(bit, mesh_a_fire);
@@ -56,15 +57,16 @@ class MeshCntlDeqCtrlMonitor : public Component {
 
 MeshCntlDeqCtrlDriver::MeshCntlDeqCtrlDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .writes(cntl_val,
+      .writes(control_state,
+              cntl_val,
               cntl_bits,
               mesh_a_fire,
               mesh_b_fire,
               mesh_d_fire,
               mesh_a_rdy,
-              mesh_b_rdy,
-              mesh_d_rdy)
-      .writes(mesh_req_rdy);
+              mesh_b_rdy)
+      .writes(mesh_d_rdy,
+              mesh_req_rdy);
 }
 
 void MeshCntlDeqCtrlDriver::update() {
@@ -74,6 +76,7 @@ void MeshCntlDeqCtrlDriver::update() {
   cntl.d_fire = 1;
   cntl.first = 1;
 
+  control_state = 0;
   cntl_val = 1;
   cntl_bits = cntl;
   mesh_a_fire = 1;
@@ -86,6 +89,7 @@ void MeshCntlDeqCtrlDriver::update() {
 }
 
 void MeshCntlDeqCtrlDriver::reset() {
+  control_state.reset(0);
   cntl_val.reset(0);
   cntl_bits.reset(smesh::ExCtrlMeshCntl{});
   mesh_a_fire.reset(0);
@@ -126,6 +130,7 @@ int main(int argc, char* argv[]) {
   smesh::ExCtrlMeshCntlDeqCtrl deq_ctrl("DeqCtrl");
   MeshCntlDeqCtrlMonitor monitor("Monitor");
 
+  deq_ctrl.control_state << driver.control_state;
   deq_ctrl.cntl_val << driver.cntl_val;
   deq_ctrl.cntl_bits << driver.cntl_bits;
   deq_ctrl.mesh_a_fire << driver.mesh_a_fire;

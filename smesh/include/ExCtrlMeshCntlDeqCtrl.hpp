@@ -25,6 +25,7 @@ class ExCtrlMeshCntlDeqCtrl : public Component {
 
   Clock(clk);
 
+  Input(u8, control_state);        // current ExCtrl FSM state
   Input(bit, cntl_val);            // ExCtrlMeshCntlQueue has a valid head entry
   Input(ExCtrlMeshCntl, cntl_bits); // head entry from ExCtrlMeshCntlQueue
   Input(bit, mesh_a_fire);          // Mesher A input accepted this cycle
