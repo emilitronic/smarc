@@ -49,10 +49,13 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
              cntl_a_fire,
              cntl_b_fire,
              cntl_d_fire,
+             mesh_a_rdy)
+      .reads(mesh_b_rdy,
+             mesh_d_rdy,
              spad_read_val)
       .reads(accum_read_val, spad_read_data)
       .reads(accum_read_data)
-      .writes(mesh_a, mesh_b, mesh_d);
+      .writes(mesh_a, mesh_b, mesh_d, mesh_a_fire, mesh_b_fire, mesh_d_fire);
 }
 
 void ExCtrlMeshInSelPad::update() {
@@ -103,9 +106,16 @@ void ExCtrlMeshInSelPad::update() {
        d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 :
        spad_read_val[d_spad_index] != 0);
 
-  mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(cntl_a_fire != 0 && dataA_valid)};
-  mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(cntl_b_fire != 0 && dataB_valid)};
-  mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(cntl_d_fire != 0 && dataD_valid)};
+  const auto next_mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(cntl_a_fire != 0 && dataA_valid)};
+  const auto next_mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(cntl_b_fire != 0 && dataB_valid)};
+  const auto next_mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(cntl_d_fire != 0 && dataD_valid)};
+
+  mesh_a = next_mesh_a;
+  mesh_b = next_mesh_b;
+  mesh_d = next_mesh_d;
+  mesh_a_fire = bit(static_cast<bool>(next_mesh_a.valid) && mesh_a_rdy != 0);
+  mesh_b_fire = bit(static_cast<bool>(next_mesh_b.valid) && mesh_b_rdy != 0);
+  mesh_d_fire = bit(static_cast<bool>(next_mesh_d.valid) && mesh_d_rdy != 0);
 }
 
 } // namespace smesh

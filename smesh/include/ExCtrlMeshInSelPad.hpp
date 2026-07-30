@@ -51,6 +51,9 @@ class ExCtrlMeshInSelPad : public Component {
   Input(bit, cntl_a_fire);
   Input(bit, cntl_b_fire);
   Input(bit, cntl_d_fire);
+  Input(bit, mesh_a_rdy);
+  Input(bit, mesh_b_rdy);
+  Input(bit, mesh_d_rdy);
   InputArray(bit, spad_read_val, kSpBanks);
   InputArray(bit, accum_read_val, kAccBanks);
   InputArray(SpadReadResp, spad_read_data, kSpBanks);
@@ -59,6 +62,9 @@ class ExCtrlMeshInSelPad : public Component {
   Output(ExCtrlMeshInput, mesh_a);
   Output(ExCtrlMeshInput, mesh_b);
   Output(ExCtrlMeshInput, mesh_d);
+  Output(bit, mesh_a_fire);
+  Output(bit, mesh_b_fire);
+  Output(bit, mesh_d_fire);
 
   void update();
 };

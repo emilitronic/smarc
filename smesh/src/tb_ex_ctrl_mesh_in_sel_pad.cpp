@@ -41,6 +41,9 @@ class MeshInSelPadDriver : public Component {
   Output(bit, cntl_a_fire);
   Output(bit, cntl_b_fire);
   Output(bit, cntl_d_fire);
+  Output(bit, mesh_a_rdy);
+  Output(bit, mesh_b_rdy);
+  Output(bit, mesh_d_rdy);
   OutputArray(bit, spad_read_val, smesh::kSpBanks);
   OutputArray(bit, accum_read_val, smesh::kAccBanks);
   OutputArray(smesh::SpadReadResp, spad_read_data, smesh::kSpBanks);
@@ -60,6 +63,9 @@ class MeshInSelPadMonitor : public Component {
   Input(smesh::ExCtrlMeshInput, mesh_a);
   Input(smesh::ExCtrlMeshInput, mesh_b);
   Input(smesh::ExCtrlMeshInput, mesh_d);
+  Input(bit, mesh_a_fire);
+  Input(bit, mesh_b_fire);
+  Input(bit, mesh_d_fire);
 
   void update();
   void reset();
@@ -98,6 +104,9 @@ MeshInSelPadDriver::MeshInSelPadDriver(std::string /*name*/, IMPL_CTOR) {
               cntl_a_fire,
               cntl_b_fire,
               cntl_d_fire,
+              mesh_a_rdy)
+      .writes(mesh_b_rdy,
+              mesh_d_rdy,
               spad_read_val)
       .writes(accum_read_val, spad_read_data)
       .writes(accum_read_data);
@@ -127,6 +136,9 @@ void MeshInSelPadDriver::update() {
   cntl_a_fire = 1;
   cntl_b_fire = 1;
   cntl_d_fire = 1;
+  mesh_a_rdy = 1;
+  mesh_b_rdy = 1;
+  mesh_d_rdy = 1;
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     smesh::SpadReadResp resp{};
@@ -169,6 +181,9 @@ void MeshInSelPadDriver::reset() {
   cntl_a_fire.reset(0);
   cntl_b_fire.reset(0);
   cntl_d_fire.reset(0);
+  mesh_a_rdy.reset(0);
+  mesh_b_rdy.reset(0);
+  mesh_d_rdy.reset(0);
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad_read_val[bank].reset(0);
@@ -181,7 +196,7 @@ void MeshInSelPadDriver::reset() {
 }
 
 MeshInSelPadMonitor::MeshInSelPadMonitor(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(mesh_a, mesh_b, mesh_d);
+  UPDATE(update).reads(mesh_a, mesh_b, mesh_d, mesh_a_fire, mesh_b_fire, mesh_d_fire);
 }
 
 void MeshInSelPadMonitor::update() {
@@ -195,7 +210,10 @@ void MeshInSelPadMonitor::update() {
   passed_ =
       a.valid != 0 && a.data == 0x776655u &&
       b.valid != 0 && b.data == 0x002001u &&
-      d.valid == 0 && d.data == 0;
+      d.valid == 0 && d.data == 0 &&
+      mesh_a_fire != 0 &&
+      mesh_b_fire != 0 &&
+      mesh_d_fire == 0;
   checked_ = true;
   done_ = true;
 }
@@ -238,6 +256,9 @@ int main(int argc, char* argv[]) {
   sel_pad.cntl_a_fire << driver.cntl_a_fire;
   sel_pad.cntl_b_fire << driver.cntl_b_fire;
   sel_pad.cntl_d_fire << driver.cntl_d_fire;
+  sel_pad.mesh_a_rdy << driver.mesh_a_rdy;
+  sel_pad.mesh_b_rdy << driver.mesh_b_rdy;
+  sel_pad.mesh_d_rdy << driver.mesh_d_rdy;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     sel_pad.spad_read_val[bank] << driver.spad_read_val[bank];
     sel_pad.spad_read_data[bank] << driver.spad_read_data[bank];
@@ -250,6 +271,9 @@ int main(int argc, char* argv[]) {
   monitor.mesh_a << sel_pad.mesh_a;
   monitor.mesh_b << sel_pad.mesh_b;
   monitor.mesh_d << sel_pad.mesh_d;
+  monitor.mesh_a_fire << sel_pad.mesh_a_fire;
+  monitor.mesh_b_fire << sel_pad.mesh_b_fire;
+  monitor.mesh_d_fire << sel_pad.mesh_d_fire;
 
   Clock clk;
   driver.clk << clk;
