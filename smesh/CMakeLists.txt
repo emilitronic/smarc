@@ -13,6 +13,7 @@ add_library(smesh_model
   src/ExCtrlDecoder.cpp
   src/ExCtrlFeedSignals.cpp
   src/ExCtrlMeshCntlPack.cpp
+  src/ExCtrlMeshCntlDeqCtrl.cpp
   src/ExCtrlMeshCntlQueue.cpp
   src/ExCtrlMeshInSelPad.cpp
   src/ExCtrlOperandPack.cpp
@@ -192,6 +193,19 @@ add_executable(tb_ex_ctrl_mesh_cntl_queue
 )
 
 target_link_libraries(tb_ex_ctrl_mesh_cntl_queue
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+add_executable(tb_ex_ctrl_mesh_cntl_deq_ctrl
+  src/tb_ex_ctrl_mesh_cntl_deq_ctrl.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_mesh_cntl_deq_ctrl
   PRIVATE
     smesh_model
     cascade
