@@ -22,6 +22,7 @@ add_library(smesh_model
   src/ExCtrlRowFeedState.cpp
   src/ExCtrlRowAddr.cpp
   src/ExCtrlState.cpp
+  src/ExCtrlWriteback.cpp
   src/LdCtrl.cpp
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
@@ -230,6 +231,19 @@ add_executable(tb_mesher
 )
 
 target_link_libraries(tb_mesher
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+add_executable(tb_ex_ctrl_writeback
+  src/tb_ex_ctrl_writeback.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_writeback
   PRIVATE
     smesh_model
     cascade
