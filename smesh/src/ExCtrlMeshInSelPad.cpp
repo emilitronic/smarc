@@ -26,36 +26,38 @@ u64 padInputRow(u64 unpadded, std::uint32_t unpadded_cols) {
 
 ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(a_bank,
+      .reads(cntl_val,
+             a_bank,
              b_bank,
              d_bank,
              a_bank_acc,
              b_bank_acc,
              d_bank_acc,
-             a_read_from_acc,
-             b_read_from_acc)
-      .reads(d_read_from_acc,
+             a_read_from_acc)
+      .reads(b_read_from_acc,
+             d_read_from_acc,
              a_garbage,
              b_garbage,
              d_garbage,
              accumulate_zeros,
              preload_zeros,
-             im2colling,
-             im2col_data)
-      .reads(im2col_val,
+             im2colling)
+      .reads(im2col_data,
+             im2col_val,
              a_unpadded_cols,
              b_unpadded_cols,
              d_unpadded_cols,
              cntl_a_fire,
              cntl_b_fire,
-             cntl_d_fire,
-             mesh_a_rdy)
-      .reads(mesh_b_rdy,
+             cntl_d_fire)
+      .reads(mesh_a_rdy,
+             mesh_b_rdy,
              mesh_d_rdy,
              spad_read_val)
       .reads(accum_read_val, spad_read_data)
       .reads(accum_read_data)
-      .writes(mesh_a, mesh_b, mesh_d, mesh_a_fire, mesh_b_fire, mesh_d_fire);
+      .writes(mesh_a, mesh_b, mesh_d, mesh_a_val, mesh_b_val, mesh_d_val)
+      .writes(mesh_a_fire, mesh_b_fire, mesh_d_fire);
 }
 
 void ExCtrlMeshInSelPad::update() {
@@ -81,13 +83,16 @@ void ExCtrlMeshInSelPad::update() {
   const bool dataB_valid = b_garbage != 0 || b_unpadded_cols == 0 || (accumulate_zeros != 0 ? false : b_read_from_acc != 0 ? accum_read_val[b_acc_index] != 0 : spad_read_val[b_spad_index] != 0);
   const bool dataD_valid = d_garbage != 0 || d_unpadded_cols == 0 || (preload_zeros != 0 ? false : d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 : spad_read_val[d_spad_index] != 0);
 
-  const auto next_mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(cntl_a_fire != 0 && dataA_valid)};
-  const auto next_mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(cntl_b_fire != 0 && dataB_valid)};
-  const auto next_mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(cntl_d_fire != 0 && dataD_valid)};
+  const auto next_mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(cntl_val != 0 && cntl_a_fire != 0 && dataA_valid)};
+  const auto next_mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(cntl_val != 0 && cntl_b_fire != 0 && dataB_valid)};
+  const auto next_mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(cntl_val != 0 && cntl_d_fire != 0 && dataD_valid)};
 
   mesh_a = next_mesh_a;
   mesh_b = next_mesh_b;
   mesh_d = next_mesh_d;
+  mesh_a_val = next_mesh_a.valid;
+  mesh_b_val = next_mesh_b.valid;
+  mesh_d_val = next_mesh_d.valid;
   mesh_a_fire = bit(static_cast<bool>(next_mesh_a.valid) && mesh_a_rdy != 0);
   mesh_b_fire = bit(static_cast<bool>(next_mesh_b.valid) && mesh_b_rdy != 0);
   mesh_d_fire = bit(static_cast<bool>(next_mesh_d.valid) && mesh_d_rdy != 0);

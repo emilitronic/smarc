@@ -28,6 +28,7 @@ class ExCtrlMeshInSelPad : public Component {
 
   Clock(clk);
 
+  Input(bit, cntl_val);
   Input(u32, a_bank);
   Input(u32, b_bank);
   Input(u32, d_bank);
@@ -62,6 +63,9 @@ class ExCtrlMeshInSelPad : public Component {
   Output(ExCtrlMeshInput, mesh_a);
   Output(ExCtrlMeshInput, mesh_b);
   Output(ExCtrlMeshInput, mesh_d);
+  Output(bit, mesh_a_val);
+  Output(bit, mesh_b_val);
+  Output(bit, mesh_d_val);
   Output(bit, mesh_a_fire);
   Output(bit, mesh_b_fire);
   Output(bit, mesh_d_fire);
