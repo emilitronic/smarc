@@ -31,9 +31,10 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               config_rs_tag_valid,
               config_rs_tag,
               performing_single_preload,
+              computing,
               start_inputting_a,
-              start_inputting_b,
-              start_inputting_d,
+              start_inputting_b)
+      .writes(start_inputting_d,
               cmd_pop_count);
 }
 
@@ -42,6 +43,7 @@ void ExCtrlState::update() {
   config_rs_tag_valid    = 0;
   config_rs_tag          = 0;
   performing_single_preload = 0;
+  computing              = 0;
   start_inputting_a      = 0;
   start_inputting_b      = 0;
   start_inputting_d      = 0;
@@ -98,8 +100,11 @@ void ExCtrlState::update() {
       break;
   }
 
-  performing_single_preload = bit((perform_single_preload_ && state_ == ExCtrlFsmState::Compute) ||
-                                  taking_single_preload);
+  const auto next_performing_single_preload = bit((perform_single_preload_ && state_ == ExCtrlFsmState::Compute) ||
+                                                 taking_single_preload);
+  performing_single_preload = next_performing_single_preload;
+  // TODO: include performing_mul_pre and performing_single_mul when those modes exist.
+  computing = next_performing_single_preload;
   config_initialized = bit(config_initialized_);
   a_transpose        = bit(a_transpose_);
   bd_transpose       = bit(bd_transpose_);
@@ -128,6 +133,7 @@ void ExCtrlState::reset() {
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);
   performing_single_preload.reset(0);
+  computing.reset(0);
   start_inputting_a.reset(0);
   start_inputting_b.reset(0);
   start_inputting_d.reset(0);
