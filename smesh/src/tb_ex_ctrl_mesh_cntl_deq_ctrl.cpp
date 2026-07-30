@@ -42,6 +42,7 @@ class MeshCntlDeqCtrlMonitor : public Component {
   Clock(clk);
   Input(bit, mesh_cntl_deq_rdy);
   Input(bit, mesh_cntl_deq_fire);
+  Input(bit, mesh_cntl_req_val);
 
   void update();
   void reset();
@@ -102,7 +103,7 @@ void MeshCntlDeqCtrlDriver::reset() {
 }
 
 MeshCntlDeqCtrlMonitor::MeshCntlDeqCtrlMonitor(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(mesh_cntl_deq_rdy, mesh_cntl_deq_fire);
+  UPDATE(update).reads(mesh_cntl_deq_rdy, mesh_cntl_deq_fire, mesh_cntl_req_val);
 }
 
 void MeshCntlDeqCtrlMonitor::update() {
@@ -110,7 +111,7 @@ void MeshCntlDeqCtrlMonitor::update() {
     return;
   }
 
-  passed_ = mesh_cntl_deq_rdy != 0 && mesh_cntl_deq_fire != 0;
+  passed_ = mesh_cntl_deq_rdy != 0 && mesh_cntl_deq_fire != 0 && mesh_cntl_req_val != 0;
   checked_ = true;
   done_ = true;
 }
@@ -143,6 +144,7 @@ int main(int argc, char* argv[]) {
 
   monitor.mesh_cntl_deq_rdy << deq_ctrl.mesh_cntl_deq_rdy;
   monitor.mesh_cntl_deq_fire << deq_ctrl.mesh_cntl_deq_fire;
+  monitor.mesh_cntl_req_val << deq_ctrl.mesh_cntl_req_val;
 
   Clock clk;
   driver.clk << clk;
