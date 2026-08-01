@@ -37,7 +37,7 @@ class ExCtrlMeshCntlDeqCtrl : public Component {
   Input(bit, mesh_req_rdy);         // Mesher request port is ready
 
   Output(bit, mesh_cntl_deq_rdy);   // mesh-control queue can release head entry
-  Output(bit, mesh_cntl_deq_fire);  // valid head entry is released this cycle
+  Output(bit, mesh_cntl_deq_fire);  // valid head entry is released this cycle (allow queue to pop)
   Output(bit, mesh_cntl_req_val);   // valid signal to mesher's request port
 
   void update();

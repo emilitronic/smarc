@@ -17,7 +17,6 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
              b_bits,
              d_val,
              d_bits)
-      .reads(resp_rdy)
       .writes(req_rdy,
               a_rdy,
               b_rdy,

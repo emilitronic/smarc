@@ -56,7 +56,6 @@ class Mesher : public Component {
   Input(ExCtrlMeshInput, d_bits);
 
   Output(bit, resp_val);
-  Input(bit, resp_rdy);
   Output(MesherResp, resp_bits);
 
   OutputArray(MesherTag, tags_in_progress, kRsExecuteEntries);

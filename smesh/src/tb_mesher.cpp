@@ -26,7 +26,6 @@ class MesherDriver : public Component {
   Output(smesh::ExCtrlMeshInput, b_bits);
   Output(bit, d_val);
   Output(smesh::ExCtrlMeshInput, d_bits);
-  Output(bit, resp_rdy);
 
   void update();
   void reset();
@@ -60,9 +59,7 @@ class MesherMonitor : public Component {
 };
 
 MesherDriver::MesherDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
-      .writes(req_val, req_bits, a_val, a_bits, b_val, b_bits, d_val, d_bits)
-      .writes(resp_rdy);
+  UPDATE(update).writes(req_val, req_bits, a_val, a_bits, b_val, b_bits, d_val, d_bits);
 }
 
 void MesherDriver::update() {
@@ -79,7 +76,6 @@ void MesherDriver::update() {
   b_bits = smesh::ExCtrlMeshInput{0x2222u, 1};
   d_val = 1;
   d_bits = smesh::ExCtrlMeshInput{0x3333u, 1};
-  resp_rdy = 1;
 }
 
 void MesherDriver::reset() {
@@ -91,7 +87,6 @@ void MesherDriver::reset() {
   b_bits.reset(smesh::ExCtrlMeshInput{});
   d_val.reset(0);
   d_bits.reset(smesh::ExCtrlMeshInput{});
-  resp_rdy.reset(0);
 }
 
 MesherMonitor::MesherMonitor(std::string /*name*/, IMPL_CTOR) {
@@ -144,7 +139,6 @@ int main(int argc, char* argv[]) {
   mesher.b_bits << driver.b_bits;
   mesher.d_val << driver.d_val;
   mesher.d_bits << driver.d_bits;
-  mesher.resp_rdy << driver.resp_rdy;
 
   monitor.req_rdy << mesher.req_rdy;
   monitor.a_rdy << mesher.a_rdy;
