@@ -40,11 +40,11 @@ class MeshCore {
   const MeshAccumRow& bottomPsum() const { return bottom_psum_; }
 
  private:
-  InputGrid b_pipe_{};
-  InputGrid weights_{};
-  InputGrid a_pipe_{};
-  AccumGrid psum_pipe_{};
-  MeshAccumRow bottom_psum_{};
+  InputGrid b_pipe_{};         // B vals moving TB
+  InputGrid weights_{};        // B vals captures as stationary weights
+  InputGrid a_pipe_{};         // A vals moving LR
+  AccumGrid psum_pipe_{};      // partial sums moving TB
+  MeshAccumRow bottom_psum_{}; // bottom row of completed partial sums, ready to be written back
 };
 
 } // namespace smesh
