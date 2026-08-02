@@ -28,6 +28,7 @@ add_library(smesh_model
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
+  src/MeshCore.cpp
   src/Mesher.cpp
   src/Normalizer.cpp
   src/SmeshCmdQueues.cpp
@@ -251,6 +252,15 @@ target_link_libraries(tb_mesher
     -lz
     -ltermcap
     -lpthread
+)
+
+add_executable(tb_mesh_core
+  src/tb_mesh_core.cpp
+)
+
+target_link_libraries(tb_mesh_core
+  PRIVATE
+    smesh_model
 )
 
 add_executable(tb_ex_ctrl_writeback
