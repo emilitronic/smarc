@@ -25,23 +25,27 @@ int main() {
   smesh::MeshCore core;
   core.reset();
 
-  smesh::MeshInputRow b0{1, 2, 3, 4};
-  smesh::MeshInputRow b1{5, 6, 7, 8};
-  core.stepPreloadB(b0);
-  core.stepPreloadB(b1);
+  smesh::MeshInputRow d0{1, 2, 3, 4};
+  smesh::MeshInputRow d1{5, 6, 7, 8};
+  core.stepPreloadD(d0, true);
+  core.stepPreloadD(d1, true);
 
   bool ok = true;
-  ok = ok && core.weights()[0] == b1;
-  ok = ok && core.weights()[1] == b0;
+  ok = ok && core.dPath()[0] == d1;
+  ok = ok && core.dPath()[1] == d0;
+  ok = ok && core.c1()[0] == d1;
+  ok = ok && core.c1()[1] == d0;
 
   smesh::MeshInputRow a0{1, 2, 3, 4};
-  core.stepWsCompute(a0);
+  core.stepWsCompute(a0, smesh::MeshAccumRow{}, true);
 
-  ok = ok && core.aPipe()[0][0] == 1;
-  ok = ok && core.aPipe()[1][0] == 2;
-  ok = ok && core.psumPipe()[0][0] == 5;
-  ok = ok && core.psumPipe()[1][0] == 2;
-  ok = ok && rowEquals(core.bottomPsum(), smesh::MeshAccumRow{0, 0, 0, 0});
+  ok = ok && core.aPath()[0][0] == 1;
+  ok = ok && core.aPath()[1][0] == 2;
+  ok = ok && core.bPath()[0][0] == 5;
+  ok = ok && core.bPath()[1][0] == 0;
+  ok = ok && core.bValid()[0][0];
+  ok = ok && !core.bValid()[1][0];
+  ok = ok && rowEquals(core.outB(), smesh::MeshAccumRow{0, 0, 0, 0});
 
   std::printf("[MESH_CORE] %s ws_movement\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
