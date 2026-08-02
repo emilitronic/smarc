@@ -8,92 +8,71 @@
 namespace smesh {
 
 void MeshCore::reset() {
-  c1_         = InputGrid{};
-  c2_         = InputGrid{};
-  a_path_     = InputGrid{};
-  b_path_     = AccumGrid{};
-  b_ctrl_     = CtrlGrid{};
-  d_path_     = InputGrid{};
-  d_ctrl_     = CtrlGrid{};
-  out_b_      = MeshAccumRow{};
-  out_b_ctrl_ = CtrlRow{};
+  c1_            = InputGrid{};
+  c2_            = InputGrid{};
+  a_path_        = InputGrid{};
+  b_path_        = AccumGrid{};
+  d_path_        = InputGrid{};
+  control_path_  = CtrlGrid{};
+  out_b_         = MeshAccumRow{};
+  out_b_control_ = CtrlRow{};
 }
 
-// preload mechanics (weights go through D path)
-void MeshCore::stepPreloadD(const MeshInputRow& d_shifter_in, MeshCoreCtrl ctrl) {
-  InputGrid next_d = d_path_; // working copy of D path state (updating weights)
-  CtrlGrid  next_d_ctrl{};
-  // shift new D & valid TB into systolic, but only shift in D if valid is true
-  for (std::size_t col = 0; col < kDim; ++col) {
-    if (ctrl.valid) {
-      next_d[0][col] = d_shifter_in[col];
-    }
-    next_d_ctrl[0][col] = ctrl;
-  }
-  // shift D & valid TB through systolic, but only shift D if corresponding valid is true
-  for (std::size_t row = 1; row < kDim; ++row) {
-    for (std::size_t col = 0; col < kDim; ++col) {
-      if (d_ctrl_[row - 1][col].valid) {
-        next_d[row][col] = d_path_[row - 1][col];
-      }
-      next_d_ctrl[row][col] = d_ctrl_[row - 1][col];
-    }
-  }
-  // update state
-  d_path_  = next_d;
-  d_ctrl_  = next_d_ctrl;
-  // store weights into WS stationary registers if valid is true
+void MeshCore::step(const MeshCoreIn& in) {
+  InputGrid    next_a{};
+  InputGrid    next_c1 = c1_;
+  InputGrid    next_c2 = c2_;
+  AccumGrid    next_b = b_path_; // working copy of B/out_b state
+  InputGrid    next_d = d_path_; // working copy of D/out_c state
+  CtrlGrid     next_control_path{};
+  MeshAccumRow next_out_b{};
+  CtrlRow      next_out_b_control{};
+
+  // A always flows LR; B/out_b and D/out_c flow TB under their aligned valid controls.
   for (std::size_t row = 0; row < kDim; ++row) {
     for (std::size_t col = 0; col < kDim; ++col) {
-      const auto& d_ctrl = d_ctrl_[row][col];
-      if (d_ctrl.valid) {
-        if (d_ctrl.prop) {
-          c1_[row][col] = d_path_[row][col]; // weight goes into c1 when prop is true
+      // what is inside PE[row][col] this cycle?
+      const auto a       = col == 0     ? in.in_a[row]  : a_path_[row][col - 1];       // A flows LR
+
+      const auto b_in    = row == 0     ? in.in_b[col]  : b_path_[row - 1][col];       // B flows in TB
+      const auto d_in    = row == 0     ? in.in_d[col]  : d_path_[row - 1][col];       // D flows TB
+      const auto control = row == 0     ? in.control    : control_path_[row - 1][col]; // ctrl flows TB
+      const auto weight  = control.prop ? c2_[row][col] : c1_[row][col];               // weight=c2 if prop=1, c1 if prop=0
+
+      next_a[row][col] = a; // A that's leaving this PE and going LR
+
+      if (control.valid) {  // if PE's signal is valid... 
+        next_b[row][col] = b_in + static_cast<Acc>(a) * static_cast<Acc>(weight); // ...update B/out_b for PE below
+      }
+
+      if (control.valid) { // if PE's signal is valid... 
+        next_d[row][col] = d_in;     // ...update D/out_c for PE below
+        if (control.prop) {
+          next_c1[row][col] = d_in; // ...update c1 for this PE is prop=1
         } else {
-          c2_[row][col] = d_path_[row][col];
+          next_c2[row][col] = d_in; // ...update c2 for this PE if prop=0
         }
       }
-    }
-  }
-}
 
-// WS compute mechanics (A goes through A path, B/out_b goes through B path)
-void MeshCore::stepWsCompute(const MeshInputRow& a_shifter_in, const MeshAccumRow& b_shifter_in, MeshCoreCtrl ctrl) {
-  InputGrid    next_a{};
-  AccumGrid    next_b = b_path_; // working copy of B path state (updating psums/results)
-  CtrlGrid     next_b_ctrl{};
-  MeshAccumRow next_out_b{};
-  CtrlRow      next_out_b_ctrl{};
-
-  // what's going into next registers, and what's actually getting latched by them, and what's computed
-  for (std::size_t row = 0; row < kDim; ++row) {
-    for (std::size_t col = 0; col < kDim; ++col) {
-      // what's going into next registers
-      const auto a         = col == 0       ? a_shifter_in[row] : a_path_[row][col - 1]; // A moves LR
-      const auto b_in      = row == 0       ? b_shifter_in[col] : b_path_[row - 1][col]; // B/out_b moves TB
-      const auto b_in_ctrl = row == 0       ? ctrl              : b_ctrl_[row - 1][col]; // control moves TB
-      const auto weight    = b_in_ctrl.prop ? c2_[row][col]     : c1_[row][col]; // weight comes from c2 when prop is true
-
-      next_a[row][col] = a; // latch a
-      if (b_in_ctrl.valid) { // latch b_in and compute new psum if valid is true
-        next_b[row][col] = b_in + static_cast<Acc>(a) * static_cast<Acc>(weight);
-      }
-      next_b_ctrl[row][col] = b_in_ctrl; // latch aligned control
+      next_control_path[row][col] = control; // control that's leaving this PE and going TB
     }
   }
 
   // compute out_b and status/ctrl emerging from bottom row
   for (std::size_t col = 0; col < kDim; ++col) {
-    next_out_b[col]      = next_b[kDim - 1][col];
-    next_out_b_ctrl[col] = next_b_ctrl[kDim - 1][col];
+    next_out_b[col]         = next_b[kDim - 1][col];
+    next_out_b_control[col] = next_control_path[kDim - 1][col];
   }
- 
+
   // update state
-  a_path_ = next_a;
-  b_path_ = next_b;
-  b_ctrl_ = next_b_ctrl;
-  out_b_ = next_out_b;
-  out_b_ctrl_ = next_out_b_ctrl;
+  c1_            = next_c1;
+  c2_            = next_c2;
+  a_path_        = next_a;
+  b_path_        = next_b;
+  d_path_        = next_d;
+  control_path_  = next_control_path;
+  out_b_         = next_out_b;
+  out_b_control_ = next_out_b_control;
 }
 
 } // namespace smesh

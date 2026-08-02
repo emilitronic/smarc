@@ -27,8 +27,15 @@ int main() {
 
   smesh::MeshInputRow d0{1, 2, 3, 4};
   smesh::MeshInputRow d1{5, 6, 7, 8};
-  core.stepPreloadD(d0, smesh::MeshCoreCtrl{1, false, false, true});
-  core.stepPreloadD(d1, smesh::MeshCoreCtrl{2, false, true, true});
+  smesh::MeshCoreIn preload0{};
+  preload0.in_d = d0;
+  preload0.control = smesh::MeshCoreControl{1, false, false, true};
+  core.step(preload0);
+
+  smesh::MeshCoreIn preload1{};
+  preload1.in_d = d1;
+  preload1.control = smesh::MeshCoreControl{2, false, true, true};
+  core.step(preload1);
 
   bool ok = true;
   ok = ok && core.dPath()[0] == d1;
@@ -36,23 +43,30 @@ int main() {
   ok = ok && core.c1()[0] == d1;
   ok = ok && core.c2()[0] == d0;
   ok = ok && core.c2()[1] == d0;
-  ok = ok && core.dCtrl()[0][0].id == 2;
-  ok = ok && core.dCtrl()[0][0].prop;
-  ok = ok && core.dCtrl()[1][0].id == 1;
-  ok = ok && !core.dCtrl()[1][0].prop;
+  ok = ok && core.controlPath()[0][0].in_id == 2;
+  ok = ok && core.controlPath()[0][0].prop;
+  ok = ok && core.controlPath()[1][0].in_id == 1;
+  ok = ok && !core.controlPath()[1][0].prop;
 
   smesh::MeshInputRow a0{1, 2, 3, 4};
-  core.stepWsCompute(a0, smesh::MeshAccumRow{}, smesh::MeshCoreCtrl{3, true, true, true});
+  smesh::MeshInputRow d2{9, 10, 11, 12};
+  smesh::MeshCoreIn compute0{};
+  compute0.in_a = a0;
+  compute0.in_d = d2;
+  compute0.control = smesh::MeshCoreControl{3, true, true, true};
+  core.step(compute0);
 
+  ok = ok && core.c1()[0] == d2;
   ok = ok && core.aPath()[0][0] == 1;
   ok = ok && core.aPath()[1][0] == 2;
   ok = ok && core.bPath()[0][0] == 1;
-  ok = ok && core.bPath()[1][0] == 0;
-  ok = ok && core.bCtrl()[0][0].valid;
-  ok = ok && core.bCtrl()[0][0].id == 3;
-  ok = ok && core.bCtrl()[0][0].last;
-  ok = ok && core.bCtrl()[0][0].prop;
-  ok = ok && !core.bCtrl()[1][0].valid;
+  ok = ok && core.bPath()[1][0] == 2;
+  ok = ok && core.controlPath()[0][0].valid;
+  ok = ok && core.controlPath()[0][0].in_id == 3;
+  ok = ok && core.controlPath()[0][0].in_last;
+  ok = ok && core.controlPath()[0][0].prop;
+  ok = ok && core.controlPath()[1][0].valid;
+  ok = ok && core.controlPath()[1][0].in_id == 2;
   ok = ok && rowEquals(core.outB(), smesh::MeshAccumRow{0, 0, 0, 0});
 
   std::printf("[MESH_CORE] %s ws_movement\n", ok ? "PASS" : "FAIL");
