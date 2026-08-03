@@ -21,27 +21,28 @@ mesh-boundary timing belongs.
 #include <cstdint>
 
 namespace smesh {
-
+// Hull inputs from outside
 struct MeshHullIn {
+  // inputs from local memories
   bit          a_fire = 0;
   MeshInputRow a_bits{}; // input type
   bit          b_fire = 0;
   MeshInputRow b_bits{}; // weight type (but widens to handle psums)
   bit          d_fire = 0;
   MeshInputRow d_bits{}; // weight type
-
+  // inputs from transposer
   MeshInputRow transposer_out_col_bits{};
-  bit a_is_from_transposer    = 0;
-  bit b_is_from_transposer    = 0;
-  bit d_is_from_transposer    = 0;
-
+  bit a_is_from_transposer = 0;
+  bit b_is_from_transposer = 0;
+  bit d_is_from_transposer = 0;
+  // inputs from ExCtrl
   ExCtrlMeshPeControl pe_control{};
-  bit          req_fire = 0;  // request to mesh boundary from ExCtrl
-  std::uint8_t matmul_id = 0;
-  bit          last_fire = 0;
-  bit          pause = 0;
+  bit                 req_fire = 0;  // request to mesh boundary from ExCtrl
+  std::uint8_t        matmul_id = 0;
+  bit                 last_fire = 0;
+  bit                 pause = 0;
 };
-
+// Hull outputs to outside
 struct MeshHullOut {
   MeshAccumRow resp_data{};
   bit          resp_valid = 0;
@@ -60,7 +61,6 @@ class MeshHull {
  private:
   template <typename T>
   using SkewRow = std::array<T, kDim>; // row of kDim valus of type T
-
   template <typename T>
   using SkewState = std::array<SkewRow<T>, kDim>; // internal delay storage for all lanes
 
@@ -85,7 +85,7 @@ class MeshHull {
 
   MeshAccumRow widenInputRow(const MeshInputRow& row) const;
 
-  MeshCore core_{};
+  MeshCore core_{};          // Hull, contains Core systolic array
   MeshInputRow    a_buf_{};  // input
   MeshAccumRow    b_buf_{};  // partial sums
   MeshInputRow    d_buf_{};  // weights

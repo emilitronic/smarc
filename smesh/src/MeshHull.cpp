@@ -22,25 +22,25 @@ void MeshHull::step(const MeshHullIn& in) {
   out_ = MeshHullOut{};
 
   if (in.a_fire != 0) {
-    a_buf_ = in.a_is_from_transposer != 0 ? in.transposer_out_col_bits : in.a_bits;
+    a_buf_ = in.a_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.a_bits;
   }
   if (in.b_fire != 0) {
     b_buf_ = in.b_is_from_transposer != 0 ? widenInputRow(in.transposer_out_col_bits) : widenInputRow(in.b_bits);
   }
   if (in.d_fire != 0) {
-    d_buf_ = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits : in.d_bits;
+    d_buf_ = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.d_bits;
   }
 
   MeshCoreIn core_in{};
-  core_in.in_a = stepInputSkew(a_skew_, a_buf_);
-  core_in.in_b = stepInputSkew(b_skew_, b_buf_);
-  core_in.in_d = stepInputSkew(d_skew_, d_buf_);
+  core_in.in_a            = stepInputSkew(a_skew_, a_buf_);
+  core_in.in_b            = stepInputSkew(b_skew_, b_buf_);
+  core_in.in_d            = stepInputSkew(d_skew_, d_buf_);
   core_in.control.in_id   = in.matmul_id;
   core_in.control.in_last = in.last_fire != 0;
   core_in.control.prop    = in.pe_control.propagate != 0;
   core_in.control.valid   = in.pause == 0;
 
-  core_.step(core_in);
+  core_.step(core_in); // update systolic Core state and get new outputs
 
   const auto& out_control = core_.outBControl()[0];
   out_.resp_data     = core_.outB();
