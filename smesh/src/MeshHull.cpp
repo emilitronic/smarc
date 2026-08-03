@@ -17,6 +17,7 @@ void MeshHull::reset() {
   d_skew_       = SkewState<Elem>{};
   control_skew_ = SkewState<MeshCoreControl>{};
   status_skew_  = SkewState<MeshCoreStatus>{};
+  in_prop_      = false;
   out_          = MeshHullOut{};
 }
 
@@ -33,14 +34,18 @@ void MeshHull::step(const MeshHullIn& in) {
     d_buf_ = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.d_bits;
   }
 
+  if (in.req_fire != 0) {
+    in_prop_ = in.pe_control.propagate != 0;
+  }
+
   MeshCoreIn core_in{};
   MeshCoreControlRow control_in{};
   MeshCoreStatusRow status_in{};
   for (std::size_t lane = 0; lane < kDim; ++lane) {
-    control_in[lane].prop    = in.pe_control.propagate != 0;
-    status_in[lane].in_id    = in.matmul_id;
-    status_in[lane].in_last  = in.last_fire != 0;
-    status_in[lane].valid    = in.not_paused != 0;
+    control_in[lane].prop   = in_prop_;
+    status_in[lane].in_id   = in.matmul_id;
+    status_in[lane].in_last = in.last_fire != 0;
+    status_in[lane].valid   = in.not_paused != 0;
   }
 
   core_in.in_a    = stepInputSkew(a_skew_, a_buf_);

@@ -94,6 +94,7 @@ class MeshHull {
   SkewState<Elem> d_skew_{};
   SkewState<MeshCoreControl> control_skew_{};
   SkewState<MeshCoreStatus> status_skew_{};
+  bool in_prop_ = false;
   MeshHullOut     out_{};
 };
 
