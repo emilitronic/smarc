@@ -18,8 +18,12 @@ int main() {
   preload0.pe_control.propagate = 0;
   preload0.req_fire = 1;
   preload0.matmul_id = 1;
-  preload0.not_paused = 1;
   hull.step(preload0);
+
+  smesh::MeshHullIn use_preload0{};
+  use_preload0.matmul_id = 1;
+  use_preload0.not_paused = 1;
+  hull.step(use_preload0);
 
   smesh::MeshHullIn preload1{};
   preload1.d_fire = 1;
@@ -27,8 +31,12 @@ int main() {
   preload1.pe_control.propagate = 1;
   preload1.req_fire = 1;
   preload1.matmul_id = 2;
-  preload1.not_paused = 1;
   hull.step(preload1);
+
+  smesh::MeshHullIn use_preload1{};
+  use_preload1.matmul_id = 2;
+  use_preload1.not_paused = 1;
+  hull.step(use_preload1);
 
   smesh::MeshHullIn compute0{};
   compute0.a_fire = 1;
@@ -39,8 +47,13 @@ int main() {
   compute0.req_fire = 1;
   compute0.matmul_id = 3;
   compute0.last_fire = 1;
-  compute0.not_paused = 1;
   hull.step(compute0);
+
+  smesh::MeshHullIn use_compute0{};
+  use_compute0.matmul_id = 3;
+  use_compute0.last_fire = 1;
+  use_compute0.not_paused = 1;
+  hull.step(use_compute0);
 
   bool ok = true;
   ok = ok && hull.core().c1()[0][0] == 9;
@@ -60,6 +73,11 @@ int main() {
   invalid.matmul_id = 4;
   invalid.not_paused = 0;
   hull.step(invalid);
+
+  smesh::MeshHullIn use_invalid{};
+  use_invalid.matmul_id = 4;
+  use_invalid.not_paused = 0;
+  hull.step(use_invalid);
 
   ok = ok && hull.core().aPath()[0][0] == 13;
   ok = ok && hull.core().c2()[0][0] == 1;
