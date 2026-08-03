@@ -46,9 +46,9 @@ void MeshCore::step(const MeshCoreIn& in) {
       }
 
       if (control.valid) { // if PE's signal is valid... 
-        next_d[row][col] = d_in;     // ...update D/out_c for PE below
+        next_d[row][col] = d_in;    // ...update D/out_c for PE below
         if (control.prop) {
-          next_c1[row][col] = d_in; // ...update c1 for this PE is prop=1
+          next_c1[row][col] = d_in; // ...update c1 for this PE if prop=1
         } else {
           next_c2[row][col] = d_in; // ...update c2 for this PE if prop=0
         }
