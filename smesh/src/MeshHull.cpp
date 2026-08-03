@@ -17,6 +17,8 @@ void MeshHull::reset() {
   d_skew_       = SkewState<Elem>{};
   control_skew_ = SkewState<MeshCoreControl>{};
   status_skew_  = SkewState<MeshCoreStatus>{};
+  out_b_skew_   = SkewState<Acc>{};
+  out_status_skew_ = SkewState<MeshCoreStatus>{};
   in_prop_      = false;
   out_          = MeshHullOut{};
 }
@@ -70,8 +72,10 @@ void MeshHull::step(const MeshHullIn& in) {
   d_buf_   = next_d_buf;
   in_prop_ = next_in_prop;
 
-  const auto& out_status = core_.outBStatus()[0]; // access Core's private output status state
-  out_.resp_data     = core_.outB();
+  const auto out_b          = stepOutputSkew(out_b_skew_, core_.outB());
+  const auto out_status_row = stepOutputSkew(out_status_skew_, core_.outBStatus());
+  const auto out_status     = out_status_row[0];
+  out_.resp_data     = out_b;
   out_.resp_valid    = bit(out_status.valid);
   out_.resp_last     = bit(out_status.in_last);
   out_.out_matmul_id = out_status.in_id;

@@ -83,19 +83,44 @@ class MeshHull {
     return out;
   }
 
+  // Reverse skew for output rows: lane 0 is delayed longest, lane kDim-1 is current.
+  template <typename T>
+  SkewRow<T> stepOutputSkew(SkewState<T>& state, const SkewRow<T>& in) {
+    SkewRow<T> out{};
+    SkewState<T> next = state;
+
+    for (std::size_t lane = 0; lane < kDim; ++lane) {
+      const auto delay_len = kDim - 1 - lane;
+      out[lane] = delay_len == 0 ? in[lane] : state[lane][delay_len - 1];
+      if (delay_len > 0) {
+        next[lane][0] = in[lane];
+        for (std::size_t delay = 1; delay < delay_len; ++delay) {
+          next[lane][delay] = state[lane][delay - 1];
+        }
+      }
+    }
+    state = next;
+    return out;
+  }
+
   MeshAccumRow widenInputRow(const MeshInputRow& row) const;
 
   MeshCore core_{};          // Hull, contains Core systolic array
-  MeshInputRow    a_buf_{};  // input
-  MeshAccumRow    b_buf_{};  // partial sums
-  MeshInputRow    d_buf_{};  // weights
-  SkewState<Elem> a_skew_{};
-  SkewState<Acc>  b_skew_{};
-  SkewState<Elem> d_skew_{};
-  SkewState<MeshCoreControl> control_skew_{};
-  SkewState<MeshCoreStatus> status_skew_{};
+
+  MeshInputRow               a_buf_{};  // straight row input 
+  MeshAccumRow               b_buf_{};  // straight row partial sums
+  MeshInputRow               d_buf_{};  // straight row weights
+  SkewState<Elem>            a_skew_{}; // skewed row input
+  SkewState<Acc>             b_skew_{}; // skewed row partial sums
+  SkewState<Elem>            d_skew_{}; // skewed row weights
+  SkewState<MeshCoreControl> control_skew_{}; // propagate control skewed
+  SkewState<MeshCoreStatus>  status_skew_{};  // id/last/valid metadata skewed
+
+  SkewState<Acc>            out_b_skew_{};
+  SkewState<MeshCoreStatus> out_status_skew_{};
   bool in_prop_ = false;
-  MeshHullOut     out_{};
+  
+  MeshHullOut out_{};
 };
 
 } // namespace smesh
