@@ -7,39 +7,34 @@
 
 namespace smesh {
 
-namespace {
-
-std::uint8_t byteAt(u64 data, std::size_t index) {
-  return static_cast<std::uint8_t>((data >> (8 * index)) & 0xffu);
-}
-
-} // namespace
-
 void MeshHull::reset() {
   core_.reset();
-  a_buf_ = MeshInputRow{};
-  b_buf_ = MeshAccumRow{};
-  d_buf_ = MeshInputRow{};
-  out_   = MeshHullOut{};
+  a_buf_  = MeshInputRow{};
+  b_buf_  = MeshAccumRow{};
+  d_buf_  = MeshInputRow{};
+  a_skew_ = SkewState<Elem>{};
+  b_skew_ = SkewState<Acc>{};
+  d_skew_ = SkewState<Elem>{};
+  out_    = MeshHullOut{};
 }
 
 void MeshHull::step(const MeshHullIn& in) {
   out_ = MeshHullOut{};
 
   if (in.a_fire != 0) {
-    a_buf_ = in.a_is_from_transposer != 0 ? inputRowFromBits(in.transposer_out_col_bits) : in.a_bits;
+    a_buf_ = in.a_is_from_transposer != 0 ? in.transposer_out_col_bits : in.a_bits;
   }
   if (in.b_fire != 0) {
-    b_buf_ = in.b_is_from_transposer != 0 ? widenInputRow(inputRowFromBits(in.transposer_out_col_bits)) : widenInputRow(in.b_bits);
+    b_buf_ = in.b_is_from_transposer != 0 ? widenInputRow(in.transposer_out_col_bits) : widenInputRow(in.b_bits);
   }
   if (in.d_fire != 0) {
-    d_buf_ = in.d_is_from_transposer != 0 ? inputRowFromBits(in.transposer_out_col_bits) : in.d_bits;
+    d_buf_ = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits : in.d_bits;
   }
 
   MeshCoreIn core_in{};
-  core_in.in_a = a_buf_;
-  core_in.in_b = b_buf_;
-  core_in.in_d = d_buf_;
+  core_in.in_a = stepInputSkew(a_skew_, a_buf_);
+  core_in.in_b = stepInputSkew(b_skew_, b_buf_);
+  core_in.in_d = stepInputSkew(d_skew_, d_buf_);
   core_in.control.in_id   = in.matmul_id;
   core_in.control.in_last = in.last_fire != 0;
   core_in.control.prop    = in.pe_control.propagate != 0;
@@ -52,14 +47,6 @@ void MeshHull::step(const MeshHullIn& in) {
   out_.resp_valid    = bit(out_control.valid);
   out_.resp_last     = bit(out_control.in_last);
   out_.out_matmul_id = out_control.in_id;
-}
-
-MeshInputRow MeshHull::inputRowFromBits(u64 data) const {
-  MeshInputRow row{};
-  for (std::size_t i = 0; i < kDim && i < sizeof(data); ++i) {
-    row[i] = static_cast<Elem>(byteAt(data, i));
-  }
-  return row;
 }
 
 MeshAccumRow MeshHull::widenInputRow(const MeshInputRow& row) const {

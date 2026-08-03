@@ -40,7 +40,7 @@ int main() {
   ok = ok && hull.core().c1()[0][0] == 9;
   ok = ok && hull.core().c2()[0][0] == 1;
   ok = ok && hull.core().bPath()[0][0] == 1;
-  ok = ok && hull.core().bPath()[1][0] == 2;
+  ok = ok && hull.core().bPath()[1][0] == 0;
   ok = ok && hull.core().controlPath()[0][0].in_id == 3;
   ok = ok && hull.core().controlPath()[0][0].in_last;
 
