@@ -17,33 +17,33 @@ std::uint8_t byteAt(u64 data, std::size_t index) {
 
 void MeshHull::reset() {
   core_.reset();
-  out_ = MeshHullOut{};
+  a_buf_ = MeshInputRow{};
+  b_buf_ = MeshAccumRow{};
+  d_buf_ = MeshInputRow{};
+  out_   = MeshHullOut{};
 }
 
 void MeshHull::step(const MeshHullIn& in) {
   out_ = MeshHullOut{};
-  if (in.pause != 0) {
-    return;
-  }
 
-  const u64 a_data = in.a_is_from_transposer != 0 ? in.transposer_out_col_bits : static_cast<u64>(in.a_bits.data);
-  const u64 b_data = in.b_is_from_transposer != 0 ? in.transposer_out_col_bits : static_cast<u64>(in.b_bits.data);
-  const u64 d_data = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits : static_cast<u64>(in.d_bits.data);
+  if (in.a_fire != 0) {
+    a_buf_ = in.a_is_from_transposer != 0 ? inputRowFromBits(in.transposer_out_col_bits) : in.a_bits;
+  }
+  if (in.b_fire != 0) {
+    b_buf_ = in.b_is_from_transposer != 0 ? widenInputRow(inputRowFromBits(in.transposer_out_col_bits)) : widenInputRow(in.b_bits);
+  }
+  if (in.d_fire != 0) {
+    d_buf_ = in.d_is_from_transposer != 0 ? inputRowFromBits(in.transposer_out_col_bits) : in.d_bits;
+  }
 
   MeshCoreIn core_in{};
-  if (in.a_fire != 0 && in.a_bits.valid != 0) {
-    core_in.in_a = inputRowFromBits(a_data);
-  }
-  if (in.b_fire != 0 && in.b_bits.valid != 0) {
-    core_in.in_b = accumRowFromBits(b_data);
-  }
-  if (in.d_fire != 0 && in.d_bits.valid != 0) {
-    core_in.in_d = inputRowFromBits(d_data);
-  }
+  core_in.in_a = a_buf_;
+  core_in.in_b = b_buf_;
+  core_in.in_d = d_buf_;
   core_in.control.in_id   = in.matmul_id;
   core_in.control.in_last = in.last_fire != 0;
   core_in.control.prop    = in.pe_control.propagate != 0;
-  core_in.control.valid   = in.a_fire != 0 || in.b_fire != 0 || in.d_fire != 0 || in.req_fire != 0;
+  core_in.control.valid   = in.pause == 0;
 
   core_.step(core_in);
 
@@ -62,12 +62,12 @@ MeshInputRow MeshHull::inputRowFromBits(u64 data) const {
   return row;
 }
 
-MeshAccumRow MeshHull::accumRowFromBits(u64 data) const {
-  MeshAccumRow row{};
+MeshAccumRow MeshHull::widenInputRow(const MeshInputRow& row) const {
+  MeshAccumRow widened{};
   for (std::size_t i = 0; i < kDim; ++i) {
-    row[i] = static_cast<Acc>(byteAt(data, i));
+    widened[i] = static_cast<Acc>(row[i]);
   }
-  return row;
+  return widened;
 }
 
 } // namespace smesh

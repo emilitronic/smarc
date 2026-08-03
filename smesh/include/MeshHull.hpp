@@ -22,11 +22,11 @@ namespace smesh {
 
 struct MeshHullIn {
   bit a_fire = 0;
-  ExCtrlMeshInput a_bits{};
+  MeshInputRow a_bits{};
   bit b_fire = 0;
-  ExCtrlMeshInput b_bits{};
+  MeshInputRow b_bits{};
   bit d_fire = 0;
-  ExCtrlMeshInput d_bits{};
+  MeshInputRow d_bits{};
 
   u64 transposer_out_col_bits = 0;
   bit a_is_from_transposer    = 0;
@@ -57,9 +57,12 @@ class MeshHull {
 
  private:
   MeshInputRow inputRowFromBits(u64 data) const;
-  MeshAccumRow accumRowFromBits(u64 data) const;
+  MeshAccumRow widenInputRow(const MeshInputRow& row) const;
 
   MeshCore core_{};
+  MeshInputRow a_buf_{}; // input
+  MeshAccumRow b_buf_{}; // partial sums
+  MeshInputRow d_buf_{}; // weights
   MeshHullOut out_{};
 };
 
