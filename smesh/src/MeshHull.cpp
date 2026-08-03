@@ -9,14 +9,15 @@ namespace smesh {
 
 void MeshHull::reset() {
   core_.reset();
-  a_buf_  = MeshInputRow{};
-  b_buf_  = MeshAccumRow{};
-  d_buf_  = MeshInputRow{};
-  a_skew_ = SkewState<Elem>{};
-  b_skew_ = SkewState<Acc>{};
-  d_skew_ = SkewState<Elem>{};
+  a_buf_        = MeshInputRow{};
+  b_buf_        = MeshAccumRow{};
+  d_buf_        = MeshInputRow{};
+  a_skew_       = SkewState<Elem>{};
+  b_skew_       = SkewState<Acc>{};
+  d_skew_       = SkewState<Elem>{};
   control_skew_ = SkewState<MeshCoreControl>{};
-  out_    = MeshHullOut{};
+  status_skew_  = SkewState<MeshCoreStatus>{};
+  out_          = MeshHullOut{};
 }
 
 void MeshHull::step(const MeshHullIn& in) {
@@ -34,27 +35,29 @@ void MeshHull::step(const MeshHullIn& in) {
 
   MeshCoreIn core_in{};
   MeshCoreControlRow control_in{};
+  MeshCoreStatusRow status_in{};
   for (std::size_t lane = 0; lane < kDim; ++lane) {
-    control_in[lane].in_id   = in.matmul_id;
-    control_in[lane].in_last = in.last_fire != 0;
     control_in[lane].prop    = in.pe_control.propagate != 0;
-    control_in[lane].valid   = in.not_paused != 0;
+    status_in[lane].in_id    = in.matmul_id;
+    status_in[lane].in_last  = in.last_fire != 0;
+    status_in[lane].valid    = in.not_paused != 0;
   }
 
-  core_in.in_a            = stepInputSkew(a_skew_, a_buf_);
-  core_in.in_b            = stepInputSkew(b_skew_, b_buf_);
-  core_in.in_d            = stepInputSkew(d_skew_, d_buf_);
-  core_in.control         = stepInputSkew(control_skew_, control_in);
+  core_in.in_a    = stepInputSkew(a_skew_, a_buf_);
+  core_in.in_b    = stepInputSkew(b_skew_, b_buf_);
+  core_in.in_d    = stepInputSkew(d_skew_, d_buf_);
+  core_in.control = stepInputSkew(control_skew_, control_in);
+  core_in.status  = stepInputSkew(status_skew_, status_in);
 
   core_.step(core_in); // update systolic Core state based on the inputs and get new outputs
 
-  const auto& out_control = core_.outBControl()[0]; // acces Core's private control state
+  const auto& out_status = core_.outBStatus()[0]; // access Core's private output status state
   out_.resp_data     = core_.outB();
-  out_.resp_valid    = bit(out_control.valid);
-  out_.resp_last     = bit(out_control.in_last);
-  out_.out_matmul_id = out_control.in_id;
+  out_.resp_valid    = bit(out_status.valid);
+  out_.resp_last     = bit(out_status.in_last);
+  out_.out_matmul_id = out_status.in_id;
 }
-
+// Widen element bitdwidth of row input vector to accumulator and hence partial sum bitwidth
 MeshAccumRow MeshHull::widenInputRow(const MeshInputRow& row) const {
   MeshAccumRow widened{};
   for (std::size_t i = 0; i < kDim; ++i) {

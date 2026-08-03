@@ -44,8 +44,8 @@ int main() {
   ok = ok && hull.core().c2()[0][0] == 1;
   ok = ok && hull.core().bPath()[0][0] == 1;
   ok = ok && hull.core().bPath()[1][0] == 0;
-  ok = ok && hull.core().controlPath()[0][0].in_id == 3;
-  ok = ok && hull.core().controlPath()[0][0].in_last;
+  ok = ok && hull.core().statusPath()[0][0].in_id == 3;
+  ok = ok && hull.core().statusPath()[0][0].in_last;
 
   smesh::MeshHullIn invalid{};
   invalid.a_fire = 1;
@@ -59,7 +59,7 @@ int main() {
 
   ok = ok && hull.core().aPath()[0][0] == 13;
   ok = ok && hull.core().c2()[0][0] == 1;
-  ok = ok && !hull.core().controlPath()[0][0].valid;
+  ok = ok && !hull.core().statusPath()[0][0].valid;
 
   std::printf("[MESH_HULL] %s boundary_to_core\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
