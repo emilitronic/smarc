@@ -30,19 +30,21 @@ struct MeshCoreControl {
   bool valid   = false;
 };
 
+using MeshCoreControlRow = std::array<MeshCoreControl, kDim>;
+
 // one cycle of boundary inputs into the systolic core
 struct MeshCoreIn {
   MeshInputRow in_a{};
   MeshAccumRow in_b{};
   MeshInputRow in_d{};
-  MeshCoreControl control{};
+  MeshCoreControlRow control{};
 };
 
 class MeshCore {
  public:
   using InputGrid = std::array<MeshInputRow, kDim>; // matrix of signals/weights
   using AccumGrid = std::array<MeshAccumRow, kDim>; // matrix of psums/results
-  using CtrlRow   = std::array<MeshCoreControl, kDim>;
+  using CtrlRow   = MeshCoreControlRow;
   using CtrlGrid  = std::array<CtrlRow, kDim>;
 
   void reset();

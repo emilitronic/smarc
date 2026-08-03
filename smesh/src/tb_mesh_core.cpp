@@ -19,6 +19,14 @@ bool rowEquals(const smesh::MeshAccumRow& row, const smesh::MeshAccumRow& expect
   return true;
 }
 
+smesh::MeshCoreControlRow controlRow(const smesh::MeshCoreControl& control) {
+  smesh::MeshCoreControlRow row{};
+  for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+    row[lane] = control;
+  }
+  return row;
+}
+
 } // namespace
 
 int main() {
@@ -29,12 +37,12 @@ int main() {
   smesh::MeshInputRow d1{5, 6, 7, 8};
   smesh::MeshCoreIn preload0{};
   preload0.in_d = d0;
-  preload0.control = smesh::MeshCoreControl{1, false, false, true};
+  preload0.control = controlRow(smesh::MeshCoreControl{1, false, false, true});
   core.step(preload0);
 
   smesh::MeshCoreIn preload1{};
   preload1.in_d = d1;
-  preload1.control = smesh::MeshCoreControl{2, false, true, true};
+  preload1.control = controlRow(smesh::MeshCoreControl{2, false, true, true});
   core.step(preload1);
 
   bool ok = true;
@@ -53,7 +61,7 @@ int main() {
   smesh::MeshCoreIn compute0{};
   compute0.in_a = a0;
   compute0.in_d = d2;
-  compute0.control = smesh::MeshCoreControl{3, true, true, true};
+  compute0.control = controlRow(smesh::MeshCoreControl{3, true, true, true});
   core.step(compute0);
 
   ok = ok && core.c1()[0] == d2;

@@ -36,7 +36,7 @@ void MeshCore::step(const MeshCoreIn& in) {
 
       const auto b_in    = row == 0     ? in.in_b[col]  : b_path_[row - 1][col];       // B flows in TB
       const auto d_in    = row == 0     ? in.in_d[col]  : d_path_[row - 1][col];       // D flows TB
-      const auto control = row == 0     ? in.control    : control_path_[row - 1][col]; // ctrl flows TB
+      const auto control = row == 0     ? in.control[col] : control_path_[row - 1][col]; // ctrl flows TB
       const auto weight  = control.prop ? c2_[row][col] : c1_[row][col];               // weight=c2 if prop=1, c1 if prop=0
 
       next_a[row][col] = a; // A that's leaving this PE and going LR

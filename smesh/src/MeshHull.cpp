@@ -15,6 +15,7 @@ void MeshHull::reset() {
   a_skew_ = SkewState<Elem>{};
   b_skew_ = SkewState<Acc>{};
   d_skew_ = SkewState<Elem>{};
+  control_skew_ = SkewState<MeshCoreControl>{};
   out_    = MeshHullOut{};
 }
 
@@ -32,17 +33,22 @@ void MeshHull::step(const MeshHullIn& in) {
   }
 
   MeshCoreIn core_in{};
+  MeshCoreControlRow control_in{};
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    control_in[lane].in_id   = in.matmul_id;
+    control_in[lane].in_last = in.last_fire != 0;
+    control_in[lane].prop    = in.pe_control.propagate != 0;
+    control_in[lane].valid   = in.not_paused != 0;
+  }
+
   core_in.in_a            = stepInputSkew(a_skew_, a_buf_);
   core_in.in_b            = stepInputSkew(b_skew_, b_buf_);
   core_in.in_d            = stepInputSkew(d_skew_, d_buf_);
-  core_in.control.in_id   = in.matmul_id;
-  core_in.control.in_last = in.last_fire != 0;
-  core_in.control.prop    = in.pe_control.propagate != 0;
-  core_in.control.valid   = in.pause == 0;
+  core_in.control         = stepInputSkew(control_skew_, control_in);
 
-  core_.step(core_in); // update systolic Core state and get new outputs
+  core_.step(core_in); // update systolic Core state based on the inputs and get new outputs
 
-  const auto& out_control = core_.outBControl()[0];
+  const auto& out_control = core_.outBControl()[0]; // acces Core's private control state
   out_.resp_data     = core_.outB();
   out_.resp_valid    = bit(out_control.valid);
   out_.resp_last     = bit(out_control.in_last);

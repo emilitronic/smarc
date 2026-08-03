@@ -17,6 +17,7 @@ int main() {
   preload0.d_bits = smesh::MeshInputRow{1, 2, 3, 4};
   preload0.pe_control.propagate = 0;
   preload0.matmul_id = 1;
+  preload0.not_paused = 1;
   hull.step(preload0);
 
   smesh::MeshHullIn preload1{};
@@ -24,6 +25,7 @@ int main() {
   preload1.d_bits = smesh::MeshInputRow{5, 6, 7, 8};
   preload1.pe_control.propagate = 1;
   preload1.matmul_id = 2;
+  preload1.not_paused = 1;
   hull.step(preload1);
 
   smesh::MeshHullIn compute0{};
@@ -34,6 +36,7 @@ int main() {
   compute0.pe_control.propagate = 1;
   compute0.matmul_id = 3;
   compute0.last_fire = 1;
+  compute0.not_paused = 1;
   hull.step(compute0);
 
   bool ok = true;
@@ -44,15 +47,15 @@ int main() {
   ok = ok && hull.core().controlPath()[0][0].in_id == 3;
   ok = ok && hull.core().controlPath()[0][0].in_last;
 
-  smesh::MeshHullIn paused{};
-  paused.a_fire = 1;
-  paused.a_bits = smesh::MeshInputRow{13, 14, 15, 16};
-  paused.d_fire = 1;
-  paused.d_bits = smesh::MeshInputRow{17, 18, 19, 20};
-  paused.pe_control.propagate = 0;
-  paused.matmul_id = 4;
-  paused.pause = 1;
-  hull.step(paused);
+  smesh::MeshHullIn invalid{};
+  invalid.a_fire = 1;
+  invalid.a_bits = smesh::MeshInputRow{13, 14, 15, 16};
+  invalid.d_fire = 1;
+  invalid.d_bits = smesh::MeshInputRow{17, 18, 19, 20};
+  invalid.pe_control.propagate = 0;
+  invalid.matmul_id = 4;
+  invalid.not_paused = 0;
+  hull.step(invalid);
 
   ok = ok && hull.core().aPath()[0][0] == 13;
   ok = ok && hull.core().c2()[0][0] == 1;

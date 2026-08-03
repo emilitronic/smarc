@@ -40,7 +40,7 @@ struct MeshHullIn {
   bit                 req_fire = 0;  // request to mesh boundary from ExCtrl
   std::uint8_t        matmul_id = 0;
   bit                 last_fire = 0;
-  bit                 pause = 0;
+  bit                 not_paused = 0;
 };
 // Hull outputs to outside
 struct MeshHullOut {
@@ -92,6 +92,7 @@ class MeshHull {
   SkewState<Elem> a_skew_{};
   SkewState<Acc>  b_skew_{};
   SkewState<Elem> d_skew_{};
+  SkewState<MeshCoreControl> control_skew_{};
   MeshHullOut     out_{};
 };
 
