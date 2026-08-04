@@ -71,11 +71,11 @@ void MesherDriver::update() {
   req_val = 1;
   req_bits = req;
   a_val = 1;
-  a_bits = smesh::ExCtrlMeshIn{0x1111u};
+  a_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{1, 1, 0, 0}};
   b_val = 1;
-  b_bits = smesh::ExCtrlMeshIn{0x2222u};
+  b_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{2, 2, 0, 0}};
   d_val = 1;
-  d_bits = smesh::ExCtrlMeshIn{0x3333u};
+  d_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{3, 3, 0, 0}};
 }
 
 void MesherDriver::reset() {

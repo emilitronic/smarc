@@ -217,9 +217,9 @@ void MeshInSelPadMonitor::update() {
   const auto b = *mesh_b;
   const auto d = *mesh_d;
   passed_ =
-      a.data == 0x776655u &&
-      b.data == 0x002001u &&
-      d.data == 0 &&
+      a.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x55), static_cast<smesh::Elem>(0x66), static_cast<smesh::Elem>(0x77), 0} &&
+      b.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x01), static_cast<smesh::Elem>(0x20), 0, 0} &&
+      d.data == smesh::MeshInputRow{} &&
       mesh_a_val != 0 &&
       mesh_b_val != 0 &&
       mesh_d_val == 0 &&

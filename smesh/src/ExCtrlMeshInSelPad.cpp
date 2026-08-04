@@ -13,11 +13,11 @@ std::size_t boundedIndex(std::uint32_t index, std::size_t size) {
   return size == 0 ? 0 : static_cast<std::size_t>(index) % size;
 }
 
-u64 padInputRow(u64 unpadded, std::uint32_t unpadded_cols) {
-  u64 padded = 0;
+MeshInputRow padInputRow(u64 unpadded, std::uint32_t unpadded_cols) {
+  MeshInputRow padded{};
   const std::size_t cols = unpadded_cols < kDim ? unpadded_cols : kDim;
   for (std::size_t lane = 0; lane < cols; ++lane) {
-    padded |= unpadded & (u64{0xff} << (lane * 8));
+    padded[lane] = static_cast<Elem>((unpadded >> (lane * 8)) & u64{0xff});
   }
   return padded;
 }
