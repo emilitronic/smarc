@@ -86,9 +86,9 @@ void ExCtrlMeshInSelPad::update() {
   const auto next_mesh_a_val = bit(cntl_val != 0 && cntl_a_fire != 0 && dataA_valid);
   const auto next_mesh_b_val = bit(cntl_val != 0 && cntl_b_fire != 0 && dataB_valid);
   const auto next_mesh_d_val = bit(cntl_val != 0 && cntl_d_fire != 0 && dataD_valid);
-  const auto next_mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols)};
-  const auto next_mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols)};
-  const auto next_mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols)};
+  const auto next_mesh_a = ExCtrlMeshIn{padInputRow(a_unpadded, a_unpadded_cols)};
+  const auto next_mesh_b = ExCtrlMeshIn{padInputRow(b_unpadded, b_unpadded_cols)};
+  const auto next_mesh_d = ExCtrlMeshIn{padInputRow(d_unpadded, d_unpadded_cols)};
 
   mesh_a = next_mesh_a;
   mesh_b = next_mesh_b;

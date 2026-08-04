@@ -61,9 +61,9 @@ class MeshInSelPadMonitor : public Component {
   MeshInSelPadMonitor(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  Input(smesh::ExCtrlMeshInput, mesh_a);
-  Input(smesh::ExCtrlMeshInput, mesh_b);
-  Input(smesh::ExCtrlMeshInput, mesh_d);
+  Input(smesh::ExCtrlMeshIn, mesh_a);
+  Input(smesh::ExCtrlMeshIn, mesh_b);
+  Input(smesh::ExCtrlMeshIn, mesh_d);
   Input(bit, mesh_a_val);
   Input(bit, mesh_b_val);
   Input(bit, mesh_d_val);

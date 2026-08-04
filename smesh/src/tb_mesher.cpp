@@ -21,11 +21,11 @@ class MesherDriver : public Component {
   Output(bit, req_val);
   Output(smesh::ExCtrlMeshReq, req_bits);
   Output(bit, a_val);
-  Output(smesh::ExCtrlMeshInput, a_bits);
+  Output(smesh::ExCtrlMeshIn, a_bits);
   Output(bit, b_val);
-  Output(smesh::ExCtrlMeshInput, b_bits);
+  Output(smesh::ExCtrlMeshIn, b_bits);
   Output(bit, d_val);
-  Output(smesh::ExCtrlMeshInput, d_bits);
+  Output(smesh::ExCtrlMeshIn, d_bits);
 
   void update();
   void reset();
@@ -71,22 +71,22 @@ void MesherDriver::update() {
   req_val = 1;
   req_bits = req;
   a_val = 1;
-  a_bits = smesh::ExCtrlMeshInput{0x1111u};
+  a_bits = smesh::ExCtrlMeshIn{0x1111u};
   b_val = 1;
-  b_bits = smesh::ExCtrlMeshInput{0x2222u};
+  b_bits = smesh::ExCtrlMeshIn{0x2222u};
   d_val = 1;
-  d_bits = smesh::ExCtrlMeshInput{0x3333u};
+  d_bits = smesh::ExCtrlMeshIn{0x3333u};
 }
 
 void MesherDriver::reset() {
   req_val.reset(0);
   req_bits.reset(smesh::ExCtrlMeshReq{});
   a_val.reset(0);
-  a_bits.reset(smesh::ExCtrlMeshInput{});
+  a_bits.reset(smesh::ExCtrlMeshIn{});
   b_val.reset(0);
-  b_bits.reset(smesh::ExCtrlMeshInput{});
+  b_bits.reset(smesh::ExCtrlMeshIn{});
   d_val.reset(0);
-  d_bits.reset(smesh::ExCtrlMeshInput{});
+  d_bits.reset(smesh::ExCtrlMeshIn{});
 }
 
 MesherMonitor::MesherMonitor(std::string /*name*/, IMPL_CTOR) {

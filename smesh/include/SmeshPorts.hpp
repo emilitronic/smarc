@@ -232,7 +232,7 @@ struct ExCtrlMeshReq {
 };
 
 // mesh input row payload from ExCtrl into Mesher
-struct ExCtrlMeshInput {
+struct ExCtrlMeshIn {
   u64 data = 0;
 };
 

@@ -29,23 +29,23 @@ class Mesher : public Component {
 
   Clock(clk);
 
-  Input(bit, req_val);
-  Output(bit, req_rdy);
+  Input(bit,           req_val);
+  Output(bit,          req_rdy);
   Input(ExCtrlMeshReq, req_bits);
 
-  Input(bit, a_val);
-  Output(bit, a_rdy);
-  Input(ExCtrlMeshInput, a_bits);
+  Input(bit,          a_val);
+  Output(bit,         a_rdy);
+  Input(ExCtrlMeshIn, a_bits);
 
-  Input(bit, b_val);
-  Output(bit, b_rdy);
-  Input(ExCtrlMeshInput, b_bits);
+  Input(bit,          b_val);
+  Output(bit,         b_rdy);
+  Input(ExCtrlMeshIn, b_bits);
 
-  Input(bit, d_val);
-  Output(bit, d_rdy);
-  Input(ExCtrlMeshInput, d_bits);
+  Input(bit,          d_val);
+  Output(bit,         d_rdy);
+  Input(ExCtrlMeshIn, d_bits);
 
-  Output(bit, resp_val);
+  Output(bit,        resp_val);
   Output(MesherResp, resp_bits);
 
   OutputArray(MesherTag, tags_in_progress, kRsExecuteEntries);
