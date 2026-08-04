@@ -83,4 +83,8 @@ void MeshCore::step(const MeshCoreIn& in) {
   out_b_status_  = next_out_b_status;
 }
 
+void MeshCore::loadC2ForTest(const InputGrid& weights) {
+  c2_ = weights;
+}
+
 } // namespace smesh

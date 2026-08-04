@@ -282,6 +282,15 @@ target_link_libraries(tb_mesh_hull_math
     smesh_model
 )
 
+add_executable(tb_mesh_hull_matmul
+  src/tb_mesh_hull_matmul.cpp
+)
+
+target_link_libraries(tb_mesh_hull_matmul
+  PRIVATE
+    smesh_model
+)
+
 add_executable(tb_ex_ctrl_writeback
   src/tb_ex_ctrl_writeback.cpp
 )

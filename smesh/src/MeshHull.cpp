@@ -23,6 +23,10 @@ void MeshHull::reset() {
   out_          = MeshHullOut{};
 }
 
+void MeshHull::loadC2ForTest(const MeshCore::InputGrid& weights) {
+  core_.loadC2ForTest(weights);
+}
+
 void MeshHull::step(const MeshHullIn& in) {
   out_ = MeshHullOut{};
 
@@ -49,9 +53,9 @@ void MeshHull::step(const MeshHullIn& in) {
     next_in_prop = in.pe_control.propagate != 0;
   }
 
-  MeshCoreIn core_in{};
-  MeshCoreControlRow control_in{};
-  MeshCoreStatusRow status_in{};
+  MeshCoreIn core_in{}; // temporary input bundle to MeshCore for this cycle
+  MeshCoreControlRow control_in{}; // bundle for control inputs (just one so far though)
+  MeshCoreStatusRow status_in{};   // bundle for status inputs
   for (std::size_t lane = 0; lane < kDim; ++lane) {
     control_in[lane].prop   = current_in_prop;
     status_in[lane].in_id   = in.matmul_id;

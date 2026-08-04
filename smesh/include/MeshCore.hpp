@@ -60,6 +60,9 @@ class MeshCore {
   // Advance all LR/TB systolic paths by one cycle.
   void step(const MeshCoreIn& in);
 
+  // Test helper for seeding the WS c2 weight buffer without modeling preload.
+  void loadC2ForTest(const InputGrid& weights);
+
   const InputGrid&    c1() const { return c1_; }
   const InputGrid&    c2() const { return c2_; }
   const InputGrid&    aPath() const { return a_path_; }

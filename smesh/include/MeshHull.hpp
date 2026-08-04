@@ -54,6 +54,7 @@ class MeshHull {
  public:
   void reset();
   void step(const MeshHullIn& in);
+  void loadC2ForTest(const MeshCore::InputGrid& weights);
 
   const MeshHullOut& out() const { return out_; }
   const MeshCore& core() const { return core_; }
