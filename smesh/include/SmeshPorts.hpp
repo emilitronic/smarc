@@ -233,8 +233,7 @@ struct ExCtrlMeshReq {
 
 // mesh input row payload from ExCtrl into Mesher
 struct ExCtrlMeshInput {
-  u64 data  = 0;
-  bit valid = 0;
+  u64 data = 0;
 };
 
 struct MesherResp {

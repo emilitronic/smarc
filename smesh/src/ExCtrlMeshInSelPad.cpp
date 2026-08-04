@@ -83,19 +83,22 @@ void ExCtrlMeshInSelPad::update() {
   const bool dataB_valid = b_garbage != 0 || b_unpadded_cols == 0 || (accumulate_zeros != 0 ? false : b_read_from_acc != 0 ? accum_read_val[b_acc_index] != 0 : spad_read_val[b_spad_index] != 0);
   const bool dataD_valid = d_garbage != 0 || d_unpadded_cols == 0 || (preload_zeros != 0 ? false : d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 : spad_read_val[d_spad_index] != 0);
 
-  const auto next_mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols), bit(cntl_val != 0 && cntl_a_fire != 0 && dataA_valid)};
-  const auto next_mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols), bit(cntl_val != 0 && cntl_b_fire != 0 && dataB_valid)};
-  const auto next_mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols), bit(cntl_val != 0 && cntl_d_fire != 0 && dataD_valid)};
+  const auto next_mesh_a_val = bit(cntl_val != 0 && cntl_a_fire != 0 && dataA_valid);
+  const auto next_mesh_b_val = bit(cntl_val != 0 && cntl_b_fire != 0 && dataB_valid);
+  const auto next_mesh_d_val = bit(cntl_val != 0 && cntl_d_fire != 0 && dataD_valid);
+  const auto next_mesh_a = ExCtrlMeshInput{padInputRow(a_unpadded, a_unpadded_cols)};
+  const auto next_mesh_b = ExCtrlMeshInput{padInputRow(b_unpadded, b_unpadded_cols)};
+  const auto next_mesh_d = ExCtrlMeshInput{padInputRow(d_unpadded, d_unpadded_cols)};
 
   mesh_a = next_mesh_a;
   mesh_b = next_mesh_b;
   mesh_d = next_mesh_d;
-  mesh_a_val = next_mesh_a.valid;
-  mesh_b_val = next_mesh_b.valid;
-  mesh_d_val = next_mesh_d.valid;
-  mesh_a_fire = bit(static_cast<bool>(next_mesh_a.valid) && mesh_a_rdy != 0);
-  mesh_b_fire = bit(static_cast<bool>(next_mesh_b.valid) && mesh_b_rdy != 0);
-  mesh_d_fire = bit(static_cast<bool>(next_mesh_d.valid) && mesh_d_rdy != 0);
+  mesh_a_val = next_mesh_a_val;
+  mesh_b_val = next_mesh_b_val;
+  mesh_d_val = next_mesh_d_val;
+  mesh_a_fire = bit(static_cast<bool>(next_mesh_a_val) && mesh_a_rdy != 0);
+  mesh_b_fire = bit(static_cast<bool>(next_mesh_b_val) && mesh_b_rdy != 0);
+  mesh_d_fire = bit(static_cast<bool>(next_mesh_d_val) && mesh_d_rdy != 0);
 }
 
 } // namespace smesh

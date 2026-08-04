@@ -217,9 +217,9 @@ void MeshInSelPadMonitor::update() {
   const auto b = *mesh_b;
   const auto d = *mesh_d;
   passed_ =
-      a.valid != 0 && a.data == 0x776655u &&
-      b.valid != 0 && b.data == 0x002001u &&
-      d.valid == 0 && d.data == 0 &&
+      a.data == 0x776655u &&
+      b.data == 0x002001u &&
+      d.data == 0 &&
       mesh_a_val != 0 &&
       mesh_b_val != 0 &&
       mesh_d_val == 0 &&
