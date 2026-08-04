@@ -24,8 +24,8 @@ void MeshCore::step(const MeshCoreIn& in) {
   InputGrid    next_a{};
   InputGrid    next_c1 = c1_;
   InputGrid    next_c2 = c2_;
-  AccumGrid    next_b = b_path_; // working copy of B/out_b state
-  InputGrid    next_d = d_path_; // working copy of D/out_c state
+  AccumGrid    next_b = b_path_;    // working copy of B/out_b state
+  InputGrid    next_d = d_path_;    // working copy of D/out_c state (not used for WS)
   CtrlGrid     next_control_path{};
   StatusGrid   next_status_path{};
   MeshAccumRow next_out_b{};
@@ -36,13 +36,12 @@ void MeshCore::step(const MeshCoreIn& in) {
   for (std::size_t row = 0; row < kDim; ++row) {
     for (std::size_t col = 0; col < kDim; ++col) {
       // what is inside PE[row][col] this cycle?
-      const auto a       = col == 0     ? in.in_a[row]  : a_path_[row][col - 1];       // A flows LR
-
-      const auto b_in    = row == 0     ? in.in_b[col]  : b_path_[row - 1][col];       // B flows in TB
-      const auto d_in    = row == 0     ? in.in_d[col]  : d_path_[row - 1][col];       // D flows TB
+      const auto a       = col == 0     ? in.in_a[row]    : a_path_[row][col - 1];       // A flows LR
+      const auto b_in    = row == 0     ? in.in_b[col]    : b_path_[row - 1][col];       // B flows TB
+      const auto d_in    = row == 0     ? in.in_d[col]    : d_path_[row - 1][col];       // D flows TB
       const auto control = row == 0     ? in.control[col] : control_path_[row - 1][col]; // ctrl flows TB
-      const auto status     = row == 0     ? in.status[col] : status_path_[row - 1][col];        // id/last/valid flows TB
-      const auto weight  = control.prop ? c2_[row][col] : c1_[row][col];               // weight=c2 if prop=1, c1 if prop=0
+      const auto status  = row == 0     ? in.status[col]  : status_path_[row - 1][col];  // id/last/valid flows TB
+      const auto weight  = control.prop ? c2_[row][col]   : c1_[row][col];               // weight=c2 if prop=1, c1 if prop=0
 
       next_a[row][col] = a; // A that's leaving this PE and going LR
 
@@ -60,7 +59,7 @@ void MeshCore::step(const MeshCoreIn& in) {
       }
 
       next_control_path[row][col] = control; // control that's leaving this PE and going TB
-      next_status_path[row][col] = status;    // status that's leaving this PE and going TB
+      next_status_path[row][col]  = status;  // status that's leaving this PE and going TB
     }
   }
 
