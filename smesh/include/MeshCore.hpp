@@ -19,9 +19,6 @@ methods once per simulated cycle.
 
 namespace smesh {
 
-using MeshInputRow = std::array<Elem, kDim>;
-using MeshAccumRow = std::array<Acc, kDim>;
-
 // PE control fields entering the systolic core.
 struct MeshCoreControl {
   bool prop = false;

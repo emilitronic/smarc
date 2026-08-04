@@ -9,6 +9,7 @@ Common types and constants for the Smesh project.
 
 #include "SmeshConfig.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -37,6 +38,9 @@ static_assert(kAccBankRows > 0 && (kAccBankRows & (kAccBankRows - 1)) == 0,
 
 using Elem = std::int8_t;
 using Acc = std::int32_t;
+
+using MeshInputRow = std::array<Elem, kDim>;
+using MeshAccumRow = std::array<Acc, kDim>;
 
 struct MatrixShape {
   std::size_t rows = 0;
