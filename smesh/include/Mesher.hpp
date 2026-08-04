@@ -16,20 +16,10 @@ block will consume its responses.
 
 #include <cascade/Cascade.hpp>
 
-#include "ExCtrlMeshCntlQueue.hpp"
-#include "ExCtrlMeshInSelPad.hpp"
+#include "SmeshPorts.hpp"
 #include "SmeshTypes.hpp"
 
 namespace smesh {
-
-struct MesherResp {
-  u64 data = 0;
-  std::uint32_t total_rows = 0;
-  ExCtrlMeshTag tag{};
-  bit last = 0;
-};
-
-using MesherTag = ExCtrlMeshTag;
 
 class Mesher : public Component {
   DECLARE_COMPONENT(Mesher);
