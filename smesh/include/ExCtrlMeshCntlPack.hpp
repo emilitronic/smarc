@@ -55,7 +55,7 @@ class ExCtrlMeshCntlPack : public Component {
   Input(u32, total_rows);
   Input(bit, rs_tag_valid);
   Input(SmeshRsTag, rs_tag);
-  Input(u32, dataflow);
+  Input(u8, dataflow);
   Input(bit, prop);
   Input(u32, shift);
   Input(bit, im2colling);

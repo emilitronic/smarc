@@ -49,7 +49,7 @@ class MeshCntlPackDriver : public Component {
   Output(u32, total_rows);
   Output(bit, rs_tag_valid);
   Output(smesh::SmeshRsTag, rs_tag);
-  Output(u32, dataflow);
+  Output(u8, dataflow);
   Output(bit, prop);
   Output(u32, shift);
   Output(bit, im2colling);

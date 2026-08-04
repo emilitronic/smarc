@@ -209,7 +209,7 @@ struct StWriterReq {
 // ********** EXECUTE CONTROLLER / MESH INTERFACE **********
 // *********************************************************
 struct ExCtrlMeshPeControl {
-  std::uint32_t dataflow  = 0;
+  u8            dataflow  = 0;
   bit           propagate = 0;
   std::uint32_t shift     = 0;
 };
@@ -221,12 +221,12 @@ struct ExCtrlMeshTag {
   std::uint32_t  rows         = 0;
   std::uint32_t  cols         = 0;
 };
-
+// low-level action command from ExCtrl to the mesh; one per matmul
 struct ExCtrlMeshReq {
   ExCtrlMeshPeControl pe_control{};
   bit                 a_transpose  = 0;
   bit                 bd_transpose = 0;
-  std::uint32_t       total_rows   = 0;
+  std::uint32_t       total_rows   = 0; // number of row-beats of execution per command
   ExCtrlMeshTag       tag{};
   bit                 flush        = 0;
 };

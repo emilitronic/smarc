@@ -78,7 +78,7 @@ void ExCtrlMeshCntlPack::update() {
   next.total_rows = static_cast<std::uint32_t>(*total_rows);
   next.rs_tag_valid = *rs_tag_valid;
   next.rs_tag = *rs_tag;
-  next.dataflow = static_cast<std::uint32_t>(*dataflow);
+  next.dataflow = *dataflow;
   next.prop = *prop;
   next.shift = static_cast<std::uint32_t>(*shift);
   next.im2colling = *im2colling;

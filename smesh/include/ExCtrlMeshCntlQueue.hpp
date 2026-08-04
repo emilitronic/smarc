@@ -49,7 +49,7 @@ struct ExCtrlMeshCntl {
   std::uint32_t total_rows = 0;
   bit rs_tag_valid = 0;
   SmeshRsTag rs_tag = 0;
-  std::uint32_t dataflow = 0;
+  u8 dataflow = 0;
   bit prop = 0;
   std::uint32_t shift = 0;
   bit im2colling = 0;
