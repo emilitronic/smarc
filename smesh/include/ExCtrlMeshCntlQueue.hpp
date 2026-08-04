@@ -51,7 +51,7 @@ struct ExCtrlMeshCntl {
   SmeshRsTag rs_tag = 0;
   u8 dataflow = 0;
   bit prop = 0;
-  std::uint32_t shift = 0;
+  u8 shift = 0;
   bit im2colling = 0;
   bit first = 0;
 };

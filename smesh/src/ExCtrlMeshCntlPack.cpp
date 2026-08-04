@@ -80,7 +80,7 @@ void ExCtrlMeshCntlPack::update() {
   next.rs_tag = *rs_tag;
   next.dataflow = *dataflow;
   next.prop = *prop;
-  next.shift = static_cast<std::uint32_t>(*shift);
+  next.shift = *shift;
   next.im2colling = *im2colling;
   next.first = *first;
   cntl = next;

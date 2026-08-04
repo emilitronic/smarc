@@ -209,9 +209,9 @@ struct StWriterReq {
 // ********** EXECUTE CONTROLLER / MESH INTERFACE **********
 // *********************************************************
 struct ExCtrlMeshPeControl {
-  u8            dataflow  = 0;
-  bit           propagate = 0;
-  std::uint32_t shift     = 0;
+  u8  dataflow  = 0;
+  bit propagate = 0;
+  u8  shift     = 0;
 };
 
 struct ExCtrlMeshTag {
