@@ -15,11 +15,6 @@ Skeleton mesh input selection and padding for ExecuteController A/B/D feeds.
 
 namespace smesh {
 
-struct ExCtrlMeshInput {
-  u64 data = 0;
-  bit valid = 0;
-};
-
 class ExCtrlMeshInSelPad : public Component {
   DECLARE_COMPONENT(ExCtrlMeshInSelPad);
 

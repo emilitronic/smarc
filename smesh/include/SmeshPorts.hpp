@@ -18,6 +18,7 @@ A collection of ports between smesh components.
 namespace smesh {
 
 // ********** DRIVER / SHELL INTERFACE **********
+// **********************************************
 // interface between SmeshCommandDriver and SmeshShell
 struct SmeshCmd {
   u32 funct = 0;
@@ -31,6 +32,7 @@ struct SmeshResp {
 };
 
 // ********** COMMAND QUEUE INTERFACE **********
+// *********************************************
 // command wrapper after command ingress, before RS allocation
 using SmeshRsTag = std::uint16_t;
 
@@ -43,8 +45,8 @@ struct SmeshQueuedCmd {
 };
 
 // ********** RS / CONTROLLER INTERFACE **********
+// ***********************************************
 // interface between RS and Ld/St/Ex controllers
-
 struct SmeshIssue {
   SmeshCmd cmd{};
   bit rs_tag_valid = true; // for completed commands, some helper commands like TransposePreloadUnroller set this false
@@ -52,6 +54,7 @@ struct SmeshIssue {
 };
 
 // ********** LOAD CONTROLLER / DMA INTERFACE **********
+// *****************************************************
 // interface between LdCtrl and memory controller
 struct DmaReadReq {
   u64 vaddr = 0;
@@ -104,6 +107,7 @@ struct DmaReadCompletion {
 };
 
 // ********** STORE CONTROLLER / DMA INTERFACE **********
+// ******************************************************
 // interface between StCtrl and the store-side write dispatch path
 struct DmaWriteReq {
   u64 vaddr = 0;
@@ -123,12 +127,10 @@ struct DmaWriteReq {
   bit pool_en = false;
   bit store_en = true;
 };
-
 // store-side response back to StCtrl when one DmaWriteReq is accepted by the store path
 struct DmaWriteResp {
   u16 cmd_id = 0;
 };
-
 // ifc to scratchpad memory read port
 struct SpadReadReq {
   SmeshLocalAddr laddr{};
@@ -145,7 +147,6 @@ struct SpadReadResp {
   u16 cmd_id = 0;
   bit from_dma = true;
 };
-
 // interface to accumulator memory read port
 struct AccumReadReq {
   SmeshLocalAddr laddr{};
@@ -164,33 +165,29 @@ struct AccumReadReq {
 struct AccumReadResp {
   u64 data = 0;
   SmeshLocalAddr laddr{};
-  u8 mask = 0;
+  u8  mask = 0;
   u16 len = 0; // number of row elements being read from accum (not bytes)
-  u8 act = 0;
+  u8  act = 0;
   u32 scale = 0;
   bit full = false;
   u16 cmd_id = 0;
   bit from_dma = true;
 };
-
 // command metadata entering accumulator normalization
 struct AccNormCmd {
   u16 len = 0; // number of row elements being read from accum (not bytes)
   u16 stats_id = 0;
   u8 cmd = 0;
 };
-
 // joined accumulator data + normalization metadata
 struct AccNormReq {
   AccumReadResp acc_read_resp{};
   AccNormCmd cmd{};
 };
-
 // accumulator data entering the accumulator scale stage
 struct AccScaleReq {
   AccNormReq norm{};
 };
-
 // accumulator data after the accumulator scale stage
 struct AccScaleResp {
   u64 full_data = 0;
@@ -198,10 +195,8 @@ struct AccScaleResp {
   u16 acc_bank_id = 0;
   bit from_dma = true;
 };
-
 // maximum-width store data payload; len_bytes says how many bytes are meaningful
 using StWriterData = std::array<std::uint8_t, kDim * sizeof(Acc)>;
-
 // final store request after StIssueCtrl has paired metadata and data
 struct StWriterReq {
   DmaWriteReq issue{};
@@ -209,6 +204,14 @@ struct StWriterReq {
   u16 len_bytes = 0; // number of bytes being written to mem (not row elements)
   bit data_is_all_zeros = false;
   bit data_is_full_width = false;
+};
+
+// ********** EXECUTE CONTROLLER / MESH INTERFACE **********
+// *********************************************************
+// mesh input row payload from ExCtrl into Mesher
+struct ExCtrlMeshInput {
+  u64 data = 0;
+  bit valid = 0;
 };
 
 } // namespace smesh
