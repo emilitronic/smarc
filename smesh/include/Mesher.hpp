@@ -50,8 +50,15 @@ class Mesher : public Component {
 
   OutputArray(MesherTag, tags_in_progress, kRsExecuteEntries);
 
-  void update();
+  void updateReqReady();
+  void updateReqState();
+  void updateDataReady();
+  void updateOutputs();
   void reset();
+
+ private:
+  ExCtrlMeshReq req_state_{}; // holds current request being processed
+  bool          req_state_valid_ = false; // true if req_state_ is valid and being processed
 };
 
 } // namespace smesh

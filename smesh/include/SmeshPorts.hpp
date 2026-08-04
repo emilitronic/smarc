@@ -208,12 +208,13 @@ struct StWriterReq {
 
 // ********** EXECUTE CONTROLLER / MESH INTERFACE **********
 // *********************************************************
+// components of a mesh request: control internal PE settings
 struct ExCtrlMeshPeControl {
   u8  dataflow  = 0;
   bit propagate = 0;
   u8  shift     = 0;
 };
-
+// components of a mesh request: tag and address for the matmul
 struct ExCtrlMeshTag {
   bit            rs_tag_valid = 0;
   SmeshRsTag     rs_tag       = 0;
@@ -221,7 +222,7 @@ struct ExCtrlMeshTag {
   std::uint32_t  rows         = 0;
   std::uint32_t  cols         = 0;
 };
-// low-level action command from ExCtrl to the mesh; one per matmul
+// mesh request: low-level action command from ExCtrl to the mesh; one per matmul
 struct ExCtrlMeshReq {
   ExCtrlMeshPeControl pe_control{};
   bit                 a_transpose  = 0;
@@ -230,7 +231,6 @@ struct ExCtrlMeshReq {
   ExCtrlMeshTag       tag{};
   bit                 flush        = 0;
 };
-
 // mesh input row payload from ExCtrl into Mesher
 struct ExCtrlMeshIn {
   MeshInputRow data{};
