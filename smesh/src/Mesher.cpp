@@ -8,21 +8,11 @@
 namespace smesh {
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReqReady)
-      .writes(req_rdy);
-  UPDATE(updateReqState)
-      .reads(req_val,
-             req_bits);
-  UPDATE(updateDataReady)
-      .writes(a_rdy,
-              b_rdy,
-              d_rdy);
-  UPDATE(updateOutputs)
-      .writes(resp_val,
-              resp_bits,
-              tags_in_progress);
+  UPDATE(update);
 }
 
+void Mesher::update() {}
 
+void Mesher::reset() {}
 
 } // namespace smesh
