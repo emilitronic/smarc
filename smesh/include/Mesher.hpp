@@ -50,10 +50,7 @@ class Mesher : public Component {
 
   OutputArray(MesherTag, tags_in_progress, kRsExecuteEntries);
 
-  void updateReqReady();
-  void updateReqState();
-  void updateDataReady();
-  void updateOutputs();
+  void update();
   void reset();
 
  private:
