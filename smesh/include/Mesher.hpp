@@ -59,6 +59,9 @@ class Mesher : public Component {
  private:
   ExCtrlMeshReq req_state_{}; // holds current request being processed
   bool          req_state_valid_ = false; // true if req_state_ is valid and being processed
+  std::uint8_t  matmul_id_ = 0; // id attached to rows entering the mesh for the active request
+  std::uint8_t  next_matmul_id_ = 0; // next mesh-local id assigned on request fire
+  bool          in_prop_ = false; // registered propagate control loaded from req_bits on request fire
 };
 
 } // namespace smesh
