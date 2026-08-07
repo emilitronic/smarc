@@ -34,6 +34,7 @@ int main() {
   hull.step(preload1);
 
   smesh::MeshHullIn use_preload1{};
+  use_preload1.pe_control.propagate = 1;
   use_preload1.matmul_id = 2;
   use_preload1.not_paused = 1;
   hull.step(use_preload1);
@@ -50,6 +51,7 @@ int main() {
   hull.step(compute0);
 
   smesh::MeshHullIn use_compute0{};
+  use_compute0.pe_control.propagate = 1;
   use_compute0.matmul_id = 3;
   use_compute0.last_fire = 1;
   use_compute0.not_paused = 1;

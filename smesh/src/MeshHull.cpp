@@ -19,7 +19,6 @@ void MeshHull::reset() {
   status_skew_  = SkewState<MeshCoreStatus>{};
   out_b_skew_   = SkewState<Acc>{};
   out_status_skew_ = SkewState<MeshCoreStatus>{};
-  in_prop_      = false;
   out_          = MeshHullOut{};
 }
 
@@ -33,11 +32,9 @@ void MeshHull::step(const MeshHullIn& in) {
   const auto current_a_buf    = a_buf_;
   const auto current_b_buf    = b_buf_;
   const auto current_d_buf    = d_buf_;
-  const auto current_in_prop  = in_prop_;
   auto       next_a_buf       = a_buf_;
   auto       next_b_buf       = b_buf_;
   auto       next_d_buf       = d_buf_;
-  auto       next_in_prop     = in_prop_;
 
   if (in.a_fire != 0) {
     next_a_buf = in.a_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.a_bits;
@@ -49,15 +46,11 @@ void MeshHull::step(const MeshHullIn& in) {
     next_d_buf = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.d_bits;
   }
 
-  if (in.req_fire != 0) {
-    next_in_prop = in.pe_control.propagate != 0;
-  }
-
   MeshCoreIn core_in{}; // temporary input bundle to MeshCore for this cycle
   MeshCoreControlRow control_in{}; // bundle for control inputs (just one so far though)
   MeshCoreStatusRow status_in{};   // bundle for status inputs
   for (std::size_t lane = 0; lane < kDim; ++lane) {
-    control_in[lane].prop   = current_in_prop;
+    control_in[lane].prop   = in.pe_control.propagate != 0;
     status_in[lane].in_id   = in.matmul_id;
     status_in[lane].in_last = in.last_fire != 0;
     status_in[lane].valid   = in.not_paused != 0;
@@ -74,7 +67,6 @@ void MeshHull::step(const MeshHullIn& in) {
   a_buf_   = next_a_buf;
   b_buf_   = next_b_buf;
   d_buf_   = next_d_buf;
-  in_prop_ = next_in_prop;
 
   const auto out_b          = stepOutputSkew(out_b_skew_, core_.outB());
   const auto out_status_row = stepOutputSkew(out_status_skew_, core_.outBStatus());

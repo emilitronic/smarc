@@ -68,11 +68,13 @@ int main() {
 
   const smesh::MeshInputRow a{1, 2, 3, 4};
   smesh::MeshHullIn capture_a{};
+  capture_a.pe_control.propagate = 1;
   capture_a.a_fire = 1;
   capture_a.a_bits = a;
   step(hull, capture_a, cycle);
 
   smesh::MeshHullIn use_a{};
+  use_a.pe_control.propagate = 1;
   use_a.matmul_id = 7;
   use_a.last_fire = 1;
   use_a.not_paused = 1;
@@ -82,6 +84,7 @@ int main() {
   smesh::MeshAccumRow result{};
   for (std::size_t i = 0; i < 4 * smesh::kDim; ++i) {
     smesh::MeshHullIn drain{};
+    drain.pe_control.propagate = 1;
     drain.matmul_id = 7;
     drain.last_fire = 1;
     drain.not_paused = 0;

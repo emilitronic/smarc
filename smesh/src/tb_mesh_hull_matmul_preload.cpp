@@ -102,11 +102,13 @@ bool runRow(smesh::MeshHull& hull,
             smesh::MeshAccumRow& result,
             int& valid_cycle) {
   smesh::MeshHullIn capture_a{};
+  capture_a.pe_control.propagate = 1;
   capture_a.a_fire = 1;
   capture_a.a_bits = a;
   step(hull, capture_a, cycle);
 
   smesh::MeshHullIn use_a{};
+  use_a.pe_control.propagate = 1;
   use_a.matmul_id = matmul_id;
   use_a.last_fire = 1;
   use_a.not_paused = 1;
@@ -114,6 +116,7 @@ bool runRow(smesh::MeshHull& hull,
 
   for (std::size_t i = 0; i < 4 * smesh::kDim; ++i) {
     smesh::MeshHullIn drain{};
+    drain.pe_control.propagate = 1;
     step(hull, drain, cycle);
 
     if (hull.out().resp_valid != 0 && hull.out().out_matmul_id == matmul_id) {
