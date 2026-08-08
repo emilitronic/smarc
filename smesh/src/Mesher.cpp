@@ -65,9 +65,6 @@ void Mesher::update() {
   const bool b_fire   = b_val != 0 && b_ready;
   const bool d_fire   = d_val != 0 && d_ready;
   (void) req_fire;
-  (void) a_fire;
-  (void) b_fire;
-  (void) d_fire;
 
   auto next_req_state       = cur_req_state;
   bool next_req_state_valid = cur_req_state_valid;
@@ -89,8 +86,21 @@ void Mesher::update() {
     next_req_state.flush = static_cast<u8>(cur_req_state.flush - 1);
   }
 
+  if (a_fire) {
+    next_a_written = true;
+  }
+  if (b_fire) {
+    next_b_written = true;
+  }
+  if (d_fire) {
+    next_d_written = true;
+  }
+
   if (input_next_row_into_spatial_array) {
     next_fire_counter = wrappingAdd(cur_fire_counter, 1u, total_fires); // track how many rows of current req have entered mesh
+    next_a_written    = false;
+    next_b_written    = false;
+    next_d_written    = false;
   }
 
   req_state_       = next_req_state;
