@@ -54,11 +54,15 @@ class Mesher : public Component {
   void reset();
 
  private:
-  ExCtrlMeshReq req_state_{}; // holds current request being processed
+  ExCtrlMeshReq req_state_{};             // holds current request being processed
   bool          req_state_valid_ = false; // true if req_state_ is valid and being processed
-  std::uint8_t  matmul_id_ = 0; // id attached to rows entering the mesh for the active request
-  std::uint8_t  next_matmul_id_ = 0; // next mesh-local id assigned on request fire
-  bool          in_prop_ = false; // registered propagate control loaded from req_bits on request fire
+  std::uint8_t  matmul_id_       = 0;     // id attached to rows entering the mesh for the active request
+  std::uint8_t  next_matmul_id_  = 0;     // next mesh-local id assigned on request fire
+  bool          in_prop_         = false; // registered propagate control loaded from req_bits on request fire
+  bool          a_written_       = false; // true once A input for current row-beat has been accepted
+  bool          b_written_       = false; // true once B input for current row-beat has been accepted
+  bool          d_written_       = false; // true once D input for current row-beat has been accepted
+  std::uint32_t fire_counter_    = 0;     // row-beats advanced into the mesh for current request
 };
 
 } // namespace smesh
