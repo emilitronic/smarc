@@ -14,6 +14,11 @@ std::uint8_t wrappingAdd(std::uint8_t value, std::uint8_t addend, std::uint8_t l
   return next >= limit ? static_cast<std::uint8_t>(next - limit) : next;
 }
 
+std::uint32_t wrappingAdd(std::uint32_t value, std::uint32_t addend, std::uint32_t limit) {
+  const auto next = value + addend;
+  return next >= limit ? next - limit : next;
+}
+
 } // namespace
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
@@ -63,6 +68,10 @@ void Mesher::update() {
   } else if (last_fire) {
     next_req_state_valid = cur_req_state.flush > 1;
     next_req_state.flush = static_cast<u8>(cur_req_state.flush - 1);
+  }
+
+  if (input_next_row_into_spatial_array) {
+    next_fire_counter = wrappingAdd(cur_fire_counter, 1u, total_fires); // track how many rows of current req have entered mesh
   }
 
   req_state_       = next_req_state;
