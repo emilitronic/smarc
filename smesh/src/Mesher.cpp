@@ -19,6 +19,17 @@ std::uint32_t wrappingAdd(std::uint32_t value, std::uint32_t addend, std::uint32
   return next >= limit ? next - limit : next;
 }
 
+MesherTag makeGarbageTag() {
+  MesherTag tag{};
+  tag.addr = SmeshLocalAddr{
+      kLocalAddrIsAccMask |
+      kLocalAddrAccumulateMask |
+      kLocalAddrReadFullAccRowMask |
+      kLocalAddrGarbageMask |
+      kLocalAddrDataMask};
+  return tag;
+}
+
 } // namespace
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
@@ -91,11 +102,16 @@ void Mesher::update() {
   const bool resp_valid = hull_out.resp_valid != 0;
   const bool resp_last  = hull_out.resp_last != 0;
   const std::uint8_t out_matmul_id = hull_out.out_matmul_id;
+  // is there a match between queue heads and MeshCore output mamtul ID
+  const bool tagq_id_matches        = tagq_front_valid && out_matmul_id == tagq_front_bits.id;
+  const bool total_rows_id_matches  = total_rows_q_front_valid && out_matmul_id == total_rows_q_front_bits.id;
 
   resp_val = bit(resp_valid); // response val comes straight from hull
   MesherResp next_resp_bits{};
-  next_resp_bits.data = resp_data;      // response data comes straight from hull
-  next_resp_bits.last = bit(resp_last); // response last comes straight from hull
+  next_resp_bits.data       = resp_data; // response data comes straight from hull
+  next_resp_bits.last       = bit(resp_last); // response last comes straight from hull
+  next_resp_bits.tag        = tagq_id_matches ? tagq_front_bits.tag : makeGarbageTag();
+  next_resp_bits.total_rows = total_rows_id_matches ? total_rows_q_front_bits.total_rows : static_cast<std::uint32_t>(kDim);
   resp_bits = next_resp_bits;
 
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
@@ -103,9 +119,9 @@ void Mesher::update() {
   }
 
   // pop tagq when matching o/p ID appears and this is last o/p row for that tagged operation
-  const bool tagq_deq_fire = tagq_front_valid && resp_valid && resp_last && out_matmul_id == tagq_front_bits.id;
+  const bool tagq_deq_fire = resp_valid && resp_last && tagq_id_matches;
   // pop total_rows_q when matching o/p ID appears and this is last o/p for for that request
-  const bool total_rows_q_deq_fire = total_rows_q_front_valid && resp_valid && resp_last && out_matmul_id == total_rows_q_front_bits.id;
+  const bool total_rows_q_deq_fire = resp_valid && resp_last && total_rows_id_matches;
   
   (void) req_fire;
   (void) pause;
