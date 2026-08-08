@@ -81,13 +81,17 @@ void Mesher::update() {
   const auto tagq_front_bits  = tagq_front_valid ? tagq_[cur_tagq_head] : TagQEntry{};
   const bool total_rows_q_front_valid = cur_total_rows_q_count != 0;
   const auto total_rows_q_front_bits  = total_rows_q_front_valid ? total_rows_q_[cur_total_rows_q_head] : TotalRowsQEntry{};
+  // TODO: drive these from the real mesh response boundary when MeshHull responses are connected.
+  const bool resp_valid = false;
+  const bool resp_last = false;
+  const std::uint8_t out_matmul_id = 0;
+  const bool tagq_deq_fire = tagq_front_valid && resp_valid && resp_last && out_matmul_id == tagq_front_bits.id;
+  const bool total_rows_q_deq_fire = total_rows_q_front_valid && resp_valid && resp_last && out_matmul_id == total_rows_q_front_bits.id;
   
   (void) req_fire;
   (void) pause;
   (void) matmul_id_of_output;
   (void) matmul_id_of_current;
-  (void) tagq_front_bits;
-  (void) total_rows_q_front_bits;
 
   auto next_req_state       = cur_req_state;
   bool next_req_state_valid = cur_req_state_valid;
@@ -99,9 +103,11 @@ void Mesher::update() {
   bool next_d_written       = cur_d_written;
   auto next_fire_counter    = cur_fire_counter;
   auto next_tagq            = tagq_;
+  auto next_tagq_head       = cur_tagq_head;
   auto next_tagq_tail       = cur_tagq_tail;
   auto next_tagq_count      = cur_tagq_count;
   auto next_total_rows_q       = total_rows_q_;
+  auto next_total_rows_q_head  = cur_total_rows_q_head;
   auto next_total_rows_q_tail  = cur_total_rows_q_tail;
   auto next_total_rows_q_count = cur_total_rows_q_count;
 
@@ -143,6 +149,15 @@ void Mesher::update() {
     next_total_rows_q_tail  = wrappingAdd(cur_total_rows_q_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
     next_total_rows_q_count = static_cast<std::uint8_t>(cur_total_rows_q_count + 1);
   }
+  // deq tagq and total_rows_q
+  if (tagq_deq_fire) {
+    next_tagq_head  = wrappingAdd(next_tagq_head, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_tagq_count = static_cast<std::uint8_t>(next_tagq_count - 1);
+  }
+  if (total_rows_q_deq_fire) {
+    next_total_rows_q_head  = wrappingAdd(next_total_rows_q_head, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_total_rows_q_count = static_cast<std::uint8_t>(next_total_rows_q_count - 1);
+  }
 
   req_state_       = next_req_state;
   req_state_valid_ = next_req_state_valid;
@@ -154,9 +169,11 @@ void Mesher::update() {
   d_written_       = next_d_written;
   fire_counter_    = next_fire_counter;
   tagq_            = next_tagq;
+  tagq_head_       = next_tagq_head;
   tagq_tail_       = next_tagq_tail;
   tagq_count_      = next_tagq_count;
   total_rows_q_       = next_total_rows_q;
+  total_rows_q_head_  = next_total_rows_q_head;
   total_rows_q_tail_  = next_total_rows_q_tail;
   total_rows_q_count_ = next_total_rows_q_count;
 }
