@@ -75,6 +75,7 @@ void Mesher::update() {
   const auto matmul_id_of_current = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   // tagq & total_rows_q logic (RTL relies on tagqlen sizing; the C++ model guards array writes explicitly)
   const bool metadata_queues_have_space = cur_tagq_count < kTagQueueEntries && cur_total_rows_q_count < kTagQueueEntries;
+  // when non-flush req is accepted and queues have space (store metadata in tagq and total_rows_q)
   const bool enqueue_mesh_metadata = req_fire && req_bits->flush == 0 && metadata_queues_have_space;
   // queue local front-view/peek logic
   const bool tagq_front_valid = cur_tagq_count != 0;
@@ -85,7 +86,9 @@ void Mesher::update() {
   const bool resp_valid = false;
   const bool resp_last = false;
   const std::uint8_t out_matmul_id = 0;
+  // pop tagq when matching o/p ID appears and this is last o/p row for that tagged operation
   const bool tagq_deq_fire = tagq_front_valid && resp_valid && resp_last && out_matmul_id == tagq_front_bits.id;
+  // pop total_rows_q when matching o/p ID appears and this is last o/p for for that request
   const bool total_rows_q_deq_fire = total_rows_q_front_valid && resp_valid && resp_last && out_matmul_id == total_rows_q_front_bits.id;
   
   (void) req_fire;
