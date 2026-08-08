@@ -44,8 +44,10 @@ void Mesher::update() {
   const bool cur_b_written       = b_written_;
   const bool cur_d_written       = d_written_;
   const auto cur_fire_counter    = fire_counter_;
+  const auto cur_tagq_head       = tagq_head_;
   const auto cur_tagq_tail       = tagq_tail_;
   const auto cur_tagq_count      = tagq_count_;
+  const auto cur_total_rows_q_head  = total_rows_q_head_;
   const auto cur_total_rows_q_tail  = total_rows_q_tail_;
   const auto cur_total_rows_q_count = total_rows_q_count_;
 
@@ -74,11 +76,18 @@ void Mesher::update() {
   // tagq & total_rows_q logic (RTL relies on tagqlen sizing; the C++ model guards array writes explicitly)
   const bool metadata_queues_have_space = cur_tagq_count < kTagQueueEntries && cur_total_rows_q_count < kTagQueueEntries;
   const bool enqueue_mesh_metadata = req_fire && req_bits->flush == 0 && metadata_queues_have_space;
+  // queue local front-view/peek logic
+  const bool tagq_front_valid = cur_tagq_count != 0;
+  const auto tagq_front_bits  = tagq_front_valid ? tagq_[cur_tagq_head] : TagQEntry{};
+  const bool total_rows_q_front_valid = cur_total_rows_q_count != 0;
+  const auto total_rows_q_front_bits  = total_rows_q_front_valid ? total_rows_q_[cur_total_rows_q_head] : TotalRowsQEntry{};
   
   (void) req_fire;
   (void) pause;
   (void) matmul_id_of_output;
   (void) matmul_id_of_current;
+  (void) tagq_front_bits;
+  (void) total_rows_q_front_bits;
 
   auto next_req_state       = cur_req_state;
   bool next_req_state_valid = cur_req_state_valid;
