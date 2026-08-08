@@ -8,10 +8,19 @@
 namespace smesh {
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update);
+  UPDATE(update)
+      .reads(req_val)
+      .writes(req_rdy);
 }
 
-void Mesher::update() {}
+void Mesher::update() {
+  const bool req_ready = true;
+  const bool req_fire  = req_val != 0 && req_ready;
+
+  (void) req_fire;
+
+  req_rdy = bit(req_ready);
+}
 
 void Mesher::reset() {}
 
