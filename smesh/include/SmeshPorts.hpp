@@ -229,7 +229,7 @@ struct ExCtrlMeshReq {
   bit                 bd_transpose = 0;
   std::uint32_t       total_rows   = 0; // number of row-beats of execution per command
   ExCtrlMeshTag       tag{};
-  bit                 flush        = 0;
+  u8                  flush        = 0; // flush row count/control value, up to DIM
 };
 // mesh input row payload from ExCtrl into Mesher
 struct ExCtrlMeshIn {
