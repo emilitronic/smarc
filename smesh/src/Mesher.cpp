@@ -24,7 +24,10 @@ std::uint32_t wrappingAdd(std::uint32_t value, std::uint32_t addend, std::uint32
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(req_val,
-             req_bits)
+             req_bits,
+             a_val,
+             b_val,
+             d_val)
       .writes(req_rdy,
               a_rdy,
               b_rdy,
@@ -48,14 +51,23 @@ void Mesher::update() {
   const bool last_fire = input_next_row_into_spatial_array && cur_fire_counter == total_fires - 1;
 
   const bool req_ready = !cur_req_state_valid || last_fire;
+  const bool a_ready   = !cur_a_written || input_next_row_into_spatial_array || req_ready;
+  const bool b_ready   = !cur_b_written || input_next_row_into_spatial_array || req_ready;
+  const bool d_ready   = !cur_d_written || input_next_row_into_spatial_array || req_ready;
 
   req_rdy = bit(req_ready);
-  a_rdy   = bit(!cur_a_written || input_next_row_into_spatial_array || req_ready);
-  b_rdy   = bit(!cur_b_written || input_next_row_into_spatial_array || req_ready);
-  d_rdy   = bit(!cur_d_written || input_next_row_into_spatial_array || req_ready);
+  a_rdy   = bit(a_ready);
+  b_rdy   = bit(b_ready);
+  d_rdy   = bit(d_ready);
 
   const bool req_fire = req_val != 0 && req_ready;
+  const bool a_fire   = a_val != 0 && a_ready;
+  const bool b_fire   = b_val != 0 && b_ready;
+  const bool d_fire   = d_val != 0 && d_ready;
   (void) req_fire;
+  (void) a_fire;
+  (void) b_fire;
+  (void) d_fire;
 
   auto next_req_state       = cur_req_state;
   bool next_req_state_valid = cur_req_state_valid;
