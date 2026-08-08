@@ -65,8 +65,12 @@ void Mesher::update() {
   const bool a_fire   = a_val != 0 && a_ready;
   const bool b_fire   = b_val != 0 && b_ready;
   const bool d_fire   = d_val != 0 && d_ready;
+  const auto matmul_id_of_output  = wrappingAdd(cur_matmul_id, 2, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
+  const auto matmul_id_of_current = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   (void) req_fire;
   (void) pause;
+  (void) matmul_id_of_output;
+  (void) matmul_id_of_current;
 
   auto next_req_state       = cur_req_state;
   bool next_req_state_valid = cur_req_state_valid;
