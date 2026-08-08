@@ -44,6 +44,10 @@ void Mesher::update() {
   const bool cur_b_written       = b_written_;
   const bool cur_d_written       = d_written_;
   const auto cur_fire_counter    = fire_counter_;
+  const auto cur_tagq_tail       = tagq_tail_;
+  const auto cur_tagq_count      = tagq_count_;
+  const auto cur_total_rows_q_tail  = total_rows_q_tail_;
+  const auto cur_total_rows_q_count = total_rows_q_count_;
 
   const bool input_next_row_into_spatial_array = cur_req_state_valid && ((cur_a_written && cur_b_written && cur_d_written) || cur_req_state.flush > 0);
   const bool pause = !cur_req_state_valid || !input_next_row_into_spatial_array;
@@ -67,6 +71,10 @@ void Mesher::update() {
   const bool d_fire   = d_val != 0 && d_ready;
   const auto matmul_id_of_output  = wrappingAdd(cur_matmul_id, 2, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   const auto matmul_id_of_current = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
+  // tagq & total_rows_q logic (RTL relies on tagqlen sizing; the C++ model guards array writes explicitly)
+  const bool metadata_queues_have_space = cur_tagq_count < kTagQueueEntries && cur_total_rows_q_count < kTagQueueEntries;
+  const bool enqueue_mesh_metadata = req_fire && req_bits->flush == 0 && metadata_queues_have_space;
+  
   (void) req_fire;
   (void) pause;
   (void) matmul_id_of_output;
@@ -81,6 +89,12 @@ void Mesher::update() {
   bool next_b_written       = cur_b_written;
   bool next_d_written       = cur_d_written;
   auto next_fire_counter    = cur_fire_counter;
+  auto next_tagq            = tagq_;
+  auto next_tagq_tail       = cur_tagq_tail;
+  auto next_tagq_count      = cur_tagq_count;
+  auto next_total_rows_q       = total_rows_q_;
+  auto next_total_rows_q_tail  = cur_total_rows_q_tail;
+  auto next_total_rows_q_count = cur_total_rows_q_count;
 
   if (req_fire) {
     next_req_state       = *req_bits; // push in new req
@@ -108,6 +122,18 @@ void Mesher::update() {
     next_b_written    = false;
     next_d_written    = false;
   }
+  // enq tagq and total_rows_q
+  if (enqueue_mesh_metadata) {
+    next_tagq[cur_tagq_tail].tag = req_bits->tag;
+    next_tagq[cur_tagq_tail].id  = matmul_id_of_output;
+    next_tagq_tail  = wrappingAdd(cur_tagq_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_tagq_count = static_cast<std::uint8_t>(cur_tagq_count + 1);
+
+    next_total_rows_q[cur_total_rows_q_tail].total_rows = req_bits->total_rows;
+    next_total_rows_q[cur_total_rows_q_tail].id         = matmul_id_of_current;
+    next_total_rows_q_tail  = wrappingAdd(cur_total_rows_q_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_total_rows_q_count = static_cast<std::uint8_t>(cur_total_rows_q_count + 1);
+  }
 
   req_state_       = next_req_state;
   req_state_valid_ = next_req_state_valid;
@@ -118,6 +144,12 @@ void Mesher::update() {
   b_written_       = next_b_written;
   d_written_       = next_d_written;
   fire_counter_    = next_fire_counter;
+  tagq_            = next_tagq;
+  tagq_tail_       = next_tagq_tail;
+  tagq_count_      = next_tagq_count;
+  total_rows_q_       = next_total_rows_q;
+  total_rows_q_tail_  = next_total_rows_q_tail;
+  total_rows_q_count_ = next_total_rows_q_count;
 }
 
 void Mesher::reset() {
