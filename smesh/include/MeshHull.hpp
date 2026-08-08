@@ -37,16 +37,16 @@ struct MeshHullIn {
   bit d_is_from_transposer = 0;
   // inputs from ExCtrl
   ExCtrlMeshPeControl pe_control{};
-  bit                 req_fire = 0;  // request to mesh boundary from ExCtrl
-  std::uint8_t        matmul_id = 0;
-  bit                 last_fire = 0;
+  bit                 req_fire   = 0; // request to mesh boundary from ExCtrl
+  std::uint8_t        matmul_id  = 0;
+  bit                 last_fire  = 0;
   bit                 not_paused = 0;
 };
 // Hull outputs to outside
 struct MeshHullOut {
   MeshAccumRow resp_data{};
-  bit          resp_valid = 0;
-  bit          resp_last = 0;
+  bit          resp_valid    = 0;
+  bit          resp_last     = 0;
   std::uint8_t out_matmul_id = 0;
 };
 

@@ -82,10 +82,12 @@ void Mesher::update() {
   const auto tagq_front_bits  = tagq_front_valid ? tagq_[cur_tagq_head] : TagQEntry{};
   const bool total_rows_q_front_valid = cur_total_rows_q_count != 0;
   const auto total_rows_q_front_bits  = total_rows_q_front_valid ? total_rows_q_[cur_total_rows_q_head] : TotalRowsQEntry{};
-  // TODO: drive these from the real mesh response boundary when MeshHull responses are connected.
-  const bool resp_valid = false;
-  const bool resp_last = false;
-  const std::uint8_t out_matmul_id = 0;
+
+  const auto hull_out   = hull_.out();
+  const auto resp_data  = hull_out.resp_data;
+  const bool resp_valid = hull_out.resp_valid != 0;
+  const bool resp_last  = hull_out.resp_last != 0;
+  const std::uint8_t out_matmul_id = hull_out.out_matmul_id;
   // pop tagq when matching o/p ID appears and this is last o/p row for that tagged operation
   const bool tagq_deq_fire = tagq_front_valid && resp_valid && resp_last && out_matmul_id == tagq_front_bits.id;
   // pop total_rows_q when matching o/p ID appears and this is last o/p for for that request
@@ -93,6 +95,7 @@ void Mesher::update() {
   
   (void) req_fire;
   (void) pause;
+  (void) resp_data;
   (void) matmul_id_of_output;
   (void) matmul_id_of_current;
 
@@ -199,6 +202,7 @@ void Mesher::reset() {
   total_rows_q_head_  = 0;
   total_rows_q_tail_  = 0;
   total_rows_q_count_ = 0;
+  hull_.reset();
 
   req_rdy.reset(0);
 }

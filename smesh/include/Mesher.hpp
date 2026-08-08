@@ -17,6 +17,7 @@ block will consume its responses.
 
 #include <cascade/Cascade.hpp>
 
+#include "MeshHull.hpp"
 #include "SmeshPorts.hpp"
 #include "SmeshTypes.hpp"
 
@@ -85,6 +86,8 @@ class Mesher : public Component {
   std::uint8_t                                  total_rows_q_head_  = 0;
   std::uint8_t                                  total_rows_q_tail_  = 0;
   std::uint8_t                                  total_rows_q_count_ = 0;
+
+  MeshHull hull_{};
 };
 
 } // namespace smesh
