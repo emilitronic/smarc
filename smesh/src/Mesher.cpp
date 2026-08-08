@@ -25,7 +25,10 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(req_val,
              req_bits)
-      .writes(req_rdy);
+      .writes(req_rdy,
+              a_rdy,
+              b_rdy,
+              d_rdy);
 }
 
 void Mesher::update() {
@@ -39,15 +42,19 @@ void Mesher::update() {
   const bool cur_d_written       = d_written_;
   const auto cur_fire_counter    = fire_counter_;
 
-  const bool input_next_row_into_spatial_array = cur_req_state_valid &&
-      ((cur_a_written && cur_b_written && cur_d_written) || cur_req_state.flush > 0);
+  const bool input_next_row_into_spatial_array = cur_req_state_valid && ((cur_a_written && cur_b_written && cur_d_written) || cur_req_state.flush > 0);
   const auto total_fires = cur_req_state.total_rows;
   // Keep input_next_row_into_spatial_array first so C++ does not evaluate total_fires - 1 when no request is active.
   const bool last_fire = input_next_row_into_spatial_array && cur_fire_counter == total_fires - 1;
 
-  req_rdy = bit(!cur_req_state_valid || last_fire);
+  const bool req_ready = !cur_req_state_valid || last_fire;
 
-  const bool req_fire = req_val != 0 && req_rdy != 0;
+  req_rdy = bit(req_ready);
+  a_rdy   = bit(!cur_a_written || input_next_row_into_spatial_array || req_ready);
+  b_rdy   = bit(!cur_b_written || input_next_row_into_spatial_array || req_ready);
+  d_rdy   = bit(!cur_d_written || input_next_row_into_spatial_array || req_ready);
+
+  const bool req_fire = req_val != 0 && req_ready;
   (void) req_fire;
 
   auto next_req_state       = cur_req_state;
