@@ -130,6 +130,14 @@ void Mesher::reset() {
   b_written_       = false;
   d_written_       = false;
   fire_counter_    = 0;
+  tagq_            = {};
+  tagq_head_       = 0;
+  tagq_tail_       = 0;
+  tagq_count_      = 0;
+  total_rows_q_    = {};
+  total_rows_q_head_  = 0;
+  total_rows_q_tail_  = 0;
+  total_rows_q_count_ = 0;
 
   req_rdy.reset(0);
 }

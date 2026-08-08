@@ -12,6 +12,7 @@ block will consume its responses.
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include <cascade/Cascade.hpp>
@@ -54,6 +55,18 @@ class Mesher : public Component {
   void reset();
 
  private:
+  static constexpr std::size_t kTagQueueEntries = kMaxSimultaneousMatmuls + 1;
+
+  struct TagQEntry {
+    ExCtrlMeshTag tag{};
+    std::uint8_t  id = 0;
+  };
+
+  struct TotalRowsQEntry {
+    std::uint32_t total_rows = 0;
+    std::uint8_t  id         = 0;
+  };
+
   ExCtrlMeshReq req_state_{};             // holds current request being processed
   bool          req_state_valid_ = false; // true if req_state_ is valid and being processed
   std::uint8_t  matmul_id_       = 0;     // id attached to rows entering the mesh for the active request
@@ -63,6 +76,15 @@ class Mesher : public Component {
   bool          b_written_       = false; // true once B input for current row-beat has been accepted
   bool          d_written_       = false; // true once D input for current row-beat has been accepted
   std::uint32_t fire_counter_    = 0;     // row-beats advanced into the mesh for current request
+
+  std::array<TagQEntry, kTagQueueEntries>       tagq_{};             // tags indexed by mesh-local output id
+  std::uint8_t                                  tagq_head_  = 0;
+  std::uint8_t                                  tagq_tail_  = 0;
+  std::uint8_t                                  tagq_count_ = 0;
+  std::array<TotalRowsQEntry, kTagQueueEntries> total_rows_q_{};     // total rows indexed by current matmul id
+  std::uint8_t                                  total_rows_q_head_  = 0;
+  std::uint8_t                                  total_rows_q_tail_  = 0;
+  std::uint8_t                                  total_rows_q_count_ = 0;
 };
 
 } // namespace smesh
