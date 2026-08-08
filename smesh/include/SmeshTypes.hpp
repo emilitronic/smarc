@@ -26,6 +26,7 @@ constexpr std::size_t kLoadStates       = kDefaultConfig.load_states;        // 
 constexpr std::size_t kRsLoadEntries    = kDefaultConfig.rs_load_entries;    // M4v0 RS load slots
 constexpr std::size_t kRsExecuteEntries = kDefaultConfig.rs_execute_entries; // M4v0 RS execute slots
 constexpr std::size_t kRsStoreEntries   = kDefaultConfig.rs_store_entries;   // M4v0 RS store slots
+constexpr std::size_t kMaxSimultaneousMatmuls = kDefaultConfig.max_simultaneous_matmuls;
 
 static_assert(kSpBanks > 0 && (kSpBanks & (kSpBanks - 1)) == 0,
               "scratchpad bank count must be a power of two");

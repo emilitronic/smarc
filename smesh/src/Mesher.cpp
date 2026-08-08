@@ -7,9 +7,19 @@
 
 namespace smesh {
 
+namespace {
+
+std::uint8_t wrappingAdd(std::uint8_t value, std::uint8_t addend, std::uint8_t limit) {
+  const auto next = static_cast<std::uint8_t>(value + addend);
+  return next >= limit ? static_cast<std::uint8_t>(next - limit) : next;
+}
+
+} // namespace
+
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(req_val)
+      .reads(req_val,
+             req_bits)
       .writes(req_rdy);
 }
 
@@ -41,6 +51,16 @@ void Mesher::update() {
   bool next_d_written       = cur_d_written;
   auto next_fire_counter    = cur_fire_counter;
 
+  if (req_fire) {
+    next_req_state       = *req_bits; // push in new req
+    next_req_state_valid = true;      // mark as valid
+    next_in_prop         = (req_bits->pe_control.propagate != 0) != cur_in_prop;
+    next_matmul_id       = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
+  } else if (last_fire) {
+    next_req_state_valid = cur_req_state.flush > 1;
+    next_req_state.flush = static_cast<u8>(cur_req_state.flush - 1);
+  }
+
   req_state_       = next_req_state;
   req_state_valid_ = next_req_state_valid;
   matmul_id_       = next_matmul_id;
@@ -52,6 +72,18 @@ void Mesher::update() {
   fire_counter_    = next_fire_counter;
 }
 
-void Mesher::reset() {}
+void Mesher::reset() {
+  req_state_       = ExCtrlMeshReq{};
+  req_state_valid_ = false;
+  matmul_id_       = 0;
+  next_matmul_id_  = 0;
+  in_prop_         = false;
+  a_written_       = false;
+  b_written_       = false;
+  d_written_       = false;
+  fire_counter_    = 0;
+
+  req_rdy.reset(0);
+}
 
 } // namespace smesh
