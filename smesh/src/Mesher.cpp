@@ -14,12 +14,12 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
 }
 
 void Mesher::update() {
-  const bool req_ready = true;
-  const bool req_fire  = req_val != 0 && req_ready;
+  const bool last_fire = false; // TODO: compute from row/input-advance completion logic.
 
+  req_rdy = bit(!req_state_valid_ || last_fire);
+
+  const bool req_fire = req_val != 0 && req_rdy != 0;
   (void) req_fire;
-
-  req_rdy = bit(req_ready);
 }
 
 void Mesher::reset() {}
