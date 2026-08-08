@@ -31,7 +31,8 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
       .writes(req_rdy,
               a_rdy,
               b_rdy,
-              d_rdy);
+              d_rdy,
+              resp_val);
 }
 
 void Mesher::update() {
@@ -88,6 +89,9 @@ void Mesher::update() {
   const bool resp_valid = hull_out.resp_valid != 0;
   const bool resp_last  = hull_out.resp_last != 0;
   const std::uint8_t out_matmul_id = hull_out.out_matmul_id;
+
+  resp_val = bit(resp_valid); // response val comes straight from hull
+
   // pop tagq when matching o/p ID appears and this is last o/p row for that tagged operation
   const bool tagq_deq_fire = tagq_front_valid && resp_valid && resp_last && out_matmul_id == tagq_front_bits.id;
   // pop total_rows_q when matching o/p ID appears and this is last o/p for for that request
@@ -185,20 +189,20 @@ void Mesher::update() {
 }
 
 void Mesher::reset() {
-  req_state_       = ExCtrlMeshReq{};
-  req_state_valid_ = false;
-  matmul_id_       = 0;
-  next_matmul_id_  = 0;
-  in_prop_         = false;
-  a_written_       = false;
-  b_written_       = false;
-  d_written_       = false;
-  fire_counter_    = 0;
-  tagq_            = {};
-  tagq_head_       = 0;
-  tagq_tail_       = 0;
-  tagq_count_      = 0;
-  total_rows_q_    = {};
+  req_state_          = ExCtrlMeshReq{};
+  req_state_valid_    = false;
+  matmul_id_          = 0;
+  next_matmul_id_     = 0;
+  in_prop_            = false;
+  a_written_          = false;
+  b_written_          = false;
+  d_written_          = false;
+  fire_counter_       = 0;
+  tagq_               = {};
+  tagq_head_          = 0;
+  tagq_tail_          = 0;
+  tagq_count_         = 0;
+  total_rows_q_       = {};
   total_rows_q_head_  = 0;
   total_rows_q_tail_  = 0;
   total_rows_q_count_ = 0;
