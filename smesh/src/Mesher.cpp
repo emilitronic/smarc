@@ -32,7 +32,9 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
               a_rdy,
               b_rdy,
               d_rdy,
-              resp_val);
+              resp_val,
+              resp_bits,
+              tags_in_progress);
 }
 
 void Mesher::update() {
@@ -91,6 +93,14 @@ void Mesher::update() {
   const std::uint8_t out_matmul_id = hull_out.out_matmul_id;
 
   resp_val = bit(resp_valid); // response val comes straight from hull
+  MesherResp next_resp_bits{};
+  next_resp_bits.data = resp_data;      // response data comes straight from hull
+  next_resp_bits.last = bit(resp_last); // response last comes straight from hull
+  resp_bits = next_resp_bits;
+
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    tags_in_progress[i] = MesherTag{};
+  }
 
   // pop tagq when matching o/p ID appears and this is last o/p row for that tagged operation
   const bool tagq_deq_fire = tagq_front_valid && resp_valid && resp_last && out_matmul_id == tagq_front_bits.id;
@@ -99,7 +109,6 @@ void Mesher::update() {
   
   (void) req_fire;
   (void) pause;
-  (void) resp_data;
   (void) matmul_id_of_output;
   (void) matmul_id_of_current;
 
@@ -209,6 +218,11 @@ void Mesher::reset() {
   hull_.reset();
 
   req_rdy.reset(0);
+  resp_val.reset(0);
+  resp_bits.reset(MesherResp{});
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    tags_in_progress[i].reset(MesherTag{});
+  }
 }
 
 } // namespace smesh

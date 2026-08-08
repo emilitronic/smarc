@@ -237,7 +237,7 @@ struct ExCtrlMeshIn {
 };
 
 struct MesherResp {
-  u64           data       = 0;
+  MeshAccumRow  data{};
   std::uint32_t total_rows = 0;
   ExCtrlMeshTag tag{};
   bit           last       = 0;
