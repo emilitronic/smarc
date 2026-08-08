@@ -46,6 +46,7 @@ void Mesher::update() {
   const auto cur_fire_counter    = fire_counter_;
 
   const bool input_next_row_into_spatial_array = cur_req_state_valid && ((cur_a_written && cur_b_written && cur_d_written) || cur_req_state.flush > 0);
+  const bool pause = !cur_req_state_valid || !input_next_row_into_spatial_array;
   const auto total_fires = cur_req_state.total_rows;
   // Keep input_next_row_into_spatial_array first so C++ does not evaluate total_fires - 1 when no request is active.
   const bool last_fire = input_next_row_into_spatial_array && cur_fire_counter == total_fires - 1;
@@ -65,6 +66,7 @@ void Mesher::update() {
   const bool b_fire   = b_val != 0 && b_ready;
   const bool d_fire   = d_val != 0 && d_ready;
   (void) req_fire;
+  (void) pause;
 
   auto next_req_state       = cur_req_state;
   bool next_req_state_valid = cur_req_state_valid;
