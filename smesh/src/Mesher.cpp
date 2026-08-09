@@ -5,6 +5,10 @@
 
 #include "Mesher.hpp"
 
+#include "ExCtrlDecoder.hpp"
+
+#include <stdexcept>
+
 namespace smesh {
 
 namespace {
@@ -35,11 +39,15 @@ MesherTag makeGarbageTag() {
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(req_val, req_bits,
-             a_val, b_val, d_val)
+             a_val, a_bits,
+             b_val, b_bits,
+             d_val, d_bits)
+      .reads(transposer_out_col_bits)
       .writes(req_rdy,
               a_rdy, b_rdy, d_rdy,
-              resp_val, resp_bits,
-              tags_in_progress);
+              transposer_in_row_val, transposer_in_row_bits,
+              resp_val, resp_bits)
+      .writes(tags_in_progress);
 }
 
 void Mesher::update() {
@@ -82,6 +90,29 @@ void Mesher::update() {
   const bool a_fire   = a_val != 0 && a_ready;
   const bool b_fire   = b_val != 0 && b_ready;
   const bool d_fire   = d_val != 0 && d_ready;
+  const bool dataflow_os = cur_req_state.pe_control.dataflow == kExDataflowOS;
+  const bool dataflow_ws = cur_req_state.pe_control.dataflow == kExDataflowWS;
+  const bool a_from_transposer = dataflow_os ? cur_req_state.a_transpose == 0 : cur_req_state.a_transpose != 0;
+  const bool b_from_transposer = dataflow_os && cur_req_state.bd_transpose != 0;
+  const bool d_from_transposer = dataflow_ws && cur_req_state.bd_transpose != 0;
+  const int transposer_sources =
+      (a_from_transposer ? 1 : 0) +
+      (b_from_transposer ? 1 : 0) +
+      (d_from_transposer ? 1 : 0);
+  if (transposer_sources > 1) {
+    throw std::logic_error("Mesher: multiple operands selected for the single transposer");
+  }
+
+  MeshInputRow transposer_in{};
+  if (a_from_transposer) {
+    transposer_in = a_bits->data;
+  } else if (b_from_transposer) {
+    transposer_in = b_bits->data;
+  } else if (d_from_transposer) {
+    transposer_in = d_bits->data;
+  }
+  transposer_in_row_val  = bit(!pause && transposer_sources != 0);
+  transposer_in_row_bits = transposer_in;
 
   MeshHullIn hull_in{};
   hull_in.a_fire     = bit(a_fire);
@@ -90,6 +121,10 @@ void Mesher::update() {
   hull_in.b_bits     = b_bits->data;
   hull_in.d_fire     = bit(d_fire);
   hull_in.d_bits     = d_bits->data;
+  hull_in.transposer_out_col_bits = *transposer_out_col_bits; // Mesher funnels transposer output to MeshHull
+  hull_in.a_is_from_transposer = bit(a_from_transposer);
+  hull_in.b_is_from_transposer = bit(b_from_transposer);
+  hull_in.d_is_from_transposer = bit(d_from_transposer);
   hull_in.pe_control = cur_req_state.pe_control;
   hull_in.matmul_id  = cur_matmul_id;
   hull_in.last_fire  = bit(last_fire);
@@ -247,6 +282,8 @@ void Mesher::reset() {
   hull_.reset();
 
   req_rdy.reset(0);
+  transposer_in_row_val.reset(0);
+  transposer_in_row_bits.reset(MeshInputRow{});
   resp_val.reset(0);
   resp_bits.reset(MesherResp{});
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {

@@ -26,6 +26,7 @@ class MesherDriver : public Component {
   Output(smesh::ExCtrlMeshIn, b_bits);
   Output(bit, d_val);
   Output(smesh::ExCtrlMeshIn, d_bits);
+  Output(smesh::MeshInputRow, transposer_out_col_bits);
 
   void update();
   void reset();
@@ -59,7 +60,9 @@ class MesherMonitor : public Component {
 };
 
 MesherDriver::MesherDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(req_val, req_bits, a_val, a_bits, b_val, b_bits, d_val, d_bits);
+  UPDATE(update)
+      .writes(req_val, req_bits, a_val, a_bits, b_val, b_bits, d_val, d_bits)
+      .writes(transposer_out_col_bits);
 }
 
 void MesherDriver::update() {
@@ -76,6 +79,7 @@ void MesherDriver::update() {
   b_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{2, 2, 0, 0}};
   d_val = 1;
   d_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{3, 3, 0, 0}};
+  transposer_out_col_bits = smesh::MeshInputRow{};
 }
 
 void MesherDriver::reset() {
@@ -87,6 +91,7 @@ void MesherDriver::reset() {
   b_bits.reset(smesh::ExCtrlMeshIn{});
   d_val.reset(0);
   d_bits.reset(smesh::ExCtrlMeshIn{});
+  transposer_out_col_bits.reset(smesh::MeshInputRow{});
 }
 
 MesherMonitor::MesherMonitor(std::string /*name*/, IMPL_CTOR) {
@@ -139,6 +144,7 @@ int main(int argc, char* argv[]) {
   mesher.b_bits << driver.b_bits;
   mesher.d_val << driver.d_val;
   mesher.d_bits << driver.d_bits;
+  mesher.transposer_out_col_bits << driver.transposer_out_col_bits;
 
   monitor.req_rdy << mesher.req_rdy;
   monitor.a_rdy << mesher.a_rdy;

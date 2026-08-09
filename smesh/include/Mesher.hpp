@@ -44,6 +44,10 @@ class Mesher : public Component {
   Output(bit,         d_rdy);
   Input(ExCtrlMeshIn, d_bits);
 
+  Output(bit,          transposer_in_row_val);
+  Output(MeshInputRow, transposer_in_row_bits);
+  Input(MeshInputRow,  transposer_out_col_bits);
+
   Output(bit,        resp_val);
   Output(MesherResp, resp_bits);
 
