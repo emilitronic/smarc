@@ -5,8 +5,6 @@
 
 #include "Mesher.hpp"
 
-#include "ExCtrlDecoder.hpp"
-
 #include <stdexcept>
 
 namespace smesh {

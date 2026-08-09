@@ -18,9 +18,6 @@ Combinational execute-controller command decoder.
 
 namespace smesh {
 
-constexpr std::uint8_t kExDataflowWS = 0;
-constexpr std::uint8_t kExDataflowOS = 1;
-
 class ExCtrlDecoder : public Component {
   DECLARE_COMPONENT(ExCtrlDecoder);
 

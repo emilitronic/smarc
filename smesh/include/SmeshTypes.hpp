@@ -28,6 +28,9 @@ constexpr std::size_t kRsExecuteEntries = kDefaultConfig.rs_execute_entries; // 
 constexpr std::size_t kRsStoreEntries   = kDefaultConfig.rs_store_entries;   // M4v0 RS store slots
 constexpr std::size_t kMaxSimultaneousMatmuls = kDefaultConfig.max_simultaneous_matmuls;
 
+constexpr std::uint8_t kExDataflowWS = 0;
+constexpr std::uint8_t kExDataflowOS = 1;
+
 static_assert(kSpBanks > 0 && (kSpBanks & (kSpBanks - 1)) == 0,
               "scratchpad bank count must be a power of two");
 static_assert(kSpBankRows > 0 && (kSpBankRows & (kSpBankRows - 1)) == 0,
