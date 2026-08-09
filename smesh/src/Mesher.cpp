@@ -85,6 +85,20 @@ void Mesher::update() {
   const bool a_fire   = a_val != 0 && a_ready;
   const bool b_fire   = b_val != 0 && b_ready;
   const bool d_fire   = d_val != 0 && d_ready;
+
+  MeshHullIn hull_in{};
+  hull_in.a_fire = bit(a_fire);
+  hull_in.a_bits = a_bits->data;
+  hull_in.b_fire = bit(b_fire);
+  hull_in.b_bits = b_bits->data;
+  hull_in.d_fire = bit(d_fire);
+  hull_in.d_bits = d_bits->data;
+  hull_in.pe_control = cur_req_state.pe_control;
+  hull_in.matmul_id  = cur_matmul_id;
+  hull_in.last_fire  = bit(last_fire);
+  hull_in.not_paused = bit(!pause);
+  hull_.step(hull_in);
+
   const auto matmul_id_of_output  = wrappingAdd(cur_matmul_id, 2, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   const auto matmul_id_of_current = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   // tagq & total_rows_q logic (RTL relies on tagqlen sizing; the C++ model guards array writes explicitly)
