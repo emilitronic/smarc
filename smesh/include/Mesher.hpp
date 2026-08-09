@@ -3,11 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 29 2026
 /*
-Systolic mesh boundary.
-
-This starts as the structural boundary for the core mesh. It is not part of
-ExCtrl proper: ExCtrl feeds it requests and row data, and a later writeback
-block will consume its responses.
+Systolic mesh wrapper.  Manages the interface between ExCtrl and the MeshHull.
+This includes request tracking, row-beat counting, and tag/total_rows bookkeeping.
 */
 
 #pragma once

@@ -8,7 +8,7 @@
 namespace smesh {
 
 namespace {
-
+// wrapping addition for mesh-local matmul IDs and queue indices
 std::uint8_t wrappingAdd(std::uint8_t value, std::uint8_t addend, std::uint8_t limit) {
   const auto next = static_cast<std::uint8_t>(value + addend);
   return next >= limit ? static_cast<std::uint8_t>(next - limit) : next;
@@ -34,41 +34,38 @@ MesherTag makeGarbageTag() {
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(req_val,
-             req_bits,
-             a_val,
-             b_val,
-             d_val)
+      .reads(req_val, req_bits,
+             a_val, b_val, d_val)
       .writes(req_rdy,
-              a_rdy,
-              b_rdy,
-              d_rdy,
-              resp_val,
-              resp_bits,
+              a_rdy, b_rdy, d_rdy,
+              resp_val, resp_bits,
               tags_in_progress);
 }
 
 void Mesher::update() {
-  const auto cur_req_state       = req_state_;
-  const bool cur_req_state_valid = req_state_valid_;
-  const auto cur_matmul_id       = matmul_id_;
-  const auto cur_next_matmul_id  = next_matmul_id_;
-  const bool cur_in_prop         = in_prop_;
-  const bool cur_a_written       = a_written_;
-  const bool cur_b_written       = b_written_;
-  const bool cur_d_written       = d_written_;
-  const auto cur_fire_counter    = fire_counter_;
-  const auto cur_tagq_head       = tagq_head_;
-  const auto cur_tagq_tail       = tagq_tail_;
-  const auto cur_tagq_count      = tagq_count_;
+  const auto cur_req_state          = req_state_;
+  const bool cur_req_state_valid    = req_state_valid_;
+  const auto cur_matmul_id          = matmul_id_;
+  const auto cur_next_matmul_id     = next_matmul_id_;
+  const bool cur_in_prop            = in_prop_;
+  const bool cur_a_written          = a_written_;
+  const bool cur_b_written          = b_written_;
+  const bool cur_d_written          = d_written_;
+  const auto cur_fire_counter       = fire_counter_;
+  const auto cur_tagq_head          = tagq_head_;
+  const auto cur_tagq_tail          = tagq_tail_;
+  const auto cur_tagq_count         = tagq_count_;
   const auto cur_total_rows_q_head  = total_rows_q_head_;
   const auto cur_total_rows_q_tail  = total_rows_q_tail_;
   const auto cur_total_rows_q_count = total_rows_q_count_;
 
+  // *******************
+  // Combinational Logic
+  // *******************
   const bool input_next_row_into_spatial_array = cur_req_state_valid && ((cur_a_written && cur_b_written && cur_d_written) || cur_req_state.flush > 0);
   const bool pause = !cur_req_state_valid || !input_next_row_into_spatial_array;
   const auto total_fires = cur_req_state.total_rows;
-  // Keep input_next_row_into_spatial_array first so C++ does not evaluate total_fires - 1 when no request is active.
+  // note: keep input_next_row_into_spatial_array first so C++ does not evaluate total_fires - 1 when no request is active.
   const bool last_fire = input_next_row_into_spatial_array && cur_fire_counter == total_fires - 1;
 
   const bool req_ready = !cur_req_state_valid || last_fire;
@@ -87,18 +84,21 @@ void Mesher::update() {
   const bool d_fire   = d_val != 0 && d_ready;
 
   MeshHullIn hull_in{};
-  hull_in.a_fire = bit(a_fire);
-  hull_in.a_bits = a_bits->data;
-  hull_in.b_fire = bit(b_fire);
-  hull_in.b_bits = b_bits->data;
-  hull_in.d_fire = bit(d_fire);
-  hull_in.d_bits = d_bits->data;
+  hull_in.a_fire     = bit(a_fire);
+  hull_in.a_bits     = a_bits->data;
+  hull_in.b_fire     = bit(b_fire);
+  hull_in.b_bits     = b_bits->data;
+  hull_in.d_fire     = bit(d_fire);
+  hull_in.d_bits     = d_bits->data;
   hull_in.pe_control = cur_req_state.pe_control;
   hull_in.matmul_id  = cur_matmul_id;
   hull_in.last_fire  = bit(last_fire);
   hull_in.not_paused = bit(!pause);
   hull_.step(hull_in);
 
+  // ************************************
+  // Tracking Queues & Response Formation
+  // ************************************
   const auto matmul_id_of_output  = wrappingAdd(cur_matmul_id, 2, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   const auto matmul_id_of_current = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   // tagq & total_rows_q logic (RTL relies on tagqlen sizing; the C++ model guards array writes explicitly)
@@ -137,29 +137,27 @@ void Mesher::update() {
   // pop total_rows_q when matching o/p ID appears and this is last o/p for for that request
   const bool total_rows_q_deq_fire = resp_valid && resp_last && total_rows_id_matches;
   
-  (void) req_fire;
-  (void) pause;
-  (void) matmul_id_of_output;
-  (void) matmul_id_of_current;
-
-  auto next_req_state       = cur_req_state;
-  bool next_req_state_valid = cur_req_state_valid;
-  auto next_matmul_id       = cur_matmul_id;
-  auto next_next_matmul_id  = cur_next_matmul_id;
-  bool next_in_prop         = cur_in_prop;
-  bool next_a_written       = cur_a_written;
-  bool next_b_written       = cur_b_written;
-  bool next_d_written       = cur_d_written;
-  auto next_fire_counter    = cur_fire_counter;
-  auto next_tagq            = tagq_;
-  auto next_tagq_head       = cur_tagq_head;
-  auto next_tagq_tail       = cur_tagq_tail;
-  auto next_tagq_count      = cur_tagq_count;
+  auto next_req_state          = cur_req_state;
+  bool next_req_state_valid    = cur_req_state_valid;
+  auto next_matmul_id          = cur_matmul_id;
+  auto next_next_matmul_id     = cur_next_matmul_id;
+  bool next_in_prop            = cur_in_prop;
+  bool next_a_written          = cur_a_written;
+  bool next_b_written          = cur_b_written;
+  bool next_d_written          = cur_d_written;
+  auto next_fire_counter       = cur_fire_counter;
+  auto next_tagq               = tagq_;
+  auto next_tagq_head          = cur_tagq_head;
+  auto next_tagq_tail          = cur_tagq_tail;
+  auto next_tagq_count         = cur_tagq_count;
   auto next_total_rows_q       = total_rows_q_;
   auto next_total_rows_q_head  = cur_total_rows_q_head;
   auto next_total_rows_q_tail  = cur_total_rows_q_tail;
   auto next_total_rows_q_count = cur_total_rows_q_count;
 
+  // ************
+  // State Update
+  // ************
   if (req_fire) {
     next_req_state       = *req_bits; // push in new req
     next_req_state_valid = true;      // mark as valid
@@ -190,37 +188,38 @@ void Mesher::update() {
   if (enqueue_mesh_metadata) {
     next_tagq[cur_tagq_tail].tag = req_bits->tag;
     next_tagq[cur_tagq_tail].id  = matmul_id_of_output;
-    next_tagq_tail  = wrappingAdd(cur_tagq_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
-    next_tagq_count = static_cast<std::uint8_t>(cur_tagq_count + 1);
+    next_tagq_tail               = wrappingAdd(cur_tagq_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_tagq_count              = static_cast<std::uint8_t>(cur_tagq_count + 1);
 
     next_total_rows_q[cur_total_rows_q_tail].total_rows = req_bits->total_rows;
     next_total_rows_q[cur_total_rows_q_tail].id         = matmul_id_of_current;
-    next_total_rows_q_tail  = wrappingAdd(cur_total_rows_q_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
-    next_total_rows_q_count = static_cast<std::uint8_t>(cur_total_rows_q_count + 1);
+    next_total_rows_q_tail                              = wrappingAdd(cur_total_rows_q_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_total_rows_q_count                             = static_cast<std::uint8_t>(cur_total_rows_q_count + 1);
   }
-  // deq tagq and total_rows_q
+  // deq tagq
   if (tagq_deq_fire) {
     next_tagq_head  = wrappingAdd(next_tagq_head, 1, static_cast<std::uint8_t>(kTagQueueEntries));
     next_tagq_count = static_cast<std::uint8_t>(next_tagq_count - 1);
   }
+  // deq total_rows_q
   if (total_rows_q_deq_fire) {
     next_total_rows_q_head  = wrappingAdd(next_total_rows_q_head, 1, static_cast<std::uint8_t>(kTagQueueEntries));
     next_total_rows_q_count = static_cast<std::uint8_t>(next_total_rows_q_count - 1);
   }
 
-  req_state_       = next_req_state;
-  req_state_valid_ = next_req_state_valid;
-  matmul_id_       = next_matmul_id;
-  next_matmul_id_  = next_next_matmul_id;
-  in_prop_         = next_in_prop;
-  a_written_       = next_a_written;
-  b_written_       = next_b_written;
-  d_written_       = next_d_written;
-  fire_counter_    = next_fire_counter;
-  tagq_            = next_tagq;
-  tagq_head_       = next_tagq_head;
-  tagq_tail_       = next_tagq_tail;
-  tagq_count_      = next_tagq_count;
+  req_state_          = next_req_state;
+  req_state_valid_    = next_req_state_valid;
+  matmul_id_          = next_matmul_id;
+  next_matmul_id_     = next_next_matmul_id;
+  in_prop_            = next_in_prop;
+  a_written_          = next_a_written;
+  b_written_          = next_b_written;
+  d_written_          = next_d_written;
+  fire_counter_       = next_fire_counter;
+  tagq_               = next_tagq;
+  tagq_head_          = next_tagq_head;
+  tagq_tail_          = next_tagq_tail;
+  tagq_count_         = next_tagq_count;
   total_rows_q_       = next_total_rows_q;
   total_rows_q_head_  = next_total_rows_q_head;
   total_rows_q_tail_  = next_total_rows_q_tail;
