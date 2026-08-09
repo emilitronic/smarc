@@ -72,7 +72,6 @@ void useDAndMaybeCaptureNext(smesh::MeshHull& hull,
 
 void preloadC2ThroughD(smesh::MeshHull& hull, const Matrix& b, int& cycle) {
   smesh::MeshHullIn set_prop0{};
-  set_prop0.req_fire = 1;
   set_prop0.pe_control.propagate = 0;
   step(hull, set_prop0, cycle);
 
@@ -154,7 +153,6 @@ int main() {
   bool ok = c2Equals(hull, b);
 
   smesh::MeshHullIn set_compute_prop{};
-  set_compute_prop.req_fire = 1;
   set_compute_prop.pe_control.propagate = 1;
   step(hull, set_compute_prop, cycle);
 

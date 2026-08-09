@@ -16,7 +16,6 @@ int main() {
   preload0.d_fire = 1;
   preload0.d_bits = smesh::MeshInputRow{1, 2, 3, 4};
   preload0.pe_control.propagate = 0;
-  preload0.req_fire = 1;
   preload0.matmul_id = 1;
   hull.step(preload0);
 
@@ -29,7 +28,6 @@ int main() {
   preload1.d_fire = 1;
   preload1.d_bits = smesh::MeshInputRow{5, 6, 7, 8};
   preload1.pe_control.propagate = 1;
-  preload1.req_fire = 1;
   preload1.matmul_id = 2;
   hull.step(preload1);
 
@@ -45,7 +43,6 @@ int main() {
   compute0.d_fire = 1;
   compute0.d_bits = smesh::MeshInputRow{9, 10, 11, 12};
   compute0.pe_control.propagate = 1;
-  compute0.req_fire = 1;
   compute0.matmul_id = 3;
   compute0.last_fire = 1;
   hull.step(compute0);
@@ -71,7 +68,6 @@ int main() {
   invalid.d_fire = 1;
   invalid.d_bits = smesh::MeshInputRow{17, 18, 19, 20};
   invalid.pe_control.propagate = 0;
-  invalid.req_fire = 1;
   invalid.matmul_id = 4;
   invalid.not_paused = 0;
   hull.step(invalid);

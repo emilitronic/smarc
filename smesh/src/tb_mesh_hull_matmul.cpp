@@ -97,7 +97,6 @@ int main() {
   int cycle = 0;
 
   smesh::MeshHullIn set_prop{};
-  set_prop.req_fire = 1;
   set_prop.pe_control.propagate = 1;
   step(hull, set_prop, cycle);
 

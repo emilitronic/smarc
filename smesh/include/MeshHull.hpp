@@ -37,7 +37,6 @@ struct MeshHullIn {
   bit d_is_from_transposer = 0;
   // inputs from ExCtrl
   ExCtrlMeshPeControl pe_control{};
-  bit                 req_fire   = 0; // request to mesh boundary from ExCtrl
   std::uint8_t        matmul_id  = 0;
   bit                 last_fire  = 0;
   bit                 not_paused = 0;
