@@ -30,7 +30,7 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
               completed_val,
               completed_bits);
   UPDATE(updateState)
-      .reads(mesh_resp_val, mesh_resp_rdy, mesh_resp_bits);
+      .reads(mesh_resp_val, mesh_resp_bits);
 }
 
 void ExCtrlWriteback::updateView() {
@@ -54,7 +54,7 @@ void ExCtrlWriteback::updateView() {
 }
 
 void ExCtrlWriteback::updateState() {
-  const bool mesh_resp_fire = mesh_resp_val != 0 && mesh_resp_rdy != 0;
+  const bool mesh_resp_fire = mesh_resp_val != 0;
 
   // TODO: advance/reset output_counter_ when mesh output routing is implemented.
   if (mesh_resp_fire && static_cast<bool>(mesh_resp_bits->last)) {
