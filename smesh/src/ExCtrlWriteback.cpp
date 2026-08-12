@@ -19,8 +19,7 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
              ex_write_to_acc)
       .reads(spad_write_rdy,
              accum_write_rdy)
-      .writes(mesh_resp_rdy,
-              spad_write_val,
+      .writes(spad_write_val,
               spad_write_bits,
               accum_write_val,
               accum_write_bits,
@@ -34,8 +33,6 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlWriteback::updateView() {
-  mesh_resp_rdy = 0;
-
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_write_val[bank] = 0;
     spad_write_bits[bank] = DmaReadResp{};
@@ -65,7 +62,6 @@ void ExCtrlWriteback::updateState() {
 void ExCtrlWriteback::reset() {
   output_counter_ = 0;
 
-  mesh_resp_rdy.reset(0);
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_write_val[bank].reset(0);
     spad_write_bits[bank].reset(DmaReadResp{});

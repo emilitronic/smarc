@@ -30,7 +30,6 @@ class ExCtrlWriteback : public Component {
   Clock(clk);
 
   Input(bit, mesh_resp_val);           // mesh has response bits available
-  Output(bit, mesh_resp_rdy);          // writeback can accept mesh response
   Input(MesherResp, mesh_resp_bits);   // mesh response payload
 
   Input(u8, current_dataflow);         // execute dataflow config register

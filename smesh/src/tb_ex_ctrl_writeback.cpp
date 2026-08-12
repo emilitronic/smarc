@@ -41,7 +41,6 @@ class ExCtrlWritebackMonitor : public Component {
   ExCtrlWritebackMonitor(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  Input(bit, mesh_resp_rdy);
   InputArray(bit, spad_write_val, smesh::kSpBanks);
   InputArray(bit, accum_write_val, smesh::kAccBanks);
   Input(u32, output_counter);
@@ -117,8 +116,7 @@ void ExCtrlWritebackDriver::reset() {
 
 ExCtrlWritebackMonitor::ExCtrlWritebackMonitor(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(mesh_resp_rdy,
-             spad_write_val,
+      .reads(spad_write_val,
              accum_write_val,
              output_counter,
              start_array_outputting,
@@ -140,7 +138,6 @@ void ExCtrlWritebackMonitor::update() {
   }
 
   passed_ =
-      mesh_resp_rdy == 0 &&
       no_writes &&
       output_counter == 0 &&
       start_array_outputting == 0 &&
@@ -182,7 +179,6 @@ int main(int argc, char* argv[]) {
     monitor.accum_write_val[bank] << writeback.accum_write_val[bank];
   }
 
-  monitor.mesh_resp_rdy << writeback.mesh_resp_rdy;
   monitor.output_counter << writeback.output_counter;
   monitor.start_array_outputting << writeback.start_array_outputting;
   monitor.mesh_completed_rs_tag_fire << writeback.mesh_completed_rs_tag_fire;
