@@ -9,32 +9,18 @@ namespace smesh {
 
 ExCtrlMeshCntlPack::ExCtrlMeshCntlPack(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(perform_mul_pre,
-             perform_single_mul,
-             perform_single_preload,
-             a_bank,
-             b_bank,
-             d_bank,
-             a_bank_acc,
-             b_bank_acc)
+      .reads(perform_mul_pre, perform_single_mul, perform_single_preload,
+             a_bank, b_bank, d_bank,
+             a_bank_acc, b_bank_acc)
       .reads(d_bank_acc,
-             a_read_from_acc,
-             b_read_from_acc,
-             d_read_from_acc,
-             a_garbage,
-             b_garbage,
-             d_garbage,
+             a_read_from_acc, b_read_from_acc, d_read_from_acc,
+             a_garbage, b_garbage, d_garbage,
              accumulate_zeros)
       .reads(preload_zeros,
-             a_fire,
-             b_fire,
-             d_fire,
-             a_unpadded_cols,
-             b_unpadded_cols,
-             d_unpadded_cols,
+             a_fire, b_fire, d_fire,
+             a_unpadded_cols, b_unpadded_cols, d_unpadded_cols,
              c_addr)
-      .reads(c_rows,
-             c_cols,
+      .reads(c_rows, c_cols,
              a_transpose,
              bd_transpose,
              total_rows,
