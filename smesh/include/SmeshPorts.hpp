@@ -235,6 +235,10 @@ struct ExCtrlMeshReq {
 struct ExCtrlMeshIn {
   MeshInputRow data{};
 };
+// B input can carry accumulator-width partial sums in WS mode.
+struct ExCtrlMeshBIn {
+  MeshAccumRow data{};
+};
 
 struct MesherResp {
   MeshAccumRow  data{};

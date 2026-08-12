@@ -26,6 +26,23 @@ MeshInputRow padInputRow(u64 unpadded, std::uint32_t unpadded_cols) {
   return padded;
 }
 
+MeshAccumRow widenInputRow(const MeshInputRow& row) {
+  MeshAccumRow widened{};
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    widened[lane] = static_cast<Acc>(row[lane]);
+  }
+  return widened;
+}
+
+MeshAccumRow padAccumRow(u64 unpadded, std::uint32_t unpadded_cols) {
+  MeshAccumRow padded{};
+  const std::size_t cols = unpadded_cols < kDim ? unpadded_cols : kDim;
+  for (std::size_t lane = 0; lane < cols; ++lane) {
+    padded[lane] = static_cast<Acc>((unpadded >> (lane * 32)) & u64{0xffffffff});
+  }
+  return padded;
+}
+
 } // namespace
 
 ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
@@ -72,7 +89,9 @@ void ExCtrlMeshInSelPad::update() {
   const auto d_unpadded = (d_garbage != 0 || preload_zeros != 0)    ? u64{0} : d_read_from_acc != 0 ? d_acc        : d_spad;
   
   const auto next_mesh_a = ExCtrlMeshIn{padInputRow(a_unpadded, a_unpadded_cols)};
-  const auto next_mesh_b = ExCtrlMeshIn{padInputRow(b_unpadded, b_unpadded_cols)};
+  const auto next_mesh_b = ExCtrlMeshBIn{b_read_from_acc != 0
+      ? padAccumRow(b_unpadded, b_unpadded_cols)
+      : widenInputRow(padInputRow(b_unpadded, b_unpadded_cols))};
   const auto next_mesh_d = ExCtrlMeshIn{padInputRow(d_unpadded, d_unpadded_cols)};
 
   // validity of data on the bus (or in memory) for this row-beat
