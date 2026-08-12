@@ -78,9 +78,8 @@ class ExCtrlMeshCntlQueue : public Component {
   Output(ExCtrlMeshReq,  mesh_req_bits);
 
   void updateEnqReady();
-  void updateEnqAccept();
   void updateDeqView();
-  void updateDeqPop();
+  void updateStorage();
   void reset();
 
  private:
