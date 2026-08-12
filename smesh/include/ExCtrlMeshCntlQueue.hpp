@@ -13,6 +13,8 @@ Mesh-control metadata queue for ExecuteController row-beats.
 #include "SmeshLocalAddr.hpp"
 #include "SmeshPorts.hpp"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 
 namespace smesh {
@@ -64,13 +66,14 @@ class ExCtrlMeshCntlQueue : public Component {
 
   Clock(clk);
 
-  Input(bit, enq_val);
-  Output(bit, enq_rdy);
+  Input(bit,            enq_val);
+  Output(bit,           enq_rdy);
   Input(ExCtrlMeshCntl, enq_bits);
-  Output(bit, cntl_val);
-  Input(bit, mesh_cntl_deq_rdy);
+
+  Output(bit,            cntl_val);
+  Input(bit,             mesh_cntl_deq_rdy);
   Output(ExCtrlMeshCntl, cntl_bits);
-  Output(ExCtrlMeshReq, mesh_req_bits);
+  Output(ExCtrlMeshReq,  mesh_req_bits);
 
   void updateEnqReady();
   void updateEnqAccept();
@@ -79,8 +82,12 @@ class ExCtrlMeshCntlQueue : public Component {
   void reset();
 
  private:
-  bool valid_ = false;
-  ExCtrlMeshCntl entry_{};
+  static constexpr std::size_t kDepth = 5; // TODO: think about this more deeply and check spad read delay
+
+  std::array<ExCtrlMeshCntl, kDepth> entries_{};
+  std::size_t head_  = 0;
+  std::size_t tail_  = 0;
+  std::size_t count_ = 0;
 };
 
 } // namespace smesh
