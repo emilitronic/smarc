@@ -6,7 +6,8 @@
 Mesh-control dequeue-ready logic.
 
 This block decides when the head entry of ExCtrlMeshCntlQueue may be released
-toward the mesh boundary.
+toward the mesh boundary.  That means both popped as well as have any mesher
+request packed validated.
 */
 
 #pragma once
@@ -36,8 +37,8 @@ class ExCtrlMeshCntlDeqCtrl : public Component {
   Input(bit, mesh_d_rdy);           // Mesher D input is ready
   Input(bit, mesh_req_rdy);         // Mesher request port is ready
 
-  Output(bit, mesh_cntl_deq_rdy);   // mesh-control queue can release head entry
-  Output(bit, mesh_cntl_deq_fire);  // valid head entry is released this cycle (allow queue to pop)
+  Output(bit, mesh_cntl_deq_rdy);   // mesh-control queue can pop head entry
+  Output(bit, mesh_cntl_deq_fire);  // valid head entry is popped this cycle
   Output(bit, mesh_cntl_req_val);   // valid signal to mesher's request port
 
   void update();

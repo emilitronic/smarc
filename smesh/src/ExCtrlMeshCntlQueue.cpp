@@ -34,11 +34,11 @@ ExCtrlMeshCntlQueue::ExCtrlMeshCntlQueue(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateDeqView).writes(cntl_val, cntl_bits, mesh_req_bits);
   UPDATE(updateDeqPop).reads(mesh_cntl_deq_rdy);
 }
-
+// can I accept an enqueue request?  yes if the queue is not full
 void ExCtrlMeshCntlQueue::updateEnqReady() {
   enq_rdy = bit(count_ < kDepth);
 }
-
+// mutate queue state when enq handshake fires
 void ExCtrlMeshCntlQueue::updateEnqAccept() {
   if (enq_val == 0 || count_ >= kDepth) {
     return;
@@ -58,7 +58,7 @@ void ExCtrlMeshCntlQueue::updateEnqAccept() {
         static_cast<unsigned>(accepted.d_fire),
         static_cast<unsigned>(accepted.rs_tag));
 }
-
+// what is at the head of the queue?
 void ExCtrlMeshCntlQueue::updateDeqView() {
   const bool valid = count_ != 0; // non-zero count means you've got a valid entry at head
   const auto front = valid ? entries_[head_] : ExCtrlMeshCntl{};
@@ -66,7 +66,7 @@ void ExCtrlMeshCntlQueue::updateDeqView() {
   cntl_bits     = front;
   mesh_req_bits = valid ? makeMeshReq(front) : ExCtrlMeshReq{};
 }
-
+// mutate queue state when deq handshake fires
 void ExCtrlMeshCntlQueue::updateDeqPop() {
   if (count_ == 0 || mesh_cntl_deq_rdy == 0) {
     return;

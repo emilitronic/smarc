@@ -40,22 +40,24 @@ struct ExCtrlMeshCntl {
   bit a_fire = 0;
   bit b_fire = 0;
   bit d_fire = 0;
-  std::uint32_t a_unpadded_cols = 0;
+  std::uint32_t a_unpadded_cols = 0; 
   std::uint32_t b_unpadded_cols = 0;
   std::uint32_t d_unpadded_cols = 0;
+
+  u8             dataflow     = 0;  // req fields to Mesher 
+  bit            prop         = 0;
+  u8             shift        = 0;
+  bit            a_transpose  = 0;
+  bit            bd_transpose = 0;
+  std::uint32_t  total_rows   = 0;
+  bit            rs_tag_valid = 0;
+  SmeshRsTag     rs_tag       = 0;
   SmeshLocalAddr c_addr{};
-  std::uint32_t c_rows = 0;
-  std::uint32_t c_cols = 0;
-  bit a_transpose = 0;
-  bit bd_transpose = 0;
-  std::uint32_t total_rows = 0;
-  bit rs_tag_valid = 0;
-  SmeshRsTag rs_tag = 0;
-  u8 dataflow = 0;
-  bit prop = 0;
-  u8 shift = 0;
-  bit im2colling = 0;
-  bit first = 0;
+  std::uint32_t  c_rows = 0;
+  std::uint32_t  c_cols = 0;
+
+  bit            im2colling = 0;
+  bit            first = 0;
 };
 
 class ExCtrlMeshCntlQueue : public Component {
