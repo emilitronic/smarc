@@ -62,7 +62,7 @@ class MeshInSelPadMonitor : public Component {
 
   Clock(clk);
   Input(smesh::ExCtrlMeshIn, mesh_a);
-  Input(smesh::ExCtrlMeshBIn, mesh_b);
+  Input(smesh::ExCtrlMeshIn, mesh_b);
   Input(smesh::ExCtrlMeshIn, mesh_d);
   Input(bit, mesh_a_val);
   Input(bit, mesh_b_val);
@@ -222,7 +222,7 @@ void MeshInSelPadMonitor::update() {
   const auto d = *mesh_d;
   passed_ =
       a.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x55), static_cast<smesh::Elem>(0x66), static_cast<smesh::Elem>(0x77), 0} &&
-      b.data == smesh::MeshAccumRow{0x2001, 0, 0, 0} &&
+      b.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x01), static_cast<smesh::Elem>(0x20), 0, 0} &&
       d.data == smesh::MeshInputRow{} &&
       mesh_a_val != 0 &&
       mesh_b_val != 0 &&
