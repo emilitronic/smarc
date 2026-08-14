@@ -27,7 +27,7 @@ struct MeshHullIn {
   bit          a_fire = 0;
   MeshInputRow a_bits{}; // input type
   bit          b_fire = 0;
-  MeshAccumRow b_bits{}; // accumulator-width psum path
+  MeshInputRow b_bits{}; // input-width row; MeshHull widens it for WS psums
   bit          d_fire = 0;
   MeshInputRow d_bits{}; // weight type
   // inputs from transposer

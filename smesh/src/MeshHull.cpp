@@ -40,7 +40,7 @@ void MeshHull::step(const MeshHullIn& in) {
     next_a_buf = in.a_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.a_bits;
   }
   if (in.b_fire != 0) {
-    next_b_buf = in.b_is_from_transposer != 0 ? widenInputRow(in.transposer_out_col_bits) : in.b_bits;
+    next_b_buf = in.b_is_from_transposer != 0 ? widenInputRow(in.transposer_out_col_bits) : widenInputRow(in.b_bits);
   }
   if (in.d_fire != 0) {
     next_d_buf = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.d_bits;

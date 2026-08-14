@@ -105,7 +105,7 @@ void Mesher::update() {
   if (a_from_transposer) {
     transposer_in = a_bits->data;
   } else if (b_from_transposer) {
-    throw std::logic_error("Mesher: B transposer path needs an explicit width policy");
+    transposer_in = b_bits->data;
   } else if (d_from_transposer) {
     transposer_in = d_bits->data;
   }

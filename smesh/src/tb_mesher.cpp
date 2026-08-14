@@ -23,7 +23,7 @@ class MesherDriver : public Component {
   Output(bit, a_val);
   Output(smesh::ExCtrlMeshIn, a_bits);
   Output(bit, b_val);
-  Output(smesh::ExCtrlMeshBIn, b_bits);
+  Output(smesh::ExCtrlMeshIn, b_bits);
   Output(bit, d_val);
   Output(smesh::ExCtrlMeshIn, d_bits);
   Output(smesh::MeshInputRow, transposer_out_col_bits);
@@ -76,7 +76,7 @@ void MesherDriver::update() {
   a_val = 1;
   a_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{1, 1, 0, 0}};
   b_val = 1;
-  b_bits = smesh::ExCtrlMeshBIn{smesh::MeshAccumRow{2, 2, 0, 0}};
+  b_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{2, 2, 0, 0}};
   d_val = 1;
   d_bits = smesh::ExCtrlMeshIn{smesh::MeshInputRow{3, 3, 0, 0}};
   transposer_out_col_bits = smesh::MeshInputRow{};
@@ -88,7 +88,7 @@ void MesherDriver::reset() {
   a_val.reset(0);
   a_bits.reset(smesh::ExCtrlMeshIn{});
   b_val.reset(0);
-  b_bits.reset(smesh::ExCtrlMeshBIn{});
+  b_bits.reset(smesh::ExCtrlMeshIn{});
   d_val.reset(0);
   d_bits.reset(smesh::ExCtrlMeshIn{});
   transposer_out_col_bits.reset(smesh::MeshInputRow{});
