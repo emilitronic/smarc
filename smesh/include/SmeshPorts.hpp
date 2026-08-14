@@ -140,7 +140,7 @@ struct SpadReadReq {
 };
 // ifc from scratchpad memory to read pipes
 struct SpadReadResp {
-  u64 data = 0;
+  MeshInputRow data{};
   SmeshLocalAddr laddr{};
   u8 mask = 0;
   u16 len = 0; // number of row elements being read from spad (not bytes)

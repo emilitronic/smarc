@@ -34,6 +34,14 @@ StWriterData packStoreData(std::uint64_t value) {
   return data;
 }
 
+StWriterData packStoreData(const MeshInputRow& row) {
+  StWriterData data{};
+  for (std::size_t i = 0; i < kDim && i < data.size(); ++i) {
+    data[i] = static_cast<std::uint8_t>(row[i]);
+  }
+  return data;
+}
+
 } // namespace
 
 StIssueMux::StIssueMux(std::string /*name*/, IMPL_CTOR) {
@@ -60,21 +68,21 @@ void StIssueMux::update() {
   // convert len from row elements to bytes depending on whether the write is full-width (Acc) or normal-width (Elem)
   req.len_bytes = u16(static_cast<std::uint16_t>( issue.len * (req.data_is_full_width ? sizeof(Acc) : sizeof(Elem))));
 
-  std::uint64_t selected_data = 0;
+  StWriterData selected_data{};
   switch (static_cast<std::uint8_t>(data_source_sel)) {
     case kDataSourceSpad:
-      selected_data = spad.data;
+      selected_data = packStoreData(spad.data);
       break;
     case kDataSourceAcc:
-      selected_data = static_cast<std::uint8_t>(final_data_sel) == kFinalDataFullAccWidth ? acc.full_data : acc.data;
+      selected_data = packStoreData(static_cast<std::uint8_t>(final_data_sel) == kFinalDataFullAccWidth ? acc.full_data : acc.data);
       break;
     case kDataSourceZero:
     default:
-      selected_data = 0;
+      selected_data = StWriterData{};
       break;
   }
 
-  req.data = packStoreData(selected_data);
+  req.data = selected_data;
 
   writer_req_bits = req;
 }

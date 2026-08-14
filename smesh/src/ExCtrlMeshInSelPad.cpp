@@ -26,6 +26,15 @@ MeshInputRow padInputRow(u64 unpadded, std::uint32_t unpadded_cols) {
   return padded;
 }
 
+MeshInputRow padInputRow(const MeshInputRow& unpadded, std::uint32_t unpadded_cols) {
+  MeshInputRow padded{};
+  const std::size_t cols = unpadded_cols < kDim ? unpadded_cols : kDim;
+  for (std::size_t lane = 0; lane < cols; ++lane) {
+    padded[lane] = unpadded[lane];
+  }
+  return padded;
+}
+
 MeshAccumRow widenInputRow(const MeshInputRow& row) {
   MeshAccumRow widened{};
   for (std::size_t lane = 0; lane < kDim; ++lane) {
@@ -41,6 +50,10 @@ MeshAccumRow padAccumRow(u64 unpadded, std::uint32_t unpadded_cols) {
     padded[lane] = static_cast<Acc>((unpadded >> (lane * 32)) & u64{0xffffffff});
   }
   return padded;
+}
+
+MeshInputRow selectInputRow(bool use_packed, u64 packed, const MeshInputRow& row, std::uint32_t unpadded_cols) {
+  return use_packed ? padInputRow(packed, unpadded_cols) : padInputRow(row, unpadded_cols);
 }
 
 } // namespace
@@ -83,16 +96,21 @@ void ExCtrlMeshInSelPad::update() {
   const auto a_acc  = accum_read_data[a_acc_index]->data;
   const auto b_acc  = accum_read_data[b_acc_index]->data;
   const auto d_acc  = accum_read_data[d_acc_index]->data;
-  // unpadded data row as determined by muxing controls
-  const auto a_unpadded =  a_garbage != 0                           ? u64{0} : im2colling      != 0 ? *im2col_data : a_read_from_acc != 0 ? a_acc : a_spad;
-  const auto b_unpadded = (b_garbage != 0 || accumulate_zeros != 0) ? u64{0} : b_read_from_acc != 0 ? b_acc        : b_spad;
-  const auto d_unpadded = (d_garbage != 0 || preload_zeros != 0)    ? u64{0} : d_read_from_acc != 0 ? d_acc        : d_spad;
-  
-  const auto next_mesh_a = ExCtrlMeshIn{padInputRow(a_unpadded, a_unpadded_cols)};
-  const auto next_mesh_b = ExCtrlMeshBIn{b_read_from_acc != 0
-      ? padAccumRow(b_unpadded, b_unpadded_cols)
-      : widenInputRow(padInputRow(b_unpadded, b_unpadded_cols))};
-  const auto next_mesh_d = ExCtrlMeshIn{padInputRow(d_unpadded, d_unpadded_cols)};
+  // selected, padded row payloads
+  const auto next_mesh_a = ExCtrlMeshIn{a_garbage != 0
+      ? MeshInputRow{}
+      : selectInputRow(im2colling != 0 || a_read_from_acc != 0,
+                       im2colling != 0 ? *im2col_data : a_acc,
+                       a_spad,
+                       a_unpadded_cols)};
+  const auto next_mesh_b = ExCtrlMeshBIn{(b_garbage != 0 || accumulate_zeros != 0)
+      ? MeshAccumRow{}
+      : b_read_from_acc != 0
+          ? padAccumRow(b_acc, b_unpadded_cols)
+          : widenInputRow(padInputRow(b_spad, b_unpadded_cols))};
+  const auto next_mesh_d = ExCtrlMeshIn{(d_garbage != 0 || preload_zeros != 0)
+      ? MeshInputRow{}
+      : selectInputRow(d_read_from_acc != 0, d_acc, d_spad, d_unpadded_cols)};
 
   // validity of data on the bus (or in memory) for this row-beat
   const bool dataA_valid = a_garbage != 0 || a_unpadded_cols == 0 || (im2colling       != 0 ? im2col_val != 0 : a_read_from_acc  != 0 ? accum_read_val[a_acc_index] != 0 : spad_read_val[a_spad_index] != 0);

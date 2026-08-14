@@ -148,7 +148,11 @@ void MeshInSelPadDriver::update() {
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     smesh::SpadReadResp resp{};
-    resp.data = 0x1000u + bank;
+    resp.data = smesh::MeshInputRow{
+        static_cast<smesh::Elem>(0x10 + bank),
+        static_cast<smesh::Elem>(0x20 + bank),
+        static_cast<smesh::Elem>(0x30 + bank),
+        static_cast<smesh::Elem>(0x40 + bank)};
     resp.from_dma = 0;
     spad_read_val[bank] = 1;
     spad_read_data[bank] = resp;
