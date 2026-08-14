@@ -91,7 +91,7 @@ class AccumExResp : public Component {
   Output(bit, acc_rdy_exresp);
 
   OutputArray(bit, ex_resp_val, kAccBanks);
-  OutputArray(AccumReadResp, ex_resp_bits, kAccBanks);
+  OutputArray(ExCtrlAccumReadResp, ex_resp_bits, kAccBanks);
   InputArray(bit, ex_resp_rdy, kAccBanks);
 
   void update();

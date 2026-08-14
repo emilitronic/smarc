@@ -195,6 +195,13 @@ struct AccScaleResp {
   u16 acc_bank_id = 0;
   bit from_dma = true;
 };
+
+// accumulator read response visible to ExCtrl after accumulator scaling
+struct ExCtrlAccumReadResp {
+  MeshInputRow data{};
+  u16 acc_bank_id = 0;
+  bit from_dma = false;
+};
 // maximum-width store data payload; len_bytes says how many bytes are meaningful
 using StWriterData = std::array<std::uint8_t, kDim * sizeof(Acc)>;
 // final store request after StIssueCtrl has paired metadata and data

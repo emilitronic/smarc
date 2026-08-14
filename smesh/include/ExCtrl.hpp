@@ -43,7 +43,7 @@ class ExCtrl : public Component {
   InputArray(bit, accum_read_req_rdy, kAccBanks);
   OutputArray(AccumReadReq, accum_read_req_bits, kAccBanks);
   InputArray(bit, accum_read_resp_val, kAccBanks);
-  InputArray(AccumReadResp, accum_read_resp_bits, kAccBanks);
+  InputArray(ExCtrlAccumReadResp, accum_read_resp_bits, kAccBanks);
   OutputArray(bit, accum_read_resp_rdy, kAccBanks);
 
   Output(bit, spad_write_val);
