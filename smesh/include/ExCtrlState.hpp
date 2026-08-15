@@ -43,14 +43,14 @@ class ExCtrlState : public Component {
   Input(bit, pending_completed_valid);                 // completion block has pending completions
   Input(bit, raw_hazards_are_impossible);              // no RAW hazards possible for this hardware config
   Input(bit, raw_hazard_pre);                          // PRELOAD branch has a RAW hazard
-  Input(bit, a_should_be_fed_into_transposer);          // decoder says A should start through transposer path
-  Input(bit, b_should_be_fed_into_transposer);          // decoder says B should start through transposer path
-  Input(bit, d_should_be_fed_into_transposer);          // decoder says D should start through transposer path
+  Input(bit, a_should_be_fed_into_transposer);         // decoder says A should start through transposer path
+  Input(bit, b_should_be_fed_into_transposer);         // decoder says B should start through transposer path
+  Input(bit, d_should_be_fed_into_transposer);         // decoder says D should start through transposer path
 
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
   Output(bit, a_transpose);         // CONFIG_EX A transpose register
   Output(bit, bd_transpose);        // CONFIG_EX B/D transpose register, TODO: decode when encoded
-  Output(u8, current_dataflow);     // execute dataflow register, TODO: decode when encoded
+  Output(u8,  current_dataflow);    // execute dataflow register, TODO: decode when encoded
   Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
   Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
   Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle

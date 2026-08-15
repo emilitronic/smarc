@@ -90,21 +90,21 @@ void ExCtrlDecoder::update() {
   std::array<SmeshIssue,    kExCtrlCmdWindow> issue{}; // cmds im cmd queue
   std::array<std::uint64_t, kExCtrlCmdWindow> rs1{};   // cmd's operand
   std::array<std::uint64_t, kExCtrlCmdWindow> rs2{};   // cmd's operand
-  std::array<SmeshFunct,    kExCtrlCmdWindow> funct{};
+  std::array<SmeshFunct,    kExCtrlCmdWindow> funct{}; // cmd's funct field
   // scan cmd queue head and extract funct/rs1/rs2 & produce per-slot decode signals
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
     issue[i] = head_val[i] != 0 ? *head_bits[i] : SmeshIssue{};
     rs1[i]   = rawRs1(issue[i]);
     rs2[i]   = rawRs2(issue[i]);
     funct[i] = functOf(issue[i]);
-
+    // funnel decoded values to decoder outputs
     functs[i] = static_cast<std::uint32_t>(funct[i]);
     rs1s[i]   = rs1[i];
     rs2s[i]   = rs2[i];
     do_computes[i] = bit(head_val[i] != 0 && isCompute(funct[i]));
     do_preloads[i] = bit(head_val[i] != 0 && funct[i] == SmeshFunct::Preload);
   }
-  // check if the first command is a config command, and if so, set do_config output
+  // check if 1st cmd is config cmd, and if so, set do_config output
   do_config = bit(head_val[0] != 0 && funct[0] == SmeshFunct::Config);
 
   const std::uint8_t preload_place = do_preloads[0] != 0 ? 0 : 1;

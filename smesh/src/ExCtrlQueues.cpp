@@ -24,8 +24,8 @@ void ExCtrlCmdQueue::updateHeadView() {
 // 1) remove old commands from front if pop_count asks, 2) accept new commands at back if there's room
 void ExCtrlCmdQueue::updateStorage() {
   const std::size_t requested_pop = static_cast<std::size_t>(static_cast<unsigned>(*pop_count));
-  const std::size_t bounded_pop = requested_pop > 2 ? 2 : requested_pop;
-  const std::size_t actual_pop = bounded_pop > count_ ? count_ : bounded_pop;
+  const std::size_t bounded_pop   = requested_pop > 2    ? 2      : requested_pop;
+  const std::size_t actual_pop    = bounded_pop > count_ ? count_ : bounded_pop;
 
   if (actual_pop > 0) {
     const auto popped = entries_[0];

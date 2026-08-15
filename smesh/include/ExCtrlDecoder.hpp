@@ -29,7 +29,7 @@ class ExCtrlDecoder : public Component {
   InputArray(bit, head_val, kExCtrlCmdWindow);
   InputArray(SmeshIssue, head_bits, kExCtrlCmdWindow);
 
-  Input(u8, current_dataflow);
+  Input(u8, current_dataflow); // from ExCtrlState FSM
   Input(bit, a_transpose);
   Input(bit, bd_transpose);
   Input(bit, ex_read_from_acc);

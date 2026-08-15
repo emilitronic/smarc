@@ -18,15 +18,15 @@ namespace smesh {
 struct SmeshConfig {
   std::size_t dim = 4;
 
-  std::size_t sp_banks       = 4;
-  std::size_t sp_bank_rows   = 4;
+  std::size_t sp_banks      =  4;
+  std::size_t sp_bank_rows  =  4;
 
-  std::size_t acc_banks      = 2;
-  std::size_t acc_bank_rows  = 8;
+  std::size_t acc_banks     =  2;
+  std::size_t acc_bank_rows =  8;
 
-  std::size_t load_states    = 3;
+  std::size_t load_states   =  3;
 
-  std::size_t elem_bits      = 8;
+  std::size_t elem_bits     =  8;
   std::size_t acc_bits      = 32;
   std::size_t dma_max_bytes = 64;
 

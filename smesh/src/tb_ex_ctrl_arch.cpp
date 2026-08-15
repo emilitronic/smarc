@@ -52,35 +52,35 @@ class FakeRsProgram : public Component {
   }
 
   void reset() {
-    next_issue_ = 0;
+    next_issue_    = 0;
     next_complete_ = 0;
-    done_ = false;
-    matched_ = true;
+    done_          = false;
+    matched_       = true;
   }
 
-  bool done() const { return done_; }
+  bool done()    const { return done_; }
   bool matched() const { return matched_; }
 
  private:
   static smesh::SmeshIssue issue(smesh::SmeshRsTag tag, smesh::SmeshFunct funct, bool tag_valid = true) {
     smesh::SmeshIssue out{};
     out.rs_tag_valid = bit(tag_valid);
-    out.rs_tag = tag;
-    out.cmd.funct = static_cast<std::uint32_t>(funct);
+    out.rs_tag       = tag;
+    out.cmd.funct    = static_cast<std::uint32_t>(funct);
     return out;
   }
 
   const std::array<smesh::SmeshIssue, 3> program_{{
       issue(11, smesh::SmeshFunct::Config),
-      issue(0, smesh::SmeshFunct::Preload, false),
+      issue( 0, smesh::SmeshFunct::Preload, false),
       issue(12, smesh::SmeshFunct::Config),
   }};
   const std::array<smesh::SmeshRsTag, 2> expected_tags_{{11, 12}};
 
-  std::size_t next_issue_ = 0;
+  std::size_t next_issue_    = 0;
   std::size_t next_complete_ = 0;
-  bool done_ = false;
-  bool matched_ = true;
+  bool done_                 = false;
+  bool matched_              = true;
 };
 
 FakeRsProgram::FakeRsProgram(std::string /*name*/, IMPL_CTOR) {
@@ -96,13 +96,13 @@ int main(int argc, char* argv[]) {
   smesh::ExCtrl ctrl("ExCtrl");
   FakeRsProgram fake_rs("FakeRS");
 
-  ctrl.cmd_in << fake_rs.issue_out;
-  fake_rs.completed_val << ctrl.completed_val;
+  ctrl.cmd_in            << fake_rs.issue_out;
+  fake_rs.completed_val  << ctrl.completed_val;
   fake_rs.completed_bits << ctrl.completed_bits;
   ctrl.cmd_in.setDelay(1);
 
   Clock clk;
-  ctrl.clk << clk;
+  ctrl.clk    << clk;
   fake_rs.clk << clk;
   clk.generateClock();
 
