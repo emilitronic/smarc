@@ -15,16 +15,16 @@ namespace smesh {
 
 // Enumerates the available functions for the custom command interface.
 enum class SmeshFunct : std::uint32_t {
-  Config = 0,
-  Mvin2 = 1,
-  Mvin = 2,
-  Mvout = 3,
-  ComputeFlip = 4,
-  ComputeStay = 5,
-  Preload = 6,
-  Flush = 7,
-  Mvin3 = 14,
-  StoreSpad = 23,
+  Config      =  0,
+  Mvin2       =  1,
+  Mvin        =  2,
+  Mvout       =  3,
+  ComputeFlip =  4,
+  ComputeStay =  5,
+  Preload     =  6,
+  Flush       =  7,
+  Mvin3       = 14,
+  StoreSpad   = 23,
 };
 
 // Sub-kinds of configuration commands.

@@ -22,8 +22,8 @@ namespace smesh {
 // interface between SmeshCommandDriver and SmeshShell
 struct SmeshCmd {
   u32 funct = 0;
-  u64 rs1 = 0;
-  u64 rs2 = 0;
+  u64 rs1   = 0;
+  u64 rs2   = 0;
 };
 
 struct SmeshResp {

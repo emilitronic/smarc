@@ -73,14 +73,10 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
               multiply_garbage,
               accumulate_zeros,
               preload_zeros)
-      .writes(a_rows,
-              a_cols,
-              b_rows,
-              b_cols,
-              d_rows,
-              d_cols,
-              c_rows,
-              c_cols)
+      .writes(a_rows, a_cols,
+              b_rows, b_cols,
+              d_rows, d_cols,
+              c_rows, c_cols)
       .writes(a_should_be_fed_into_transposer,
               b_should_be_fed_into_transposer,
               d_should_be_fed_into_transposer,
@@ -91,9 +87,9 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlDecoder::update() {
-  std::array<SmeshIssue,    kExCtrlCmdWindow> issue{};
-  std::array<std::uint64_t, kExCtrlCmdWindow> rs1{};
-  std::array<std::uint64_t, kExCtrlCmdWindow> rs2{};
+  std::array<SmeshIssue,    kExCtrlCmdWindow> issue{}; // cmds im cmd queue
+  std::array<std::uint64_t, kExCtrlCmdWindow> rs1{};   // cmd's operand
+  std::array<std::uint64_t, kExCtrlCmdWindow> rs2{};   // cmd's operand
   std::array<SmeshFunct,    kExCtrlCmdWindow> funct{};
   // scan cmd queue head and extract funct/rs1/rs2 & produce per-slot decode signals
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {

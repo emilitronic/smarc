@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 27 2026
 /*
-Execute-controller completion bookkeeping shell.
+Execute-controller completion bookkeeping.
 */
 
 #pragma once

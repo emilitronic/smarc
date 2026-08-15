@@ -3,7 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 26 2026
 /*
-Execute-controller queue components.
+Execute-controller queue components.  CONFIG, PRELOAD, and COMPUTE
+commands go in this queue.
 */
 
 #pragma once
@@ -29,7 +30,7 @@ class ExCtrlCmdQueue : public Component {
 
   FifoInput(SmeshIssue, cmd_in);
 
-  OutputArray(bit, head_val, kExCtrlCmdWindow);         // is valid cmd at this head position?
+  OutputArray(bit,        head_val,  kExCtrlCmdWindow); // is valid cmd at this head position?
   OutputArray(SmeshIssue, head_bits, kExCtrlCmdWindow); // cmd at this head position (if valid)
   Input(u8, pop_count); // number of head entries to pop; supported values are 0, 1, or 2
 
