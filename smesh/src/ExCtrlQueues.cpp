@@ -43,7 +43,7 @@ void ExCtrlCmdQueue::updateStorage() {
           static_cast<unsigned>(popped.cmd.funct));
   }
 
-  if (cmd_in.empty() || count_ >= kExCtrlCmdWindow) {
+  if (cmd_in.empty() || count_ >= entries_.size()) {
     return;
   }
 

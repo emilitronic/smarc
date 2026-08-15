@@ -11,6 +11,7 @@ commands go in this queue.
 
 #include <cascade/Cascade.hpp>
 
+#include "SmeshConfig.hpp"
 #include "SmeshPorts.hpp"
 
 #include <array>
@@ -39,7 +40,7 @@ class ExCtrlCmdQueue : public Component {
   void reset();
 
  private:
-  std::array<SmeshIssue, kExCtrlCmdWindow> entries_{};
+  std::array<SmeshIssue, kDefaultConfig.ex_queue_length> entries_{};
   std::size_t count_ = 0;
 };
 
