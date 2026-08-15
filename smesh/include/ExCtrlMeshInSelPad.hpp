@@ -53,7 +53,7 @@ class ExCtrlMeshInSelPad : public Component {
   InputArray(bit, spad_read_val, kSpBanks);
   InputArray(bit, accum_read_val, kAccBanks);
   InputArray(SpadReadResp, spad_read_data, kSpBanks);
-  InputArray(AccumReadResp, accum_read_data, kAccBanks);
+  InputArray(ExCtrlAccumReadResp, accum_read_data, kAccBanks);
 
   Output(ExCtrlMeshIn, mesh_a);
   Output(ExCtrlMeshIn, mesh_b);

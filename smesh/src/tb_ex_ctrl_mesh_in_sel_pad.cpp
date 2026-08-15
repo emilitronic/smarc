@@ -48,7 +48,7 @@ class MeshInSelPadDriver : public Component {
   OutputArray(bit, spad_read_val, smesh::kSpBanks);
   OutputArray(bit, accum_read_val, smesh::kAccBanks);
   OutputArray(smesh::SpadReadResp, spad_read_data, smesh::kSpBanks);
-  OutputArray(smesh::AccumReadResp, accum_read_data, smesh::kAccBanks);
+  OutputArray(smesh::ExCtrlAccumReadResp, accum_read_data, smesh::kAccBanks);
 
   void update();
   void reset();
@@ -159,10 +159,10 @@ void MeshInSelPadDriver::update() {
   }
 
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
-    smesh::AccumReadResp resp{};
-    resp.data = smesh::MeshAccumRow{
-        static_cast<smesh::Acc>(0x2000u + bank),
-        0,
+    smesh::ExCtrlAccumReadResp resp{};
+    resp.data = smesh::MeshInputRow{
+        static_cast<smesh::Elem>(0x01 + bank),
+        static_cast<smesh::Elem>(0x20 + bank),
         0,
         0};
     resp.from_dma = 0;
@@ -206,7 +206,7 @@ void MeshInSelPadDriver::reset() {
   }
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
     accum_read_val[bank].reset(0);
-    accum_read_data[bank].reset(smesh::AccumReadResp{});
+    accum_read_data[bank].reset(smesh::ExCtrlAccumReadResp{});
   }
 }
 
@@ -226,7 +226,7 @@ void MeshInSelPadMonitor::update() {
   const auto d = *mesh_d;
   passed_ =
       a.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x55), static_cast<smesh::Elem>(0x66), static_cast<smesh::Elem>(0x77), 0} &&
-      b.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x01), 0, 0, 0} &&
+      b.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x02), static_cast<smesh::Elem>(0x21), 0, 0} &&
       d.data == smesh::MeshInputRow{} &&
       mesh_a_val != 0 &&
       mesh_b_val != 0 &&

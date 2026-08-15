@@ -35,15 +35,6 @@ MeshInputRow padInputRow(const MeshInputRow& unpadded, std::uint32_t unpadded_co
   return padded;
 }
 
-MeshInputRow narrowAccumRow(const MeshAccumRow& row, std::uint32_t unpadded_cols) {
-  MeshInputRow narrow{};
-  const std::size_t cols = unpadded_cols < kDim ? unpadded_cols : kDim;
-  for (std::size_t lane = 0; lane < cols; ++lane) {
-    narrow[lane] = static_cast<Elem>(row[lane]);
-  }
-  return narrow;
-}
-
 } // namespace
 
 ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
@@ -90,17 +81,17 @@ void ExCtrlMeshInSelPad::update() {
       : im2colling != 0
           ? padInputRow(*im2col_data, a_unpadded_cols)
           : a_read_from_acc != 0
-              ? narrowAccumRow(a_acc, a_unpadded_cols)
+              ? padInputRow(a_acc, a_unpadded_cols)
               : padInputRow(a_spad, a_unpadded_cols)};
   const auto next_mesh_b = ExCtrlMeshIn{(b_garbage != 0 || accumulate_zeros != 0)
       ? MeshInputRow{}
       : b_read_from_acc != 0
-          ? narrowAccumRow(b_acc, b_unpadded_cols)
+          ? padInputRow(b_acc, b_unpadded_cols)
           : padInputRow(b_spad, b_unpadded_cols)};
   const auto next_mesh_d = ExCtrlMeshIn{(d_garbage != 0 || preload_zeros != 0)
       ? MeshInputRow{}
       : d_read_from_acc != 0
-          ? narrowAccumRow(d_acc, d_unpadded_cols)
+          ? padInputRow(d_acc, d_unpadded_cols)
           : padInputRow(d_spad, d_unpadded_cols)};
 
   // validity of data on the bus (or in memory) for this row-beat
