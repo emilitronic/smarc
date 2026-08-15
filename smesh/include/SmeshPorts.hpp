@@ -163,7 +163,7 @@ struct AccumReadReq {
 };
 // ifc from accumulator memory to read pipes to normalizer
 struct AccumReadResp {
-  u64 data = 0;
+  MeshAccumRow data{};
   SmeshLocalAddr laddr{};
   u8  mask = 0;
   u16 len = 0; // number of row elements being read from accum (not bytes)
@@ -190,8 +190,8 @@ struct AccScaleReq {
 };
 // accumulator data after the accumulator scale stage
 struct AccScaleResp {
-  u64 full_data = 0;
-  u64 data = 0;
+  MeshAccumRow full_data{};
+  MeshInputRow data{};
   u16 acc_bank_id = 0;
   bit from_dma = true;
 };

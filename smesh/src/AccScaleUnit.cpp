@@ -10,6 +10,18 @@ Accumulator scale-stage skeleton implementation.
 
 namespace smesh {
 
+namespace {
+
+MeshInputRow narrowAccumRow(const MeshAccumRow& row) {
+  MeshInputRow narrow{};
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    narrow[lane] = static_cast<Elem>(row[lane]);
+  }
+  return narrow;
+}
+
+} // namespace
+
 AccScaleUnit::AccScaleUnit(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady).writes(req_rdy);
   UPDATE(updateOutView).writes(out_val, out_bits);
@@ -44,7 +56,7 @@ void AccScaleUnit::update() {
   const auto& acc = req.norm.acc_read_resp;
   AccScaleResp resp{};
   resp.full_data = acc.data;
-  resp.data = acc.data;
+  resp.data = narrowAccumRow(acc.data);
   resp.acc_bank_id = static_cast<u16>(acc.laddr.acc_bank());
   resp.from_dma = acc.from_dma;
   out_entry_ = resp;

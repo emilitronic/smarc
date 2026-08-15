@@ -10,18 +10,6 @@ Local-memory read arbiter implementations.  Helps connect Ld/St/ExCtrl to local 
 
 namespace smesh {
 
-namespace {
-
-MeshInputRow unpackMeshInputRow(u64 packed) {
-  MeshInputRow row{};
-  for (std::size_t lane = 0; lane < kDim; ++lane) {
-    row[lane] = static_cast<Elem>((packed >> (lane * 8)) & u64{0xff});
-  }
-  return row;
-}
-
-} // namespace
-
 ArbReadSpad::ArbReadSpad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(exread_val, exread_bits, dmawrite_val, dmawrite_bits, read_req_rdy)
@@ -83,7 +71,7 @@ void AccumExResp::update() {
     ex_resp_val[i] = bit(is_ex_resp && i == bank);
 
     ExCtrlAccumReadResp resp{};
-    resp.data = unpackMeshInputRow(acc.data);
+    resp.data = acc.data;
     resp.acc_bank_id = acc.acc_bank_id;
     resp.from_dma = false;
     ex_resp_bits[i] = resp;

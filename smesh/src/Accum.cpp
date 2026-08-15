@@ -146,9 +146,8 @@ void Accum::updateRead() {
   resp.full = req.full;
   resp.cmd_id = req.cmd_id;
   resp.from_dma = req.from_dma;
+  resp.data = source;
   for (std::size_t lane = 0; lane < kDim; ++lane) {
-    resp.data |= (static_cast<std::uint64_t>(
-                      static_cast<std::uint8_t>(source[lane] & 0xff)) << (lane * 8));
     resp.mask |= static_cast<u8>(u8{1} << lane);
   }
   read_resp_entry_ = resp;

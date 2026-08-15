@@ -42,6 +42,17 @@ StWriterData packStoreData(const MeshInputRow& row) {
   return data;
 }
 
+StWriterData packStoreData(const MeshAccumRow& row) {
+  StWriterData data{};
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    const auto value = static_cast<std::uint32_t>(row[lane]);
+    for (std::size_t byte = 0; byte < sizeof(Acc); ++byte) {
+      data[lane * sizeof(Acc) + byte] = static_cast<std::uint8_t>((value >> (8 * byte)) & 0xffu);
+    }
+  }
+  return data;
+}
+
 } // namespace
 
 StIssueMux::StIssueMux(std::string /*name*/, IMPL_CTOR) {
@@ -74,7 +85,9 @@ void StIssueMux::update() {
       selected_data = packStoreData(spad.data);
       break;
     case kDataSourceAcc:
-      selected_data = packStoreData(static_cast<std::uint8_t>(final_data_sel) == kFinalDataFullAccWidth ? acc.full_data : acc.data);
+      selected_data = static_cast<std::uint8_t>(final_data_sel) == kFinalDataFullAccWidth
+          ? packStoreData(acc.full_data)
+          : packStoreData(acc.data);
       break;
     case kDataSourceZero:
     default:

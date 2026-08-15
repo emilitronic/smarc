@@ -35,8 +35,13 @@ MeshInputRow padInputRow(const MeshInputRow& unpadded, std::uint32_t unpadded_co
   return padded;
 }
 
-MeshInputRow selectInputRow(bool use_packed, u64 packed, const MeshInputRow& row, std::uint32_t unpadded_cols) {
-  return use_packed ? padInputRow(packed, unpadded_cols) : padInputRow(row, unpadded_cols);
+MeshInputRow narrowAccumRow(const MeshAccumRow& row, std::uint32_t unpadded_cols) {
+  MeshInputRow narrow{};
+  const std::size_t cols = unpadded_cols < kDim ? unpadded_cols : kDim;
+  for (std::size_t lane = 0; lane < cols; ++lane) {
+    narrow[lane] = static_cast<Elem>(row[lane]);
+  }
+  return narrow;
 }
 
 } // namespace
@@ -82,16 +87,21 @@ void ExCtrlMeshInSelPad::update() {
   // selected, padded row payloads
   const auto next_mesh_a = ExCtrlMeshIn{a_garbage != 0
       ? MeshInputRow{}
-      : selectInputRow(im2colling != 0 || a_read_from_acc != 0,
-                       im2colling != 0 ? *im2col_data : a_acc,
-                       a_spad,
-                       a_unpadded_cols)};
+      : im2colling != 0
+          ? padInputRow(*im2col_data, a_unpadded_cols)
+          : a_read_from_acc != 0
+              ? narrowAccumRow(a_acc, a_unpadded_cols)
+              : padInputRow(a_spad, a_unpadded_cols)};
   const auto next_mesh_b = ExCtrlMeshIn{(b_garbage != 0 || accumulate_zeros != 0)
       ? MeshInputRow{}
-      : selectInputRow(b_read_from_acc != 0, b_acc, b_spad, b_unpadded_cols)};
+      : b_read_from_acc != 0
+          ? narrowAccumRow(b_acc, b_unpadded_cols)
+          : padInputRow(b_spad, b_unpadded_cols)};
   const auto next_mesh_d = ExCtrlMeshIn{(d_garbage != 0 || preload_zeros != 0)
       ? MeshInputRow{}
-      : selectInputRow(d_read_from_acc != 0, d_acc, d_spad, d_unpadded_cols)};
+      : d_read_from_acc != 0
+          ? narrowAccumRow(d_acc, d_unpadded_cols)
+          : padInputRow(d_spad, d_unpadded_cols)};
 
   // validity of data on the bus (or in memory) for this row-beat
   const bool dataA_valid = a_garbage != 0 || a_unpadded_cols == 0 || (im2colling       != 0 ? im2col_val != 0 : a_read_from_acc  != 0 ? accum_read_val[a_acc_index] != 0 : spad_read_val[a_spad_index] != 0);

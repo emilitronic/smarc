@@ -160,7 +160,11 @@ void MeshInSelPadDriver::update() {
 
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
     smesh::AccumReadResp resp{};
-    resp.data = 0x2000u + bank;
+    resp.data = smesh::MeshAccumRow{
+        static_cast<smesh::Acc>(0x2000u + bank),
+        0,
+        0,
+        0};
     resp.from_dma = 0;
     accum_read_val[bank] = 1;
     accum_read_data[bank] = resp;
@@ -222,7 +226,7 @@ void MeshInSelPadMonitor::update() {
   const auto d = *mesh_d;
   passed_ =
       a.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x55), static_cast<smesh::Elem>(0x66), static_cast<smesh::Elem>(0x77), 0} &&
-      b.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x01), static_cast<smesh::Elem>(0x20), 0, 0} &&
+      b.data == smesh::MeshInputRow{static_cast<smesh::Elem>(0x01), 0, 0, 0} &&
       d.data == smesh::MeshInputRow{} &&
       mesh_a_val != 0 &&
       mesh_b_val != 0 &&
