@@ -30,6 +30,9 @@ class ExCtrlRowAddr : public Component {
   Input(u32, d_fire_counter);
   Input(u32, block_size); // DIM
   Input(bit, ex_read_from_acc);
+  Input(bit, ws_no_transpose);
+  Input(u16, a_rows);
+  Input(u16, b_rows);
   Input(bit, start_inputting_a);
   Input(bit, start_inputting_b);
   Input(bit, start_inputting_d);
@@ -49,6 +52,7 @@ class ExCtrlRowAddr : public Component {
   Output(bit, a_garbage);
   Output(bit, b_garbage);
   Output(bit, d_garbage);
+  Output(u32, total_rows);
 
   void update();
 };

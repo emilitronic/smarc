@@ -5,6 +5,7 @@
 
 #include "ExCtrlRowAddr.hpp"
 
+#include <algorithm>
 #include <cstdint>
 
 namespace smesh {
@@ -30,6 +31,9 @@ ExCtrlRowAddr::ExCtrlRowAddr(std::string /*name*/, IMPL_CTOR) {
              d_fire_counter,
              block_size,
              ex_read_from_acc)
+      .reads(ws_no_transpose,
+             a_rows,
+             b_rows)
       .reads(start_inputting_a, start_inputting_b, start_inputting_d)
       .writes(a_address,
               b_address,
@@ -45,7 +49,8 @@ ExCtrlRowAddr::ExCtrlRowAddr(std::string /*name*/, IMPL_CTOR) {
               d_read_from_acc,
               a_garbage,
               b_garbage,
-              d_garbage);
+              d_garbage,
+              total_rows);
 }
 
 void ExCtrlRowAddr::update() {
@@ -73,9 +78,19 @@ void ExCtrlRowAddr::update() {
   b_read_from_acc = bit(ex_read_from_acc != 0 && b_base.is_acc_addr());
   d_read_from_acc = bit(ex_read_from_acc != 0 && d_base.is_acc_addr());
 
-  a_garbage = bit(a_base.is_garbage() || start_inputting_a == 0);
-  b_garbage = bit(b_base.is_garbage() || start_inputting_b == 0);
-  d_garbage = bit(d_base.is_garbage() || start_inputting_d == 0);
+  const bool a_is_garbage = a_base.is_garbage() || start_inputting_a == 0;
+  const bool b_is_garbage = b_base.is_garbage() || start_inputting_b == 0;
+  const bool d_is_garbage = d_base.is_garbage() || start_inputting_d == 0;
+
+  a_garbage = bit(a_is_garbage);
+  b_garbage = bit(b_is_garbage);
+  d_garbage = bit(d_is_garbage);
+
+  const std::uint32_t rows_a = a_is_garbage ? 1u : static_cast<std::uint32_t>(*a_rows);
+  const std::uint32_t rows_b = b_is_garbage ? 1u : static_cast<std::uint32_t>(*b_rows);
+  total_rows = (ws_no_transpose != 0 && d_is_garbage)
+      ? std::max(std::max(rows_a, rows_b), 4u)
+      : static_cast<std::uint32_t>(*block_size);
 }
 
 } // namespace smesh

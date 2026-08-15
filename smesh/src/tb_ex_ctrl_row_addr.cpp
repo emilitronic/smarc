@@ -26,6 +26,9 @@ class RowAddrDriver : public Component {
   Output(u32, d_fire_counter);
   Output(u32, block_size);
   Output(bit, ex_read_from_acc);
+  Output(bit, ws_no_transpose);
+  Output(u16, a_rows);
+  Output(u16, b_rows);
   Output(bit, start_inputting_a);
   Output(bit, start_inputting_b);
   Output(bit, start_inputting_d);
@@ -56,6 +59,7 @@ class RowAddrMonitor : public Component {
   Input(bit, a_garbage);
   Input(bit, b_garbage);
   Input(bit, d_garbage);
+  Input(u32, total_rows);
 
   void update();
   void reset();
@@ -79,6 +83,9 @@ RowAddrDriver::RowAddrDriver(std::string /*name*/, IMPL_CTOR) {
               d_fire_counter,
               block_size,
               ex_read_from_acc)
+      .writes(ws_no_transpose,
+              a_rows,
+              b_rows)
       .writes(start_inputting_a, start_inputting_b, start_inputting_d);
 }
 
@@ -91,6 +98,9 @@ void RowAddrDriver::update() {
   d_fire_counter = 3;
   block_size = 8;
   ex_read_from_acc = 1;
+  ws_no_transpose = 1;
+  a_rows = 3;
+  b_rows = 5;
   start_inputting_a = 1;
   start_inputting_b = 1;
   start_inputting_d = 0;
@@ -105,6 +115,9 @@ void RowAddrDriver::reset() {
   d_fire_counter.reset(0);
   block_size.reset(0);
   ex_read_from_acc.reset(0);
+  ws_no_transpose.reset(0);
+  a_rows.reset(0);
+  b_rows.reset(0);
   start_inputting_a.reset(0);
   start_inputting_b.reset(0);
   start_inputting_d.reset(0);
@@ -126,7 +139,8 @@ RowAddrMonitor::RowAddrMonitor(std::string /*name*/, IMPL_CTOR) {
              d_read_from_acc,
              a_garbage,
              b_garbage,
-             d_garbage);
+             d_garbage,
+             total_rows);
 }
 
 void RowAddrMonitor::update() {
@@ -157,8 +171,9 @@ void RowAddrMonitor::update() {
       a_garbage == 0 &&
       b_garbage == 0 &&
       d_garbage != 0;
+  const bool total_rows_ok = total_rows == 5;
 
-  passed_ = addrs_ok && banks_ok && read_from_acc_ok && garbage_ok;
+  passed_ = addrs_ok && banks_ok && read_from_acc_ok && garbage_ok && total_rows_ok;
   checked_ = true;
   done_ = true;
 }
@@ -186,6 +201,9 @@ int main(int argc, char* argv[]) {
   row_addr.d_fire_counter << driver.d_fire_counter;
   row_addr.block_size << driver.block_size;
   row_addr.ex_read_from_acc << driver.ex_read_from_acc;
+  row_addr.ws_no_transpose << driver.ws_no_transpose;
+  row_addr.a_rows << driver.a_rows;
+  row_addr.b_rows << driver.b_rows;
   row_addr.start_inputting_a << driver.start_inputting_a;
   row_addr.start_inputting_b << driver.start_inputting_b;
   row_addr.start_inputting_d << driver.start_inputting_d;
@@ -205,6 +223,7 @@ int main(int argc, char* argv[]) {
   monitor.a_garbage << row_addr.a_garbage;
   monitor.b_garbage << row_addr.b_garbage;
   monitor.d_garbage << row_addr.d_garbage;
+  monitor.total_rows << row_addr.total_rows;
 
   Clock clk;
   driver.clk << clk;

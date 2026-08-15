@@ -63,6 +63,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowaddr_->d_fire_counter    << row_addr_d_fire_counter_;
   cmd_rowaddr_->block_size        << row_addr_block_size_;
   cmd_rowaddr_->ex_read_from_acc  << decoder_ex_read_from_acc_;
+  cmd_rowaddr_->ws_no_transpose   << cmd_decoder_->ws_no_transpose;
+  cmd_rowaddr_->a_rows            << cmd_decoder_->a_rows;
+  cmd_rowaddr_->b_rows            << cmd_decoder_->b_rows;
   cmd_rowaddr_->start_inputting_a << cmd_state_->start_inputting_a;
   cmd_rowaddr_->start_inputting_b << cmd_state_->start_inputting_b;
   cmd_rowaddr_->start_inputting_d << cmd_state_->start_inputting_d;
