@@ -36,7 +36,7 @@ struct SmeshConfig {
   std::size_t ex_queue_length    = 8; // ExCtrl cmd q len
   std::size_t max_simultaneous_matmuls = 5; // set counter size in Mesher logic
 
-  bool ex_read_from_acc = true;
+  bool ex_read_from_acc = true;  // true: ExCtrl reads from accum when local addr says accum
   bool ex_write_to_spad = true;
 };
 

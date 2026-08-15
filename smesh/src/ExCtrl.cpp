@@ -12,11 +12,13 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   completion_  = new ExCtrlCompletion("ExCtrlCompletion");
   cmd_decoder_ = new ExCtrlDecoder("ExCtrlDecoder");
   cmd_state_   = new ExCtrlState("ExCtrlState");
+  cmd_rowaddr_ = new ExCtrlRowAddr("ExCtrlRowAddr");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
   cmd_decoder_->clk << clk;
   cmd_state_->clk   << clk;
+  cmd_rowaddr_->clk << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -52,6 +54,18 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   // send out completed signals from ExCtrl
   completed_val << completion_->completed_val;
   completed_bits << completion_->completed_bits;
+  // current-row address logic input
+  cmd_rowaddr_->a_address_rs1     << cmd_decoder_->a_address_rs1;
+  cmd_rowaddr_->b_address_rs2     << cmd_decoder_->b_address_rs2;
+  cmd_rowaddr_->d_address_rs1     << cmd_decoder_->d_address_rs1;
+  cmd_rowaddr_->a_addr_offset     << row_addr_a_addr_offset_;
+  cmd_rowaddr_->b_fire_counter    << row_addr_b_fire_counter_;
+  cmd_rowaddr_->d_fire_counter    << row_addr_d_fire_counter_;
+  cmd_rowaddr_->block_size        << row_addr_block_size_;
+  cmd_rowaddr_->ex_read_from_acc  << decoder_ex_read_from_acc_;
+  cmd_rowaddr_->start_inputting_a << cmd_state_->start_inputting_a;
+  cmd_rowaddr_->start_inputting_b << cmd_state_->start_inputting_b;
+  cmd_rowaddr_->start_inputting_d << cmd_state_->start_inputting_d;
 
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
@@ -65,10 +79,15 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
-                                     mesh_matmul_in_progress_);
+                                     mesh_matmul_in_progress_,
+                                     row_addr_a_addr_offset_,
+                                     row_addr_b_fire_counter_,
+                                     row_addr_d_fire_counter_,
+                                     row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete cmd_rowaddr_;
   delete cmd_state_;
   delete cmd_decoder_;
   delete completion_;
@@ -101,12 +120,20 @@ void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
   mesh_matmul_in_progress_  = 0;
+  row_addr_a_addr_offset_   = 0;
+  row_addr_b_fire_counter_  = 0;
+  row_addr_d_fire_counter_  = 0;
+  row_addr_block_size_      = static_cast<u32>(kDefaultConfig.dim);
 }
 
 void ExCtrl::reset() {
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
   mesh_matmul_in_progress_.reset(0);
+  row_addr_a_addr_offset_.reset(0);
+  row_addr_b_fire_counter_.reset(0);
+  row_addr_d_fire_counter_.reset(0);
+  row_addr_block_size_.reset(static_cast<u32>(kDefaultConfig.dim));
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);
