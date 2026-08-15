@@ -68,6 +68,7 @@ class ExCtrlDecoder : public Component {
   Output(bit, a_should_be_fed_into_transposer);
   Output(bit, b_should_be_fed_into_transposer);
   Output(bit, d_should_be_fed_into_transposer);
+  Output(bit, ws_no_transpose);
 
   Output(bit, raw_hazards_are_impossible);
   Output(bit, raw_hazard_pre);

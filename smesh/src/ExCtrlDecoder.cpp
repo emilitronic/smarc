@@ -80,6 +80,7 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
       .writes(a_should_be_fed_into_transposer,
               b_should_be_fed_into_transposer,
               d_should_be_fed_into_transposer,
+              ws_no_transpose,
               raw_hazards_are_impossible,
               raw_hazard_pre,
               raw_hazard_mulpre,
@@ -153,6 +154,7 @@ void ExCtrlDecoder::update() {
   a_should_be_fed_into_transposer = bit(a_to_transposer);
   b_should_be_fed_into_transposer = bit(b_to_transposer);
   d_should_be_fed_into_transposer = bit(d_to_transposer);
+  ws_no_transpose = bit(dataflow_ws && !a_to_transposer && !b_to_transposer && !d_to_transposer);
 
   const bool raw_hazards_impossible = ex_read_from_acc == 0 && ex_write_to_spad == 0;
   raw_hazards_are_impossible = bit(raw_hazards_impossible);
