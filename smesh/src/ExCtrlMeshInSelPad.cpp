@@ -16,7 +16,7 @@ std::size_t checkedBankIndex(std::uint32_t index, std::size_t size) {
   assert(static_cast<std::size_t>(index) < size);
   return static_cast<std::size_t>(index);
 }
-//
+// TODO: keeping this for now because im2col used u64, but I haven't even implemented im2col
 MeshInputRow padInputRow(u64 unpadded, std::uint32_t unpadded_cols) {
   MeshInputRow padded{};
   const std::size_t cols = unpadded_cols < kDim ? unpadded_cols : kDim;
@@ -102,8 +102,6 @@ void ExCtrlMeshInSelPad::update() {
   const auto next_mesh_a_val = bit(cntl_val != 0 && cntl_a_fire != 0 && dataA_valid);
   const auto next_mesh_b_val = bit(cntl_val != 0 && cntl_b_fire != 0 && dataB_valid);
   const auto next_mesh_d_val = bit(cntl_val != 0 && cntl_d_fire != 0 && dataD_valid);
-
-
 
   mesh_a = next_mesh_a;
   mesh_b = next_mesh_b;
