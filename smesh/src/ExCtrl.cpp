@@ -13,12 +13,14 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_decoder_ = new ExCtrlDecoder("ExCtrlDecoder");
   cmd_state_   = new ExCtrlState("ExCtrlState");
   cmd_rowaddr_ = new ExCtrlRowAddr("ExCtrlRowAddr");
+  cmd_rowpad_  = new ExCtrlRowPad("ExCtrlRowPad");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
   cmd_decoder_->clk << clk;
   cmd_state_->clk   << clk;
   cmd_rowaddr_->clk << clk;
+  cmd_rowpad_->clk  << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -58,9 +60,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowaddr_->a_address_rs1     << cmd_decoder_->a_address_rs1;
   cmd_rowaddr_->b_address_rs2     << cmd_decoder_->b_address_rs2;
   cmd_rowaddr_->d_address_rs1     << cmd_decoder_->d_address_rs1;
-  cmd_rowaddr_->a_addr_offset     << row_addr_a_addr_offset_;
-  cmd_rowaddr_->b_fire_counter    << row_addr_b_fire_counter_;
-  cmd_rowaddr_->d_fire_counter    << row_addr_d_fire_counter_;
+  cmd_rowaddr_->a_addr_offset     << row_addr_a_addr_offset_;  // temp
+  cmd_rowaddr_->b_fire_counter    << row_addr_b_fire_counter_; // temp
+  cmd_rowaddr_->d_fire_counter    << row_addr_d_fire_counter_; // temp
   cmd_rowaddr_->block_size        << row_addr_block_size_;
   cmd_rowaddr_->ex_read_from_acc  << decoder_ex_read_from_acc_;
   cmd_rowaddr_->ws_no_transpose   << cmd_decoder_->ws_no_transpose;
@@ -69,6 +71,18 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowaddr_->start_inputting_a << cmd_state_->start_inputting_a;
   cmd_rowaddr_->start_inputting_b << cmd_state_->start_inputting_b;
   cmd_rowaddr_->start_inputting_d << cmd_state_->start_inputting_d;
+
+  // row-padding logic input
+  cmd_rowpad_->a_fire_counter << row_addr_a_addr_offset_;  // temp
+  cmd_rowpad_->b_fire_counter << row_addr_b_fire_counter_; // temp
+  cmd_rowpad_->d_fire_counter << row_addr_d_fire_counter_; // temp
+  cmd_rowpad_->a_rows         << cmd_decoder_->a_rows;
+  cmd_rowpad_->b_rows         << cmd_decoder_->b_rows;
+  cmd_rowpad_->d_rows         << cmd_decoder_->d_rows;
+  cmd_rowpad_->a_cols         << cmd_decoder_->a_cols;
+  cmd_rowpad_->b_cols         << cmd_decoder_->b_cols;
+  cmd_rowpad_->d_cols         << cmd_decoder_->d_cols;
+  cmd_rowpad_->block_size     << row_addr_block_size_;
 
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
@@ -90,6 +104,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 }
 
 ExCtrl::~ExCtrl() {
+  delete cmd_rowpad_;
   delete cmd_rowaddr_;
   delete cmd_state_;
   delete cmd_decoder_;
