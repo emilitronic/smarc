@@ -52,7 +52,7 @@ class ExCtrlRowAddr : public Component {
   Output(bit, a_garbage);
   Output(bit, b_garbage);
   Output(bit, d_garbage);
-  Output(u32, total_rows);
+  Output(u32, total_rows);  // how many row-beats this mesh req should feed into systolic array
 
   void update();
 };
