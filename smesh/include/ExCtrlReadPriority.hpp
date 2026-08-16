@@ -26,7 +26,7 @@ class ExCtrlReadPriority : public Component {
   Input(ExCtrlOperand, b_operand);
   Input(ExCtrlOperand, d_operand);
   Input(u32, total_rows);
-  Input(bit, im2col_wire);
+  Input(bit, im2col_wire); // external im2col req rdy
   Input(bit, im2col_en);
 
   Output(bit, a_valid);

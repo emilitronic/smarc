@@ -26,9 +26,13 @@ class DecoderDriver : public Component {
   Output(bit, bd_transpose);
   Output(bit, ex_read_from_acc);
   Output(bit, ex_write_to_spad);
+  OutputArray(smesh::MesherTag, tags_in_progress, smesh::kRsExecuteEntries);
 
   void update();
   void reset();
+
+ private:
+  int cycle_ = 0;
 };
 
 class DecoderMonitor : public Component {
@@ -58,6 +62,7 @@ class DecoderMonitor : public Component {
   Input(u16, c_rows);
   Input(u16, c_cols);
   Input(bit, third_instruction_needed);
+  Input(bit, matmul_in_progress);
 
   void update();
   void reset();
@@ -66,7 +71,7 @@ class DecoderMonitor : public Component {
   bool passed() const { return passed_; }
 
  private:
-  bool checked_ = false;
+  int cycle_ = 0;
   bool done_ = false;
   bool passed_ = false;
 };
@@ -90,7 +95,8 @@ DecoderDriver::DecoderDriver(std::string /*name*/, IMPL_CTOR) {
                         a_transpose,
                         bd_transpose,
                         ex_read_from_acc,
-                        ex_write_to_spad);
+                        ex_write_to_spad,
+                        tags_in_progress);
 }
 
 void DecoderDriver::update() {
@@ -115,9 +121,20 @@ void DecoderDriver::update() {
   bd_transpose = 0;
   ex_read_from_acc = 0;
   ex_write_to_spad = 0;
+  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
+    tags_in_progress[i] = smesh::MesherTag{};
+  }
+  if (cycle_ == 1) {
+    smesh::MesherTag active{};
+    active.rs_tag_valid = 1;
+    active.rs_tag = 99;
+    tags_in_progress[0] = active;
+  }
+  ++cycle_;
 }
 
 void DecoderDriver::reset() {
+  cycle_ = 0;
   for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
     head_val[i].reset(0);
     head_bits[i].reset(smesh::SmeshIssue{});
@@ -127,6 +144,9 @@ void DecoderDriver::reset() {
   bd_transpose.reset(0);
   ex_read_from_acc.reset(0);
   ex_write_to_spad.reset(0);
+  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
+    tags_in_progress[i].reset(smesh::MesherTag{});
+  }
 }
 
 DecoderMonitor::DecoderMonitor(std::string /*name*/, IMPL_CTOR) {
@@ -148,11 +168,11 @@ DecoderMonitor::DecoderMonitor(std::string /*name*/, IMPL_CTOR) {
              b_cols,
              d_rows,
              d_cols)
-      .reads(c_rows, c_cols, third_instruction_needed);
+      .reads(c_rows, c_cols, third_instruction_needed, matmul_in_progress);
 }
 
 void DecoderMonitor::update() {
-  if (Sim::state == Sim::SimResetting || checked_) {
+  if (Sim::state == Sim::SimResetting || done_) {
     return;
   }
 
@@ -177,15 +197,21 @@ void DecoderMonitor::update() {
       b_rows == smesh::kDim && b_cols == smesh::kDim &&
       d_rows == smesh::kDim && d_cols == smesh::kDim &&
       c_rows == smesh::kDim && c_cols == smesh::kDim;
-  const bool hazards_ok = third_instruction_needed == 0;
+  const bool hazards_ok = third_instruction_needed == 0 &&
+                          matmul_in_progress == 0;
 
-  passed_ = classes_ok && places_ok && addrs_ok && dims_ok && hazards_ok;
-  checked_ = true;
-  done_ = true;
+  if (cycle_ == 0) {
+    passed_ = classes_ok && places_ok && addrs_ok && dims_ok && hazards_ok;
+  } else if (cycle_ == 1) {
+    passed_ = passed_ && matmul_in_progress != 0;
+    done_ = true;
+  }
+
+  ++cycle_;
 }
 
 void DecoderMonitor::reset() {
-  checked_ = false;
+  cycle_ = 0;
   done_ = false;
   passed_ = false;
 }
@@ -210,6 +236,9 @@ int main(int argc, char* argv[]) {
   decoder.bd_transpose << driver.bd_transpose;
   decoder.ex_read_from_acc << driver.ex_read_from_acc;
   decoder.ex_write_to_spad << driver.ex_write_to_spad;
+  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
+    decoder.tags_in_progress[i] << driver.tags_in_progress[i];
+  }
 
   monitor.do_config << decoder.do_config;
   monitor.in_prop << decoder.in_prop;
@@ -229,6 +258,7 @@ int main(int argc, char* argv[]) {
   monitor.c_rows << decoder.c_rows;
   monitor.c_cols << decoder.c_cols;
   monitor.third_instruction_needed << decoder.third_instruction_needed;
+  monitor.matmul_in_progress << decoder.matmul_in_progress;
 
   Clock clk;
   driver.clk << clk;

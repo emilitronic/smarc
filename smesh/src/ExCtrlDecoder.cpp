@@ -56,7 +56,8 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
              a_transpose,
              bd_transpose,
              ex_read_from_acc,
-             ex_write_to_spad)
+             ex_write_to_spad,
+             tags_in_progress)
       .writes(functs,
               rs1s,
               rs2s,
@@ -84,8 +85,9 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
               ws_no_transpose,
               raw_hazards_are_impossible,
               raw_hazard_pre,
-              raw_hazard_mulpre,
-              third_instruction_needed);
+              raw_hazard_mulpre)
+      .writes(third_instruction_needed,
+              matmul_in_progress);
 }
 
 void ExCtrlDecoder::update() {
@@ -160,6 +162,11 @@ void ExCtrlDecoder::update() {
 
   const bool raw_hazards_impossible = ex_read_from_acc == 0 && ex_write_to_spad == 0;
   raw_hazards_are_impossible = bit(raw_hazards_impossible);
+  bool any_matmul_in_progress = false;
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    any_matmul_in_progress = any_matmul_in_progress || (*tags_in_progress[i]).rs_tag_valid != 0;
+  }
+  matmul_in_progress = bit(any_matmul_in_progress);
   // TODO: compute from mesh tags_in_progress addresses.
   raw_hazard_pre = 0;
   // TODO: compute from mesh tags_in_progress addresses.

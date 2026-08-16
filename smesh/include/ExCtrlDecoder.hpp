@@ -34,6 +34,7 @@ class ExCtrlDecoder : public Component {
   Input(bit, bd_transpose);
   Input(bit, ex_read_from_acc);
   Input(bit, ex_write_to_spad);
+  InputArray(MesherTag, tags_in_progress, kRsExecuteEntries);
 
   OutputArray(u32, functs, kExCtrlCmdWindow);
   OutputArray(u64, rs1s, kExCtrlCmdWindow);
@@ -75,6 +76,7 @@ class ExCtrlDecoder : public Component {
   Output(bit, raw_hazard_pre);
   Output(bit, raw_hazard_mulpre);
   Output(bit, third_instruction_needed);
+  Output(bit, matmul_in_progress);
 
   void update();
 };

@@ -33,6 +33,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     cmd_state_->do_preloads[i] << cmd_decoder_->do_preloads[i];
     cmd_state_->do_computes[i] << cmd_decoder_->do_computes[i];
   }
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    cmd_decoder_->tags_in_progress[i] << decoder_tags_in_progress_[i];
+  }
   cmd_state_->do_config                       << cmd_decoder_->do_config;
   cmd_state_->raw_hazards_are_impossible      << cmd_decoder_->raw_hazards_are_impossible;
   cmd_state_->raw_hazard_pre                  << cmd_decoder_->raw_hazard_pre;
@@ -48,7 +51,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_decoder_->a_transpose      <= cmd_state_->a_transpose;      // 
   cmd_decoder_->bd_transpose     <= cmd_state_->bd_transpose;     //
   // pass some other status signals to FSM
-  cmd_state_->matmul_in_progress      << mesh_matmul_in_progress_;
+  cmd_state_->matmul_in_progress      << cmd_decoder_->matmul_in_progress;
   cmd_state_->pending_completed_valid << completion_->pending_completed_valid;
   // pass some status signals to completion block
   completion_->config_val          << cmd_state_->config_val;
@@ -97,7 +100,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
-                                     mesh_matmul_in_progress_,
+                                     decoder_tags_in_progress_,
                                      row_addr_a_addr_offset_,
                                      row_addr_b_fire_counter_,
                                      row_addr_d_fire_counter_,
@@ -138,7 +141,9 @@ void ExCtrl::updateWritePorts() {
 void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
-  mesh_matmul_in_progress_  = 0;
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    decoder_tags_in_progress_[i] = MesherTag{};
+  }
   row_addr_a_addr_offset_   = 0;
   row_addr_b_fire_counter_  = 0;
   row_addr_d_fire_counter_  = 0;
@@ -148,7 +153,9 @@ void ExCtrl::updateDecoderInputs() {
 void ExCtrl::reset() {
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
-  mesh_matmul_in_progress_.reset(0);
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    decoder_tags_in_progress_[i].reset(MesherTag{});
+  }
   row_addr_a_addr_offset_.reset(0);
   row_addr_b_fire_counter_.reset(0);
   row_addr_d_fire_counter_.reset(0);
