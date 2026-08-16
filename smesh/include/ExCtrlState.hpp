@@ -54,6 +54,7 @@ class ExCtrlState : public Component {
   Output(u8,  current_dataflow);    // execute dataflow register, TODO: decode when encoded
   Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
   Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
+  Output(u8,  shift);               // CONFIG_EX in_shift register for mesh-control packets
   Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle
   Output(bit, config_rs_tag_valid); // valid bit for CONFIG completion tag
   Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
@@ -81,12 +82,13 @@ class ExCtrlState : public Component {
  private:
   ExCtrlFsmState state_ = ExCtrlFsmState::WaitingForCmd; // control_state register
 
-  bool config_initialized_ = false;
-  bool a_transpose_  = false;
-  bool bd_transpose_ = false;
+  bool config_initialized_     = false;
+  bool a_transpose_            = false;
+  bool bd_transpose_           = false;
   bool perform_single_preload_ = false; // denote standalone PRELOAD mode
-  bool in_prop_flush_ = false;
+  bool in_prop_flush_          = false;
   std::uint8_t current_dataflow_ = kExDataflowWS;
+  std::uint8_t in_shift_        = 0;
   std::uint32_t a_addr_stride_ = 1;
   std::uint32_t c_addr_stride_ = 1;
 
@@ -99,7 +101,6 @@ class ExCtrlState : public Component {
 
   // programmed execution settings:
   // activation
-  // in_shift
   // acc_scale
   // a_transpose
   // bd_transpose

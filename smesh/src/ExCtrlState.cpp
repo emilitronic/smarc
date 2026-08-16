@@ -26,7 +26,8 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               bd_transpose,
               current_dataflow,
               a_addr_stride,
-              c_addr_stride)
+              c_addr_stride,
+              shift)
       .writes(
               config_val,
               config_rs_tag_valid,
@@ -69,10 +70,16 @@ void ExCtrlState::update() {
         cmd_pop_count       = 1; 
 
         if (kind == ConfigKind::Execute) {
+          const bool set_only_strides = unpackConfigExecuteSetOnlyStrides(rs1);
           config_initialized_ = true;
-          a_transpose_        = unpackConfigExecuteATranspose(rs1);
-          a_addr_stride_      = unpackConfigExecuteAStride(rs1);
-          c_addr_stride_      = unpackConfigExecuteCStride(rs2);
+          if (!set_only_strides) {
+            in_shift_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
+            a_transpose_      = unpackConfigExecuteATranspose(rs1);
+            bd_transpose_     = unpackConfigExecuteBTranspose(rs1);
+            current_dataflow_ = static_cast<std::uint8_t>(unpackConfigExecuteDataflow(rs1));
+          }
+          a_addr_stride_ = unpackConfigExecuteAStride(rs1);
+          c_addr_stride_ = unpackConfigExecuteCStride(rs2);
         }
       // if cmd(0) has valid PRELOAD and cmd(1) is also present and no RAW hazard blocks  
       } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 &&
@@ -120,6 +127,7 @@ void ExCtrlState::update() {
   current_dataflow   = current_dataflow_;
   a_addr_stride      = a_addr_stride_;
   c_addr_stride      = c_addr_stride_;
+  shift              = in_shift_;
 }
 
 void ExCtrlState::reset() {
@@ -130,6 +138,7 @@ void ExCtrlState::reset() {
   perform_single_preload_ = false;
   in_prop_flush_      = false;
   current_dataflow_   = kExDataflowWS;
+  in_shift_           = 0;
   a_addr_stride_      = 1;
   c_addr_stride_      = 1;
 
@@ -139,6 +148,7 @@ void ExCtrlState::reset() {
   current_dataflow.reset(kExDataflowWS);
   a_addr_stride.reset(1);
   c_addr_stride.reset(1);
+  shift.reset(0);
   config_val.reset(0);
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);
