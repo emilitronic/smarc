@@ -39,6 +39,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_state_->a_should_be_fed_into_transposer << cmd_decoder_->a_should_be_fed_into_transposer;
   cmd_state_->b_should_be_fed_into_transposer << cmd_decoder_->b_should_be_fed_into_transposer;
   cmd_state_->d_should_be_fed_into_transposer << cmd_decoder_->d_should_be_fed_into_transposer;
+  cmd_state_->in_prop                         << cmd_decoder_->in_prop;
   // pass some HW build info to decoder
   cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;    // const from SmeshConfig.hpp
   cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;    // const from SmeshConfig.hpp

@@ -46,6 +46,7 @@ class ExCtrlState : public Component {
   Input(bit, a_should_be_fed_into_transposer);         // decoder says A should start through transposer path
   Input(bit, b_should_be_fed_into_transposer);         // decoder says B should start through transposer path
   Input(bit, d_should_be_fed_into_transposer);         // decoder says D should start through transposer path
+  Input(bit, in_prop);                                 // cmd(0) is COMPUTE_AND_FLIP
 
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
   Output(bit, a_transpose);         // CONFIG_EX A transpose register
@@ -61,6 +62,7 @@ class ExCtrlState : public Component {
   Output(bit, start_inputting_a);   // begin feeding A operand rows
   Output(bit, start_inputting_b);   // begin feeding B operand rows
   Output(bit, start_inputting_d);   // begin feeding D/preload operand rows
+  Output(bit, prop);                // mesh-control propagate value
   Output(u8, cmd_pop_count);        // number of command-window entries consumed this cycle
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
@@ -83,6 +85,7 @@ class ExCtrlState : public Component {
   bool a_transpose_  = false;
   bool bd_transpose_ = false;
   bool perform_single_preload_ = false; // denote standalone PRELOAD mode
+  bool in_prop_flush_ = false;
   std::uint8_t current_dataflow_ = kExDataflowWS;
   std::uint32_t a_addr_stride_ = 1;
   std::uint32_t c_addr_stride_ = 1;
@@ -117,7 +120,7 @@ class ExCtrlState : public Component {
   // weight_triple_bank
 
   // TODO: other
-  // in_prop_flush  
+  // in_prop_flush (started)
 };
 
 } // namespace smesh

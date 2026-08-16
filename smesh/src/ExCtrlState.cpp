@@ -19,7 +19,8 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
              raw_hazard_pre)
       .reads(a_should_be_fed_into_transposer,
              b_should_be_fed_into_transposer,
-             d_should_be_fed_into_transposer)
+             d_should_be_fed_into_transposer,
+             in_prop)
       .writes(config_initialized,
               a_transpose,
               bd_transpose,
@@ -35,6 +36,7 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               start_inputting_a,
               start_inputting_b)
       .writes(start_inputting_d,
+              prop,
               cmd_pop_count);
 }
 
@@ -47,6 +49,7 @@ void ExCtrlState::update() {
   start_inputting_a      = 0;
   start_inputting_b      = 0;
   start_inputting_d      = 0;
+  prop                   = 0;
   cmd_pop_count          = 0;
   bool taking_single_preload = false;
 
@@ -110,6 +113,7 @@ void ExCtrlState::update() {
   performing_single_preload = next_performing_single_preload;
   // TODO: include performing_mul_pre and performing_single_mul when those modes exist.
   computing = next_performing_single_preload;
+  prop = next_performing_single_preload != 0 ? bit(in_prop_flush_) : *in_prop;
   config_initialized = bit(config_initialized_);
   a_transpose        = bit(a_transpose_);
   bd_transpose       = bit(bd_transpose_);
@@ -124,6 +128,7 @@ void ExCtrlState::reset() {
   a_transpose_        = false;
   bd_transpose_       = false;
   perform_single_preload_ = false;
+  in_prop_flush_      = false;
   current_dataflow_   = kExDataflowWS;
   a_addr_stride_      = 1;
   c_addr_stride_      = 1;
@@ -142,6 +147,7 @@ void ExCtrlState::reset() {
   start_inputting_a.reset(0);
   start_inputting_b.reset(0);
   start_inputting_d.reset(0);
+  prop.reset(0);
   cmd_pop_count.reset(0);
 }
 
