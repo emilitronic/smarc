@@ -61,7 +61,7 @@ class ExCtrlMeshCntlPack : public Component {
   Input(bit, im2colling);
   Input(bit, first);
 
-  Output(ExCtrlMeshCntl, cntl);
+  Output(ExCtrlMeshCntl, enq_bits);
 
   void update();
 };

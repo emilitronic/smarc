@@ -66,7 +66,7 @@ class MeshCntlPackMonitor : public Component {
   MeshCntlPackMonitor(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  Input(smesh::ExCtrlMeshCntl, cntl);
+  Input(smesh::ExCtrlMeshCntl, enq_bits);
 
   void update();
   void reset();
@@ -196,7 +196,7 @@ void MeshCntlPackDriver::reset() {
 }
 
 MeshCntlPackMonitor::MeshCntlPackMonitor(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(cntl);
+  UPDATE(update).reads(enq_bits);
 }
 
 void MeshCntlPackMonitor::update() {
@@ -204,7 +204,7 @@ void MeshCntlPackMonitor::update() {
     return;
   }
 
-  const auto c = *cntl;
+  const auto c = *enq_bits;
   passed_ =
       c.perform_single_preload != 0 &&
       c.a_bank == 1 &&
@@ -287,7 +287,7 @@ int main(int argc, char* argv[]) {
   pack.im2colling << driver.im2colling;
   pack.first << driver.first;
 
-  monitor.cntl << pack.cntl;
+  monitor.enq_bits << pack.enq_bits;
 
   Clock clk;
   driver.clk << clk;

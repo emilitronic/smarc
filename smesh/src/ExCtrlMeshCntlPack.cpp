@@ -28,7 +28,7 @@ ExCtrlMeshCntlPack::ExCtrlMeshCntlPack(std::string /*name*/, IMPL_CTOR) {
              rs_tag,
              dataflow)
       .reads(prop, shift, im2colling, first)
-      .writes(cntl);
+      .writes(enq_bits);
 }
 
 void ExCtrlMeshCntlPack::update() {
@@ -69,7 +69,7 @@ void ExCtrlMeshCntlPack::update() {
   next.shift = *shift;
   next.im2colling = *im2colling;
   next.first = *first;
-  cntl = next;
+  enq_bits = next;
 }
 
 } // namespace smesh
