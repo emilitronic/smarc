@@ -26,11 +26,17 @@ class ExCtrlRowPad : public Component {
   Input(u16, a_rows);
   Input(u16, b_rows);
   Input(u16, d_rows);
+  Input(u16, a_cols);
+  Input(u16, b_cols);
+  Input(u16, d_cols);
   Input(u32, block_size);
 
   Output(bit, a_row_is_not_all_zeros);
   Output(bit, b_row_is_not_all_zeros);
   Output(bit, d_row_is_not_all_zeros);
+  Output(u32, a_unpadded_cols);  // how many real A elements are present in this row-beat
+  Output(u32, b_unpadded_cols);
+  Output(u32, d_unpadded_cols);
 
   void update();
 };

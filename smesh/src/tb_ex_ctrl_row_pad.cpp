@@ -24,6 +24,9 @@ class RowPadDriver : public Component {
   Output(u16, a_rows);
   Output(u16, b_rows);
   Output(u16, d_rows);
+  Output(u16, a_cols);
+  Output(u16, b_cols);
+  Output(u16, d_cols);
   Output(u32, block_size);
 
   void update();
@@ -40,6 +43,9 @@ class RowPadMonitor : public Component {
   Input(bit, a_row_is_not_all_zeros);
   Input(bit, b_row_is_not_all_zeros);
   Input(bit, d_row_is_not_all_zeros);
+  Input(u32, a_unpadded_cols);
+  Input(u32, b_unpadded_cols);
+  Input(u32, d_unpadded_cols);
 
   void update();
   void reset();
@@ -60,7 +66,10 @@ RowPadDriver::RowPadDriver(std::string /*name*/, IMPL_CTOR) {
               d_fire_counter,
               a_rows,
               b_rows,
-              d_rows,
+              d_rows)
+      .writes(a_cols,
+              b_cols,
+              d_cols,
               block_size);
 }
 
@@ -71,6 +80,9 @@ void RowPadDriver::update() {
   a_rows = 3;
   b_rows = 3;
   d_rows = 2;
+  a_cols = 2;
+  b_cols = 3;
+  d_cols = 4;
   block_size = 4;
 }
 
@@ -81,13 +93,19 @@ void RowPadDriver::reset() {
   a_rows.reset(0);
   b_rows.reset(0);
   d_rows.reset(0);
+  a_cols.reset(0);
+  b_cols.reset(0);
+  d_cols.reset(0);
   block_size.reset(0);
 }
 
 RowPadMonitor::RowPadMonitor(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).reads(a_row_is_not_all_zeros,
                        b_row_is_not_all_zeros,
-                       d_row_is_not_all_zeros);
+                       d_row_is_not_all_zeros,
+                       a_unpadded_cols,
+                       b_unpadded_cols,
+                       d_unpadded_cols);
 }
 
 void RowPadMonitor::update() {
@@ -98,7 +116,10 @@ void RowPadMonitor::update() {
   passed_ =
       a_row_is_not_all_zeros != 0 &&
       b_row_is_not_all_zeros == 0 &&
-      d_row_is_not_all_zeros == 0;
+      d_row_is_not_all_zeros == 0 &&
+      a_unpadded_cols == 2 &&
+      b_unpadded_cols == 0 &&
+      d_unpadded_cols == 0;
   checked_ = true;
   done_ = true;
 }
@@ -124,11 +145,17 @@ int main(int argc, char* argv[]) {
   row_pad.a_rows << driver.a_rows;
   row_pad.b_rows << driver.b_rows;
   row_pad.d_rows << driver.d_rows;
+  row_pad.a_cols << driver.a_cols;
+  row_pad.b_cols << driver.b_cols;
+  row_pad.d_cols << driver.d_cols;
   row_pad.block_size << driver.block_size;
 
   monitor.a_row_is_not_all_zeros << row_pad.a_row_is_not_all_zeros;
   monitor.b_row_is_not_all_zeros << row_pad.b_row_is_not_all_zeros;
   monitor.d_row_is_not_all_zeros << row_pad.d_row_is_not_all_zeros;
+  monitor.a_unpadded_cols << row_pad.a_unpadded_cols;
+  monitor.b_unpadded_cols << row_pad.b_unpadded_cols;
+  monitor.d_unpadded_cols << row_pad.d_unpadded_cols;
 
   Clock clk;
   driver.clk << clk;
