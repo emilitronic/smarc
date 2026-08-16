@@ -70,6 +70,8 @@ class ExCtrlState : public Component {
   // Input(u8, current_dataflow);
   // Input(bit, mesh_req_fire);
   // Input(bit, mesh_req_rdy);
+  // Output(bit, performing_mul_pre);
+  // Output(bit, performing_single_mul);
 
   void update();
   void reset();

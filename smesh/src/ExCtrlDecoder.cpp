@@ -63,7 +63,8 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
               do_config,
               do_computes,
               do_preloads,
-              preload_cmd_place,
+              in_prop)
+      .writes(preload_cmd_place,
               a_address_place)
       .writes(b_address_place,
               a_address_rs1,
@@ -107,6 +108,7 @@ void ExCtrlDecoder::update() {
   }
   // check if 1st cmd is config cmd, and if so, set do_config output
   do_config = bit(head_val[0] != 0 && funct[0] == SmeshFunct::Config);
+  in_prop = bit(head_val[0] != 0 && funct[0] == SmeshFunct::ComputeFlip);
 
   const std::uint8_t preload_place = do_preloads[0] != 0 ? 0 : 1;
   const bool dataflow_os     = current_dataflow == kExDataflowOS;

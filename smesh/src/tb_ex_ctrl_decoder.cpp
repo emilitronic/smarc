@@ -41,6 +41,7 @@ class DecoderMonitor : public Component {
   Input(bit, do_config);
   InputArray(bit, do_computes, smesh::kExCtrlCmdWindow);
   InputArray(bit, do_preloads, smesh::kExCtrlCmdWindow);
+  Input(bit, in_prop);
   Input(u8, preload_cmd_place);
   Input(u8, a_address_place);
   Input(u8, b_address_place);
@@ -133,9 +134,10 @@ DecoderMonitor::DecoderMonitor(std::string /*name*/, IMPL_CTOR) {
       .reads(do_config,
              do_computes,
              do_preloads,
+             in_prop,
              preload_cmd_place,
-             a_address_place,
-             b_address_place,
+             a_address_place)
+      .reads(b_address_place,
              a_address_rs1,
              b_address_rs2)
       .reads(d_address_rs1,
@@ -159,7 +161,8 @@ void DecoderMonitor::update() {
       do_preloads[0] != 0 &&
       do_computes[1] != 0 &&
       do_preloads[1] == 0 &&
-      do_computes[0] == 0;
+      do_computes[0] == 0 &&
+      in_prop == 0;
   const bool places_ok =
       preload_cmd_place == 0 &&
       a_address_place == 1 &&
@@ -209,6 +212,7 @@ int main(int argc, char* argv[]) {
   decoder.ex_write_to_spad << driver.ex_write_to_spad;
 
   monitor.do_config << decoder.do_config;
+  monitor.in_prop << decoder.in_prop;
   monitor.preload_cmd_place << decoder.preload_cmd_place;
   monitor.a_address_place << decoder.a_address_place;
   monitor.b_address_place << decoder.b_address_place;

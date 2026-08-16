@@ -42,6 +42,7 @@ class ExCtrlDecoder : public Component {
   Output(bit, do_config);
   OutputArray(bit, do_computes, kExCtrlCmdWindow);
   OutputArray(bit, do_preloads, kExCtrlCmdWindow);
+  Output(bit, in_prop); // cmd(0) is COMPUTE_AND_FLIP
 
   Output(u8, preload_cmd_place); // which cmd slot has PRELOAD, 0 or 1
   Output(u8, a_address_place);   // which slot loads A operand, 0, 1, or 2
