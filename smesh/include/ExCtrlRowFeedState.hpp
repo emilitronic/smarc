@@ -28,6 +28,7 @@ class ExCtrlRowFeedState : public Component {
   Output(bit, a_fire_started);       // A row feeding has started for the active operation
   Output(bit, b_fire_started);       // B row feeding has started for the active operation
   Output(bit, d_fire_started);       // D row feeding has started for the active operation
+  Output(bit, first);                // first mesh-control packet for this operation
   Output(u32, a_addr_offset);        // current A local-address offset
   Output(u32, mul_pre_counter_sub);  // TODO: refine when multiply+preload path is implemented
   Output(u32, mul_pre_counter_count);// TODO: refine when multiply+preload path is implemented
