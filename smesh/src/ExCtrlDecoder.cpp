@@ -45,7 +45,9 @@ SmeshFunct functOf(const SmeshIssue& issue) {
 bool isCompute(SmeshFunct funct) {
   return funct == SmeshFunct::ComputeFlip || funct == SmeshFunct::ComputeStay;
 }
-// Match Gemmini's local-address RAW check: same memory space and same row address.
+// Match Gemmini's local-address RAW check: 
+// same memory space (check is_acc_addr field)
+// same row address  (check data fields)
 bool isSameAddress(SmeshLocalAddr lhs, SmeshLocalAddr rhs) {
   return lhs.is_acc_addr() == rhs.is_acc_addr() &&
          lhs.data() == rhs.data();
@@ -171,7 +173,8 @@ void ExCtrlDecoder::update() {
   // **** RAW Hazard detection logic ****
   // 1) Disable condition
   // If Ex never reads from accum & never writes to spad, then RAW hazard class can't happen
-  const bool raw_hazards_impossible = ex_read_from_acc == 0 && ex_write_to_spad == 0;
+  const bool raw_hazards_impossible = ex_read_from_acc == 0 && 
+                                      ex_write_to_spad == 0;
   raw_hazards_are_impossible = bit(raw_hazards_impossible);
   // TODO: compute from mesh tags_in_progress addresses.
   // 2) Preload hazard detection used when cmd(0)=PRELOAD (a single preload case).
@@ -186,6 +189,7 @@ void ExCtrlDecoder::update() {
   // cmd(2).rs1 - COMPUTE's rs1 is A addr to read
   // cmd(2).rs2 - COMPUTE's rs2 is B addr to read
   bool next_raw_hazard_mulpre = false;
+
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     const auto tag = *tags_in_progress[i];
     if (tag.addr.is_garbage() || raw_hazards_impossible) {
@@ -206,13 +210,13 @@ void ExCtrlDecoder::update() {
         isSameAddress(tag.addr, addrOf(rs2[2]));
     next_raw_hazard_mulpre = next_raw_hazard_mulpre || pre_raw_haz_mulpre || mul_raw_haz_mulpre;
   }
-  raw_hazard_pre = bit(next_raw_hazard_pre);
+  raw_hazard_pre    = bit(next_raw_hazard_pre);
   raw_hazard_mulpre = bit(next_raw_hazard_mulpre);
   // 4) Third instruction needed detection
   third_instruction_needed = bit(a_place > 1 ||
-                                b_place > 1 ||
-                                preload_place > 1 ||
-                                !raw_hazards_impossible);
+                                 b_place > 1 ||
+                                 preload_place > 1 ||
+                                 !raw_hazards_impossible);
 }
 
 } // namespace smesh

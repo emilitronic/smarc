@@ -4,6 +4,26 @@
 // Sebastian Claudiusz Magierowski Jun 28 2026
 /*
 Encoded local-memory addresses for smesh and support functions for dealing with it.
+A default example is:
+  sp_banks      = 4
+  sp_bank_rows  = 4096
+  kSpAddrBits   = log2Ceil(4 * 4096) = 14
+
+  acc_banks     = 2
+  acc_bank_rows = 512
+  kAccAddrBits  = log2Ceil(2 * 512) = 10
+
+  maxAddrBits = 14
+
+  So default example layout is:
+
+  local_addr[31]    = is_acc_addr
+  local_addr[30]    = accumulate
+  local_addr[29]    = read_full_acc_row
+  local_addr[28:26] = norm_cmd
+  local_addr[25:15] = garbage
+  local_addr[14]    = garbage_bit
+  local_addr[13:0]  = data
 */
 #pragma once
 
@@ -27,27 +47,27 @@ constexpr std::uint32_t lowBitMask(std::size_t bits) {
 }
 
 // Compile-time address widths from memory geometry.
-constexpr std::size_t kSpAddrBits = log2Up(kSpRows);
-constexpr std::size_t kAccAddrBits = log2Up(kAccRows);
+constexpr std::size_t kSpAddrBits        = log2Up(kSpRows);
+constexpr std::size_t kAccAddrBits       = log2Up(kAccRows);
 constexpr std::size_t kLocalAddrDataBits = kSpAddrBits > kAccAddrBits ? kSpAddrBits : kAccAddrBits;
-constexpr std::size_t kSpBankBits = log2Up(kSpBanks);
-constexpr std::size_t kSpBankRowBits = log2Up(kSpBankRows);
-constexpr std::size_t kAccBankBits = log2Up(kAccBanks);
-constexpr std::size_t kAccBankRowBits = log2Up(kAccBankRows);
+constexpr std::size_t kSpBankBits        = log2Up(kSpBanks);
+constexpr std::size_t kSpBankRowBits     = log2Up(kSpBankRows);
+constexpr std::size_t kAccBankBits       = log2Up(kAccBanks);
+constexpr std::size_t kAccBankRowBits    = log2Up(kAccBankRows);
 
 // Masks to extract location from low-bit fields; high-bit fields are metadata.
 constexpr std::uint32_t kLocalAddrDataMask = lowBitMask(kLocalAddrDataBits);
-constexpr std::uint32_t kSpAddrMask = lowBitMask(kSpAddrBits);
-constexpr std::uint32_t kAccAddrMask = lowBitMask(kAccAddrBits);
-constexpr std::uint32_t kSpBankRowMask = lowBitMask(kSpBankRowBits);
-constexpr std::uint32_t kAccBankRowMask = lowBitMask(kAccBankRowBits);
+constexpr std::uint32_t kSpAddrMask        = lowBitMask(kSpAddrBits);
+constexpr std::uint32_t kAccAddrMask       = lowBitMask(kAccAddrBits);
+constexpr std::uint32_t kSpBankRowMask     = lowBitMask(kSpBankRowBits);
+constexpr std::uint32_t kAccBankRowMask    = lowBitMask(kAccBankRowBits);
 
 // Metadata locations in the encoded address.
-constexpr std::uint32_t kLocalAddrGarbageMask = std::uint32_t{1} << kLocalAddrDataBits;
-constexpr std::uint32_t kLocalAddrNormShift = 26;
+constexpr std::uint32_t kLocalAddrGarbageMask        = std::uint32_t{1} << kLocalAddrDataBits;
+constexpr std::uint32_t kLocalAddrNormShift          = 26;
 constexpr std::uint32_t kLocalAddrReadFullAccRowMask = std::uint32_t{1} << 29;
-constexpr std::uint32_t kLocalAddrAccumulateMask = std::uint32_t{1} << 30;
-constexpr std::uint32_t kLocalAddrIsAccMask = std::uint32_t{1} << 31;
+constexpr std::uint32_t kLocalAddrAccumulateMask     = std::uint32_t{1} << 30;
+constexpr std::uint32_t kLocalAddrIsAccMask          = std::uint32_t{1} << 31;
 
 static_assert(kLocalAddrDataBits + 6 < 32, "local-address data and metadata must fit in 32 bits");
 
