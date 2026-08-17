@@ -65,10 +65,8 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
               do_computes,
               do_preloads,
               in_prop)
-      .writes(preload_cmd_place,
-              a_address_place)
-      .writes(b_address_place,
-              a_address_rs1,
+      .writes(preload_cmd_place)
+      .writes(a_address_rs1,
               b_address_rs2,
               d_address_rs1,
               c_address_rs2,
@@ -110,20 +108,20 @@ void ExCtrlDecoder::update() {
   }
   // check if 1st cmd is config cmd, and if so, set do_config output
   do_config = bit(head_val[0] != 0 && funct[0] == SmeshFunct::Config);
-  in_prop = bit(head_val[0] != 0 && funct[0] == SmeshFunct::ComputeFlip);
+  in_prop   = bit(head_val[0] != 0 && funct[0] == SmeshFunct::ComputeFlip);
 
-  const std::uint8_t preload_place = do_preloads[0] != 0 ? 0 : 1;
+  const std::uint8_t preload_place = do_preloads[0] != 0 ? 0 : 1; // is PRELOAD in cmd(0) or cmd(1)? (cmd(2) is never PRELOAD)
   const bool dataflow_os     = current_dataflow == kExDataflowOS;
   const bool dataflow_ws     = current_dataflow == kExDataflowWS;
   const bool a_to_transposer = dataflow_os ? a_transpose == 0 : a_transpose != 0;
   const bool b_to_transposer = dataflow_os && bd_transpose != 0;
   const bool d_to_transposer = dataflow_ws && bd_transpose != 0;
+  // a_address_place = a_place which cmd slot loads A operand, 0, 1, or 2
+  // b_address_place = b_place which cmd slot loads B operand, 0, 1, or 2
   const std::uint8_t a_place = preload_place == 0 ? 1 : (a_to_transposer ? 2 : 0); // determine place of A operand in cmd queue head (depends on sensed code seq)
   const std::uint8_t b_place = preload_place == 0 ? 1 : (b_to_transposer ? 2 : 0); // determine place of B operand in cmd queue head (depends on sensed code seq)
   // determine place of preload command and addresses of operands
   preload_cmd_place = preload_place;
-  a_address_place = a_place; // loc of A operand in cmd queue head (depends on sensed code seq)
-  b_address_place = b_place; // loc of B operand in cmd queue head (depends on sensed code seq)
 
   const auto a_rs1 = rs1[a_place];
   const auto b_rs2 = rs2[b_place];
@@ -148,10 +146,10 @@ void ExCtrlDecoder::update() {
 
   a_rows = a_transpose != 0 ? a_cols_default : a_rows_default;
   a_cols = a_transpose != 0 ? a_rows_default : a_cols_default;
-  b_rows = b_to_transposer ? b_cols_default : b_rows_default;
-  b_cols = b_to_transposer ? b_rows_default : b_cols_default;
-  d_rows = d_to_transposer ? d_cols_default : d_rows_default;
-  d_cols = d_to_transposer ? d_rows_default : d_cols_default;
+  b_rows = b_to_transposer  ? b_cols_default : b_rows_default;
+  b_cols = b_to_transposer  ? b_rows_default : b_cols_default;
+  d_rows = d_to_transposer  ? d_cols_default : d_rows_default;
+  d_cols = d_to_transposer  ? d_rows_default : d_cols_default;
   c_rows = rowsOf(c_rs2);
   c_cols = colsOf(c_rs2);
 
