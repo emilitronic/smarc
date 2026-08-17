@@ -45,6 +45,11 @@ SmeshFunct functOf(const SmeshIssue& issue) {
 bool isCompute(SmeshFunct funct) {
   return funct == SmeshFunct::ComputeFlip || funct == SmeshFunct::ComputeStay;
 }
+// Match Gemmini's local-address RAW check: same memory space and same row address.
+bool isSameAddress(SmeshLocalAddr lhs, SmeshLocalAddr rhs) {
+  return lhs.is_acc_addr() == rhs.is_acc_addr() &&
+         lhs.data() == rhs.data();
+}
 
 } // namespace
 
@@ -158,17 +163,52 @@ void ExCtrlDecoder::update() {
   d_should_be_fed_into_transposer = bit(d_to_transposer);
   ws_no_transpose = bit(dataflow_ws && !a_to_transposer && !b_to_transposer && !d_to_transposer);
 
-  const bool raw_hazards_impossible = ex_read_from_acc == 0 && ex_write_to_spad == 0;
-  raw_hazards_are_impossible = bit(raw_hazards_impossible);
   bool any_matmul_in_progress = false;
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     any_matmul_in_progress = any_matmul_in_progress || (*tags_in_progress[i]).rs_tag_valid != 0;
   }
   matmul_in_progress = bit(any_matmul_in_progress);
+  // **** RAW Hazard detection logic ****
+  // 1) Disable condition
+  // If Ex never reads from accum & never writes to spad, then RAW hazard class can't happen
+  const bool raw_hazards_impossible = ex_read_from_acc == 0 && ex_write_to_spad == 0;
+  raw_hazards_are_impossible = bit(raw_hazards_impossible);
   // TODO: compute from mesh tags_in_progress addresses.
-  raw_hazard_pre = 0;
-  // TODO: compute from mesh tags_in_progress addresses.
-  raw_hazard_mulpre = 0;
+  // 2) Preload hazard detection used when cmd(0)=PRELOAD (a single preload case).
+  // Generally (not semantically as in "B vs C") compares older in-flight mesh output address against:
+  // cmd(0).rs1 - PRELOAD's read B addr may conflict with mesh's queued write addr
+  // cmd(1).rs1 - COMPUTE's read A addr may conflict with mesh's queued write addr
+  // cmd(1).rs2 - COMPUTE's read B addr may conflict with mesh's queued write addr
+  bool next_raw_hazard_pre = false;
+  // 3) Mul/Preload hazard detection used when cmd(0)=COMPUTE and cmd(1)=PRELOAD
+  // Compares older in-flight mesh output address agains:
+  // cmd(1).rs1 - PRELOAD's rs1 is B addr to read
+  // cmd(2).rs1 - COMPUTE's rs1 is A addr to read
+  // cmd(2).rs2 - COMPUTE's rs2 is B addr to read
+  bool next_raw_hazard_mulpre = false;
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    const auto tag = *tags_in_progress[i];
+    if (tag.addr.is_garbage() || raw_hazards_impossible) {
+      continue;
+    }
+
+    const bool pre_raw_haz =
+        isSameAddress(tag.addr, addrOf(rs1[0]));
+    const bool mul_raw_haz =
+        isSameAddress(tag.addr, addrOf(rs1[1])) ||
+        isSameAddress(tag.addr, addrOf(rs2[1]));
+    next_raw_hazard_pre = next_raw_hazard_pre || pre_raw_haz || mul_raw_haz;
+
+    const bool pre_raw_haz_mulpre =
+        isSameAddress(tag.addr, addrOf(rs1[1]));
+    const bool mul_raw_haz_mulpre =
+        isSameAddress(tag.addr, addrOf(rs1[2])) ||
+        isSameAddress(tag.addr, addrOf(rs2[2]));
+    next_raw_hazard_mulpre = next_raw_hazard_mulpre || pre_raw_haz_mulpre || mul_raw_haz_mulpre;
+  }
+  raw_hazard_pre = bit(next_raw_hazard_pre);
+  raw_hazard_mulpre = bit(next_raw_hazard_mulpre);
+  // 4) Third instruction needed detection
   third_instruction_needed = bit(a_place > 1 ||
                                 b_place > 1 ||
                                 preload_place > 1 ||

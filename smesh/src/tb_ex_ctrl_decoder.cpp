@@ -61,6 +61,8 @@ class DecoderMonitor : public Component {
   Input(u16, c_cols);
   Input(bit, third_instruction_needed);
   Input(bit, matmul_in_progress);
+  Input(bit, raw_hazard_pre);
+  Input(bit, raw_hazard_mulpre);
 
   void update();
   void reset();
@@ -127,6 +129,13 @@ void DecoderDriver::update() {
     active.rs_tag_valid = 1;
     active.rs_tag = 99;
     tags_in_progress[0] = active;
+  } else if (cycle_ == 2) {
+    ex_read_from_acc = 1;
+    smesh::MesherTag active{};
+    active.rs_tag_valid = 1;
+    active.rs_tag = 100;
+    active.addr = a_addr;
+    tags_in_progress[0] = active;
   }
   ++cycle_;
 }
@@ -164,7 +173,12 @@ DecoderMonitor::DecoderMonitor(std::string /*name*/, IMPL_CTOR) {
              b_cols,
              d_rows,
              d_cols)
-      .reads(c_rows, c_cols, third_instruction_needed, matmul_in_progress);
+      .reads(c_rows,
+             c_cols,
+             third_instruction_needed,
+             matmul_in_progress,
+             raw_hazard_pre,
+             raw_hazard_mulpre);
 }
 
 void DecoderMonitor::update() {
@@ -197,7 +211,15 @@ void DecoderMonitor::update() {
   if (cycle_ == 0) {
     passed_ = classes_ok && places_ok && addrs_ok && dims_ok && hazards_ok;
   } else if (cycle_ == 1) {
-    passed_ = passed_ && matmul_in_progress != 0;
+    passed_ = passed_ &&
+              matmul_in_progress != 0 &&
+              raw_hazard_pre == 0 &&
+              raw_hazard_mulpre == 0;
+  } else if (cycle_ == 2) {
+    passed_ = passed_ &&
+              matmul_in_progress != 0 &&
+              raw_hazard_pre != 0 &&
+              raw_hazard_mulpre != 0;
     done_ = true;
   }
 
@@ -251,6 +273,8 @@ int main(int argc, char* argv[]) {
   monitor.c_cols << decoder.c_cols;
   monitor.third_instruction_needed << decoder.third_instruction_needed;
   monitor.matmul_in_progress << decoder.matmul_in_progress;
+  monitor.raw_hazard_pre << decoder.raw_hazard_pre;
+  monitor.raw_hazard_mulpre << decoder.raw_hazard_mulpre;
 
   Clock clk;
   driver.clk << clk;
