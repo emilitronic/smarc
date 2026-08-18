@@ -48,8 +48,8 @@ class ExCtrlMeshCntlPack : public Component {
   Input(u32, b_unpadded_cols);
   Input(u32, d_unpadded_cols);
   Input(SmeshLocalAddr, c_addr);
-  Input(u32, c_rows);
-  Input(u32, c_cols);
+  Input(u16, c_rows);
+  Input(u16, c_cols);
   Input(bit, a_transpose);
   Input(bit, bd_transpose);
   Input(u32, total_rows);

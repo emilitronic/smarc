@@ -42,8 +42,8 @@ class MeshCntlPackDriver : public Component {
   Output(u32, b_unpadded_cols);
   Output(u32, d_unpadded_cols);
   Output(smesh::SmeshLocalAddr, c_addr);
-  Output(u32, c_rows);
-  Output(u32, c_cols);
+  Output(u16, c_rows);
+  Output(u16, c_cols);
   Output(bit, a_transpose);
   Output(bit, bd_transpose);
   Output(u32, total_rows);

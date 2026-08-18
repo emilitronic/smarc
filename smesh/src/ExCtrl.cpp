@@ -20,6 +20,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   read_prio_   = new ExCtrlReadPriority("ExCtrlReadPriority");
   rd_req_      = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");
   feed_signals_ = new ExCtrlFeedSignals("ExCtrlFeedSignals");
+  mesh_cntl_pack_ = new ExCtrlMeshCntlPack("ExCtrlMeshCntlPack");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
@@ -33,6 +34,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   read_prio_->clk   << clk;
   rd_req_->clk       << clk;
   feed_signals_->clk << clk;
+  mesh_cntl_pack_->clk << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -184,6 +186,45 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   row_feed_->total_rows << cmd_rowaddr_->total_rows;
   row_feed_->a_addr_stride << cmd_state_->a_addr_stride;
 
+  // Mesh-control packet packaging. Its output will feed MQ once MQ is installed
+  // inside ExCtrl.
+  mesh_cntl_pack_->perform_mul_pre        << mesh_cntl_pack_perform_mul_pre_;
+  mesh_cntl_pack_->perform_single_mul     << tag_select_performing_single_mul_;
+  mesh_cntl_pack_->perform_single_preload << cmd_state_->performing_single_preload;
+  mesh_cntl_pack_->a_bank                 << cmd_rowaddr_->dataAbank;
+  mesh_cntl_pack_->b_bank                 << cmd_rowaddr_->dataBbank;
+  mesh_cntl_pack_->d_bank                 << cmd_rowaddr_->dataDbank;
+  mesh_cntl_pack_->a_bank_acc             << cmd_rowaddr_->dataABankAcc;
+  mesh_cntl_pack_->b_bank_acc             << cmd_rowaddr_->dataBBankAcc;
+  mesh_cntl_pack_->d_bank_acc             << cmd_rowaddr_->dataDBankAcc;
+  mesh_cntl_pack_->a_read_from_acc        << cmd_rowaddr_->a_read_from_acc;
+  mesh_cntl_pack_->b_read_from_acc        << cmd_rowaddr_->b_read_from_acc;
+  mesh_cntl_pack_->d_read_from_acc        << cmd_rowaddr_->d_read_from_acc;
+  mesh_cntl_pack_->a_garbage              << cmd_rowaddr_->a_garbage;
+  mesh_cntl_pack_->b_garbage              << cmd_rowaddr_->b_garbage;
+  mesh_cntl_pack_->d_garbage              << cmd_rowaddr_->d_garbage;
+  mesh_cntl_pack_->accumulate_zeros       << cmd_decoder_->accumulate_zeros;
+  mesh_cntl_pack_->preload_zeros          << cmd_decoder_->preload_zeros;
+  mesh_cntl_pack_->a_fire                 << feed_signals_->a_fire;
+  mesh_cntl_pack_->b_fire                 << feed_signals_->b_fire;
+  mesh_cntl_pack_->d_fire                 << feed_signals_->d_fire;
+  mesh_cntl_pack_->a_unpadded_cols        << cmd_rowpad_->a_unpadded_cols;
+  mesh_cntl_pack_->b_unpadded_cols        << cmd_rowpad_->b_unpadded_cols;
+  mesh_cntl_pack_->d_unpadded_cols        << cmd_rowpad_->d_unpadded_cols;
+  mesh_cntl_pack_->c_addr                 << cmd_decoder_->c_address_rs2;
+  mesh_cntl_pack_->c_rows                 << cmd_decoder_->c_rows;
+  mesh_cntl_pack_->c_cols                 << cmd_decoder_->c_cols;
+  mesh_cntl_pack_->a_transpose            << cmd_state_->a_transpose;
+  mesh_cntl_pack_->bd_transpose           << cmd_state_->bd_transpose;
+  mesh_cntl_pack_->total_rows             << cmd_rowaddr_->total_rows;
+  mesh_cntl_pack_->rs_tag_valid           << tag_select_->mesh_rs_tag_valid;
+  mesh_cntl_pack_->rs_tag                 << tag_select_->mesh_rs_tag;
+  mesh_cntl_pack_->dataflow               << cmd_state_->current_dataflow;
+  mesh_cntl_pack_->prop                   << cmd_state_->prop;
+  mesh_cntl_pack_->shift                  << cmd_state_->shift;
+  mesh_cntl_pack_->im2colling             << im2colling_;
+  mesh_cntl_pack_->first                  << row_feed_->first;
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -196,15 +237,18 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
+                                     mesh_cntl_pack_perform_mul_pre_,
                                      tag_select_performing_single_mul_,
                                      im2col_wire_,
-                                     im2col_en_,
+                                     im2col_en_)
+                             .writes(im2colling_,
                                      cntl_ready_,
                                      decoder_tags_in_progress_,
                                      row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete mesh_cntl_pack_;
   delete feed_signals_;
   delete rd_req_;
   delete read_prio_;
@@ -257,9 +301,11 @@ void ExCtrl::updateWritePorts() {
 void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
+  mesh_cntl_pack_perform_mul_pre_ = 0;
   tag_select_performing_single_mul_ = 0;
   im2col_wire_ = 0;
   im2col_en_ = 0;
+  im2colling_ = 0;
   cntl_ready_ = 1; // TODO: connect to mesh_cntl_signals_q.io.enq.ready when MQ is in ExCtrl.
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i] = MesherTag{};
@@ -270,9 +316,11 @@ void ExCtrl::updateDecoderInputs() {
 void ExCtrl::reset() {
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
+  mesh_cntl_pack_perform_mul_pre_.reset(0);
   tag_select_performing_single_mul_.reset(0);
   im2col_wire_.reset(0);
   im2col_en_.reset(0);
+  im2colling_.reset(0);
   cntl_ready_.reset(1);
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i].reset(MesherTag{});
