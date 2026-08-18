@@ -18,6 +18,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   row_feed_    = new ExCtrlRowFeedState("ExCtrlRowFeedState");
   tag_select_  = new ExCtrlMeshTagSelect("ExCtrlMeshTagSelect");
   read_prio_   = new ExCtrlReadPriority("ExCtrlReadPriority");
+  rd_req_      = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
@@ -29,6 +30,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   row_feed_->clk    << clk;
   tag_select_->clk  << clk;
   read_prio_->clk   << clk;
+  rd_req_->clk       << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -128,6 +130,39 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   read_prio_->im2col_wire  << im2col_wire_;
   read_prio_->im2col_en    << im2col_en_;
 
+  // A/B/D operand-read requests toward the banked local memories.
+  rd_req_->start_inputting_a << cmd_state_->start_inputting_a;
+  rd_req_->start_inputting_b << cmd_state_->start_inputting_b;
+  rd_req_->start_inputting_d << cmd_state_->start_inputting_d;
+  rd_req_->a_address         << cmd_rowaddr_->a_address;
+  rd_req_->b_address         << cmd_rowaddr_->b_address;
+  rd_req_->d_address         << cmd_rowaddr_->d_address;
+  rd_req_->a_valid           << read_prio_->a_valid;
+  rd_req_->b_valid           << read_prio_->b_valid;
+  rd_req_->d_valid           << read_prio_->d_valid;
+  rd_req_->a_row_is_not_all_zeros << cmd_rowpad_->a_row_is_not_all_zeros;
+  rd_req_->b_row_is_not_all_zeros << cmd_rowpad_->b_row_is_not_all_zeros;
+  rd_req_->d_row_is_not_all_zeros << cmd_rowpad_->d_row_is_not_all_zeros;
+  rd_req_->multiply_garbage       << cmd_decoder_->multiply_garbage;
+  rd_req_->accumulate_zeros       << cmd_decoder_->accumulate_zeros;
+  rd_req_->preload_zeros          << cmd_decoder_->preload_zeros;
+  rd_req_->a_read_from_acc        << cmd_rowaddr_->a_read_from_acc;
+  rd_req_->b_read_from_acc        << cmd_rowaddr_->b_read_from_acc;
+  rd_req_->d_read_from_acc        << cmd_rowaddr_->d_read_from_acc;
+  rd_req_->dataAbank              << cmd_rowaddr_->dataAbank;
+  rd_req_->dataBbank              << cmd_rowaddr_->dataBbank;
+  rd_req_->dataDbank              << cmd_rowaddr_->dataDbank;
+  rd_req_->dataABankAcc           << cmd_rowaddr_->dataABankAcc;
+  rd_req_->dataBBankAcc           << cmd_rowaddr_->dataBBankAcc;
+  rd_req_->dataDBankAcc           << cmd_rowaddr_->dataDBankAcc;
+  rd_req_->cntl_ready             << cntl_ready_;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    rd_req_->spad_read_req_rdy[bank] << spad_read_req_rdy[bank];
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    rd_req_->accum_read_req_rdy[bank] << accum_read_req_rdy[bank];
+  }
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -143,11 +178,13 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                      tag_select_performing_single_mul_,
                                      im2col_wire_,
                                      im2col_en_,
+                                     cntl_ready_,
                                      decoder_tags_in_progress_,
                                      row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete rd_req_;
   delete read_prio_;
   delete tag_select_;
   delete op_pack_;
@@ -162,14 +199,27 @@ ExCtrl::~ExCtrl() {
 
 void ExCtrl::updateReadPorts() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    spad_read_req_val[bank] = 0;
-    spad_read_req_bits[bank] = SpadReadReq{};
+    SpadReadReq req{};
+    req.laddr = *rd_req_->spad_read_req_addr[bank];
+    req.from_dma = rd_req_->spad_read_req_from_dma[bank];
+    spad_read_req_val[bank] = rd_req_->spad_read_req_val[bank];
+    spad_read_req_bits[bank] = req;
     spad_read_resp_rdy[bank] = 0;
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_read_req_val[bank] = 0;
-    accum_read_req_bits[bank] = AccumReadReq{};
+    AccumReadReq req{};
+    req.laddr = *rd_req_->accum_read_req_addr[bank];
+    req.scale = rd_req_->accum_read_req_scale[bank];
+    req.full = rd_req_->accum_read_req_full[bank];
+    req.act = rd_req_->accum_read_req_act[bank];
+    req.igelu_qb = rd_req_->accum_read_req_igelu_qb[bank];
+    req.igelu_qc = rd_req_->accum_read_req_igelu_qc[bank];
+    req.iexp_qln2 = rd_req_->accum_read_req_iexp_qln2[bank];
+    req.iexp_qln2_inv = rd_req_->accum_read_req_iexp_qln2_inv[bank];
+    req.from_dma = rd_req_->accum_read_req_from_dma[bank];
+    accum_read_req_val[bank] = rd_req_->accum_read_req_val[bank];
+    accum_read_req_bits[bank] = req;
     accum_read_resp_rdy[bank] = 0;
   }
 }
@@ -188,6 +238,7 @@ void ExCtrl::updateDecoderInputs() {
   tag_select_performing_single_mul_ = 0;
   im2col_wire_ = 0;
   im2col_en_ = 0;
+  cntl_ready_ = 1; // TODO: connect to mesh_cntl_signals_q.io.enq.ready when MQ is in ExCtrl.
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i] = MesherTag{};
   }
@@ -200,6 +251,7 @@ void ExCtrl::reset() {
   tag_select_performing_single_mul_.reset(0);
   im2col_wire_.reset(0);
   im2col_en_.reset(0);
+  cntl_ready_.reset(1);
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i].reset(MesherTag{});
   }
