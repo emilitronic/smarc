@@ -14,6 +14,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_state_   = new ExCtrlState("ExCtrlState");
   cmd_rowaddr_ = new ExCtrlRowAddr("ExCtrlRowAddr");
   cmd_rowpad_  = new ExCtrlRowPad("ExCtrlRowPad");
+  op_pack_     = new ExCtrlOperandPack("ExCtrlOperandPack");
+  row_feed_    = new ExCtrlRowFeedState("ExCtrlRowFeedState");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
@@ -21,6 +23,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_state_->clk   << clk;
   cmd_rowaddr_->clk << clk;
   cmd_rowpad_->clk  << clk;
+  op_pack_->clk     << clk;
+  row_feed_->clk    << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -64,9 +68,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowaddr_->a_address_rs1     << cmd_decoder_->a_address_rs1;
   cmd_rowaddr_->b_address_rs2     << cmd_decoder_->b_address_rs2;
   cmd_rowaddr_->d_address_rs1     << cmd_decoder_->d_address_rs1;
-  cmd_rowaddr_->a_addr_offset     << row_addr_a_addr_offset_;  // temp
-  cmd_rowaddr_->b_fire_counter    << row_addr_b_fire_counter_; // temp
-  cmd_rowaddr_->d_fire_counter    << row_addr_d_fire_counter_; // temp
+  cmd_rowaddr_->a_addr_offset     << row_feed_->a_addr_offset;
+  cmd_rowaddr_->b_fire_counter    << row_feed_->b_fire_counter;
+  cmd_rowaddr_->d_fire_counter    << row_feed_->d_fire_counter;
   cmd_rowaddr_->block_size        << row_addr_block_size_;
   cmd_rowaddr_->ex_read_from_acc  << decoder_ex_read_from_acc_;
   cmd_rowaddr_->ws_no_transpose   << cmd_decoder_->ws_no_transpose;
@@ -77,9 +81,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowaddr_->start_inputting_d << cmd_state_->start_inputting_d;
 
   // row-padding logic input
-  cmd_rowpad_->a_fire_counter << row_addr_a_addr_offset_;  // temp
-  cmd_rowpad_->b_fire_counter << row_addr_b_fire_counter_; // temp
-  cmd_rowpad_->d_fire_counter << row_addr_d_fire_counter_; // temp
+  cmd_rowpad_->a_fire_counter << row_feed_->a_fire_counter;
+  cmd_rowpad_->b_fire_counter << row_feed_->b_fire_counter;
+  cmd_rowpad_->d_fire_counter << row_feed_->d_fire_counter;
   cmd_rowpad_->a_rows         << cmd_decoder_->a_rows;
   cmd_rowpad_->b_rows         << cmd_decoder_->b_rows;
   cmd_rowpad_->d_rows         << cmd_decoder_->d_rows;
@@ -87,6 +91,23 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowpad_->b_cols         << cmd_decoder_->b_cols;
   cmd_rowpad_->d_cols         << cmd_decoder_->d_cols;
   cmd_rowpad_->block_size     << row_addr_block_size_;
+
+  // operand packaging for A/B/D read-priority logic
+  op_pack_->a_address          << cmd_rowaddr_->a_address;
+  op_pack_->b_address          << cmd_rowaddr_->b_address;
+  op_pack_->d_address          << cmd_rowaddr_->d_address;
+  op_pack_->a_address_rs1      << cmd_decoder_->a_address_rs1;
+  op_pack_->b_address_rs2      << cmd_decoder_->b_address_rs2;
+  op_pack_->d_address_rs1      << cmd_decoder_->d_address_rs1;
+  op_pack_->start_inputting_a  << cmd_state_->start_inputting_a;
+  op_pack_->start_inputting_b  << cmd_state_->start_inputting_b;
+  op_pack_->start_inputting_d  << cmd_state_->start_inputting_d;
+  op_pack_->a_fire_counter     << row_feed_->a_fire_counter;
+  op_pack_->b_fire_counter     << row_feed_->b_fire_counter;
+  op_pack_->d_fire_counter     << row_feed_->d_fire_counter;
+  op_pack_->a_fire_started     << row_feed_->a_fire_started;
+  op_pack_->b_fire_started     << row_feed_->b_fire_started;
+  op_pack_->d_fire_started     << row_feed_->d_fire_started;
 
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
@@ -101,15 +122,14 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
                                      decoder_tags_in_progress_,
-                                     row_addr_a_addr_offset_,
-                                     row_addr_b_fire_counter_,
-                                     row_addr_d_fire_counter_,
                                      row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete op_pack_;
   delete cmd_rowpad_;
   delete cmd_rowaddr_;
+  delete row_feed_;
   delete cmd_state_;
   delete cmd_decoder_;
   delete completion_;
@@ -144,9 +164,6 @@ void ExCtrl::updateDecoderInputs() {
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i] = MesherTag{};
   }
-  row_addr_a_addr_offset_   = 0;
-  row_addr_b_fire_counter_  = 0;
-  row_addr_d_fire_counter_  = 0;
   row_addr_block_size_      = static_cast<u32>(kDefaultConfig.dim);
 }
 
@@ -156,9 +173,6 @@ void ExCtrl::reset() {
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i].reset(MesherTag{});
   }
-  row_addr_a_addr_offset_.reset(0);
-  row_addr_b_fire_counter_.reset(0);
-  row_addr_d_fire_counter_.reset(0);
   row_addr_block_size_.reset(static_cast<u32>(kDefaultConfig.dim));
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {

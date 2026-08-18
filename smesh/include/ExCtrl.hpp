@@ -12,8 +12,10 @@ Structural shell for the smesh execute controller.
 
 #include "ExCtrlCompletion.hpp"
 #include "ExCtrlDecoder.hpp"
+#include "ExCtrlOperandPack.hpp"
 #include "ExCtrlQueues.hpp"
 #include "ExCtrlRowAddr.hpp"
+#include "ExCtrlRowFeedState.hpp"
 #include "ExCtrlRowPad.hpp"
 #include "ExCtrlState.hpp"
 #include "SmeshPorts.hpp"
@@ -62,18 +64,17 @@ class ExCtrl : public Component {
   void reset();
 
  private:
-  ExCtrlCmdQueue* cmd_queue_  = nullptr;
+  ExCtrlCmdQueue* cmd_queue_    = nullptr;
   ExCtrlCompletion* completion_ = nullptr;
-  ExCtrlDecoder* cmd_decoder_ = nullptr;
-  ExCtrlState* cmd_state_     = nullptr;
-  ExCtrlRowAddr* cmd_rowaddr_ = nullptr;
-  ExCtrlRowPad* cmd_rowpad_   = nullptr;
+  ExCtrlDecoder* cmd_decoder_   = nullptr;
+  ExCtrlState* cmd_state_       = nullptr;
+  ExCtrlRowAddr* cmd_rowaddr_   = nullptr;
+  ExCtrlRowPad* cmd_rowpad_     = nullptr;
+  ExCtrlOperandPack* op_pack_   = nullptr;
+  ExCtrlRowFeedState* row_feed_ = nullptr;
   Output(bit, decoder_ex_read_from_acc_);
   Output(bit, decoder_ex_write_to_spad_);
   OutputArray(MesherTag, decoder_tags_in_progress_, kRsExecuteEntries);
-  Output(u32, row_addr_a_addr_offset_);
-  Output(u32, row_addr_b_fire_counter_);
-  Output(u32, row_addr_d_fire_counter_);
   Output(u32, row_addr_block_size_);
 };
 

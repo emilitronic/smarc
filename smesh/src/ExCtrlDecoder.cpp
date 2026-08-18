@@ -196,26 +196,18 @@ void ExCtrlDecoder::update() {
       continue;
     }
 
-    const bool pre_raw_haz =
-        isSameAddress(tag.addr, addrOf(rs1[0]));
-    const bool mul_raw_haz =
-        isSameAddress(tag.addr, addrOf(rs1[1])) ||
-        isSameAddress(tag.addr, addrOf(rs2[1]));
+    const bool pre_raw_haz = isSameAddress(tag.addr, addrOf(rs1[0]));
+    const bool mul_raw_haz = isSameAddress(tag.addr, addrOf(rs1[1])) || isSameAddress(tag.addr, addrOf(rs2[1]));
     next_raw_hazard_pre = next_raw_hazard_pre || pre_raw_haz || mul_raw_haz;
 
-    const bool pre_raw_haz_mulpre =
-        isSameAddress(tag.addr, addrOf(rs1[1]));
-    const bool mul_raw_haz_mulpre =
-        isSameAddress(tag.addr, addrOf(rs1[2])) ||
-        isSameAddress(tag.addr, addrOf(rs2[2]));
+    const bool pre_raw_haz_mulpre = isSameAddress(tag.addr, addrOf(rs1[1]));
+    const bool mul_raw_haz_mulpre = isSameAddress(tag.addr, addrOf(rs1[2])) || isSameAddress(tag.addr, addrOf(rs2[2]));
     next_raw_hazard_mulpre = next_raw_hazard_mulpre || pre_raw_haz_mulpre || mul_raw_haz_mulpre;
   }
   raw_hazard_pre    = bit(next_raw_hazard_pre);
   raw_hazard_mulpre = bit(next_raw_hazard_mulpre);
   // 4) Third instruction needed detection
-  third_instruction_needed = bit(a_place > 1 ||
-                                 b_place > 1 ||
-                                 preload_place > 1 ||
+  third_instruction_needed = bit(a_place > 1 || b_place > 1 || preload_place > 1 ||
                                  !raw_hazards_impossible);
 }
 
