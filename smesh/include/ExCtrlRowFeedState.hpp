@@ -22,6 +22,13 @@ class ExCtrlRowFeedState : public Component {
 
   Clock(clk);
 
+  Input(bit, firing); // any A/B/D row-feed stream is active this cycle
+  Input(bit, a_fire); // A row-beat was accepted this cycle
+  Input(bit, b_fire); // B row-beat was accepted this cycle
+  Input(bit, d_fire); // D row-beat was accepted this cycle
+  Input(u32, total_rows); // total row-beats for the active mesh request
+  Input(u32, a_addr_stride); // CONFIG_EX A local-address stride
+
   Output(u32, a_fire_counter);       // number of A row-beats accepted so far
   Output(u32, b_fire_counter);       // number of B row-beats accepted so far
   Output(u32, d_fire_counter);       // number of D row-beats accepted so far
@@ -52,7 +59,7 @@ class ExCtrlRowFeedState : public Component {
   bool mul_pre_counter_lock_ = false;
   std::uint32_t preload_zero_counter_ = 0;
 
-  // TODO: add write controls from row/read-fire logic.
+  // TODO: use fire signals, total_rows, and a_addr_stride to update row-feed progress state.
 };
 
 } // namespace smesh

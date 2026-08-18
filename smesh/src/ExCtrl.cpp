@@ -177,6 +177,13 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   feed_signals_->b_ready           << rd_req_->b_ready;
   feed_signals_->d_ready           << rd_req_->d_ready;
 
+  row_feed_->firing << feed_signals_->firing;
+  row_feed_->a_fire << feed_signals_->a_fire;
+  row_feed_->b_fire << feed_signals_->b_fire;
+  row_feed_->d_fire << feed_signals_->d_fire;
+  row_feed_->total_rows << cmd_rowaddr_->total_rows;
+  row_feed_->a_addr_stride << cmd_state_->a_addr_stride;
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
