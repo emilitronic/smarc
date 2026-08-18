@@ -17,6 +17,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   op_pack_     = new ExCtrlOperandPack("ExCtrlOperandPack");
   row_feed_    = new ExCtrlRowFeedState("ExCtrlRowFeedState");
   tag_select_  = new ExCtrlMeshTagSelect("ExCtrlMeshTagSelect");
+  read_prio_   = new ExCtrlReadPriority("ExCtrlReadPriority");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
@@ -27,6 +28,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   op_pack_->clk     << clk;
   row_feed_->clk    << clk;
   tag_select_->clk  << clk;
+  read_prio_->clk   << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -118,6 +120,14 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   op_pack_->b_fire_started     << row_feed_->b_fire_started;
   op_pack_->d_fire_started     << row_feed_->d_fire_started;
 
+  // A/B/D read-priority gating; im2col is explicitly idle in this model stage.
+  read_prio_->a_operand    << op_pack_->a_operand;
+  read_prio_->b_operand    << op_pack_->b_operand;
+  read_prio_->d_operand    << op_pack_->d_operand;
+  read_prio_->total_rows   << cmd_rowaddr_->total_rows;
+  read_prio_->im2col_wire  << im2col_wire_;
+  read_prio_->im2col_en    << im2col_en_;
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -131,11 +141,14 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
                                      tag_select_performing_single_mul_,
+                                     im2col_wire_,
+                                     im2col_en_,
                                      decoder_tags_in_progress_,
                                      row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete read_prio_;
   delete tag_select_;
   delete op_pack_;
   delete cmd_rowpad_;
@@ -173,6 +186,8 @@ void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
   tag_select_performing_single_mul_ = 0;
+  im2col_wire_ = 0;
+  im2col_en_ = 0;
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i] = MesherTag{};
   }
@@ -183,6 +198,8 @@ void ExCtrl::reset() {
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
   tag_select_performing_single_mul_.reset(0);
+  im2col_wire_.reset(0);
+  im2col_en_.reset(0);
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i].reset(MesherTag{});
   }
