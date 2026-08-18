@@ -12,6 +12,7 @@ Structural shell for the smesh execute controller.
 
 #include "ExCtrlCompletion.hpp"
 #include "ExCtrlDecoder.hpp"
+#include "ExCtrlFeedSignals.hpp"
 #include "ExCtrlMeshTagSelect.hpp"
 #include "ExCtrlOperandPack.hpp"
 #include "ExCtrlQueues.hpp"
@@ -78,6 +79,7 @@ class ExCtrl : public Component {
   ExCtrlMeshTagSelect* tag_select_ = nullptr;
   ExCtrlReadPriority* read_prio_ = nullptr;
   ExCtrlReadReqLogic* rd_req_ = nullptr;
+  ExCtrlFeedSignals* feed_signals_ = nullptr;
   Output(bit, decoder_ex_read_from_acc_);
   Output(bit, decoder_ex_write_to_spad_);
   Output(bit, tag_select_performing_single_mul_);

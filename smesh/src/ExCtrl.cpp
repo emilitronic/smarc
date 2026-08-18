@@ -19,6 +19,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   tag_select_  = new ExCtrlMeshTagSelect("ExCtrlMeshTagSelect");
   read_prio_   = new ExCtrlReadPriority("ExCtrlReadPriority");
   rd_req_      = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");
+  feed_signals_ = new ExCtrlFeedSignals("ExCtrlFeedSignals");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
@@ -31,6 +32,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   tag_select_->clk  << clk;
   read_prio_->clk   << clk;
   rd_req_->clk       << clk;
+  feed_signals_->clk << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -163,6 +165,18 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     rd_req_->accum_read_req_rdy[bank] << accum_read_req_rdy[bank];
   }
 
+  // Derived row-feed handshake signals. These will drive row-feed state and MQ
+  // packaging once those paths are connected.
+  feed_signals_->start_inputting_a << cmd_state_->start_inputting_a;
+  feed_signals_->start_inputting_b << cmd_state_->start_inputting_b;
+  feed_signals_->start_inputting_d << cmd_state_->start_inputting_d;
+  feed_signals_->a_valid           << read_prio_->a_valid;
+  feed_signals_->b_valid           << read_prio_->b_valid;
+  feed_signals_->d_valid           << read_prio_->d_valid;
+  feed_signals_->a_ready           << rd_req_->a_ready;
+  feed_signals_->b_ready           << rd_req_->b_ready;
+  feed_signals_->d_ready           << rd_req_->d_ready;
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -184,6 +198,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 }
 
 ExCtrl::~ExCtrl() {
+  delete feed_signals_;
   delete rd_req_;
   delete read_prio_;
   delete tag_select_;
