@@ -16,6 +16,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowpad_  = new ExCtrlRowPad("ExCtrlRowPad");
   op_pack_     = new ExCtrlOperandPack("ExCtrlOperandPack");
   row_feed_    = new ExCtrlRowFeedState("ExCtrlRowFeedState");
+  tag_select_  = new ExCtrlMeshTagSelect("ExCtrlMeshTagSelect");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
@@ -25,6 +26,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowpad_->clk  << clk;
   op_pack_->clk     << clk;
   row_feed_->clk    << clk;
+  tag_select_->clk  << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -36,6 +38,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     cmd_state_->head_bits[i]   << cmd_queue_->head_bits[i];
     cmd_state_->do_preloads[i] << cmd_decoder_->do_preloads[i];
     cmd_state_->do_computes[i] << cmd_decoder_->do_computes[i];
+    tag_select_->head_val[i]   << cmd_queue_->head_val[i];
+    tag_select_->head_bits[i]  << cmd_queue_->head_bits[i];
   }
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     cmd_decoder_->tags_in_progress[i] << decoder_tags_in_progress_[i];
@@ -92,6 +96,11 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowpad_->d_cols         << cmd_decoder_->d_cols;
   cmd_rowpad_->block_size     << row_addr_block_size_;
 
+  // mesh completion-tag selection for future mesh-control queue enqueue path
+  tag_select_->preload_cmd_place      << cmd_decoder_->preload_cmd_place;
+  tag_select_->performing_single_mul  << tag_select_performing_single_mul_; // temp until FSM exposes this mode
+  tag_select_->c_address_rs2          << cmd_decoder_->c_address_rs2;
+
   // operand packaging for A/B/D read-priority logic
   op_pack_->a_address          << cmd_rowaddr_->a_address;
   op_pack_->b_address          << cmd_rowaddr_->b_address;
@@ -121,11 +130,13 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
+                                     tag_select_performing_single_mul_,
                                      decoder_tags_in_progress_,
                                      row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete tag_select_;
   delete op_pack_;
   delete cmd_rowpad_;
   delete cmd_rowaddr_;
@@ -161,6 +172,7 @@ void ExCtrl::updateWritePorts() {
 void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
+  tag_select_performing_single_mul_ = 0;
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i] = MesherTag{};
   }
@@ -170,6 +182,7 @@ void ExCtrl::updateDecoderInputs() {
 void ExCtrl::reset() {
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
+  tag_select_performing_single_mul_.reset(0);
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i].reset(MesherTag{});
   }

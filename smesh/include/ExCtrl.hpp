@@ -12,6 +12,7 @@ Structural shell for the smesh execute controller.
 
 #include "ExCtrlCompletion.hpp"
 #include "ExCtrlDecoder.hpp"
+#include "ExCtrlMeshTagSelect.hpp"
 #include "ExCtrlOperandPack.hpp"
 #include "ExCtrlQueues.hpp"
 #include "ExCtrlRowAddr.hpp"
@@ -72,8 +73,10 @@ class ExCtrl : public Component {
   ExCtrlRowPad* cmd_rowpad_     = nullptr;
   ExCtrlOperandPack* op_pack_   = nullptr;
   ExCtrlRowFeedState* row_feed_ = nullptr;
+  ExCtrlMeshTagSelect* tag_select_ = nullptr;
   Output(bit, decoder_ex_read_from_acc_);
   Output(bit, decoder_ex_write_to_spad_);
+  Output(bit, tag_select_performing_single_mul_);
   OutputArray(MesherTag, decoder_tags_in_progress_, kRsExecuteEntries);
   Output(u32, row_addr_block_size_);
 };
