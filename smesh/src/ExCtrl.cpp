@@ -21,6 +21,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rd_req_      = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");
   feed_signals_ = new ExCtrlFeedSignals("ExCtrlFeedSignals");
   mesh_cntl_pack_ = new ExCtrlMeshCntlPack("ExCtrlMeshCntlPack");
+  mesh_cntl_queue_ = new ExCtrlMeshCntlQueue("ExCtrlMeshCntlQueue");
 
   cmd_queue_->clk   << clk;
   completion_->clk  << clk;
@@ -35,6 +36,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rd_req_->clk       << clk;
   feed_signals_->clk << clk;
   mesh_cntl_pack_->clk << clk;
+  mesh_cntl_queue_->clk << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -159,7 +161,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rd_req_->dataABankAcc           << cmd_rowaddr_->dataABankAcc;
   rd_req_->dataBBankAcc           << cmd_rowaddr_->dataBBankAcc;
   rd_req_->dataDBankAcc           << cmd_rowaddr_->dataDBankAcc;
-  rd_req_->cntl_ready             << cntl_ready_;
+  rd_req_->cntl_rdy               << cntl_rdy_;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     rd_req_->spad_read_req_rdy[bank] << spad_read_req_rdy[bank];
   }
@@ -185,6 +187,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   row_feed_->d_fire << feed_signals_->d_fire;
   row_feed_->total_rows << cmd_rowaddr_->total_rows;
   row_feed_->a_addr_stride << cmd_state_->a_addr_stride;
+  row_feed_->cntl_rdy << cntl_rdy_;
 
   // Mesh-control packet packaging. Its output will feed MQ once MQ is installed
   // inside ExCtrl.
@@ -225,6 +228,12 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_cntl_pack_->im2colling             << im2colling_;
   mesh_cntl_pack_->first                  << row_feed_->first;
 
+  // MQ: one control packet per active row-feed cycle. Dequeue is held idle
+  // until the Mesher/deq-control side is installed in ExCtrl.
+  mesh_cntl_queue_->enq_val            << cmd_state_->computing;
+  mesh_cntl_queue_->enq_bits           << mesh_cntl_pack_->enq_bits;
+  mesh_cntl_queue_->mesh_cntl_deq_rdy  << mesh_cntl_deq_rdy_;
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -242,12 +251,14 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                      im2col_wire_,
                                      im2col_en_)
                              .writes(im2colling_,
-                                     cntl_ready_,
+                                     mesh_cntl_deq_rdy_,
+                                     cntl_rdy_,
                                      decoder_tags_in_progress_,
                                      row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete mesh_cntl_queue_;
   delete mesh_cntl_pack_;
   delete feed_signals_;
   delete rd_req_;
@@ -306,7 +317,8 @@ void ExCtrl::updateDecoderInputs() {
   im2col_wire_ = 0;
   im2col_en_ = 0;
   im2colling_ = 0;
-  cntl_ready_ = 1; // TODO: connect to mesh_cntl_signals_q.io.enq.ready when MQ is in ExCtrl.
+  mesh_cntl_deq_rdy_ = 0; // TODO: connect to ExCtrlMeshCntlDeqCtrl once installed in ExCtrl.
+  cntl_rdy_ = mesh_cntl_queue_->enq_rdy;
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i] = MesherTag{};
   }
@@ -321,7 +333,8 @@ void ExCtrl::reset() {
   im2col_wire_.reset(0);
   im2col_en_.reset(0);
   im2colling_.reset(0);
-  cntl_ready_.reset(1);
+  mesh_cntl_deq_rdy_.reset(0);
+  cntl_rdy_.reset(1);
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
     decoder_tags_in_progress_[i].reset(MesherTag{});
   }

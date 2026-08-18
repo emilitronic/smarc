@@ -35,7 +35,7 @@ ExCtrlReadReqLogic::ExCtrlReadReqLogic(std::string /*name*/, IMPL_CTOR) {
              dataDBankAcc)
       .reads(spad_read_req_rdy,
              accum_read_req_rdy,
-             cntl_ready)
+             cntl_rdy)
       .writes(a_ready,
               b_ready,
               d_ready,

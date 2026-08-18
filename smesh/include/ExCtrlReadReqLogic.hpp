@@ -49,7 +49,7 @@ class ExCtrlReadReqLogic : public Component {
   Input(u32, dataDBankAcc);
   InputArray(bit, spad_read_req_rdy, kSpBanks);
   InputArray(bit, accum_read_req_rdy, kAccBanks);
-  Input(bit, cntl_ready);
+  Input(bit, cntl_rdy);
 
   Output(bit, a_ready);
   Output(bit, b_ready);

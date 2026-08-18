@@ -82,6 +82,7 @@ class ExCtrl : public Component {
   ExCtrlReadReqLogic* rd_req_ = nullptr;
   ExCtrlFeedSignals* feed_signals_ = nullptr;
   ExCtrlMeshCntlPack* mesh_cntl_pack_ = nullptr;
+  ExCtrlMeshCntlQueue* mesh_cntl_queue_ = nullptr;
   Output(bit, decoder_ex_read_from_acc_);
   Output(bit, decoder_ex_write_to_spad_);
   Output(bit, mesh_cntl_pack_perform_mul_pre_);
@@ -89,7 +90,8 @@ class ExCtrl : public Component {
   Output(bit, im2col_wire_);
   Output(bit, im2col_en_);
   Output(bit, im2colling_);
-  Output(bit, cntl_ready_);
+  Output(bit, mesh_cntl_deq_rdy_);
+  Output(bit, cntl_rdy_);
   OutputArray(MesherTag, decoder_tags_in_progress_, kRsExecuteEntries);
   Output(u32, row_addr_block_size_);
 };
