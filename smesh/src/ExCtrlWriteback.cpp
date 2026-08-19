@@ -43,11 +43,11 @@ void ExCtrlWriteback::updateView() {
     accum_write_bits[bank] = DmaReadResp{};
   }
 
-  output_counter = output_counter_;
-  start_array_outputting = 0;
+  output_counter             = output_counter_;
+  start_array_outputting     = 0;
   mesh_completed_rs_tag_fire = 0;
-  completed_val = 0;
-  completed_bits = 0;
+  completed_val              = 0;
+  completed_bits             = 0;
 }
 
 void ExCtrlWriteback::updateState() {

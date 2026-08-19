@@ -40,20 +40,11 @@ MeshInputRow padInputRow(const MeshInputRow& unpadded, std::uint32_t unpadded_co
 ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(cntl_val,
-             a_bank, b_bank, d_bank,
-             a_bank_acc, b_bank_acc, d_bank_acc,
-             a_read_from_acc)
-      .reads(b_read_from_acc, d_read_from_acc,
-             a_garbage, b_garbage, d_garbage,
-             accumulate_zeros,
-             preload_zeros,
-             im2colling)
-      .reads(im2col_data,
+             cntl_bits,
+             im2col_data,
              im2col_val,
-             a_unpadded_cols, b_unpadded_cols, d_unpadded_cols,
-             cntl_a_fire, cntl_b_fire, cntl_d_fire)
-      .reads(mesh_a_rdy, mesh_b_rdy, mesh_d_rdy,
-             spad_read_val)
+             mesh_a_rdy, mesh_b_rdy, mesh_d_rdy)
+      .reads(spad_read_val)
       .reads(accum_read_val, spad_read_data)
       .reads(accum_read_data)
       .writes(mesh_a, mesh_b, mesh_d, mesh_a_val, mesh_b_val, mesh_d_val)
@@ -61,13 +52,15 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlMeshInSelPad::update() {
+  const auto cntl = *cntl_bits;
+
   // which bank bus (or which mem) to look at
-  const auto a_spad_index = checkedBankIndex(a_bank, kSpBanks);
-  const auto b_spad_index = checkedBankIndex(b_bank, kSpBanks);
-  const auto d_spad_index = checkedBankIndex(d_bank, kSpBanks);
-  const auto a_acc_index  = checkedBankIndex(a_bank_acc, kAccBanks);
-  const auto b_acc_index  = checkedBankIndex(b_bank_acc, kAccBanks);
-  const auto d_acc_index  = checkedBankIndex(d_bank_acc, kAccBanks);
+  const auto a_spad_index = checkedBankIndex(cntl.a_bank, kSpBanks);
+  const auto b_spad_index = checkedBankIndex(cntl.b_bank, kSpBanks);
+  const auto d_spad_index = checkedBankIndex(cntl.d_bank, kSpBanks);
+  const auto a_acc_index  = checkedBankIndex(cntl.a_bank_acc, kAccBanks);
+  const auto b_acc_index  = checkedBankIndex(cntl.b_bank_acc, kAccBanks);
+  const auto d_acc_index  = checkedBankIndex(cntl.d_bank_acc, kAccBanks);
   // data on that bus
   const auto a_spad = spad_read_data[a_spad_index]->data;
   const auto b_spad = spad_read_data[b_spad_index]->data;
@@ -76,32 +69,32 @@ void ExCtrlMeshInSelPad::update() {
   const auto b_acc  = accum_read_data[b_acc_index]->data;
   const auto d_acc  = accum_read_data[d_acc_index]->data;
   // selected, padded row payloads
-  const auto next_mesh_a = ExCtrlMeshIn{a_garbage != 0
+  const auto next_mesh_a = ExCtrlMeshIn{cntl.a_garbage != 0
       ? MeshInputRow{}
-      : im2colling != 0
-          ? padInputRow(*im2col_data, a_unpadded_cols)
-          : a_read_from_acc != 0
-              ? padInputRow(a_acc, a_unpadded_cols)
-              : padInputRow(a_spad, a_unpadded_cols)};
-  const auto next_mesh_b = ExCtrlMeshIn{(b_garbage != 0 || accumulate_zeros != 0)
+      : cntl.im2colling != 0
+          ? padInputRow(*im2col_data, cntl.a_unpadded_cols)
+          : cntl.a_read_from_acc != 0
+              ? padInputRow(a_acc, cntl.a_unpadded_cols)
+              : padInputRow(a_spad, cntl.a_unpadded_cols)};
+  const auto next_mesh_b = ExCtrlMeshIn{(cntl.b_garbage != 0 || cntl.accumulate_zeros != 0)
       ? MeshInputRow{}
-      : b_read_from_acc != 0
-          ? padInputRow(b_acc, b_unpadded_cols)
-          : padInputRow(b_spad, b_unpadded_cols)};
-  const auto next_mesh_d = ExCtrlMeshIn{(d_garbage != 0 || preload_zeros != 0)
+      : cntl.b_read_from_acc != 0
+          ? padInputRow(b_acc, cntl.b_unpadded_cols)
+          : padInputRow(b_spad, cntl.b_unpadded_cols)};
+  const auto next_mesh_d = ExCtrlMeshIn{(cntl.d_garbage != 0 || cntl.preload_zeros != 0)
       ? MeshInputRow{}
-      : d_read_from_acc != 0
-          ? padInputRow(d_acc, d_unpadded_cols)
-          : padInputRow(d_spad, d_unpadded_cols)};
+      : cntl.d_read_from_acc != 0
+          ? padInputRow(d_acc, cntl.d_unpadded_cols)
+          : padInputRow(d_spad, cntl.d_unpadded_cols)};
 
   // validity of data on the bus (or in memory) for this row-beat
-  const bool dataA_valid = a_garbage != 0 || a_unpadded_cols == 0 || (im2colling       != 0 ? im2col_val != 0 : a_read_from_acc  != 0 ? accum_read_val[a_acc_index] != 0 : spad_read_val[a_spad_index] != 0);
-  const bool dataB_valid = b_garbage != 0 || b_unpadded_cols == 0 || (accumulate_zeros != 0 ? false           : b_read_from_acc  != 0 ? accum_read_val[b_acc_index] != 0 : spad_read_val[b_spad_index] != 0);
-  const bool dataD_valid = d_garbage != 0 || d_unpadded_cols == 0 || (preload_zeros    != 0 ? false           : d_read_from_acc  != 0 ? accum_read_val[d_acc_index] != 0 : spad_read_val[d_spad_index] != 0);
+  const bool dataA_valid = cntl.a_garbage != 0 || cntl.a_unpadded_cols == 0 || (cntl.im2colling       != 0 ? im2col_val != 0 : cntl.a_read_from_acc != 0 ? accum_read_val[a_acc_index] != 0 : spad_read_val[a_spad_index] != 0);
+  const bool dataB_valid = cntl.b_garbage != 0 || cntl.b_unpadded_cols == 0 || (cntl.accumulate_zeros != 0 ? false           : cntl.b_read_from_acc != 0 ? accum_read_val[b_acc_index] != 0 : spad_read_val[b_spad_index] != 0);
+  const bool dataD_valid = cntl.d_garbage != 0 || cntl.d_unpadded_cols == 0 || (cntl.preload_zeros    != 0 ? false           : cntl.d_read_from_acc != 0 ? accum_read_val[d_acc_index] != 0 : spad_read_val[d_spad_index] != 0);
 
-  const auto next_mesh_a_val = bit(cntl_val != 0 && cntl_a_fire != 0 && dataA_valid);
-  const auto next_mesh_b_val = bit(cntl_val != 0 && cntl_b_fire != 0 && dataB_valid);
-  const auto next_mesh_d_val = bit(cntl_val != 0 && cntl_d_fire != 0 && dataD_valid);
+  const auto next_mesh_a_val = bit(cntl_val != 0 && cntl.a_fire != 0 && dataA_valid);
+  const auto next_mesh_b_val = bit(cntl_val != 0 && cntl.b_fire != 0 && dataB_valid);
+  const auto next_mesh_d_val = bit(cntl_val != 0 && cntl.d_fire != 0 && dataD_valid);
 
   mesh_a = next_mesh_a;
   mesh_b = next_mesh_b;

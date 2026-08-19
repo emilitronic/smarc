@@ -19,29 +19,9 @@ class MeshInSelPadDriver : public Component {
 
   Clock(clk);
   Output(bit, cntl_val);
-  Output(u32, a_bank);
-  Output(u32, b_bank);
-  Output(u32, d_bank);
-  Output(u32, a_bank_acc);
-  Output(u32, b_bank_acc);
-  Output(u32, d_bank_acc);
-  Output(bit, a_read_from_acc);
-  Output(bit, b_read_from_acc);
-  Output(bit, d_read_from_acc);
-  Output(bit, a_garbage);
-  Output(bit, b_garbage);
-  Output(bit, d_garbage);
-  Output(bit, accumulate_zeros);
-  Output(bit, preload_zeros);
-  Output(bit, im2colling);
+  Output(smesh::ExCtrlMeshCntl, cntl_bits);
   Output(u64, im2col_data);
   Output(bit, im2col_val);
-  Output(u32, a_unpadded_cols);
-  Output(u32, b_unpadded_cols);
-  Output(u32, d_unpadded_cols);
-  Output(bit, cntl_a_fire);
-  Output(bit, cntl_b_fire);
-  Output(bit, cntl_d_fire);
   Output(bit, mesh_a_rdy);
   Output(bit, mesh_b_rdy);
   Output(bit, mesh_d_rdy);
@@ -86,29 +66,9 @@ class MeshInSelPadMonitor : public Component {
 MeshInSelPadDriver::MeshInSelPadDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .writes(cntl_val,
-              a_bank,
-              b_bank,
-              d_bank,
-              a_bank_acc,
-              b_bank_acc,
-              d_bank_acc,
-              a_read_from_acc)
-      .writes(b_read_from_acc,
-              d_read_from_acc,
-              a_garbage,
-              b_garbage,
-              d_garbage,
-              accumulate_zeros,
-              preload_zeros,
-              im2colling)
+              cntl_bits)
       .writes(im2col_data,
-              im2col_val,
-              a_unpadded_cols,
-              b_unpadded_cols,
-              d_unpadded_cols,
-              cntl_a_fire,
-              cntl_b_fire,
-              cntl_d_fire)
+              im2col_val)
       .writes(mesh_a_rdy,
               mesh_b_rdy,
               mesh_d_rdy,
@@ -119,29 +79,31 @@ MeshInSelPadDriver::MeshInSelPadDriver(std::string /*name*/, IMPL_CTOR) {
 
 void MeshInSelPadDriver::update() {
   cntl_val = 1;
-  a_bank = 1;
-  b_bank = 2;
-  d_bank = 3;
-  a_bank_acc = 0;
-  b_bank_acc = 1;
-  d_bank_acc = 0;
-  a_read_from_acc = 0;
-  b_read_from_acc = 1;
-  d_read_from_acc = 0;
-  a_garbage = 0;
-  b_garbage = 0;
-  d_garbage = 0;
-  accumulate_zeros = 0;
-  preload_zeros = 1;
-  im2colling = 1;
+  smesh::ExCtrlMeshCntl cntl{};
+  cntl.a_bank = 1;
+  cntl.b_bank = 2;
+  cntl.d_bank = 3;
+  cntl.a_bank_acc = 0;
+  cntl.b_bank_acc = 1;
+  cntl.d_bank_acc = 0;
+  cntl.a_read_from_acc = 0;
+  cntl.b_read_from_acc = 1;
+  cntl.d_read_from_acc = 0;
+  cntl.a_garbage = 0;
+  cntl.b_garbage = 0;
+  cntl.d_garbage = 0;
+  cntl.accumulate_zeros = 0;
+  cntl.preload_zeros = 1;
+  cntl.im2colling = 1;
+  cntl.a_unpadded_cols = 3;
+  cntl.b_unpadded_cols = 2;
+  cntl.d_unpadded_cols = 4;
+  cntl.a_fire = 1;
+  cntl.b_fire = 1;
+  cntl.d_fire = 1;
+  cntl_bits = cntl;
   im2col_data = 0x88776655u;
   im2col_val = 1;
-  a_unpadded_cols = 3;
-  b_unpadded_cols = 2;
-  d_unpadded_cols = 4;
-  cntl_a_fire = 1;
-  cntl_b_fire = 1;
-  cntl_d_fire = 1;
   mesh_a_rdy = 1;
   mesh_b_rdy = 1;
   mesh_d_rdy = 1;
@@ -173,29 +135,9 @@ void MeshInSelPadDriver::update() {
 
 void MeshInSelPadDriver::reset() {
   cntl_val.reset(0);
-  a_bank.reset(0);
-  b_bank.reset(0);
-  d_bank.reset(0);
-  a_bank_acc.reset(0);
-  b_bank_acc.reset(0);
-  d_bank_acc.reset(0);
-  a_read_from_acc.reset(0);
-  b_read_from_acc.reset(0);
-  d_read_from_acc.reset(0);
-  a_garbage.reset(0);
-  b_garbage.reset(0);
-  d_garbage.reset(0);
-  accumulate_zeros.reset(0);
-  preload_zeros.reset(0);
-  im2colling.reset(0);
+  cntl_bits.reset(smesh::ExCtrlMeshCntl{});
   im2col_data.reset(0);
   im2col_val.reset(0);
-  a_unpadded_cols.reset(0);
-  b_unpadded_cols.reset(0);
-  d_unpadded_cols.reset(0);
-  cntl_a_fire.reset(0);
-  cntl_b_fire.reset(0);
-  cntl_d_fire.reset(0);
   mesh_a_rdy.reset(0);
   mesh_b_rdy.reset(0);
   mesh_d_rdy.reset(0);
@@ -254,29 +196,9 @@ int main(int argc, char* argv[]) {
   MeshInSelPadMonitor monitor("Monitor");
 
   sel_pad.cntl_val << driver.cntl_val;
-  sel_pad.a_bank << driver.a_bank;
-  sel_pad.b_bank << driver.b_bank;
-  sel_pad.d_bank << driver.d_bank;
-  sel_pad.a_bank_acc << driver.a_bank_acc;
-  sel_pad.b_bank_acc << driver.b_bank_acc;
-  sel_pad.d_bank_acc << driver.d_bank_acc;
-  sel_pad.a_read_from_acc << driver.a_read_from_acc;
-  sel_pad.b_read_from_acc << driver.b_read_from_acc;
-  sel_pad.d_read_from_acc << driver.d_read_from_acc;
-  sel_pad.a_garbage << driver.a_garbage;
-  sel_pad.b_garbage << driver.b_garbage;
-  sel_pad.d_garbage << driver.d_garbage;
-  sel_pad.accumulate_zeros << driver.accumulate_zeros;
-  sel_pad.preload_zeros << driver.preload_zeros;
-  sel_pad.im2colling << driver.im2colling;
+  sel_pad.cntl_bits << driver.cntl_bits;
   sel_pad.im2col_data << driver.im2col_data;
   sel_pad.im2col_val << driver.im2col_val;
-  sel_pad.a_unpadded_cols << driver.a_unpadded_cols;
-  sel_pad.b_unpadded_cols << driver.b_unpadded_cols;
-  sel_pad.d_unpadded_cols << driver.d_unpadded_cols;
-  sel_pad.cntl_a_fire << driver.cntl_a_fire;
-  sel_pad.cntl_b_fire << driver.cntl_b_fire;
-  sel_pad.cntl_d_fire << driver.cntl_d_fire;
   sel_pad.mesh_a_rdy << driver.mesh_a_rdy;
   sel_pad.mesh_b_rdy << driver.mesh_b_rdy;
   sel_pad.mesh_d_rdy << driver.mesh_d_rdy;
