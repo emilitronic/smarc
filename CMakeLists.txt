@@ -16,6 +16,22 @@ set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "suppress cedar cmake_minimum warnings"
 # Option 2 (recommended): pass it when configuring:
 # cmake -DCEDAR_DIR=../Cascade/cedar ..
 
+# Option 3: auto-detect the local Cedar checkout on common development Macs.
+if(NOT DEFINED CEDAR_DIR)
+  foreach(_cedar_candidate
+      "/Users/seb/Research/Cascade/cedar"
+      "/Users/xeb/Research/Cascade/cedar")
+    if(EXISTS "${_cedar_candidate}/CMakeLists.txt")
+      set(CEDAR_DIR "${_cedar_candidate}" CACHE PATH "Path to Cascade/Cedar checkout")
+      break()
+    endif()
+  endforeach()
+endif()
+
+if(NOT DEFINED CEDAR_DIR)
+  message(FATAL_ERROR "CEDAR_DIR is not set. Pass -DCEDAR_DIR=/path/to/Cascade/cedar.")
+endif()
+
 # --- Add cedar to the build tree ---
 add_subdirectory(${CEDAR_DIR} cedar_build EXCLUDE_FROM_ALL)
 
