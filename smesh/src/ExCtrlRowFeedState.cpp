@@ -25,33 +25,33 @@ ExCtrlRowFeedState::ExCtrlRowFeedState(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlRowFeedState::updateView() {
-  a_fire_counter = a_fire_counter_;
-  b_fire_counter = b_fire_counter_;
-  d_fire_counter = d_fire_counter_;
-  a_fire_started = bit(a_fire_started_);
-  b_fire_started = bit(b_fire_started_);
-  d_fire_started = bit(d_fire_started_);
-  first = bit(!a_fire_started_ && !b_fire_started_ && !d_fire_started_);
-  a_addr_offset = a_addr_offset_;
-  mul_pre_counter_sub = mul_pre_counter_sub_;
-  mul_pre_counter_count = mul_pre_counter_count_;
-  mul_pre_counter_lock = bit(mul_pre_counter_lock_);
-  preload_zero_counter = preload_zero_counter_;
+  a_fire_counter         = a_fire_counter_;
+  b_fire_counter         = b_fire_counter_;
+  d_fire_counter         = d_fire_counter_;
+  a_fire_started         = bit(a_fire_started_);
+  b_fire_started         = bit(b_fire_started_);
+  d_fire_started         = bit(d_fire_started_);
+  first                  = bit(!a_fire_started_ && !b_fire_started_ && !d_fire_started_);
+  a_addr_offset          = a_addr_offset_;
+  mul_pre_counter_sub    = mul_pre_counter_sub_;
+  mul_pre_counter_count  = mul_pre_counter_count_;
+  mul_pre_counter_lock   = bit(mul_pre_counter_lock_);
+  preload_zero_counter   = preload_zero_counter_;
   about_to_fire_all_rows = 0;
 }
 
 void ExCtrlRowFeedState::reset() {
-  a_fire_counter_ = 0;
-  b_fire_counter_ = 0;
-  d_fire_counter_ = 0;
-  a_fire_started_ = false;
-  b_fire_started_ = false;
-  d_fire_started_ = false;
-  a_addr_offset_ = 0;
-  mul_pre_counter_sub_ = 0;
+  a_fire_counter_        = 0;
+  b_fire_counter_        = 0;
+  d_fire_counter_        = 0;
+  a_fire_started_        = false;
+  b_fire_started_        = false;
+  d_fire_started_        = false;
+  a_addr_offset_         = 0;
+  mul_pre_counter_sub_   = 0;
   mul_pre_counter_count_ = 0;
-  mul_pre_counter_lock_ = false;
-  preload_zero_counter_ = 0;
+  mul_pre_counter_lock_  = false;
+  preload_zero_counter_  = 0;
 
   a_fire_counter.reset(0);
   b_fire_counter.reset(0);

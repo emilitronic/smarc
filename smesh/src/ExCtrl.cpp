@@ -8,34 +8,34 @@
 namespace smesh {
 
 ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
-  cmd_queue_   = new ExCtrlCmdQueue("ExCtrlCmdQueue");
-  completion_  = new ExCtrlCompletion("ExCtrlCompletion");
-  cmd_decoder_ = new ExCtrlDecoder("ExCtrlDecoder");
-  cmd_state_   = new ExCtrlState("ExCtrlState");
-  cmd_rowaddr_ = new ExCtrlRowAddr("ExCtrlRowAddr");
-  cmd_rowpad_  = new ExCtrlRowPad("ExCtrlRowPad");
-  op_pack_     = new ExCtrlOperandPack("ExCtrlOperandPack");
-  row_feed_    = new ExCtrlRowFeedState("ExCtrlRowFeedState");
-  tag_select_  = new ExCtrlMeshTagSelect("ExCtrlMeshTagSelect");
-  read_prio_   = new ExCtrlReadPriority("ExCtrlReadPriority");
-  rd_req_      = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");
-  feed_signals_ = new ExCtrlFeedSignals("ExCtrlFeedSignals");
-  mesh_cntl_pack_ = new ExCtrlMeshCntlPack("ExCtrlMeshCntlPack");
+  cmd_queue_       = new ExCtrlCmdQueue("ExCtrlCmdQueue");
+  completion_      = new ExCtrlCompletion("ExCtrlCompletion");
+  cmd_decoder_     = new ExCtrlDecoder("ExCtrlDecoder");
+  cmd_state_       = new ExCtrlState("ExCtrlState");
+  cmd_rowaddr_     = new ExCtrlRowAddr("ExCtrlRowAddr");
+  cmd_rowpad_      = new ExCtrlRowPad("ExCtrlRowPad");
+  op_pack_         = new ExCtrlOperandPack("ExCtrlOperandPack");
+  row_feed_        = new ExCtrlRowFeedState("ExCtrlRowFeedState");
+  tag_select_      = new ExCtrlMeshTagSelect("ExCtrlMeshTagSelect");
+  read_prio_       = new ExCtrlReadPriority("ExCtrlReadPriority");
+  rd_req_          = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");
+  feed_signals_    = new ExCtrlFeedSignals("ExCtrlFeedSignals");
+  mesh_cntl_pack_  = new ExCtrlMeshCntlPack("ExCtrlMeshCntlPack");
   mesh_cntl_queue_ = new ExCtrlMeshCntlQueue("ExCtrlMeshCntlQueue");
 
-  cmd_queue_->clk   << clk;
-  completion_->clk  << clk;
-  cmd_decoder_->clk << clk;
-  cmd_state_->clk   << clk;
-  cmd_rowaddr_->clk << clk;
-  cmd_rowpad_->clk  << clk;
-  op_pack_->clk     << clk;
-  row_feed_->clk    << clk;
-  tag_select_->clk  << clk;
-  read_prio_->clk   << clk;
-  rd_req_->clk       << clk;
-  feed_signals_->clk << clk;
-  mesh_cntl_pack_->clk << clk;
+  cmd_queue_->clk       << clk;
+  completion_->clk      << clk;
+  cmd_decoder_->clk     << clk;
+  cmd_state_->clk       << clk;
+  cmd_rowaddr_->clk     << clk;
+  cmd_rowpad_->clk      << clk;
+  op_pack_->clk         << clk;
+  row_feed_->clk        << clk;
+  tag_select_->clk      << clk;
+  read_prio_->clk       << clk;
+  rd_req_->clk          << clk;
+  feed_signals_->clk    << clk;
+  mesh_cntl_pack_->clk  << clk;
   mesh_cntl_queue_->clk << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
@@ -76,7 +76,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   completion_->config_rs_tag_valid << cmd_state_->config_rs_tag_valid;
   completion_->config_rs_tag       << cmd_state_->config_rs_tag;
   // send out completed signals from ExCtrl
-  completed_val << completion_->completed_val;
+  completed_val  << completion_->completed_val;
   completed_bits << completion_->completed_bits;
   // current-row address logic input
   cmd_rowaddr_->a_address_rs1     << cmd_decoder_->a_address_rs1;
@@ -107,9 +107,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowpad_->block_size     << row_addr_block_size_;
 
   // mesh completion-tag selection for future mesh-control queue enqueue path
-  tag_select_->preload_cmd_place      << cmd_decoder_->preload_cmd_place;
-  tag_select_->performing_single_mul  << tag_select_performing_single_mul_; // temp until FSM exposes this mode
-  tag_select_->c_address_rs2          << cmd_decoder_->c_address_rs2;
+  tag_select_->preload_cmd_place     << cmd_decoder_->preload_cmd_place;
+  tag_select_->performing_single_mul << tag_select_performing_single_mul_; // temp until FSM exposes this mode
+  tag_select_->c_address_rs2         << cmd_decoder_->c_address_rs2;
 
   // operand packaging for A/B/D read-priority logic
   op_pack_->a_address          << cmd_rowaddr_->a_address;
@@ -181,13 +181,13 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   feed_signals_->b_ready           << rd_req_->b_ready;
   feed_signals_->d_ready           << rd_req_->d_ready;
 
-  row_feed_->firing << feed_signals_->firing;
-  row_feed_->a_fire << feed_signals_->a_fire;
-  row_feed_->b_fire << feed_signals_->b_fire;
-  row_feed_->d_fire << feed_signals_->d_fire;
-  row_feed_->total_rows << cmd_rowaddr_->total_rows;
+  row_feed_->firing        << feed_signals_->firing;
+  row_feed_->a_fire        << feed_signals_->a_fire;
+  row_feed_->b_fire        << feed_signals_->b_fire;
+  row_feed_->d_fire        << feed_signals_->d_fire;
+  row_feed_->total_rows    << cmd_rowaddr_->total_rows;
   row_feed_->a_addr_stride << cmd_state_->a_addr_stride;
-  row_feed_->cntl_rdy << cntl_rdy_;
+  row_feed_->cntl_rdy      << cntl_rdy_;
 
   // Mesh-control packet packaging. Its output will feed MQ once MQ is installed
   // inside ExCtrl.
@@ -277,46 +277,46 @@ ExCtrl::~ExCtrl() {
 void ExCtrl::updateReadPorts() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     SpadReadReq req{};
-    req.laddr = *rd_req_->spad_read_req_addr[bank];
-    req.from_dma = rd_req_->spad_read_req_from_dma[bank];
-    spad_read_req_val[bank] = rd_req_->spad_read_req_val[bank];
+    req.laddr                = *rd_req_->spad_read_req_addr[bank];
+    req.from_dma             = rd_req_->spad_read_req_from_dma[bank];
+    spad_read_req_val[bank]  = rd_req_->spad_read_req_val[bank];
     spad_read_req_bits[bank] = req;
     spad_read_resp_rdy[bank] = 0;
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     AccumReadReq req{};
-    req.laddr = *rd_req_->accum_read_req_addr[bank];
-    req.scale = rd_req_->accum_read_req_scale[bank];
-    req.full = rd_req_->accum_read_req_full[bank];
-    req.act = rd_req_->accum_read_req_act[bank];
-    req.igelu_qb = rd_req_->accum_read_req_igelu_qb[bank];
-    req.igelu_qc = rd_req_->accum_read_req_igelu_qc[bank];
-    req.iexp_qln2 = rd_req_->accum_read_req_iexp_qln2[bank];
-    req.iexp_qln2_inv = rd_req_->accum_read_req_iexp_qln2_inv[bank];
-    req.from_dma = rd_req_->accum_read_req_from_dma[bank];
-    accum_read_req_val[bank] = rd_req_->accum_read_req_val[bank];
+    req.laddr                 = *rd_req_->accum_read_req_addr[bank];
+    req.scale                 = rd_req_->accum_read_req_scale[bank];
+    req.full                  = rd_req_->accum_read_req_full[bank];
+    req.act                   = rd_req_->accum_read_req_act[bank];
+    req.igelu_qb              = rd_req_->accum_read_req_igelu_qb[bank];
+    req.igelu_qc              = rd_req_->accum_read_req_igelu_qc[bank];
+    req.iexp_qln2             = rd_req_->accum_read_req_iexp_qln2[bank];
+    req.iexp_qln2_inv         = rd_req_->accum_read_req_iexp_qln2_inv[bank];
+    req.from_dma              = rd_req_->accum_read_req_from_dma[bank];
+    accum_read_req_val[bank]  = rd_req_->accum_read_req_val[bank];
     accum_read_req_bits[bank] = req;
     accum_read_resp_rdy[bank] = 0;
   }
 }
 
 void ExCtrl::updateWritePorts() {
-  spad_write_val = 0;
+  spad_write_val  = 0;
   spad_write_bits = DmaReadResp{};
 
-  accum_write_val = 0;
-  accum_write_bits = DmaReadResp{};
+  accum_write_val  = 0;
+  accum_write_bits = DmaReadResp{}; 
 }
 
 void ExCtrl::updateDecoderInputs() {
-  decoder_ex_read_from_acc_ = bit(kDefaultConfig.ex_read_from_acc);
-  decoder_ex_write_to_spad_ = bit(kDefaultConfig.ex_write_to_spad);
-  mesh_cntl_pack_perform_mul_pre_ = 0;
+  decoder_ex_read_from_acc_         = bit(kDefaultConfig.ex_read_from_acc);
+  decoder_ex_write_to_spad_         = bit(kDefaultConfig.ex_write_to_spad);
+  mesh_cntl_pack_perform_mul_pre_   = 0;
   tag_select_performing_single_mul_ = 0;
-  im2col_wire_ = 0;
-  im2col_en_ = 0;
-  im2colling_ = 0;
+  im2col_wire_                      = 0;
+  im2col_en_                        = 0;
+  im2colling_                       = 0;
   mesh_cntl_deq_rdy_ = 0; // TODO: connect to ExCtrlMeshCntlDeqCtrl once installed in ExCtrl.
   cntl_rdy_ = mesh_cntl_queue_->enq_rdy;
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {

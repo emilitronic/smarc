@@ -34,12 +34,12 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
 
 void ExCtrlWriteback::updateView() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    spad_write_val[bank] = 0;
+    spad_write_val[bank]  = 0;
     spad_write_bits[bank] = DmaReadResp{};
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_write_val[bank] = 0;
+    accum_write_val[bank]  = 0;
     accum_write_bits[bank] = DmaReadResp{};
   }
 
