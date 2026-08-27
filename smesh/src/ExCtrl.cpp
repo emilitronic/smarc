@@ -22,6 +22,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   feed_signals_    = new ExCtrlFeedSignals("ExCtrlFeedSignals");
   mesh_cntl_pack_  = new ExCtrlMeshCntlPack("ExCtrlMeshCntlPack");
   mesh_cntl_queue_ = new ExCtrlMeshCntlQueue("ExCtrlMeshCntlQueue");
+  mesh_in_sel_pad_ = new ExCtrlMeshInSelPad("ExCtrlMeshInSelPad");
 
   cmd_queue_->clk       << clk;
   completion_->clk      << clk;
@@ -37,6 +38,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   feed_signals_->clk    << clk;
   mesh_cntl_pack_->clk  << clk;
   mesh_cntl_queue_->clk << clk;
+  mesh_in_sel_pad_->clk << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -234,6 +236,11 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_cntl_queue_->enq_bits           << mesh_cntl_pack_->enq_bits;
   mesh_cntl_queue_->mesh_cntl_deq_rdy  << mesh_cntl_deq_rdy_;
 
+  // MQ control packet view for mesh input selection. Memory response and
+  // Mesher-side ports remain disconnected until those paths are installed.
+  mesh_in_sel_pad_->cntl_val  << mesh_cntl_queue_->cntl_val;
+  mesh_in_sel_pad_->cntl_bits << mesh_cntl_queue_->cntl_bits;
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  spad_read_resp_rdy,
@@ -258,6 +265,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 }
 
 ExCtrl::~ExCtrl() {
+  delete mesh_in_sel_pad_;
   delete mesh_cntl_queue_;
   delete mesh_cntl_pack_;
   delete feed_signals_;
