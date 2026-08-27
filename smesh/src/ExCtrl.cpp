@@ -251,6 +251,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_cntl_deq_ctrl_->mesh_a_fire   << mesh_in_sel_pad_->mesh_a_fire;
   mesh_cntl_deq_ctrl_->mesh_b_fire   << mesh_in_sel_pad_->mesh_b_fire;
   mesh_cntl_deq_ctrl_->mesh_d_fire   << mesh_in_sel_pad_->mesh_d_fire;
+  mesh_in_sel_pad_->mesh_cntl_deq_fire << mesh_cntl_deq_ctrl_->mesh_cntl_deq_fire;
 
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,

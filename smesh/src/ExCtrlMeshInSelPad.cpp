@@ -41,6 +41,7 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(cntl_val,
              cntl_bits,
+             mesh_cntl_deq_fire,
              im2col_data,
              im2col_val,
              mesh_a_rdy, mesh_b_rdy, mesh_d_rdy)

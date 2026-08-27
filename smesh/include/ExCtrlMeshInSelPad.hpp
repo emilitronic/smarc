@@ -26,6 +26,7 @@ class ExCtrlMeshInSelPad : public Component {
 
   Input(bit, cntl_val);
   Input(ExCtrlMeshCntl, cntl_bits);
+  Input(bit, mesh_cntl_deq_fire);
   Input(u64, im2col_data);
   Input(bit, im2col_val);
   Input(bit, mesh_a_rdy); 
