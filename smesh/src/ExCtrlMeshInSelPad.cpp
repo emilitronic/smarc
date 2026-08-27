@@ -47,7 +47,8 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
       .reads(spad_read_resp_val)
       .reads(accum_read_resp_val, spad_read_resp_data)
       .reads(accum_read_resp_data)
-      .writes(mesh_a, mesh_b, mesh_d, mesh_a_val, mesh_b_val, mesh_d_val)
+      .writes(mesh_a, mesh_b, mesh_d, mesh_a_val, mesh_b_val, mesh_d_val,
+              spad_read_resp_rdy, accum_read_resp_rdy)
       .writes(mesh_a_fire, mesh_b_fire, mesh_d_fire);
 }
 
@@ -105,6 +106,14 @@ void ExCtrlMeshInSelPad::update() {
   mesh_a_fire = bit(static_cast<bool>(next_mesh_a_val) && mesh_a_rdy != 0);
   mesh_b_fire = bit(static_cast<bool>(next_mesh_b_val) && mesh_b_rdy != 0);
   mesh_d_fire = bit(static_cast<bool>(next_mesh_d_val) && mesh_d_rdy != 0);
+
+  // Response consumption is wired after the mesh-input handshake is finalized.
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_read_resp_rdy[bank] = 0;
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    accum_read_resp_rdy[bank] = 0;
+  }
 }
 
 } // namespace smesh
