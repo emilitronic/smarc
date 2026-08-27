@@ -31,10 +31,10 @@ class ExCtrlMeshInSelPad : public Component {
   Input(bit, mesh_a_rdy); 
   Input(bit, mesh_b_rdy);
   Input(bit, mesh_d_rdy);
-  InputArray(bit, spad_read_val, kSpBanks);
-  InputArray(bit, accum_read_val, kAccBanks);
-  InputArray(SpadReadResp, spad_read_data, kSpBanks);
-  InputArray(ExCtrlAccumReadResp, accum_read_data, kAccBanks);
+  InputArray(bit, spad_read_resp_val, kSpBanks);
+  InputArray(bit, accum_read_resp_val, kAccBanks);
+  InputArray(SpadReadResp, spad_read_resp_data, kSpBanks);
+  InputArray(ExCtrlAccumReadResp, accum_read_resp_data, kAccBanks);
 
   Output(ExCtrlMeshIn, mesh_a);
   Output(ExCtrlMeshIn, mesh_b);

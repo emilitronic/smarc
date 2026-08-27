@@ -48,6 +48,7 @@ class ExCtrlState : public Component {
   Input(bit, d_should_be_fed_into_transposer);         // decoder says D should start through transposer path
   Input(bit, in_prop);                                 // cmd(0) is COMPUTE_AND_FLIP
 
+  Output(u8,  control_state);       // current value of the FSM state register
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
   Output(bit, a_transpose);         // CONFIG_EX A transpose register
   Output(bit, bd_transpose);        // CONFIG_EX B/D transpose register, TODO: decode when encoded

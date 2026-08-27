@@ -25,10 +25,10 @@ class MeshInSelPadDriver : public Component {
   Output(bit, mesh_a_rdy);
   Output(bit, mesh_b_rdy);
   Output(bit, mesh_d_rdy);
-  OutputArray(bit, spad_read_val, smesh::kSpBanks);
-  OutputArray(bit, accum_read_val, smesh::kAccBanks);
-  OutputArray(smesh::SpadReadResp, spad_read_data, smesh::kSpBanks);
-  OutputArray(smesh::ExCtrlAccumReadResp, accum_read_data, smesh::kAccBanks);
+  OutputArray(bit, spad_read_resp_val, smesh::kSpBanks);
+  OutputArray(bit, accum_read_resp_val, smesh::kAccBanks);
+  OutputArray(smesh::SpadReadResp, spad_read_resp_data, smesh::kSpBanks);
+  OutputArray(smesh::ExCtrlAccumReadResp, accum_read_resp_data, smesh::kAccBanks);
 
   void update();
   void reset();
@@ -72,9 +72,9 @@ MeshInSelPadDriver::MeshInSelPadDriver(std::string /*name*/, IMPL_CTOR) {
       .writes(mesh_a_rdy,
               mesh_b_rdy,
               mesh_d_rdy,
-              spad_read_val)
-      .writes(accum_read_val, spad_read_data)
-      .writes(accum_read_data);
+              spad_read_resp_val)
+      .writes(accum_read_resp_val, spad_read_resp_data)
+      .writes(accum_read_resp_data);
 }
 
 void MeshInSelPadDriver::update() {
@@ -116,8 +116,8 @@ void MeshInSelPadDriver::update() {
         static_cast<smesh::Elem>(0x30 + bank),
         static_cast<smesh::Elem>(0x40 + bank)};
     resp.from_dma = 0;
-    spad_read_val[bank] = 1;
-    spad_read_data[bank] = resp;
+    spad_read_resp_val[bank] = 1;
+    spad_read_resp_data[bank] = resp;
   }
 
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
@@ -128,8 +128,8 @@ void MeshInSelPadDriver::update() {
         0,
         0};
     resp.from_dma = 0;
-    accum_read_val[bank] = 1;
-    accum_read_data[bank] = resp;
+    accum_read_resp_val[bank] = 1;
+    accum_read_resp_data[bank] = resp;
   }
 }
 
@@ -143,12 +143,12 @@ void MeshInSelPadDriver::reset() {
   mesh_d_rdy.reset(0);
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
-    spad_read_val[bank].reset(0);
-    spad_read_data[bank].reset(smesh::SpadReadResp{});
+    spad_read_resp_val[bank].reset(0);
+    spad_read_resp_data[bank].reset(smesh::SpadReadResp{});
   }
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
-    accum_read_val[bank].reset(0);
-    accum_read_data[bank].reset(smesh::ExCtrlAccumReadResp{});
+    accum_read_resp_val[bank].reset(0);
+    accum_read_resp_data[bank].reset(smesh::ExCtrlAccumReadResp{});
   }
 }
 
@@ -203,12 +203,12 @@ int main(int argc, char* argv[]) {
   sel_pad.mesh_b_rdy << driver.mesh_b_rdy;
   sel_pad.mesh_d_rdy << driver.mesh_d_rdy;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
-    sel_pad.spad_read_val[bank] << driver.spad_read_val[bank];
-    sel_pad.spad_read_data[bank] << driver.spad_read_data[bank];
+    sel_pad.spad_read_resp_val[bank] << driver.spad_read_resp_val[bank];
+    sel_pad.spad_read_resp_data[bank] << driver.spad_read_resp_data[bank];
   }
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
-    sel_pad.accum_read_val[bank] << driver.accum_read_val[bank];
-    sel_pad.accum_read_data[bank] << driver.accum_read_data[bank];
+    sel_pad.accum_read_resp_val[bank] << driver.accum_read_resp_val[bank];
+    sel_pad.accum_read_resp_data[bank] << driver.accum_read_resp_data[bank];
   }
 
   monitor.mesh_a << sel_pad.mesh_a;

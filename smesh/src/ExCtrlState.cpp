@@ -21,7 +21,8 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
              b_should_be_fed_into_transposer,
              d_should_be_fed_into_transposer,
              in_prop)
-      .writes(config_initialized,
+      .writes(control_state,
+              config_initialized,
               a_transpose,
               bd_transpose,
               current_dataflow,
@@ -42,6 +43,7 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlState::update() {
+  control_state          = static_cast<std::uint8_t>(state_);
   config_val             = 0; // FSM accepts/processes a CONFIG command this cycle
   config_rs_tag_valid    = 0;
   config_rs_tag          = 0;
@@ -149,6 +151,7 @@ void ExCtrlState::reset() {
   a_addr_stride.reset(1);
   c_addr_stride.reset(1);
   shift.reset(0);
+  control_state.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
   config_val.reset(0);
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);
