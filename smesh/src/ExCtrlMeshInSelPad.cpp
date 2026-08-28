@@ -70,23 +70,23 @@ void ExCtrlMeshInSelPad::update() {
   const auto a_acc  = accum_read_resp_data[a_acc_index]->data;
   const auto b_acc  = accum_read_resp_data[b_acc_index]->data;
   const auto d_acc  = accum_read_resp_data[d_acc_index]->data;
-  // selected, padded row payloads
+  // selected, padded row payloads (*_unpadded_cols are the number of valid elements in the row, before padding)
   const auto next_mesh_a = ExCtrlMeshIn{cntl.a_garbage != 0
       ? MeshInputRow{}
       : cntl.im2colling != 0
           ? padInputRow(*im2col_data, cntl.a_unpadded_cols)
           : cntl.a_read_from_acc != 0
-              ? padInputRow(a_acc, cntl.a_unpadded_cols)
+              ? padInputRow(a_acc,  cntl.a_unpadded_cols)
               : padInputRow(a_spad, cntl.a_unpadded_cols)};
   const auto next_mesh_b = ExCtrlMeshIn{(cntl.b_garbage != 0 || cntl.accumulate_zeros != 0)
       ? MeshInputRow{}
       : cntl.b_read_from_acc != 0
-          ? padInputRow(b_acc, cntl.b_unpadded_cols)
+          ? padInputRow(b_acc,  cntl.b_unpadded_cols)
           : padInputRow(b_spad, cntl.b_unpadded_cols)};
   const auto next_mesh_d = ExCtrlMeshIn{(cntl.d_garbage != 0 || cntl.preload_zeros != 0)
       ? MeshInputRow{}
       : cntl.d_read_from_acc != 0
-          ? padInputRow(d_acc, cntl.d_unpadded_cols)
+          ? padInputRow(d_acc,  cntl.d_unpadded_cols)
           : padInputRow(d_spad, cntl.d_unpadded_cols)};
 
   // validity of data on the bus (or in memory) for this row-beat
@@ -116,7 +116,7 @@ void ExCtrlMeshInSelPad::update() {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_resp_rdy[bank] = 0;
   }
-  
+
   // logic for sending ready signals back to read resp ports of accum and spad
   if (mesh_cntl_deq_fire != 0) {
     if (cntl.a_fire != 0 && mesh_a_fire != 0 && cntl.a_garbage == 0 &&

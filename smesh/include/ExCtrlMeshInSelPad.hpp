@@ -3,7 +3,9 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 29 2026
 /*
-Skeleton mesh input selection and padding for ExecuteController A/B/D feeds.
+Mesh input selection and padding for ExecuteController A/B/D feeds.
+Decides which data (from accum/spad read responses or im2col) to present to 
+the Mesher, and pads it to the full row width.
 */
 
 #pragma once
