@@ -35,17 +35,32 @@ MesherTag makeGarbageTag() {
 } // namespace
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateReady)
+      .writes(req_rdy, a_rdy, b_rdy, d_rdy);
+
   UPDATE(update)
       .reads(req_val, req_bits,
              a_val, a_bits,
              b_val, b_bits,
              d_val, d_bits)
       .reads(transposer_out_col_bits)
-      .writes(req_rdy,
-              a_rdy, b_rdy, d_rdy,
-              transposer_in_row_val, transposer_in_row_bits,
+      .writes(transposer_in_row_val, transposer_in_row_bits,
               resp_val, resp_bits)
       .writes(tags_in_progress);
+}
+
+void Mesher::updateReady() {
+  const bool input_next_row_into_spatial_array =
+      req_state_valid_ &&
+      ((a_written_ && b_written_ && d_written_) || req_state_.flush > 0);
+  const bool last_fire =
+      input_next_row_into_spatial_array &&
+      fire_counter_ == req_state_.total_rows - 1;
+
+  req_rdy = bit(!req_state_valid_ || last_fire);
+  a_rdy   = bit(!a_written_ || input_next_row_into_spatial_array || req_rdy != 0);
+  b_rdy   = bit(!b_written_ || input_next_row_into_spatial_array || req_rdy != 0);
+  d_rdy   = bit(!d_written_ || input_next_row_into_spatial_array || req_rdy != 0);
 }
 
 void Mesher::update() {
@@ -78,11 +93,6 @@ void Mesher::update() {
   const bool a_ready   = !cur_a_written || input_next_row_into_spatial_array || req_ready;
   const bool b_ready   = !cur_b_written || input_next_row_into_spatial_array || req_ready;
   const bool d_ready   = !cur_d_written || input_next_row_into_spatial_array || req_ready;
-
-  req_rdy = bit(req_ready);
-  a_rdy   = bit(a_ready);
-  b_rdy   = bit(b_ready);
-  d_rdy   = bit(d_ready);
 
   const bool req_fire = req_val != 0 && req_ready;
   const bool a_fire   = a_val != 0 && a_ready;

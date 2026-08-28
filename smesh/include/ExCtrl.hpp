@@ -25,6 +25,7 @@ Structural shell for the smesh execute controller.
 #include "ExCtrlRowFeedState.hpp"
 #include "ExCtrlRowPad.hpp"
 #include "ExCtrlState.hpp"
+#include "Mesher.hpp"
 #include "SmeshPorts.hpp"
 #include "SmeshTypes.hpp"
 
@@ -87,6 +88,7 @@ class ExCtrl : public Component {
   ExCtrlMeshCntlQueue* mesh_cntl_queue_ = nullptr;
   ExCtrlMeshInSelPad* mesh_in_sel_pad_ = nullptr;
   ExCtrlMeshCntlDeqCtrl* mesh_cntl_deq_ctrl_ = nullptr;
+  Mesher* mesher_ = nullptr;
   Output(bit, decoder_ex_read_from_acc_);
   Output(bit, decoder_ex_write_to_spad_);
   Output(bit, mesh_cntl_pack_perform_mul_pre_);
@@ -95,7 +97,6 @@ class ExCtrl : public Component {
   Output(bit, im2col_en_);
   Output(bit, im2colling_);
   Output(bit, cntl_rdy_);
-  OutputArray(MesherTag, decoder_tags_in_progress_, kRsExecuteEntries);
   Output(u32, row_addr_block_size_);
 };
 

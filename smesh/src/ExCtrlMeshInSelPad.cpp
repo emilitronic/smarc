@@ -38,10 +38,16 @@ MeshInputRow padInputRow(const MeshInputRow& unpadded, std::uint32_t unpadded_co
 } // namespace
 
 ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateReadRespReady)
+      .reads(cntl_bits,
+             mesh_cntl_deq_fire,
+             mesh_a_fire, mesh_b_fire, mesh_d_fire,
+             spad_read_resp_data, accum_read_resp_data)
+      .writes(spad_read_resp_rdy, accum_read_resp_rdy);
+
   UPDATE(update)
       .reads(cntl_val,
              cntl_bits,
-             mesh_cntl_deq_fire,
              im2col_data,
              im2col_val,
              mesh_a_rdy, mesh_b_rdy, mesh_d_rdy)
@@ -49,8 +55,59 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
       .reads(accum_read_resp_val, spad_read_resp_data)
       .reads(accum_read_resp_data)
       .writes(mesh_a, mesh_b, mesh_d, mesh_a_val, mesh_b_val, mesh_d_val,
-              spad_read_resp_rdy, accum_read_resp_rdy)
-      .writes(mesh_a_fire, mesh_b_fire, mesh_d_fire);
+              mesh_a_fire, mesh_b_fire, mesh_d_fire);
+}
+
+void ExCtrlMeshInSelPad::updateReadRespReady() {
+  const auto cntl = *cntl_bits;
+  const auto a_spad_index = checkedBankIndex(cntl.a_bank, kSpBanks);
+  const auto b_spad_index = checkedBankIndex(cntl.b_bank, kSpBanks);
+  const auto d_spad_index = checkedBankIndex(cntl.d_bank, kSpBanks);
+  const auto a_acc_index  = checkedBankIndex(cntl.a_bank_acc, kAccBanks);
+  const auto b_acc_index  = checkedBankIndex(cntl.b_bank_acc, kAccBanks);
+  const auto d_acc_index  = checkedBankIndex(cntl.d_bank_acc, kAccBanks);
+
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_read_resp_rdy[bank] = 0;
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    accum_read_resp_rdy[bank] = 0;
+  }
+
+  if (mesh_cntl_deq_fire != 0) {
+    if (cntl.a_fire != 0 && mesh_a_fire != 0 && cntl.a_garbage == 0 &&
+        cntl.a_unpadded_cols > 0 && cntl.im2colling == 0) {
+      if (cntl.a_read_from_acc != 0) {
+        accum_read_resp_rdy[a_acc_index] = bit(
+            accum_read_resp_data[a_acc_index]->from_dma == 0);
+      } else {
+        spad_read_resp_rdy[a_spad_index] = bit(
+            spad_read_resp_data[a_spad_index]->from_dma == 0);
+      }
+    }
+
+    if (cntl.b_fire != 0 && mesh_b_fire != 0 && cntl.b_garbage == 0 &&
+        cntl.accumulate_zeros == 0 && cntl.b_unpadded_cols > 0) {
+      if (cntl.b_read_from_acc != 0) {
+        accum_read_resp_rdy[b_acc_index] = bit(
+            accum_read_resp_data[b_acc_index]->from_dma == 0);
+      } else {
+        spad_read_resp_rdy[b_spad_index] = bit(
+            spad_read_resp_data[b_spad_index]->from_dma == 0);
+      }
+    }
+
+    if (cntl.d_fire != 0 && mesh_d_fire != 0 && cntl.d_garbage == 0 &&
+        cntl.preload_zeros == 0 && cntl.d_unpadded_cols > 0) {
+      if (cntl.d_read_from_acc != 0) {
+        accum_read_resp_rdy[d_acc_index] = bit(
+            accum_read_resp_data[d_acc_index]->from_dma == 0);
+      } else {
+        spad_read_resp_rdy[d_spad_index] = bit(
+            spad_read_resp_data[d_spad_index]->from_dma == 0);
+      }
+    }
+  }
 }
 
 void ExCtrlMeshInSelPad::update() {
@@ -108,50 +165,6 @@ void ExCtrlMeshInSelPad::update() {
   mesh_b_fire = bit(static_cast<bool>(next_mesh_b_val) && mesh_b_rdy != 0);
   mesh_d_fire = bit(static_cast<bool>(next_mesh_d_val) && mesh_d_rdy != 0);
 
-  // Consume only execute responses after the control packet and selected mesh
-  // input have both fired. DMA responses belong to the load/store paths.
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    spad_read_resp_rdy[bank] = 0;
-  }
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_read_resp_rdy[bank] = 0;
-  }
-
-  // logic for sending ready signals back to read resp ports of accum and spad
-  if (mesh_cntl_deq_fire != 0) {
-    if (cntl.a_fire != 0 && mesh_a_fire != 0 && cntl.a_garbage == 0 &&
-        cntl.a_unpadded_cols > 0 && cntl.im2colling == 0) {
-      if (cntl.a_read_from_acc != 0) {
-        accum_read_resp_rdy[a_acc_index] = bit(
-            accum_read_resp_data[a_acc_index]->from_dma == 0);
-      } else {
-        spad_read_resp_rdy[a_spad_index] = bit(
-            spad_read_resp_data[a_spad_index]->from_dma == 0);
-      }
-    }
-
-    if (cntl.b_fire != 0 && mesh_b_fire != 0 && cntl.b_garbage == 0 &&
-        cntl.accumulate_zeros == 0 && cntl.b_unpadded_cols > 0) {
-      if (cntl.b_read_from_acc != 0) {
-        accum_read_resp_rdy[b_acc_index] = bit(
-            accum_read_resp_data[b_acc_index]->from_dma == 0);
-      } else {
-        spad_read_resp_rdy[b_spad_index] = bit(
-            spad_read_resp_data[b_spad_index]->from_dma == 0);
-      }
-    }
-
-    if (cntl.d_fire != 0 && mesh_d_fire != 0 && cntl.d_garbage == 0 &&
-        cntl.preload_zeros == 0 && cntl.d_unpadded_cols > 0) {
-      if (cntl.d_read_from_acc != 0) {
-        accum_read_resp_rdy[d_acc_index] = bit(
-            accum_read_resp_data[d_acc_index]->from_dma == 0);
-      } else {
-        spad_read_resp_rdy[d_spad_index] = bit(
-            spad_read_resp_data[d_spad_index]->from_dma == 0);
-      }
-    }
-  }
 }
 
 } // namespace smesh

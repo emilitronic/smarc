@@ -24,6 +24,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_cntl_queue_ = new ExCtrlMeshCntlQueue("ExCtrlMeshCntlQueue");
   mesh_in_sel_pad_ = new ExCtrlMeshInSelPad("ExCtrlMeshInSelPad");
   mesh_cntl_deq_ctrl_ = new ExCtrlMeshCntlDeqCtrl("ExCtrlMeshCntlDeqCtrl");
+  mesher_          = new Mesher("Mesher");
 
   cmd_queue_->clk       << clk;
   completion_->clk      << clk;
@@ -41,6 +42,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_cntl_queue_->clk << clk;
   mesh_in_sel_pad_->clk << clk;
   mesh_cntl_deq_ctrl_->clk << clk;
+  mesher_->clk          << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -56,7 +58,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     tag_select_->head_bits[i]  << cmd_queue_->head_bits[i];
   }
   for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
-    cmd_decoder_->tags_in_progress[i] << decoder_tags_in_progress_[i];
+    cmd_decoder_->tags_in_progress[i] << mesher_->tags_in_progress[i];
   }
   cmd_state_->do_config                       << cmd_decoder_->do_config;
   cmd_state_->raw_hazards_are_impossible      << cmd_decoder_->raw_hazards_are_impossible;
@@ -252,13 +254,43 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_cntl_deq_ctrl_->mesh_a_fire   << mesh_in_sel_pad_->mesh_a_fire;
   mesh_cntl_deq_ctrl_->mesh_b_fire   << mesh_in_sel_pad_->mesh_b_fire;
   mesh_cntl_deq_ctrl_->mesh_d_fire   << mesh_in_sel_pad_->mesh_d_fire;
+  mesh_cntl_deq_ctrl_->mesh_a_rdy    << mesher_->a_rdy;
+  mesh_cntl_deq_ctrl_->mesh_b_rdy    << mesher_->b_rdy;
+  mesh_cntl_deq_ctrl_->mesh_d_rdy    << mesher_->d_rdy;
+
+  // Mesh-control request path: MQ supplies the request payload and the
+  // dequeue controller supplies its valid signal.
+  mesher_->req_bits << mesh_cntl_queue_->mesh_req_bits;
+  mesher_->req_val  << mesh_cntl_deq_ctrl_->mesh_cntl_req_val;
+  mesh_cntl_deq_ctrl_->mesh_req_rdy << mesher_->req_rdy;
+
+  // A/B/D mesh-input path and its backpressure.
+  mesher_->a_bits << mesh_in_sel_pad_->mesh_a;
+  mesher_->a_val  << mesh_in_sel_pad_->mesh_a_val;
+  mesh_in_sel_pad_->mesh_a_rdy << mesher_->a_rdy;
+  mesher_->b_bits << mesh_in_sel_pad_->mesh_b;
+  mesher_->b_val  << mesh_in_sel_pad_->mesh_b_val;
+  mesh_in_sel_pad_->mesh_b_rdy << mesher_->b_rdy;
+  mesher_->d_bits << mesh_in_sel_pad_->mesh_d;
+  mesher_->d_val  << mesh_in_sel_pad_->mesh_d_val;
+  mesh_in_sel_pad_->mesh_d_rdy << mesher_->d_rdy;
+
+  // Memory response views and their per-bank consumption signals.
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    mesh_in_sel_pad_->spad_read_resp_val[bank]  << spad_read_resp_val[bank];
+    mesh_in_sel_pad_->spad_read_resp_data[bank] << spad_read_resp_bits[bank];
+    spad_read_resp_rdy[bank] << mesh_in_sel_pad_->spad_read_resp_rdy[bank];
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    mesh_in_sel_pad_->accum_read_resp_val[bank]  << accum_read_resp_val[bank];
+    mesh_in_sel_pad_->accum_read_resp_data[bank] << accum_read_resp_bits[bank];
+    accum_read_resp_rdy[bank] << mesh_in_sel_pad_->accum_read_resp_rdy[bank];
+  }
 
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
-                                 spad_read_resp_rdy,
                                  accum_read_req_val,
-                                 accum_read_req_bits,
-                                 accum_read_resp_rdy);
+                                 accum_read_req_bits);
   UPDATE(updateWritePorts).writes(spad_write_val,
                                   spad_write_bits,
                                   accum_write_val,
@@ -271,11 +303,11 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                      im2col_en_)
                              .writes(im2colling_,
                                      cntl_rdy_,
-                                     decoder_tags_in_progress_,
                                      row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
+  delete mesher_;
   delete mesh_cntl_deq_ctrl_;
   delete mesh_in_sel_pad_;
   delete mesh_cntl_queue_;
@@ -301,7 +333,6 @@ void ExCtrl::updateReadPorts() {
     req.from_dma             = rd_req_->spad_read_req_from_dma[bank];
     spad_read_req_val[bank]  = rd_req_->spad_read_req_val[bank];
     spad_read_req_bits[bank] = req;
-    spad_read_resp_rdy[bank] = 0;
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
@@ -317,7 +348,6 @@ void ExCtrl::updateReadPorts() {
     req.from_dma              = rd_req_->accum_read_req_from_dma[bank];
     accum_read_req_val[bank]  = rd_req_->accum_read_req_val[bank];
     accum_read_req_bits[bank] = req;
-    accum_read_resp_rdy[bank] = 0;
   }
 }
 
@@ -338,9 +368,6 @@ void ExCtrl::updateDecoderInputs() {
   im2col_en_                        = 0;
   im2colling_                       = 0;
   cntl_rdy_ = mesh_cntl_queue_->enq_rdy;
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
-    decoder_tags_in_progress_[i] = MesherTag{};
-  }
   row_addr_block_size_      = static_cast<u32>(kDefaultConfig.dim);
 }
 
@@ -353,21 +380,16 @@ void ExCtrl::reset() {
   im2col_en_.reset(0);
   im2colling_.reset(0);
   cntl_rdy_.reset(1);
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
-    decoder_tags_in_progress_[i].reset(MesherTag{});
-  }
   row_addr_block_size_.reset(static_cast<u32>(kDefaultConfig.dim));
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);
     spad_read_req_bits[bank].reset(SpadReadReq{});
-    spad_read_resp_rdy[bank].reset(0);
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_val[bank].reset(0);
     accum_read_req_bits[bank].reset(AccumReadReq{});
-    accum_read_resp_rdy[bank].reset(0);
   }
 
   spad_write_val.reset(0);

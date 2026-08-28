@@ -53,6 +53,7 @@ class Mesher : public Component {
 
   OutputArray(MesherTag, tags_in_progress, kRsExecuteEntries);
 
+  void updateReady();
   void update();
   void reset();
 

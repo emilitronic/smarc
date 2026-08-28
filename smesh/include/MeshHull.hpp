@@ -5,9 +5,9 @@
 /*
 Timing wrapper around MeshCore.
 
-This is not a Cascade component. A later Mesher component can own this helper
-and connect it to valid/ready ports. MeshHull is where input/output skew and
-mesh-boundary timing belongs.
+This is not a Cascade component. 
+Mesher component owns this helper and connects it to valid/ready ports. 
+MeshHull is where input/output skew and mesh-boundary timing belongs.
 */
 
 #pragma once

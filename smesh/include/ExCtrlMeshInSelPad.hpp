@@ -51,6 +51,7 @@ class ExCtrlMeshInSelPad : public Component {
   Output(bit, mesh_b_fire);
   Output(bit, mesh_d_fire);
 
+  void updateReadRespReady();
   void update();
 };
 
