@@ -297,6 +297,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                   accum_write_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
+                                     writeback_ex_write_to_acc_,
+                                     writeback_aligned_to_,
                                      mesh_cntl_pack_perform_mul_pre_,
                                      tag_select_performing_single_mul_,
                                      im2col_wire_,
@@ -365,6 +367,8 @@ void ExCtrl::updateWritePorts() {
 void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_         = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_         = bit(kDefaultConfig.ex_write_to_spad);
+  writeback_ex_write_to_acc_        = bit(kDefaultConfig.ex_write_to_acc);
+  writeback_aligned_to_             = static_cast<u32>(kDefaultConfig.aligned_to);
   mesh_cntl_pack_perform_mul_pre_   = 0;
   tag_select_performing_single_mul_ = 0;
   im2col_wire_                      = 0;
@@ -377,6 +381,8 @@ void ExCtrl::updateDecoderInputs() {
 void ExCtrl::reset() {
   decoder_ex_read_from_acc_.reset(bit(kDefaultConfig.ex_read_from_acc));
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
+  writeback_ex_write_to_acc_.reset(bit(kDefaultConfig.ex_write_to_acc));
+  writeback_aligned_to_.reset(static_cast<u32>(kDefaultConfig.aligned_to));
   mesh_cntl_pack_perform_mul_pre_.reset(0);
   tag_select_performing_single_mul_.reset(0);
   im2col_wire_.reset(0);
