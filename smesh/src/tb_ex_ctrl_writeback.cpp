@@ -56,6 +56,7 @@ class ExCtrlWritebackMonitor : public Component {
   bool checked_ = false;
   bool done_ = false;
   bool passed_ = false;
+  std::size_t cycles_ = 0;
 };
 
 ExCtrlWritebackDriver::ExCtrlWritebackDriver(std::string /*name*/, IMPL_CTOR) {
@@ -77,6 +78,9 @@ void ExCtrlWritebackDriver::update() {
   smesh::MesherResp resp{};
   resp.tag.rs_tag_valid = 1;
   resp.tag.rs_tag = 7;
+  resp.tag.rows = 1;
+  resp.tag.cols = smesh::kDim;
+  resp.total_rows = 1;
   resp.last = 1;
 
   mesh_resp_val = 1;
@@ -124,19 +128,21 @@ void ExCtrlWritebackMonitor::update() {
   if (Sim::state == Sim::SimResetting || checked_) {
     return;
   }
+  ++cycles_;
+  if (cycles_ < 2) {
+    return;
+  }
 
-  bool no_writes = true;
+  bool any_write = false;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
-    no_writes = no_writes && spad_write_val[bank] == 0;
+    any_write = any_write || spad_write_val[bank] != 0;
   }
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
-    no_writes = no_writes && accum_write_val[bank] == 0;
+    any_write = any_write || accum_write_val[bank] != 0;
   }
 
   passed_ =
-      no_writes &&
-      mesh_completed_rs_tag_fire == 0 &&
-      completed_val == 0;
+      any_write && mesh_completed_rs_tag_fire != 0 && completed_val != 0;
   checked_ = true;
   done_ = true;
 }
@@ -145,6 +151,7 @@ void ExCtrlWritebackMonitor::reset() {
   checked_ = false;
   done_ = false;
   passed_ = false;
+  cycles_ = 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -190,6 +197,6 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ok = monitor.done() && monitor.passed();
-  std::printf("[EX_CTRL_WRITEBACK] %s skeleton_boundary\n", ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL_WRITEBACK] %s tracked_response\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
 }

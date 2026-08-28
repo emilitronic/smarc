@@ -27,9 +27,8 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               bd_transpose,
               current_dataflow,
               activation,
-              a_addr_stride,
-              c_addr_stride,
-              shift)
+              a_addr_stride)
+      .writes(c_addr_stride, shift)
       .writes(
               config_val,
               config_rs_tag_valid,

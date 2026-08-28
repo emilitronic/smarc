@@ -54,8 +54,8 @@ ExCtrlMeshInSelPad::ExCtrlMeshInSelPad(std::string /*name*/, IMPL_CTOR) {
       .reads(spad_read_resp_val)
       .reads(accum_read_resp_val, spad_read_resp_data)
       .reads(accum_read_resp_data)
-      .writes(mesh_a, mesh_b, mesh_d, mesh_a_val, mesh_b_val, mesh_d_val,
-              mesh_a_fire, mesh_b_fire, mesh_d_fire);
+      .writes(mesh_a, mesh_b, mesh_d, mesh_a_val, mesh_b_val, mesh_d_val)
+      .writes(mesh_a_fire, mesh_b_fire, mesh_d_fire);
 }
 
 void ExCtrlMeshInSelPad::updateReadRespReady() {

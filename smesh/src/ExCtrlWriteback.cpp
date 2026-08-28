@@ -5,7 +5,50 @@
 
 #include "ExCtrlWriteback.hpp"
 
+#include <algorithm>
+#include <cstdint>
+
 namespace smesh {
+
+namespace {
+
+constexpr std::uint8_t kActivationRelu = 1;
+
+std::uint8_t maskForColumns(std::uint32_t cols) {
+  const auto bounded = std::min<std::uint32_t>(cols, kDim);
+  return bounded == 0 ? 0 : static_cast<std::uint8_t>((1u << bounded) - 1u);
+}
+
+std::int8_t clipToElem(Acc value, std::uint8_t activation) {
+  if (activation == kActivationRelu && value < 0) {
+    value = 0;
+  }
+  value = std::max<Acc>(value, -128);
+  value = std::min<Acc>(value, 127);
+  return static_cast<std::int8_t>(value);
+}
+
+DmaReadData packInputRow(const MeshAccumRow& row, std::uint8_t activation) {
+  DmaReadData data{};
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    data[lane] = static_cast<std::uint8_t>(clipToElem(row[lane], activation));
+  }
+  return data;
+}
+
+DmaReadData packAccumRow(const MeshAccumRow& row) {
+  DmaReadData data{};
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    const auto value = static_cast<std::uint32_t>(row[lane]);
+    for (std::size_t byte = 0; byte < sizeof(Acc); ++byte) {
+      data[lane * sizeof(Acc) + byte] =
+          static_cast<std::uint8_t>((value >> (8 * byte)) & 0xffu);
+    }
+  }
+  return data;
+}
+
+} // namespace
 
 ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateView)
@@ -20,9 +63,9 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
       .reads(spad_write_rdy,
              accum_write_rdy)
       .writes(spad_write_val,
-              spad_write_bits,
-              accum_write_val,
-              accum_write_bits)
+             spad_write_bits,
+             accum_write_val,
+             accum_write_bits)
       .writes(mesh_completed_rs_tag_fire,
               completed_val,
               completed_bits);
@@ -31,27 +74,80 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlWriteback::updateView() {
+  const auto& response = *mesh_resp_bits;
+  const auto base_address = response.tag.addr;
+  const auto total_rows = response.total_rows;
+  const auto offset = output_counter_ * c_addr_stride;
+  const auto output_offset = current_dataflow == kExDataflowWS
+                                 ? offset
+                                 : total_rows - 1u - offset;
+  const auto write_address = base_address + output_offset;
+  const bool is_accumulator_write = write_address.is_acc_addr();
+  const bool is_garbage_address = base_address.is_garbage();
+  const bool response_is_tracked = mesh_resp_val != 0 &&
+                                   response.tag.rs_tag_valid != 0;
+  const bool write_this_row = total_rows != 0 &&
+      (current_dataflow == kExDataflowWS
+           ? output_counter_ < response.tag.rows
+           : total_rows - 1u - output_counter_ < response.tag.rows);
+  const bool start_array_outputting = response_is_tracked && !is_garbage_address;
+  const auto write_mask = maskForColumns(response.tag.cols);
+
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_write_val[bank]  = 0;
     spad_write_bits[bank] = DmaReadResp{};
+
+    if (ex_write_to_spad != 0 && start_array_outputting &&
+        !is_accumulator_write && !is_garbage_address && write_this_row &&
+        write_address.sp_bank() == bank) {
+      DmaReadResp write{};
+      spad_write_val[bank] = 1;
+      write.data = packInputRow(response.data, activation);
+      write.laddr = write_address;
+      write.mask = write_mask;
+      write.last = response.last;
+      spad_write_bits[bank] = write;
+    }
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_write_val[bank]  = 0;
     accum_write_bits[bank] = DmaReadResp{};
+
+    if (ex_write_to_acc != 0 && start_array_outputting &&
+        is_accumulator_write && !is_garbage_address && write_this_row &&
+        write_address.acc_bank() == bank) {
+      DmaReadResp write{};
+      accum_write_val[bank] = 1;
+      write.data = packAccumRow(response.data);
+      write.laddr = write_address;
+      write.mask = write_mask;
+      write.has_acc_bitwidth = true;
+      write.last = response.last;
+      accum_write_bits[bank] = write;
+    }
   }
 
-  mesh_completed_rs_tag_fire = 0;
-  completed_val              = 0;
-  completed_bits             = 0;
+  const bool mesh_completed = response_is_tracked && response.last;
+  mesh_completed_rs_tag_fire = bit(mesh_completed);
+  completed_val              = bit(mesh_completed);
+  completed_bits             = response.tag.rs_tag;
 }
 
 void ExCtrlWriteback::updateState() {
   const bool mesh_resp_fire = mesh_resp_val != 0;
 
-  // TODO: advance/reset output_counter_ when mesh output routing is implemented.
-  if (mesh_resp_fire && static_cast<bool>(mesh_resp_bits->last)) {
-    output_counter_ = 0;
+  if (mesh_resp_fire && mesh_resp_bits->tag.rs_tag_valid != 0) {
+    const auto total_rows = mesh_resp_bits->total_rows;
+    if (total_rows == 0) {
+      output_counter_ = 0;
+    } else {
+      output_counter_ = (output_counter_ + 1) % total_rows;
+    }
+
+    if (mesh_resp_bits->last) {
+      output_counter_ = 0;
+    }
   }
 }
 
