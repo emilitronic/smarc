@@ -33,16 +33,16 @@ class ExCtrlCompletion : public Component {
   Output(SmeshRsTag, completed_bits);   // selected execute completion tag
   Output(bit, pending_completed_valid); // any pending completion register is occupied
 
-  void updatePendingView();
-  void updateConfigCompletion();
+  void updateCompletionView();
+  void updatePendingState();
   void reset();
 
  private:
   bool pending_completed_valid_[2] = {false, false};
   SmeshRsTag pending_completed_bits_[2] = {0, 0};
+  std::uint16_t complete_bits_count_ = 0;
 
-  // TODO
-  // complete_bits_count
+  static constexpr std::size_t kPendingEntries = 2;
 };
 
 } // namespace smesh
