@@ -240,8 +240,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 
   // MQ control packet view for mesh input selection. Memory response and
   // Mesher-side ports remain disconnected until those paths are installed.
-  mesh_in_sel_pad_->cntl_val  << mesh_cntl_queue_->cntl_val;
-  mesh_in_sel_pad_->cntl_bits << mesh_cntl_queue_->cntl_bits;
+  mesh_in_sel_pad_->cntl_val           << mesh_cntl_queue_->cntl_val;
+  mesh_in_sel_pad_->cntl_bits          << mesh_cntl_queue_->cntl_bits;
+  mesh_in_sel_pad_->mesh_cntl_deq_fire << mesh_cntl_deq_ctrl_->mesh_cntl_deq_fire;
 
   // MQ release logic. Mesher ready inputs and request-valid output remain
   // disconnected until Mesher is installed in ExCtrl.
@@ -251,7 +252,6 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_cntl_deq_ctrl_->mesh_a_fire   << mesh_in_sel_pad_->mesh_a_fire;
   mesh_cntl_deq_ctrl_->mesh_b_fire   << mesh_in_sel_pad_->mesh_b_fire;
   mesh_cntl_deq_ctrl_->mesh_d_fire   << mesh_in_sel_pad_->mesh_d_fire;
-  mesh_in_sel_pad_->mesh_cntl_deq_fire << mesh_cntl_deq_ctrl_->mesh_cntl_deq_fire;
 
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
