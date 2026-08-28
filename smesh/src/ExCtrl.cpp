@@ -352,11 +352,14 @@ void ExCtrl::updateReadPorts() {
 }
 
 void ExCtrl::updateWritePorts() {
-  spad_write_val  = 0;
-  spad_write_bits = DmaReadResp{};
-
-  accum_write_val  = 0;
-  accum_write_bits = DmaReadResp{}; 
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_write_val[bank]  = 0;
+    spad_write_bits[bank] = DmaReadResp{};
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    accum_write_val[bank]  = 0;
+    accum_write_bits[bank] = DmaReadResp{};
+  }
 }
 
 void ExCtrl::updateDecoderInputs() {
@@ -392,11 +395,14 @@ void ExCtrl::reset() {
     accum_read_req_bits[bank].reset(AccumReadReq{});
   }
 
-  spad_write_val.reset(0);
-  spad_write_bits.reset(DmaReadResp{});
-
-  accum_write_val.reset(0);
-  accum_write_bits.reset(DmaReadResp{});
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_write_val[bank].reset(0);
+    spad_write_bits[bank].reset(DmaReadResp{});
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    accum_write_val[bank].reset(0);
+    accum_write_bits[bank].reset(DmaReadResp{});
+  }
 }
 
 } // namespace smesh

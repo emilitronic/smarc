@@ -58,13 +58,13 @@ class ExCtrl : public Component {
   InputArray(ExCtrlAccumReadResp, accum_read_resp_bits, kAccBanks);
   OutputArray(bit, accum_read_resp_rdy, kAccBanks);
 
-  Output(bit, spad_write_val);
-  Input(bit, spad_write_rdy);
-  Output(DmaReadResp, spad_write_bits);
+  OutputArray(bit, spad_write_val, kSpBanks);
+  InputArray(bit, spad_write_rdy, kSpBanks);
+  OutputArray(DmaReadResp, spad_write_bits, kSpBanks);
 
-  Output(bit, accum_write_val);
-  Input(bit, accum_write_rdy);
-  Output(DmaReadResp, accum_write_bits);
+  OutputArray(bit, accum_write_val, kAccBanks);
+  InputArray(bit, accum_write_rdy, kAccBanks);
+  OutputArray(DmaReadResp, accum_write_bits, kAccBanks);
 
   void updateReadPorts();
   void updateWritePorts();
