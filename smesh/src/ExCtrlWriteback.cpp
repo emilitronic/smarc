@@ -22,9 +22,7 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
       .writes(spad_write_val,
               spad_write_bits,
               accum_write_val,
-              accum_write_bits,
-              output_counter,
-              start_array_outputting)
+              accum_write_bits)
       .writes(mesh_completed_rs_tag_fire,
               completed_val,
               completed_bits);
@@ -43,8 +41,6 @@ void ExCtrlWriteback::updateView() {
     accum_write_bits[bank] = DmaReadResp{};
   }
 
-  output_counter             = output_counter_;
-  start_array_outputting     = 0;
   mesh_completed_rs_tag_fire = 0;
   completed_val              = 0;
   completed_bits             = 0;
@@ -70,8 +66,6 @@ void ExCtrlWriteback::reset() {
     accum_write_val[bank].reset(0);
     accum_write_bits[bank].reset(DmaReadResp{});
   }
-  output_counter.reset(0);
-  start_array_outputting.reset(0);
   mesh_completed_rs_tag_fire.reset(0);
   completed_val.reset(0);
   completed_bits.reset(0);

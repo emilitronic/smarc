@@ -47,8 +47,6 @@ class ExCtrlWriteback : public Component {
   OutputArray(bit, accum_write_val, kAccBanks); // ExC writes selected accum bank
   OutputArray(DmaReadResp, accum_write_bits, kAccBanks);
 
-  Output(u32, output_counter);         // current mesh-output row counter
-  Output(bit, start_array_outputting); // mesh output stream has begun
   Output(bit, mesh_completed_rs_tag_fire); // mesh response produced a completion event
   Output(bit, completed_val);          // execute completion valid
   Output(SmeshRsTag, completed_bits);  // execute completion tag
@@ -58,7 +56,7 @@ class ExCtrlWriteback : public Component {
   void reset();
 
  private:
-  std::uint32_t output_counter_ = 0;
+  std::uint32_t output_counter_ = 0; // current mesh-output row counter
 };
 
 } // namespace smesh
