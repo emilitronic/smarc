@@ -17,7 +17,7 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 
 #include <cstdio>
 
-TraceKey(ex_ctrl_view);
+TraceKey(ex_ctrl_view); // declare a named TraceKey (and enable it explicitly below)
 
 namespace {
 
@@ -87,9 +87,9 @@ class ExCtrlDriver : public Component {
     if (Sim::state == Sim::SimResetting) {
       return;
     }
-
-    trace(ex_ctrl_view,
-          "cycle=%d state=%4s cfg{v=%u tv=%u t=%03u} h0{v=%u t=%03u c=%4s} h1{v=%u t=%03u c=%4s} h2{v=%u t=%03u c=%4s}",
+    // emit TraceKey with s_trace
+    s_trace(ex_ctrl_view,
+          "cycle=%d state=%4s cfg{v=%u tv=%u t=%03u} h0{v=%u t=%03u c=%4s} h1{v=%u t=%03u c=%4s} h2{v=%u t=%03u c=%4s}\n",
                 cycle_,
                 stateName(static_cast<std::uint8_t>(*control_state)),
                 static_cast<unsigned>(config_val),
@@ -137,6 +137,7 @@ int main(int argc, char* argv[]) {
 
   smesh::ExCtrl ctrl("ExCtrl");
   ExCtrlDriver driver("Driver");
+  descore::setTrace("*", "ex_ctrl_view"); // enable TraceKey explicitly
 
   ctrl.cmd_in << driver.cmd_out;
   driver.control_state << ctrl.control_state;
@@ -163,5 +164,6 @@ int main(int argc, char* argv[]) {
 
   const bool ok = driver.done() && driver.matched();
   std::printf("[EX_CTRL] %s config_reached_cmd_queue\n", ok ? "PASS" : "FAIL");
+  descore::flushLog(); // flush log before exiting because trace o/p is buffered
   return ok ? 0 : 1;
 }
