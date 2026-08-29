@@ -17,6 +17,30 @@ cmake --build build --target tb_ex_ctrl_cmd_queue -j
 
 #include <cstdio>
 
+namespace {
+
+const char* functName(std::uint32_t funct) {
+  switch (static_cast<smesh::SmeshFunct>(funct)) {
+    case smesh::SmeshFunct::Config:      return "CFG";   // CONFIG
+    case smesh::SmeshFunct::Mvin2:       return "M2";    // MVIN2
+    case smesh::SmeshFunct::Mvin:        return "MVI";   // MVIN
+    case smesh::SmeshFunct::Mvout:       return "MVO";   // MVOUT
+    case smesh::SmeshFunct::ComputeFlip: return "CMPF";  // COMPUTE_FLIP
+    case smesh::SmeshFunct::ComputeStay: return "CMPS";  // COMPUTE_STAY
+    case smesh::SmeshFunct::Preload:     return "PRE";   // PRELOAD
+    case smesh::SmeshFunct::Flush:       return "FLU";   // FLUSH
+    case smesh::SmeshFunct::Mvin3:       return "M3";    // MVIN3
+    case smesh::SmeshFunct::StoreSpad:   return "SSP";   // STORE_SPAD
+  }
+  return "????";
+}
+
+const char* commandName(bool valid, std::uint32_t funct) {
+  return valid ? functName(funct) : "---";
+}
+
+} // namespace
+
 class CmdQueueDriver : public Component {
   DECLARE_COMPONENT(CmdQueueDriver);
 
@@ -53,17 +77,17 @@ void CmdQueueDriver::update() {
     return;
   }
 
-  std::printf("[cycle %d] head0{val=%u tag=%u funct=%u} head1{val=%u tag=%u funct=%u} head2{val=%u tag=%u funct=%u}\n",
+  std::printf("[c%03d] h0{v=%u t=%03u c=%4s} h1{v=%u t=%03u c=%4s} h2{v=%u t=%03u c=%4s}\n",
               cycle_,
               static_cast<unsigned>(head_val[0]),
               static_cast<unsigned>(head_bits[0]->rs_tag),
-              static_cast<unsigned>(head_bits[0]->cmd.funct),
+              commandName(head_val[0] != 0, head_bits[0]->cmd.funct),
               static_cast<unsigned>(head_val[1]),
               static_cast<unsigned>(head_bits[1]->rs_tag),
-              static_cast<unsigned>(head_bits[1]->cmd.funct),
+              commandName(head_val[1] != 0, head_bits[1]->cmd.funct),
               static_cast<unsigned>(head_val[2]),
               static_cast<unsigned>(head_bits[2]->rs_tag),
-              static_cast<unsigned>(head_bits[2]->cmd.funct));
+              commandName(head_val[2] != 0, head_bits[2]->cmd.funct));
 
   if (!sent_ && !cmd_out.full()) {
     smesh::SmeshIssue issue{};
