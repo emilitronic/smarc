@@ -101,6 +101,19 @@ target_link_libraries(tb_ex_ctrl
     -lpthread
 )
 
+add_executable(tb_ex_ctrl_cmd_queue
+  src/tb_ex_ctrl_cmd_queue.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_cmd_queue
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_ex_ctrl_arch
   src/tb_ex_ctrl_arch.cpp
 )
