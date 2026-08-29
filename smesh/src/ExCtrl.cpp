@@ -48,7 +48,13 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
+
+  // TEMPORARY TEST OBSERVABILITY: expose internal queue/FSM signals at ExCtrl.
   control_state         << cmd_state_->control_state;
+  config_val            << cmd_state_->config_val;
+  config_rs_tag_valid   << cmd_state_->config_rs_tag_valid;
+  config_rs_tag         << cmd_state_->config_rs_tag;
+  
   // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
     cmd_queue_head_val[i]  << cmd_queue_->head_val[i];
