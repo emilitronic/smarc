@@ -44,6 +44,7 @@ class ExCtrl : public Component {
   FifoInput(SmeshIssue, cmd_in);
   Output(bit, completed_val);
   Output(SmeshRsTag, completed_bits);
+  Output(u8, control_state);
   OutputArray(bit, cmd_queue_head_val, kExCtrlCmdWindow);
   OutputArray(SmeshIssue, cmd_queue_head_bits, kExCtrlCmdWindow);
 

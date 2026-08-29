@@ -38,6 +38,16 @@ const char* commandName(bool valid, std::uint32_t funct) {
   return valid ? functName(funct) : "---";
 }
 
+const char* stateName(std::uint8_t state) {
+  switch (static_cast<smesh::ExCtrlFsmState>(state)) {
+    case smesh::ExCtrlFsmState::WaitingForCmd: return "WAIT";
+    case smesh::ExCtrlFsmState::Compute:       return "COMP";
+    case smesh::ExCtrlFsmState::Flush:         return "FLUS";
+    case smesh::ExCtrlFsmState::Flushing:      return "FLNG";
+  }
+  return "????";
+}
+
 } // namespace
 
 class ExCtrlDriver : public Component {
@@ -48,6 +58,7 @@ class ExCtrlDriver : public Component {
 
   Clock(clk);
   FifoOutput(smesh::SmeshIssue, cmd_out);
+  Input(u8, control_state);
   InputArray(bit, head_val, smesh::kExCtrlCmdWindow);
   InputArray(smesh::SmeshIssue, head_bits, smesh::kExCtrlCmdWindow);
 
@@ -70,8 +81,9 @@ class ExCtrlDriver : public Component {
       return;
     }
 
-    std::printf("[cycle %d] h0{v=%u t=%03u c=%4s} h1{v=%u t=%03u c=%4s} h2{v=%u t=%03u c=%4s}\n",
+    std::printf("[cycle %d] state=%4s h0{v=%u t=%03u c=%4s} h1{v=%u t=%03u c=%4s} h2{v=%u t=%03u c=%4s}\n",
                 cycle_,
+                stateName(static_cast<std::uint8_t>(*control_state)),
                 static_cast<unsigned>(head_val[0]), static_cast<unsigned>(head_bits[0]->rs_tag), commandName(head_val[0] != 0, head_bits[0]->cmd.funct),
                 static_cast<unsigned>(head_val[1]), static_cast<unsigned>(head_bits[1]->rs_tag), commandName(head_val[1] != 0, head_bits[1]->cmd.funct),
                 static_cast<unsigned>(head_val[2]), static_cast<unsigned>(head_bits[2]->rs_tag), commandName(head_val[2] != 0, head_bits[2]->cmd.funct));
@@ -103,7 +115,7 @@ class ExCtrlDriver : public Component {
 
 ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update_issue).writes(cmd_out);
-  UPDATE(update_completion).reads(head_val, head_bits);
+  UPDATE(update_completion).reads(control_state, head_val, head_bits);
 }
 
 int main(int argc, char* argv[]) {
@@ -115,6 +127,7 @@ int main(int argc, char* argv[]) {
   ExCtrlDriver driver("Driver");
 
   ctrl.cmd_in << driver.cmd_out;
+  driver.control_state << ctrl.control_state;
   for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
     driver.head_val[i] << ctrl.cmd_queue_head_val[i];
     driver.head_bits[i] << ctrl.cmd_queue_head_bits[i];
