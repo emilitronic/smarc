@@ -25,24 +25,26 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesh_in_sel_pad_ = new ExCtrlMeshInSelPad("ExCtrlMeshInSelPad");
   mesh_cntl_deq_ctrl_ = new ExCtrlMeshCntlDeqCtrl("ExCtrlMeshCntlDeqCtrl");
   mesher_          = new Mesher("Mesher");
+  writeback_       = new ExCtrlWriteback("ExCtrlWriteback");
 
-  cmd_queue_->clk       << clk;
-  completion_->clk      << clk;
-  cmd_decoder_->clk     << clk;
-  cmd_state_->clk       << clk;
-  cmd_rowaddr_->clk     << clk;
-  cmd_rowpad_->clk      << clk;
-  op_pack_->clk         << clk;
-  row_feed_->clk        << clk;
-  tag_select_->clk      << clk;
-  read_prio_->clk       << clk;
-  rd_req_->clk          << clk;
-  feed_signals_->clk    << clk;
-  mesh_cntl_pack_->clk  << clk;
-  mesh_cntl_queue_->clk << clk;
-  mesh_in_sel_pad_->clk << clk;
+  cmd_queue_->clk          << clk;
+  completion_->clk         << clk;
+  cmd_decoder_->clk        << clk;
+  cmd_state_->clk          << clk;
+  cmd_rowaddr_->clk        << clk;
+  cmd_rowpad_->clk         << clk;
+  op_pack_->clk            << clk;
+  row_feed_->clk           << clk;
+  tag_select_->clk         << clk;
+  read_prio_->clk          << clk;
+  rd_req_->clk             << clk;
+  feed_signals_->clk       << clk;
+  mesh_cntl_pack_->clk     << clk;
+  mesh_cntl_queue_->clk    << clk;
+  mesh_in_sel_pad_->clk    << clk;
   mesh_cntl_deq_ctrl_->clk << clk;
-  mesher_->clk          << clk;
+  mesher_->clk             << clk;
+  writeback_->clk          << clk;
   
   cmd_queue_->cmd_in    << cmd_in;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
@@ -81,6 +83,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   completion_->config_val          << cmd_state_->config_val;
   completion_->config_rs_tag_valid << cmd_state_->config_rs_tag_valid;
   completion_->config_rs_tag       << cmd_state_->config_rs_tag;
+  completion_->mesh_completed_rs_tag_fire << writeback_->mesh_completed_rs_tag_fire;
+  completion_->mesh_completed_bits        << writeback_->completed_bits;
   // send out completed signals from ExCtrl
   completed_val  << completion_->completed_val;
   completed_bits << completion_->completed_bits;
@@ -287,14 +291,30 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     accum_read_resp_rdy[bank] << mesh_in_sel_pad_->accum_read_resp_rdy[bank];
   }
 
+  // Mesh result writeback to the banked local-memory write ports.
+  writeback_->mesh_resp_val      << mesher_->resp_val;
+  writeback_->mesh_resp_bits     << mesher_->resp_bits;
+  writeback_->current_dataflow   << cmd_state_->current_dataflow;
+  writeback_->c_addr_stride      << cmd_state_->c_addr_stride;
+  writeback_->activation         << cmd_state_->activation;
+  writeback_->aligned_to         << writeback_aligned_to_;
+  writeback_->ex_write_to_spad   << decoder_ex_write_to_spad_;
+  writeback_->ex_write_to_acc    << writeback_ex_write_to_acc_;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    writeback_->spad_write_rdy[bank] << spad_write_rdy[bank];
+    spad_write_val[bank]             << writeback_->spad_write_val[bank];
+    spad_write_bits[bank]            << writeback_->spad_write_bits[bank];
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    writeback_->accum_write_rdy[bank] << accum_write_rdy[bank];
+    accum_write_val[bank]             << writeback_->accum_write_val[bank];
+    accum_write_bits[bank]            << writeback_->accum_write_bits[bank];
+  }
+
   UPDATE(updateReadPorts).writes(spad_read_req_val,
                                  spad_read_req_bits,
                                  accum_read_req_val,
                                  accum_read_req_bits);
-  UPDATE(updateWritePorts).writes(spad_write_val,
-                                  spad_write_bits,
-                                  accum_write_val,
-                                  accum_write_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
                                      writeback_ex_write_to_acc_,
@@ -309,6 +329,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 }
 
 ExCtrl::~ExCtrl() {
+  delete writeback_;
   delete mesher_;
   delete mesh_cntl_deq_ctrl_;
   delete mesh_in_sel_pad_;
@@ -353,17 +374,6 @@ void ExCtrl::updateReadPorts() {
   }
 }
 
-void ExCtrl::updateWritePorts() {
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    spad_write_val[bank]  = 0;
-    spad_write_bits[bank] = DmaReadResp{};
-  }
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_write_val[bank]  = 0;
-    accum_write_bits[bank] = DmaReadResp{};
-  }
-}
-
 void ExCtrl::updateDecoderInputs() {
   decoder_ex_read_from_acc_         = bit(kDefaultConfig.ex_read_from_acc);
   decoder_ex_write_to_spad_         = bit(kDefaultConfig.ex_write_to_spad);
@@ -401,14 +411,6 @@ void ExCtrl::reset() {
     accum_read_req_bits[bank].reset(AccumReadReq{});
   }
 
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    spad_write_val[bank].reset(0);
-    spad_write_bits[bank].reset(DmaReadResp{});
-  }
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_write_val[bank].reset(0);
-    accum_write_bits[bank].reset(DmaReadResp{});
-  }
 }
 
 } // namespace smesh
