@@ -34,7 +34,9 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
       .writes(
               config_val,
               config_rs_tag_valid,
-              config_rs_tag,
+              config_rs_tag)
+      .writes(pending_completed_set_val,
+              pending_completed_set_bits,
               performing_single_preload,
               computing,
               start_inputting_a,
@@ -57,6 +59,10 @@ void ExCtrlState::update() {
   config_val             = 0; // FSM accepts/processes a CONFIG command this cycle
   config_rs_tag_valid    = 0;
   config_rs_tag          = 0;
+  for (std::size_t i = 0; i < 2; ++i) {
+    pending_completed_set_val[i] = 0;
+    pending_completed_set_bits[i] = 0;
+  }
   performing_single_preload = 0;
   computing              = 0;
   start_inputting_a      = 0;
@@ -169,6 +175,10 @@ void ExCtrlState::reset() {
   config_val.reset(0);
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);
+  for (std::size_t i = 0; i < 2; ++i) {
+    pending_completed_set_val[i].reset(0);
+    pending_completed_set_bits[i].reset(0);
+  }
   performing_single_preload.reset(0);
   computing.reset(0);
   start_inputting_a.reset(0);

@@ -60,6 +60,8 @@ class ExCtrlState : public Component {
   Output(bit, config_val);          // FSM accepts/processes a CONFIG command this cycle
   Output(bit, config_rs_tag_valid); // valid bit for CONFIG completion tag
   Output(SmeshRsTag, config_rs_tag);// info to send back on completed port
+  OutputArray(bit, pending_completed_set_val, 2); // FSM writes pending completion slots
+  OutputArray(SmeshRsTag, pending_completed_set_bits, 2); // tags written into pending slots
   Output(bit, performing_single_preload); // immediately signal standalone PRELOAD active (while latching perform_single_preload)
   Output(bit, computing);           // any execute operation mode is currently feeding rows
   Output(bit, start_inputting_a);   // begin feeding A operand rows

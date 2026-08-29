@@ -92,6 +92,10 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   completion_->config_val          << cmd_state_->config_val;
   completion_->config_rs_tag_valid << cmd_state_->config_rs_tag_valid;
   completion_->config_rs_tag       << cmd_state_->config_rs_tag;
+  for (std::size_t i = 0; i < 2; ++i) {
+    completion_->pending_completed_set_val[i]  << cmd_state_->pending_completed_set_val[i];
+    completion_->pending_completed_set_bits[i] << cmd_state_->pending_completed_set_bits[i];
+  }
   completion_->mesh_completed_rs_tag_fire << writeback_->mesh_completed_rs_tag_fire;
   completion_->mesh_completed_bits        << writeback_->completed_bits;
   // send out completed signals from ExCtrl
