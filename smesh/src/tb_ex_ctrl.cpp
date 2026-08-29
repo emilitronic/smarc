@@ -15,6 +15,9 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 - You can combine them:
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view';''*'/ex_ctrl_state_view
+
+Use smesh-cascade-testing skill
+- $smesh-cascade-testing can invoke it
 */
 
 #include <cascade/Cascade.hpp>
@@ -83,10 +86,10 @@ class ExCtrlDriver : public Component {
     }
 
     smesh::SmeshIssue issue{};
-    issue.rs_tag = expected_rs_tag_;
-    issue.cmd.funct = static_cast<std::uint32_t>(smesh::SmeshFunct::Config);
-    issue.cmd.rs1 = smesh::packConfigExecuteRs1(1);
-    issue.cmd.rs2 = smesh::packConfigExecuteRs2(1);
+    issue.rs_tag    = expected_rs_tag_;
+    issue.cmd.funct = static_cast<std::uint32_t>(smesh::SmeshFunct::Config); // CONFIG_EX
+    issue.cmd.rs1   = smesh::packConfigExecuteRs1(1); // a_stride=1, all other fields default
+    issue.cmd.rs2   = smesh::packConfigExecuteRs2(1); // c_stride=1, all other fields default
     cmd_out.push(issue);
     sent_ = true;
   }

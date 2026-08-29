@@ -73,6 +73,8 @@ void ExCtrlState::update() {
   bool taking_single_preload = false;
 
   switch (state_) {
+    // **** WAITING_FOR_CMD: check for new commands and decide what to do next ****
+    // ****************************************************************************
     case ExCtrlFsmState::WaitingForCmd: {
       // if cmd(0) has valid CONFIG and we can accept it
       if (head_val[0] != 0 && do_config != 0 && matmul_in_progress == 0 && pending_completed_valid == 0) {
@@ -86,11 +88,12 @@ void ExCtrlState::update() {
         config_rs_tag       = issue.rs_tag;
         // tell cmd q how many entries to pop (1 for CONFIG)
         cmd_pop_count       = 1; 
-
+        // if CONFIG is Execute (CONFIG_EX), update FSM registers with the new settings
         if (kind == ConfigKind::Execute) {
           const bool set_only_strides = unpackConfigExecuteSetOnlyStrides(rs1);
           config_initialized_ = true;
           if (!set_only_strides) {
+            // TODO check for nonlinear activations
             in_shift_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
             activation_       = static_cast<std::uint8_t>(unpackConfigExecuteActivation(rs1));
             a_transpose_      = unpackConfigExecuteATranspose(rs1);
@@ -100,22 +103,27 @@ void ExCtrlState::update() {
           a_addr_stride_ = unpackConfigExecuteAStride(rs1);
           c_addr_stride_ = unpackConfigExecuteCStride(rs2);
         }
-      // if cmd(0) has valid PRELOAD and cmd(1) is also present and no RAW hazard blocks  
+        // TODO else if CONFIG_IM2COL
+      // Preload: if cmd(0) has valid PRELOAD and cmd(1) is also present and no RAW hazard blocks  
       } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 &&
                  (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
         taking_single_preload   = true;
         perform_single_preload_ = true;
-        state_ = ExCtrlFsmState::Compute;
+        state_ = ExCtrlFsmState::Compute; // go to COMPUTE state
       }
+      // TODO else if Overlap Compute and Preload: if cmd(0) has valid PRELOAD and cmd(1) is COMPUTE and no RAW hazard blocks
+      // TODO else if Single Mul: if cmd(0) has valid COMPUTE
+      // TODO else if Flush
       break;
     }
-
+    // **** COMPUTE: issue operand reads and wait for all rows to enter the mesh ****
+    // ******************************************************************************
     case ExCtrlFsmState::Compute:
       if (perform_single_preload_) {
         // keep issuing one preload row-beat per cycle, if memory/mesh are ready
         start_inputting_a = a_should_be_fed_into_transposer; // false for simple WS
         start_inputting_b = b_should_be_fed_into_transposer; // false for simple WS
-        start_inputting_d = 1;
+        start_inputting_d = 1; // D is the preload path from spad
 
         // TODO: check for completion of the single PRELOAD row-beats
         // if (about_to_fire_all_rows) {
