@@ -6,7 +6,15 @@ Focused ExCtrl command/completion handshake test.
 
 cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl
-./build/smesh/tb_ex_ctrl -trace 'Driver/ex_ctrl_view'
+
+- Queue/testbench view
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view
+- FSM condition inputs
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_state_view
+- Completion pending state
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
+- You can combine them:
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view';''*'/ex_ctrl_state_view
 */
 
 #include <cascade/Cascade.hpp>
@@ -137,9 +145,6 @@ int main(int argc, char* argv[]) {
 
   smesh::ExCtrl ctrl("ExCtrl");
   ExCtrlDriver driver("Driver");
-  descore::setTrace("*", "ex_ctrl_view"); // enable TraceKey explicitly
-  descore::setTrace("*", "ex_ctrl_completion_view");
-  descore::setTrace("*", "ex_ctrl_state_view");
 
   ctrl.cmd_in << driver.cmd_out;
   driver.control_state << ctrl.control_state;
