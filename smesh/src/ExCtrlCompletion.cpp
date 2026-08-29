@@ -7,6 +7,8 @@
 
 namespace smesh {
 
+TraceKey(ex_ctrl_completion_view);
+
 ExCtrlCompletion::ExCtrlCompletion(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updatePendingView)
       .writes(pending_completed_valid);
@@ -53,6 +55,13 @@ void ExCtrlCompletion::updateCompletionView() {
 }
 
 void ExCtrlCompletion::updatePendingState() {
+  trace(ex_ctrl_completion_view,
+        "set_val0=%u set_val1=%u pending0=%u pending1=%u\n",
+        static_cast<unsigned>(pending_completed_set_val[0]),
+        static_cast<unsigned>(pending_completed_set_val[1]),
+        static_cast<unsigned>(pending_completed_valid_[0]),
+        static_cast<unsigned>(pending_completed_valid_[1]));
+
   const bool config_completion = config_val != 0;
   const bool mesh_completion   = mesh_completed_rs_tag_fire != 0;
   const bool pending_completion = !config_completion && !mesh_completion &&

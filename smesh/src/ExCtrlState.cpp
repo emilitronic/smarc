@@ -7,6 +7,8 @@
 
 namespace smesh {
 
+TraceKey(ex_ctrl_state_view);
+
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(head_val,
@@ -43,6 +45,14 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlState::update() {
+  trace(ex_ctrl_state_view,
+        "state=%u head0=%u do_config=%u matmul_in_progress=%u pending_completed_valid=%u\n",
+        static_cast<unsigned>(state_),
+        static_cast<unsigned>(head_val[0]),
+        static_cast<unsigned>(do_config),
+        static_cast<unsigned>(matmul_in_progress),
+        static_cast<unsigned>(pending_completed_valid));
+
   control_state          = static_cast<std::uint8_t>(state_);
   config_val             = 0; // FSM accepts/processes a CONFIG command this cycle
   config_rs_tag_valid    = 0;

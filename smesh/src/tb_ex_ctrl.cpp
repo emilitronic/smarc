@@ -138,6 +138,8 @@ int main(int argc, char* argv[]) {
   smesh::ExCtrl ctrl("ExCtrl");
   ExCtrlDriver driver("Driver");
   descore::setTrace("*", "ex_ctrl_view"); // enable TraceKey explicitly
+  descore::setTrace("*", "ex_ctrl_completion_view");
+  descore::setTrace("*", "ex_ctrl_state_view");
 
   ctrl.cmd_in << driver.cmd_out;
   driver.control_state << ctrl.control_state;
