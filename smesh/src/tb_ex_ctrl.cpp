@@ -26,6 +26,7 @@ Use smesh-cascade-testing skill
 #include "ExCtrl.hpp"
 #include "SmeshCommand.hpp"
 
+#include <array>
 #include <cstdio>
 
 TraceKey(ex_ctrl_view); // declare a named TraceKey (and enable it explicitly below)
@@ -81,17 +82,12 @@ class ExCtrlDriver : public Component {
   InputArray(smesh::SmeshIssue, head_bits, smesh::kExCtrlCmdWindow);
 
   void update_issue() {
-    if (Sim::state == Sim::SimResetting || sent_ || cmd_out.full()) {
+    if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size() || cmd_out.full()) {
       return;
     }
 
-    smesh::SmeshIssue issue{};
-    issue.rs_tag    = expected_rs_tag_;
-    issue.cmd.funct = static_cast<std::uint32_t>(smesh::SmeshFunct::Config); // CONFIG_EX
-    issue.cmd.rs1   = smesh::packConfigExecuteRs1(1); // a_stride=1, all other fields default
-    issue.cmd.rs2   = smesh::packConfigExecuteRs2(1); // c_stride=1, all other fields default
-    cmd_out.push(issue);
-    sent_ = true;
+    cmd_out.push(program_[next_issue_]);
+    ++next_issue_;
   }
 
   void update_completion() {
@@ -109,16 +105,25 @@ class ExCtrlDriver : public Component {
                 static_cast<unsigned>(head_val[0]), static_cast<unsigned>(head_bits[0]->rs_tag), commandName(head_val[0] != 0, head_bits[0]->cmd.funct),
                 static_cast<unsigned>(head_val[1]), static_cast<unsigned>(head_bits[1]->rs_tag), commandName(head_val[1] != 0, head_bits[1]->cmd.funct),
                 static_cast<unsigned>(head_val[2]), static_cast<unsigned>(head_bits[2]->rs_tag), commandName(head_val[2] != 0, head_bits[2]->cmd.funct));
-    if (head_val[0] != 0 && head_bits[0]->rs_tag == expected_rs_tag_ &&
-        head_bits[0]->cmd.funct == static_cast<std::uint32_t>(smesh::SmeshFunct::Config)) {
-      matched_ = true;
-      done_ = true;
+    for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
+      if (head_val[i] == 0) {
+        continue;
+      }
+      for (std::size_t j = 0; j < program_.size(); ++j) {
+        if (head_bits[i]->rs_tag == program_[j].rs_tag &&
+            head_bits[i]->cmd.funct == program_[j].cmd.funct) {
+          seen_[j] = true;
+        }
+      }
     }
+    matched_ = seen_[0] && seen_[1] && seen_[2];
+    done_ = matched_;
     ++cycle_;
   }
 
   void reset() {
-    sent_ = false;
+    next_issue_ = 0;
+    seen_ = {};
     done_ = false;
     matched_ = false;
     cycle_ = 0;
@@ -128,9 +133,24 @@ class ExCtrlDriver : public Component {
   bool matched() const { return matched_; }
 
  private:
-  static constexpr smesh::SmeshRsTag expected_rs_tag_ = 7;
+  static smesh::SmeshIssue makeIssue(smesh::SmeshRsTag tag, smesh::SmeshFunct funct,
+                                     bool tag_valid = true) {
+    smesh::SmeshIssue issue{};
+    issue.rs_tag_valid = bit(tag_valid);
+    issue.rs_tag = tag;
+    issue.cmd.funct = static_cast<std::uint32_t>(funct);
+    return issue;
+  }
+
+  const std::array<smesh::SmeshIssue, 3> program_{
+      makeIssue(7, smesh::SmeshFunct::Config),
+      makeIssue(8, smesh::SmeshFunct::Preload, false),
+      makeIssue(9, smesh::SmeshFunct::ComputeStay),
+  };
+
   int cycle_ = 0;
-  bool sent_ = false;
+  std::size_t next_issue_ = 0;
+  std::array<bool, 3> seen_{};
   bool done_ = false;
   bool matched_ = false;
 };
@@ -173,7 +193,7 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ok = driver.done() && driver.matched();
-  std::printf("[EX_CTRL] %s config_reached_cmd_queue\n", ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL] %s config_preload_compute_reached_cmd_queue\n", ok ? "PASS" : "FAIL");
   descore::flushLog(); // flush log before exiting because trace o/p is buffered
   return ok ? 0 : 1;
 }
