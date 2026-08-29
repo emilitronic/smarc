@@ -38,6 +38,9 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady)
       .writes(req_rdy, a_rdy, b_rdy, d_rdy);
 
+  UPDATE(updateTagsInProgress)
+      .writes(tags_in_progress);
+
   UPDATE(update)
       .reads(req_val, req_bits,
              a_val, a_bits,
@@ -45,8 +48,7 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
              d_val, d_bits)
       .reads(transposer_out_col_bits)
       .writes(transposer_in_row_val, transposer_in_row_bits,
-              resp_val, resp_bits)
-      .writes(tags_in_progress);
+              resp_val, resp_bits);
 }
 
 void Mesher::updateReady() {
@@ -61,6 +63,13 @@ void Mesher::updateReady() {
   a_rdy   = bit(!a_written_ || input_next_row_into_spatial_array || req_rdy != 0);
   b_rdy   = bit(!b_written_ || input_next_row_into_spatial_array || req_rdy != 0);
   d_rdy   = bit(!d_written_ || input_next_row_into_spatial_array || req_rdy != 0);
+}
+
+void Mesher::updateTagsInProgress() {
+  // TODO: expose occupied tagq entries once in-flight tag reporting is implemented.
+  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+    tags_in_progress[i] = MesherTag{};
+  }
 }
 
 void Mesher::update() {
@@ -170,10 +179,6 @@ void Mesher::update() {
   next_resp_bits.tag        = tagq_id_matches ? tagq_front_bits.tag : makeGarbageTag();
   next_resp_bits.total_rows = total_rows_id_matches ? total_rows_q_front_bits.total_rows : static_cast<std::uint32_t>(kDim);
   resp_bits = next_resp_bits;
-
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
-    tags_in_progress[i] = MesherTag{};
-  }
 
   // pop tagq when matching o/p ID appears and this is last o/p row for that tagged operation
   const bool tagq_deq_fire = resp_valid && resp_last && tagq_id_matches;

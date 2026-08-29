@@ -8,13 +8,15 @@
 namespace smesh {
 
 ExCtrlCompletion::ExCtrlCompletion(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updatePendingView)
+      .writes(pending_completed_valid);
   UPDATE(updateCompletionView)
       .reads(config_val,
              config_rs_tag_valid,
              config_rs_tag,
              mesh_completed_rs_tag_fire,
              mesh_completed_bits)
-      .writes(pending_completed_valid, completed_val, completed_bits);
+      .writes(completed_val, completed_bits);
   UPDATE(updatePendingState)
       .reads(config_val,
              config_rs_tag_valid,
@@ -23,21 +25,24 @@ ExCtrlCompletion::ExCtrlCompletion(std::string /*name*/, IMPL_CTOR) {
              pending_completed_set_bits);
 }
 
+void ExCtrlCompletion::updatePendingView() {
+  pending_completed_valid = bit(pending_completed_valid_[0] ||
+                                pending_completed_valid_[1]);
+}
+
 void ExCtrlCompletion::updateCompletionView() {
   const bool config_completion = config_val != 0;
   const bool mesh_completion   = mesh_completed_rs_tag_fire != 0;
 
-  pending_completed_valid = bit(pending_completed_valid_[0] ||
-                                pending_completed_valid_[1]);
   completed_val  = 0;
   completed_bits = 0;
 
   if (config_completion) {
     completed_val  = config_rs_tag_valid;
-    completed_bits = config_rs_tag;
+    completed_bits = *config_rs_tag;
   } else if (mesh_completion) {
     completed_val  = 1;
-    completed_bits = mesh_completed_bits;
+    completed_bits = *mesh_completed_bits;
   } else if (pending_completed_valid_[0]) {
     completed_val  = 1;
     completed_bits = pending_completed_bits_[0];

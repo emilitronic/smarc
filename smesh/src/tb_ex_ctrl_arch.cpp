@@ -34,7 +34,7 @@ class FakeRsProgram : public Component {
   }
 
   void updateCompleted() {
-    if (Sim::state == Sim::SimResetting || completed_val == 0) {
+    if (Sim::state == Sim::SimResetting || completed_val != 1) {
       return;
     }
 

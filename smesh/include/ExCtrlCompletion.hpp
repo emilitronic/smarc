@@ -33,6 +33,7 @@ class ExCtrlCompletion : public Component {
   Output(SmeshRsTag, completed_bits);   // selected execute completion tag
   Output(bit, pending_completed_valid); // any pending completion register is occupied
 
+  void updatePendingView();
   void updateCompletionView();
   void updatePendingState();
   void reset();
