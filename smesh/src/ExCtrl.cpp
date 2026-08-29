@@ -50,6 +50,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
   // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
+    cmd_queue_head_val[i]  << cmd_queue_->head_val[i];
+    cmd_queue_head_bits[i] << cmd_queue_->head_bits[i];
     cmd_decoder_->head_val[i]  << cmd_queue_->head_val[i];
     cmd_decoder_->head_bits[i] << cmd_queue_->head_bits[i];
     cmd_state_->head_val[i]    << cmd_queue_->head_val[i];
