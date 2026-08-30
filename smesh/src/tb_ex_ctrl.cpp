@@ -134,18 +134,30 @@ class ExCtrlDriver : public Component {
 
  private:
   static smesh::SmeshIssue makeIssue(smesh::SmeshRsTag tag, smesh::SmeshFunct funct,
+                                     std::uint64_t rs1 = 0, std::uint64_t rs2 = 0,
                                      bool tag_valid = true) {
     smesh::SmeshIssue issue{};
     issue.rs_tag_valid = bit(tag_valid);
     issue.rs_tag = tag;
     issue.cmd.funct = static_cast<std::uint32_t>(funct);
+    issue.cmd.rs1 = rs1;
+    issue.cmd.rs2 = rs2;
     return issue;
   }
 
+  // Use distinct 4x4 local operands so the decoder and first-row address
+  // calculations can be checked directly in the next test step.
   const std::array<smesh::SmeshIssue, 3> program_{
-      makeIssue(7, smesh::SmeshFunct::Config),
-      makeIssue(8, smesh::SmeshFunct::Preload, false),
-      makeIssue(9, smesh::SmeshFunct::ComputeStay),
+      makeIssue(7, smesh::SmeshFunct::Config,
+                smesh::packConfigExecuteRs1(1),
+                smesh::packConfigExecuteRs2(1)),
+      makeIssue(8, smesh::SmeshFunct::Preload,
+                smesh::packLocal(smesh::makeSpAddr(4), {smesh::kDim, smesh::kDim}),
+                smesh::packLocal(smesh::makeAccAddr(8), {smesh::kDim, smesh::kDim}),
+                false),
+      makeIssue(9, smesh::SmeshFunct::ComputeStay,
+                smesh::packLocal(smesh::makeSpAddr(12), {smesh::kDim, smesh::kDim}),
+                smesh::packLocal(smesh::makeSpAddr(4), {smesh::kDim, smesh::kDim})),
   };
 
   int cycle_ = 0;
