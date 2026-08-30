@@ -66,9 +66,10 @@ void Mesher::updateReady() {
 }
 
 void Mesher::updateTagsInProgress() {
-  // TODO: expose occupied tagq entries once in-flight tag reporting is implemented.
+  // Expose the raw physical tag slots so hazard logic can inspect every
+  // in-flight destination; inactive slots already contain garbage tags.
   for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
-    tags_in_progress[i] = MesherTag{};
+    tags_in_progress[i] = tagq_[i].tag;
   }
 }
 
@@ -307,7 +308,8 @@ void Mesher::reset() {
   resp_val.reset(0);
   resp_bits.reset(MesherResp{});
   for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
-    tags_in_progress[i].reset(MesherTag{});
+    // Keep the reset-time output view consistent with an empty tag queue.
+    tags_in_progress[i].reset(makeGarbageTag());
   }
 }
 
