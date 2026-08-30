@@ -54,6 +54,15 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   config_val            << cmd_state_->config_val;
   config_rs_tag_valid   << cmd_state_->config_rs_tag_valid;
   config_rs_tag         << cmd_state_->config_rs_tag;
+  rowaddr_a_address     << cmd_rowaddr_->a_address;
+  rowaddr_b_address     << cmd_rowaddr_->b_address;
+  rowaddr_d_address     << cmd_rowaddr_->d_address;
+  rowaddr_a_bank        << cmd_rowaddr_->dataAbank;
+  rowaddr_b_bank        << cmd_rowaddr_->dataBbank;
+  rowaddr_d_bank        << cmd_rowaddr_->dataDbank;
+  rowaddr_a_garbage     << cmd_rowaddr_->a_garbage;
+  rowaddr_b_garbage     << cmd_rowaddr_->b_garbage;
+  rowaddr_d_garbage     << cmd_rowaddr_->d_garbage;
   
   // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {

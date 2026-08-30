@@ -51,6 +51,15 @@ class ExCtrl : public Component {
   Output(SmeshRsTag, config_rs_tag);
   OutputArray(bit, cmd_queue_head_val, kExCtrlCmdWindow);
   OutputArray(SmeshIssue, cmd_queue_head_bits, kExCtrlCmdWindow);
+  Output(SmeshLocalAddr, rowaddr_a_address);
+  Output(SmeshLocalAddr, rowaddr_b_address);
+  Output(SmeshLocalAddr, rowaddr_d_address);
+  Output(u32, rowaddr_a_bank);
+  Output(u32, rowaddr_b_bank);
+  Output(u32, rowaddr_d_bank);
+  Output(bit, rowaddr_a_garbage);
+  Output(bit, rowaddr_b_garbage);
+  Output(bit, rowaddr_d_garbage);
 
   OutputArray(bit, spad_read_req_val, kSpBanks);
   InputArray(bit, spad_read_req_rdy, kSpBanks);

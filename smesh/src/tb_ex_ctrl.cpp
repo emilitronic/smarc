@@ -82,6 +82,15 @@ class ExCtrlDriver : public Component {
   Input(smesh::SmeshRsTag, config_rs_tag);
   InputArray(bit, head_val, smesh::kExCtrlCmdWindow);
   InputArray(smesh::SmeshIssue, head_bits, smesh::kExCtrlCmdWindow);
+  Input(smesh::SmeshLocalAddr, rowaddr_a_address);
+  Input(smesh::SmeshLocalAddr, rowaddr_b_address);
+  Input(smesh::SmeshLocalAddr, rowaddr_d_address);
+  Input(u32, rowaddr_a_bank);
+  Input(u32, rowaddr_b_bank);
+  Input(u32, rowaddr_d_bank);
+  Input(bit, rowaddr_a_garbage);
+  Input(bit, rowaddr_b_garbage);
+  Input(bit, rowaddr_d_garbage);
 
   void update_issue() {
     if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size() || cmd_out.full()) {
@@ -118,7 +127,21 @@ class ExCtrlDriver : public Component {
         }
       }
     }
-    matched_ = seen_[0] && seen_[1] && seen_[2];
+    if (!rowaddr_checked_ &&
+        *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute)) {
+      rowaddr_checked_ = true;
+      rowaddr_matched_ = rowaddr_a_address->data() == 12 &&
+                         rowaddr_b_address->data() == 4 &&
+                         rowaddr_d_address->data() == 7 &&
+                         *rowaddr_a_bank == smesh::makeSpAddr(12).sp_bank() &&
+                         *rowaddr_b_bank == smesh::makeSpAddr(4).sp_bank() &&
+                         *rowaddr_d_bank == smesh::makeSpAddr(7).sp_bank() &&
+                         rowaddr_a_garbage != 0 &&
+                         rowaddr_b_garbage != 0 &&
+                         rowaddr_d_garbage == 0;
+    }
+
+    matched_ = seen_[0] && seen_[1] && seen_[2] && rowaddr_checked_ && rowaddr_matched_;
     done_ = matched_;
     ++cycle_;
   }
@@ -126,6 +149,8 @@ class ExCtrlDriver : public Component {
   void reset() {
     next_issue_ = 0;
     seen_ = {};
+    rowaddr_checked_ = false;
+    rowaddr_matched_ = false;
     done_ = false;
     matched_ = false;
     cycle_ = 0;
@@ -165,6 +190,8 @@ class ExCtrlDriver : public Component {
   int cycle_ = 0;
   std::size_t next_issue_ = 0;
   std::array<bool, 3> seen_{};
+  bool rowaddr_checked_ = false;
+  bool rowaddr_matched_ = false;
   bool done_ = false;
   bool matched_ = false;
 };
@@ -172,7 +199,10 @@ class ExCtrlDriver : public Component {
 ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update_issue).writes(cmd_out);
   UPDATE(update_completion).reads(control_state, config_val, config_rs_tag_valid, config_rs_tag,
-                                  head_val, head_bits);
+                                  head_val, head_bits)
+                           .reads(rowaddr_a_address, rowaddr_b_address, rowaddr_d_address,
+                                  rowaddr_a_bank, rowaddr_b_bank, rowaddr_d_bank)
+                           .reads(rowaddr_a_garbage, rowaddr_b_garbage, rowaddr_d_garbage);
 }
 
 int main(int argc, char* argv[]) {
@@ -188,6 +218,15 @@ int main(int argc, char* argv[]) {
   driver.config_val << ctrl.config_val;
   driver.config_rs_tag_valid << ctrl.config_rs_tag_valid;
   driver.config_rs_tag << ctrl.config_rs_tag;
+  driver.rowaddr_a_address << ctrl.rowaddr_a_address;
+  driver.rowaddr_b_address << ctrl.rowaddr_b_address;
+  driver.rowaddr_d_address << ctrl.rowaddr_d_address;
+  driver.rowaddr_a_bank << ctrl.rowaddr_a_bank;
+  driver.rowaddr_b_bank << ctrl.rowaddr_b_bank;
+  driver.rowaddr_d_bank << ctrl.rowaddr_d_bank;
+  driver.rowaddr_a_garbage << ctrl.rowaddr_a_garbage;
+  driver.rowaddr_b_garbage << ctrl.rowaddr_b_garbage;
+  driver.rowaddr_d_garbage << ctrl.rowaddr_d_garbage;
   for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
     driver.head_val[i] << ctrl.cmd_queue_head_val[i];
     driver.head_bits[i] << ctrl.cmd_queue_head_bits[i];
@@ -207,7 +246,7 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ok = driver.done() && driver.matched();
-  std::printf("[EX_CTRL] %s config_preload_compute_reached_cmd_queue\n", ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL] %s config_preload_compute_first_row\n", ok ? "PASS" : "FAIL");
   descore::flushLog(); // flush log before exiting because trace o/p is buffered
   return ok ? 0 : 1;
 }
