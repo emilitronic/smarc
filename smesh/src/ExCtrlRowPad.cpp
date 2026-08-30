@@ -9,6 +9,8 @@
 
 namespace smesh {
 
+TraceKey(ex_ctrl_row_pad_view);
+
 namespace {
 
 std::uint32_t reverseRowOffset(std::uint32_t block_size, std::uint32_t counter) {
@@ -54,9 +56,33 @@ void ExCtrlRowPad::update() {
   b_row_is_not_all_zeros = bit(b_real);
   d_row_is_not_all_zeros = bit(d_real);
 
-  a_unpadded_cols = a_real ? static_cast<std::uint32_t>(*a_cols) : 0u;
-  b_unpadded_cols = b_real ? static_cast<std::uint32_t>(*b_cols) : 0u;
-  d_unpadded_cols = d_real ? static_cast<std::uint32_t>(*d_cols) : 0u;
+  const std::uint32_t next_a_unpadded_cols = a_real ? static_cast<std::uint32_t>(*a_cols) : 0u;
+  const std::uint32_t next_b_unpadded_cols = b_real ? static_cast<std::uint32_t>(*b_cols) : 0u;
+  const std::uint32_t next_d_unpadded_cols = d_real ? static_cast<std::uint32_t>(*d_cols) : 0u;
+  a_unpadded_cols = next_a_unpadded_cols;
+  b_unpadded_cols = next_b_unpadded_cols;
+  d_unpadded_cols = next_d_unpadded_cols;
+
+  trace(ex_ctrl_row_pad_view,
+        "counter{a=%05u b=%05u d=%05u} rows{a=%05u b=%05u d=%05u} "
+        "cols{a=%05u b=%05u d=%05u} drow=%05u "
+        "real{a=%u b=%u d=%u} unpadded{a=%05u b=%05u d=%05u}\n",
+        static_cast<unsigned>(a_counter),
+        static_cast<unsigned>(b_counter),
+        static_cast<unsigned>(d_counter),
+        static_cast<unsigned>(*a_rows),
+        static_cast<unsigned>(*b_rows),
+        static_cast<unsigned>(*d_rows),
+        static_cast<unsigned>(*a_cols),
+        static_cast<unsigned>(*b_cols),
+        static_cast<unsigned>(*d_cols),
+        static_cast<unsigned>(d_row),
+        static_cast<unsigned>(a_real),
+        static_cast<unsigned>(b_real),
+        static_cast<unsigned>(d_real),
+        static_cast<unsigned>(next_a_unpadded_cols),
+        static_cast<unsigned>(next_b_unpadded_cols),
+        static_cast<unsigned>(next_d_unpadded_cols));
 }
 
 } // namespace smesh

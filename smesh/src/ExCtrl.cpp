@@ -63,6 +63,12 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rowaddr_a_garbage     << cmd_rowaddr_->a_garbage;
   rowaddr_b_garbage     << cmd_rowaddr_->b_garbage;
   rowaddr_d_garbage     << cmd_rowaddr_->d_garbage;
+  rowpad_a_row_not_zero << cmd_rowpad_->a_row_is_not_all_zeros;
+  rowpad_b_row_not_zero << cmd_rowpad_->b_row_is_not_all_zeros;
+  rowpad_d_row_not_zero << cmd_rowpad_->d_row_is_not_all_zeros;
+  rowpad_a_unpadded_cols << cmd_rowpad_->a_unpadded_cols;
+  rowpad_b_unpadded_cols << cmd_rowpad_->b_unpadded_cols;
+  rowpad_d_unpadded_cols << cmd_rowpad_->d_unpadded_cols;
   
   // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {

@@ -60,6 +60,12 @@ class ExCtrl : public Component {
   Output(bit, rowaddr_a_garbage);
   Output(bit, rowaddr_b_garbage);
   Output(bit, rowaddr_d_garbage);
+  Output(bit, rowpad_a_row_not_zero);
+  Output(bit, rowpad_b_row_not_zero);
+  Output(bit, rowpad_d_row_not_zero);
+  Output(u32, rowpad_a_unpadded_cols);
+  Output(u32, rowpad_b_unpadded_cols);
+  Output(u32, rowpad_d_unpadded_cols);
 
   OutputArray(bit, spad_read_req_val, kSpBanks);
   InputArray(bit, spad_read_req_rdy, kSpBanks);

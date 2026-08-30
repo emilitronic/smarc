@@ -13,6 +13,8 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_state_view
 - Current A/B/D row-address calculation (ExCtrlRowAddr)
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_addr_view
+- Current A/B/D row-padding calculation (ExCtrlRowPad)
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_pad_view
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 - You can combine them:
@@ -91,6 +93,12 @@ class ExCtrlDriver : public Component {
   Input(bit, rowaddr_a_garbage);
   Input(bit, rowaddr_b_garbage);
   Input(bit, rowaddr_d_garbage);
+  Input(bit, rowpad_a_row_not_zero);
+  Input(bit, rowpad_b_row_not_zero);
+  Input(bit, rowpad_d_row_not_zero);
+  Input(u32, rowpad_a_unpadded_cols);
+  Input(u32, rowpad_b_unpadded_cols);
+  Input(u32, rowpad_d_unpadded_cols);
 
   void update_issue() {
     if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size() || cmd_out.full()) {
@@ -141,7 +149,20 @@ class ExCtrlDriver : public Component {
                          rowaddr_d_garbage == 0;
     }
 
-    matched_ = seen_[0] && seen_[1] && seen_[2] && rowaddr_checked_ && rowaddr_matched_;
+    if (!rowpad_checked_ &&
+        *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute)) {
+      rowpad_checked_ = true;
+      rowpad_matched_ = rowpad_a_row_not_zero != 0 &&
+                        rowpad_b_row_not_zero != 0 &&
+                        rowpad_d_row_not_zero != 0 &&
+                        *rowpad_a_unpadded_cols == smesh::kDim &&
+                        *rowpad_b_unpadded_cols == smesh::kDim &&
+                        *rowpad_d_unpadded_cols == smesh::kDim;
+    }
+
+    matched_ = seen_[0] && seen_[1] && seen_[2] &&
+               rowaddr_checked_ && rowaddr_matched_ &&
+               rowpad_checked_ && rowpad_matched_;
     done_ = matched_;
     ++cycle_;
   }
@@ -151,6 +172,8 @@ class ExCtrlDriver : public Component {
     seen_ = {};
     rowaddr_checked_ = false;
     rowaddr_matched_ = false;
+    rowpad_checked_ = false;
+    rowpad_matched_ = false;
     done_ = false;
     matched_ = false;
     cycle_ = 0;
@@ -192,6 +215,8 @@ class ExCtrlDriver : public Component {
   std::array<bool, 3> seen_{};
   bool rowaddr_checked_ = false;
   bool rowaddr_matched_ = false;
+  bool rowpad_checked_ = false;
+  bool rowpad_matched_ = false;
   bool done_ = false;
   bool matched_ = false;
 };
@@ -202,7 +227,10 @@ ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
                                   head_val, head_bits)
                            .reads(rowaddr_a_address, rowaddr_b_address, rowaddr_d_address,
                                   rowaddr_a_bank, rowaddr_b_bank, rowaddr_d_bank)
-                           .reads(rowaddr_a_garbage, rowaddr_b_garbage, rowaddr_d_garbage);
+                           .reads(rowaddr_a_garbage, rowaddr_b_garbage, rowaddr_d_garbage)
+                           .reads(rowpad_a_row_not_zero, rowpad_b_row_not_zero, rowpad_d_row_not_zero,
+                                  rowpad_a_unpadded_cols, rowpad_b_unpadded_cols,
+                                  rowpad_d_unpadded_cols);
 }
 
 int main(int argc, char* argv[]) {
@@ -227,6 +255,12 @@ int main(int argc, char* argv[]) {
   driver.rowaddr_a_garbage << ctrl.rowaddr_a_garbage;
   driver.rowaddr_b_garbage << ctrl.rowaddr_b_garbage;
   driver.rowaddr_d_garbage << ctrl.rowaddr_d_garbage;
+  driver.rowpad_a_row_not_zero << ctrl.rowpad_a_row_not_zero;
+  driver.rowpad_b_row_not_zero << ctrl.rowpad_b_row_not_zero;
+  driver.rowpad_d_row_not_zero << ctrl.rowpad_d_row_not_zero;
+  driver.rowpad_a_unpadded_cols << ctrl.rowpad_a_unpadded_cols;
+  driver.rowpad_b_unpadded_cols << ctrl.rowpad_b_unpadded_cols;
+  driver.rowpad_d_unpadded_cols << ctrl.rowpad_d_unpadded_cols;
   for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
     driver.head_val[i] << ctrl.cmd_queue_head_val[i];
     driver.head_bits[i] << ctrl.cmd_queue_head_bits[i];
@@ -246,7 +280,7 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ok = driver.done() && driver.matched();
-  std::printf("[EX_CTRL] %s config_preload_compute_first_row\n", ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL] %s config_preload_compute_first_row_addr_pad\n", ok ? "PASS" : "FAIL");
   descore::flushLog(); // flush log before exiting because trace o/p is buffered
   return ok ? 0 : 1;
 }
