@@ -204,7 +204,7 @@ class ExCtrlDriver : public Component {
       makeIssue(8, smesh::SmeshFunct::Preload,
                 smesh::packLocal(smesh::makeSpAddr(4), {smesh::kDim, smesh::kDim}),
                 smesh::packLocal(smesh::makeAccAddr(8), {smesh::kDim, smesh::kDim}),
-                false),
+                true),
       makeIssue(9, smesh::SmeshFunct::ComputeStay,
                 smesh::packLocal(smesh::makeSpAddr(12), {smesh::kDim, smesh::kDim}),
                 smesh::packLocal(smesh::makeSpAddr(4), {smesh::kDim, smesh::kDim})),
