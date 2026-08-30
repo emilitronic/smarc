@@ -67,7 +67,7 @@ void Mesher::updateReady() {
 
 void Mesher::updateTagsInProgress() {
   // TODO: expose occupied tagq entries once in-flight tag reporting is implemented.
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
     tags_in_progress[i] = MesherTag{};
   }
 }
@@ -154,7 +154,7 @@ void Mesher::update() {
   const auto matmul_id_of_output  = wrappingAdd(cur_matmul_id, 2, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   const auto matmul_id_of_current = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
   // tagq & total_rows_q logic (RTL relies on tagqlen sizing; the C++ model guards array writes explicitly)
-  const bool metadata_queues_have_space = cur_tagq_count < kTagQueueEntries && cur_total_rows_q_count < kTagQueueEntries;
+  const bool metadata_queues_have_space = cur_tagq_count < kMesherTagQueueEntries && cur_total_rows_q_count < kMesherTagQueueEntries;
   // when non-flush req is accepted and queues have space (store metadata in tagq and total_rows_q)
   const bool enqueue_mesh_metadata = req_fire && req_bits->flush == 0 && metadata_queues_have_space;
   // queue local front-view/peek logic
@@ -236,22 +236,22 @@ void Mesher::update() {
   if (enqueue_mesh_metadata) {
     next_tagq[cur_tagq_tail].tag = req_bits->tag;
     next_tagq[cur_tagq_tail].id  = matmul_id_of_output;
-    next_tagq_tail               = wrappingAdd(cur_tagq_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_tagq_tail               = wrappingAdd(cur_tagq_tail, 1, static_cast<std::uint8_t>(kMesherTagQueueEntries));
     next_tagq_count              = static_cast<std::uint8_t>(cur_tagq_count + 1);
 
     next_total_rows_q[cur_total_rows_q_tail].total_rows = req_bits->total_rows;
     next_total_rows_q[cur_total_rows_q_tail].id         = matmul_id_of_current;
-    next_total_rows_q_tail                              = wrappingAdd(cur_total_rows_q_tail, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_total_rows_q_tail                              = wrappingAdd(cur_total_rows_q_tail, 1, static_cast<std::uint8_t>(kMesherTagQueueEntries));
     next_total_rows_q_count                             = static_cast<std::uint8_t>(cur_total_rows_q_count + 1);
   }
   // deq tagq
   if (tagq_deq_fire) {
-    next_tagq_head  = wrappingAdd(next_tagq_head, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_tagq_head  = wrappingAdd(next_tagq_head, 1, static_cast<std::uint8_t>(kMesherTagQueueEntries));
     next_tagq_count = static_cast<std::uint8_t>(next_tagq_count - 1);
   }
   // deq total_rows_q
   if (total_rows_q_deq_fire) {
-    next_total_rows_q_head  = wrappingAdd(next_total_rows_q_head, 1, static_cast<std::uint8_t>(kTagQueueEntries));
+    next_total_rows_q_head  = wrappingAdd(next_total_rows_q_head, 1, static_cast<std::uint8_t>(kMesherTagQueueEntries));
     next_total_rows_q_count = static_cast<std::uint8_t>(next_total_rows_q_count - 1);
   }
 
@@ -299,7 +299,7 @@ void Mesher::reset() {
   transposer_in_row_bits.reset(MeshInputRow{});
   resp_val.reset(0);
   resp_bits.reset(MesherResp{});
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
     tags_in_progress[i].reset(MesherTag{});
   }
 }

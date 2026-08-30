@@ -51,7 +51,7 @@ class Mesher : public Component {
   Output(bit,        resp_val);
   Output(MesherResp, resp_bits);
 
-  OutputArray(MesherTag, tags_in_progress, kRsExecuteEntries);
+  OutputArray(MesherTag, tags_in_progress, kMesherTagQueueEntries);
 
   void updateReady();
   void updateTagsInProgress();
@@ -59,8 +59,6 @@ class Mesher : public Component {
   void reset();
 
  private:
-  static constexpr std::size_t kTagQueueEntries = kMaxSimultaneousMatmuls + 1;
-
   struct TagQEntry {
     ExCtrlMeshTag tag{};
     std::uint8_t  id = 0;
@@ -81,11 +79,11 @@ class Mesher : public Component {
   bool          d_written_       = false; // true once D input for current row-beat has been accepted
   std::uint32_t fire_counter_    = 0;     // row-beats advanced into the mesh for current request
 
-  std::array<TagQEntry, kTagQueueEntries>       tagq_{};             // tags indexed by mesh-local output id
+  std::array<TagQEntry, kMesherTagQueueEntries> tagq_{};             // tags indexed by mesh-local output id
   std::uint8_t                                  tagq_head_  = 0;
   std::uint8_t                                  tagq_tail_  = 0;
   std::uint8_t                                  tagq_count_ = 0;
-  std::array<TotalRowsQEntry, kTagQueueEntries> total_rows_q_{};     // total rows indexed by current matmul id
+  std::array<TotalRowsQEntry, kMesherTagQueueEntries> total_rows_q_{}; // total rows indexed by current matmul id
   std::uint8_t                                  total_rows_q_head_  = 0;
   std::uint8_t                                  total_rows_q_tail_  = 0;
   std::uint8_t                                  total_rows_q_count_ = 0;

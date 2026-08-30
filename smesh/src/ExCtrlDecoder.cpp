@@ -166,7 +166,7 @@ void ExCtrlDecoder::update() {
   ws_no_transpose = bit(dataflow_ws && !a_to_transposer && !b_to_transposer && !d_to_transposer);
 
   bool any_matmul_in_progress = false;
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
     any_matmul_in_progress = any_matmul_in_progress || (*tags_in_progress[i]).rs_tag_valid != 0;
   }
   matmul_in_progress = bit(any_matmul_in_progress);
@@ -190,7 +190,7 @@ void ExCtrlDecoder::update() {
   // cmd(2).rs2 - COMPUTE's rs2 is B addr to read
   bool next_raw_hazard_mulpre = false;
 
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
     const auto tag = *tags_in_progress[i];
     if (tag.addr.is_garbage() || raw_hazards_impossible) {
       continue;

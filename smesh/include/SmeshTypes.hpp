@@ -27,6 +27,7 @@ constexpr std::size_t kRsLoadEntries    = kDefaultConfig.rs_load_entries;    // 
 constexpr std::size_t kRsExecuteEntries = kDefaultConfig.rs_execute_entries; // M4v0 RS execute slots
 constexpr std::size_t kRsStoreEntries   = kDefaultConfig.rs_store_entries;   // M4v0 RS store slots
 constexpr std::size_t kMaxSimultaneousMatmuls = kDefaultConfig.max_simultaneous_matmuls;
+constexpr std::size_t kMesherTagQueueEntries  = kMaxSimultaneousMatmuls + 1;
 
 constexpr std::uint8_t kExDataflowWS = 0;
 constexpr std::uint8_t kExDataflowOS = 1;

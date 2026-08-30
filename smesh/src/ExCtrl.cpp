@@ -68,7 +68,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     tag_select_->head_val[i]   << cmd_queue_->head_val[i];
     tag_select_->head_bits[i]  << cmd_queue_->head_bits[i];
   }
-  for (std::size_t i = 0; i < kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
     cmd_decoder_->tags_in_progress[i] << mesher_->tags_in_progress[i];
   }
   cmd_state_->do_config                       << cmd_decoder_->do_config;

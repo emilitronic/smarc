@@ -34,7 +34,7 @@ class ExCtrlDecoder : public Component {
   Input(bit, bd_transpose);
   Input(bit, ex_read_from_acc);
   Input(bit, ex_write_to_spad);
-  InputArray(MesherTag, tags_in_progress, kRsExecuteEntries);
+  InputArray(MesherTag, tags_in_progress, kMesherTagQueueEntries);
 
   OutputArray(u32, functs, kExCtrlCmdWindow);
   OutputArray(u64, rs1s, kExCtrlCmdWindow);
