@@ -10,6 +10,8 @@
 
 namespace smesh {
 
+TraceKey(ex_ctrl_row_addr_view);
+
 namespace {
 
 std::uint32_t reverseRowOffset(std::uint32_t block_size, std::uint32_t counter) {
@@ -88,9 +90,34 @@ void ExCtrlRowAddr::update() {
 
   const std::uint32_t rows_a = a_is_garbage ? 1u : static_cast<std::uint32_t>(*a_rows);
   const std::uint32_t rows_b = b_is_garbage ? 1u : static_cast<std::uint32_t>(*b_rows);
-  total_rows = (ws_no_transpose != 0 && d_is_garbage)
+  const std::uint32_t next_total_rows = (ws_no_transpose != 0 && d_is_garbage)
       ? std::max(std::max(rows_a, rows_b), 4u)
       : static_cast<std::uint32_t>(*block_size);
+  total_rows = next_total_rows;
+
+  trace(ex_ctrl_row_addr_view,
+        "start{a=%u b=%u d=%u} progress{aoff=%u b=%u d=%u} "
+        "base{a=%05u b=%05u d=%05u} current{a=%05u b=%05u d=%05u} "
+        "garbage{a=%u b=%u d=%u} bank{a=%u b=%u d=%u} total=%u\n",
+        static_cast<unsigned>(start_inputting_a),
+        static_cast<unsigned>(start_inputting_b),
+        static_cast<unsigned>(start_inputting_d),
+        static_cast<unsigned>(*a_addr_offset),
+        static_cast<unsigned>(*b_fire_counter),
+        static_cast<unsigned>(*d_fire_counter),
+        static_cast<unsigned>(a_base.data()),
+        static_cast<unsigned>(b_base.data()),
+        static_cast<unsigned>(d_base.data()),
+        static_cast<unsigned>(a_current.data()),
+        static_cast<unsigned>(b_current.data()),
+        static_cast<unsigned>(d_current.data()),
+        static_cast<unsigned>(a_is_garbage),
+        static_cast<unsigned>(b_is_garbage),
+        static_cast<unsigned>(d_is_garbage),
+        static_cast<unsigned>(a_current.sp_bank()),
+        static_cast<unsigned>(b_current.sp_bank()),
+        static_cast<unsigned>(d_current.sp_bank()),
+        static_cast<unsigned>(next_total_rows));
 }
 
 } // namespace smesh

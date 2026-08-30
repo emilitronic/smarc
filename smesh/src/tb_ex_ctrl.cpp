@@ -11,6 +11,8 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view
 - FSM condition inputs
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_state_view
+- Current A/B/D row-address calculation (ExCtrlRowAddr)
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_addr_view
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 - You can combine them:
