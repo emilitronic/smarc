@@ -246,6 +246,9 @@ void Mesher::update() {
   }
   // deq tagq
   if (tagq_deq_fire) {
+    // The raw tag array is exposed as tags_in_progress, so a popped slot must
+    // stop looking like an in-flight memory destination immediately.
+    next_tagq[next_tagq_head].tag = makeGarbageTag();
     next_tagq_head  = wrappingAdd(next_tagq_head, 1, static_cast<std::uint8_t>(kMesherTagQueueEntries));
     next_tagq_count = static_cast<std::uint8_t>(next_tagq_count - 1);
   }
@@ -285,6 +288,10 @@ void Mesher::reset() {
   d_written_          = false;
   fire_counter_       = 0;
   tagq_               = {};
+  // The systolic design represents every unused physical tag slot with a garbage address.
+  for (auto& entry : tagq_) {
+    entry.tag = makeGarbageTag();
+  }
   tagq_head_          = 0;
   tagq_tail_          = 0;
   tagq_count_         = 0;
