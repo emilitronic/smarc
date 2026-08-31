@@ -59,8 +59,10 @@ void ExCtrlReadReqLogic::update() {
   bool next_b_ready = true;
   bool next_d_ready = true;
 
+  // *** SPAD READ REQUESTS ***
   // Convert the arbitrated A/B/D candidates into per-bank scratchpad reads.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    // read_a/b/d: should ExCtrl issue read request on this bank in this cycle?
     const bool read_a = a_valid != 0 && a_read_from_acc == 0 && dataAbank == bank &&
                         start_inputting_a != 0 && multiply_garbage == 0 &&
                         a_row_is_not_all_zeros != 0 && !a_uses_im2col;
@@ -70,24 +72,19 @@ void ExCtrlReadReqLogic::update() {
     const bool read_d = d_valid != 0 && d_read_from_acc == 0 && dataDbank == bank &&
                         start_inputting_d != 0 && preload_zeros == 0 &&
                         d_row_is_not_all_zeros != 0;
-
-    if (read_a && spad_read_req_rdy[bank] == 0) {
-      next_a_ready = false;
-    }
-    if (read_b && spad_read_req_rdy[bank] == 0) {
-      next_b_ready = false;
-    }
-    if (read_d && spad_read_req_rdy[bank] == 0) {
-      next_d_ready = false;
-    }
+    // backpressure into A/B/D ready: if need to read A/B/D, but bank not ready, then A/B/D not ready
+    if (read_a && spad_read_req_rdy[bank] == 0) { next_a_ready = false; }
+    if (read_b && spad_read_req_rdy[bank] == 0) { next_b_ready = false; }
+    if (read_d && spad_read_req_rdy[bank] == 0) { next_d_ready = false; }
 
     // Upstream priority logic normally makes these candidates exclusive.
-    const auto selected_addr = read_b ? b_addr : read_d ? d_addr : a_addr;
-    spad_read_req_val[bank] = bit((read_a || read_b || read_d) && cntl_rdy != 0);
-    spad_read_req_addr[bank] = selected_addr.sp_row();
+    const auto selected_addr     = read_b ? b_addr : read_d ? d_addr : a_addr;
+    spad_read_req_val[bank]      = bit((read_a || read_b || read_d) && cntl_rdy != 0);
+    spad_read_req_addr[bank]     = selected_addr.sp_row();
     spad_read_req_from_dma[bank] = 0;
   }
 
+  // *** ACCUMULATOR READ REQUESTS ***
   // Accumulator reads use the same operand conditions and bank-local address
   // selection, with the CONFIG_EX scale/activation settings attached.
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
@@ -101,15 +98,9 @@ void ExCtrlReadReqLogic::update() {
                         start_inputting_d != 0 && preload_zeros == 0 &&
                         d_row_is_not_all_zeros != 0;
 
-    if (read_a && accum_read_req_rdy[bank] == 0) {
-      next_a_ready = false;
-    }
-    if (read_b && accum_read_req_rdy[bank] == 0) {
-      next_b_ready = false;
-    }
-    if (read_d && accum_read_req_rdy[bank] == 0) {
-      next_d_ready = false;
-    }
+    if (read_a && accum_read_req_rdy[bank] == 0) { next_a_ready = false; }
+    if (read_b && accum_read_req_rdy[bank] == 0) { next_b_ready = false; }
+    if (read_d && accum_read_req_rdy[bank] == 0) { next_d_ready = false; }
 
     const auto selected_addr = read_b ? b_addr : read_d ? d_addr : a_addr;
     accum_read_req_val[bank]           = bit(read_a || read_b || read_d);
