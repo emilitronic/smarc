@@ -131,7 +131,15 @@ struct DmaWriteReq {
 struct DmaWriteResp {
   u16 cmd_id = 0;
 };
-// ifc to scratchpad memory read port
+// Bank-local scratchpad read request used at a physical bank interface. The
+// containing array port identifies the bank, so addr is only the row in it.
+struct SpadBankReadReq {
+  u32 addr = 0;
+  bit from_dma = false;
+};
+// Legacy scratchpad request carrying a complete logical local address.
+// TODO: retire this after the store path, read arbiters, and memories migrate
+// to the bank-local request interface.
 struct SpadReadReq {
   SmeshLocalAddr laddr{};
   u16 len = 0; // number of row elements being read from spad (not bytes)
@@ -147,7 +155,21 @@ struct SpadReadResp {
   u16 cmd_id = 0;
   bit from_dma = true;
 };
-// interface to accumulator memory read port
+// Bank-local accumulator read request used at a physical bank interface.
+struct AccumBankReadReq {
+  u32 addr = 0;
+  u8 act = 0;
+  u32 scale = 0;
+  u32 igelu_qb = 0;
+  u32 igelu_qc = 0;
+  u32 iexp_qln2 = 0;
+  u32 iexp_qln2_inv = 0;
+  bit full = false;
+  bit from_dma = false;
+};
+// Legacy accumulator request carrying a complete logical local address.
+// TODO: retire this after the store path, read arbiters, and memories migrate
+// to the bank-local request interface.
 struct AccumReadReq {
   SmeshLocalAddr laddr{};
   u16 len = 0; // number of row elements being read from accum (not bytes)

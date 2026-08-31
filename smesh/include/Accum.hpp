@@ -34,6 +34,9 @@ class Accum : public Component {
   InputArray(DmaReadResp, write_bits_bnk, kAccBanks);
 
   // Banked read request ports. For now Accum accepts at most one read per cycle.
+  // TODO: ready is currently advertised on every bank even though updateRead()
+  // consumes only the first valid request. Use per-bank response state, or make
+  // ready one-hot, so concurrent handshakes cannot be silently dropped.
   InputArray(bit, read_req_val_bnk, kAccBanks);
   OutputArray(bit, read_req_rdy_bnk, kAccBanks);
   InputArray(AccumReadReq, read_req_bits_bnk, kAccBanks);

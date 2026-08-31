@@ -83,6 +83,7 @@ class SmeshTop : public Component {
   auto& storeDmaWriterReqBits() { return dma_writer_->req_bits; }
 
   void update();
+  void updateExCtrlReadReqAdapters();
   void reset();
 
  private:
@@ -98,6 +99,10 @@ class SmeshTop : public Component {
   StReadCtrl*              st_read_ctrl_ = nullptr;
   std::array<ArbReadSpad*, kSpBanks> arb_read_spad_{};
   std::array<ArbReadAccum*, kAccBanks> arb_read_accum_{};
+  // TODO: remove these compatibility wires when the shared read arbiters and
+  // memories consume bank-local ExCtrl request payloads directly.
+  OutputArray(SpadReadReq, ex_spad_read_req_legacy_bits_, kSpBanks);
+  OutputArray(AccumReadReq, ex_accum_read_req_legacy_bits_, kAccBanks);
   std::array<ArbWriteSpad*, kSpBanks> arb_write_spad_{};
   std::array<ArbWriteAccum*, kAccBanks> arb_write_accum_{};
   Output(bit, write_arb_zero_val_);

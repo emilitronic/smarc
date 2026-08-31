@@ -77,6 +77,9 @@ void Spad::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Spad::updateReadReady() {
+  // TODO: updateRead() accepts only the first valid bank, so asserting ready
+  // on every bank can falsely acknowledge additional simultaneous requests.
+  // Replace the shared response slot with per-bank state, or select one ready bank.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     read_req_rdy_bnk[bank] = bit(!read_resp_valid_);
   }

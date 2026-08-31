@@ -34,6 +34,9 @@ class Spad : public Component {
   InputArray(DmaReadResp, write_bits_bnk, kSpBanks);
 
   // Banked read request ports. For now Spad accepts at most one read per cycle.
+  // TODO: ready is currently advertised on every bank even though updateRead()
+  // consumes only the first valid request. Use per-bank response state, or make
+  // ready one-hot, so concurrent handshakes cannot be silently dropped.
   InputArray(bit, read_req_val_bnk, kSpBanks);
   OutputArray(bit, read_req_rdy_bnk, kSpBanks);
   InputArray(SpadReadReq, read_req_bits_bnk, kSpBanks);

@@ -381,16 +381,16 @@ ExCtrl::~ExCtrl() {
 
 void ExCtrl::updateReadPorts() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    SpadReadReq req{};
-    req.laddr                = *rd_req_->spad_read_req_addr[bank];
+    SpadBankReadReq req{};
+    req.addr                 = rd_req_->spad_read_req_addr[bank];
     req.from_dma             = rd_req_->spad_read_req_from_dma[bank];
     spad_read_req_val[bank]  = rd_req_->spad_read_req_val[bank];
     spad_read_req_bits[bank] = req;
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    AccumReadReq req{};
-    req.laddr                 = *rd_req_->accum_read_req_addr[bank];
+    AccumBankReadReq req{};
+    req.addr                  = rd_req_->accum_read_req_addr[bank];
     req.scale                 = rd_req_->accum_read_req_scale[bank];
     req.full                  = rd_req_->accum_read_req_full[bank];
     req.act                   = rd_req_->accum_read_req_act[bank];
@@ -433,12 +433,12 @@ void ExCtrl::reset() {
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank].reset(0);
-    spad_read_req_bits[bank].reset(SpadReadReq{});
+    spad_read_req_bits[bank].reset(SpadBankReadReq{});
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_val[bank].reset(0);
-    accum_read_req_bits[bank].reset(AccumReadReq{});
+    accum_read_req_bits[bank].reset(AccumBankReadReq{});
   }
 
 }

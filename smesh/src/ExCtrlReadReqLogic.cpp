@@ -52,13 +52,13 @@ void ExCtrlReadReqLogic::update() {
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_read_req_val[bank] = 0;
-    spad_read_req_addr[bank] = SmeshLocalAddr{};
+    spad_read_req_addr[bank] = 0;
     spad_read_req_from_dma[bank] = 0;
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_val[bank] = 0;
-    accum_read_req_addr[bank] = SmeshLocalAddr{};
+    accum_read_req_addr[bank] = 0;
     accum_read_req_scale[bank] = acc_scale;
     accum_read_req_full[bank] = 0;
     accum_read_req_act[bank] = activation;

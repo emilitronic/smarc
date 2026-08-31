@@ -236,7 +236,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   }
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_read_spad_[bank]->exread_val    << ex_ctrl_->spad_read_req_val[bank];
-    arb_read_spad_[bank]->exread_bits   << ex_ctrl_->spad_read_req_bits[bank];
+    arb_read_spad_[bank]->exread_bits   << ex_spad_read_req_legacy_bits_[bank];
     ex_ctrl_->spad_read_req_rdy[bank]   << arb_read_spad_[bank]->exread_rdy;
     arb_read_spad_[bank]->dmawrite_val  << st_read_ctrl_->dmawrite_spad[bank];
     arb_read_spad_[bank]->dmawrite_bits << st_read_ctrl_->spad_req_bits[bank];
@@ -263,7 +263,7 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_read_accum_[bank]->exread_val    << ex_ctrl_->accum_read_req_val[bank];
-    arb_read_accum_[bank]->exread_bits   << ex_ctrl_->accum_read_req_bits[bank];
+    arb_read_accum_[bank]->exread_bits   << ex_accum_read_req_legacy_bits_[bank];
     ex_ctrl_->accum_read_req_rdy[bank]   << arb_read_accum_[bank]->exread_rdy;
     arb_read_accum_[bank]->dmawrite_val  << st_read_ctrl_->dmawrite_accum[bank];
     arb_read_accum_[bank]->dmawrite_bits << st_read_ctrl_->accum_req_bits[bank];
@@ -293,6 +293,13 @@ SmeshTop::SmeshTop(std::string /*name*/, IMPL_CTOR) {
 
   UPDATE(update).writes(write_arb_zero_val_,
                         write_arb_zero_bits_);
+  // Temporary boundary conversion while the older store/memory read path
+  // still carries complete SmeshLocalAddr request payloads.
+  UPDATE(updateExCtrlReadReqAdapters)
+      .reads(ex_ctrl_->spad_read_req_bits,
+             ex_ctrl_->accum_read_req_bits)
+      .writes(ex_spad_read_req_legacy_bits_,
+              ex_accum_read_req_legacy_bits_);
 }
 
 SmeshTop::~SmeshTop() {
@@ -358,11 +365,46 @@ void SmeshTop::update() {
   write_arb_zero_bits_ = DmaReadResp{};
 }
 
+void SmeshTop::updateExCtrlReadReqAdapters() {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    const auto bank_req = *ex_ctrl_->spad_read_req_bits[bank];
+    SpadReadReq legacy_req{};
+    legacy_req.laddr = makeSpAddr(
+        static_cast<std::uint32_t>(bank * kSpBankRows) +
+        (static_cast<std::uint32_t>(bank_req.addr) & kSpBankRowMask));
+    legacy_req.from_dma = bank_req.from_dma;
+    ex_spad_read_req_legacy_bits_[bank] = legacy_req;
+  }
+
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    const auto bank_req = *ex_ctrl_->accum_read_req_bits[bank];
+    AccumReadReq legacy_req{};
+    legacy_req.laddr = makeAccAddr(
+        static_cast<std::uint32_t>(bank * kAccBankRows) +
+        (static_cast<std::uint32_t>(bank_req.addr) & kAccBankRowMask));
+    legacy_req.scale = bank_req.scale;
+    legacy_req.full = bank_req.full;
+    legacy_req.act = bank_req.act;
+    legacy_req.igelu_qb = bank_req.igelu_qb;
+    legacy_req.igelu_qc = bank_req.igelu_qc;
+    legacy_req.iexp_qln2 = bank_req.iexp_qln2;
+    legacy_req.iexp_qln2_inv = bank_req.iexp_qln2_inv;
+    legacy_req.from_dma = bank_req.from_dma;
+    ex_accum_read_req_legacy_bits_[bank] = legacy_req;
+  }
+}
+
 void SmeshTop::reset() {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
   write_arb_zero_val_.reset(0);
   write_arb_zero_bits_.reset(DmaReadResp{});
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    ex_spad_read_req_legacy_bits_[bank].reset(SpadReadReq{});
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    ex_accum_read_req_legacy_bits_[bank].reset(AccumReadReq{});
+  }
   trace("smesh_top: reset");
 }
 

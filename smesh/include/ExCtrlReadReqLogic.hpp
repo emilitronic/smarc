@@ -59,10 +59,10 @@ class ExCtrlReadReqLogic : public Component {
   Output(bit, b_ready);
   Output(bit, d_ready);
   OutputArray(bit, spad_read_req_val, kSpBanks);
-  OutputArray(SmeshLocalAddr, spad_read_req_addr, kSpBanks);
+  OutputArray(u32, spad_read_req_addr, kSpBanks); // row within selected scratchpad bank
   OutputArray(bit, spad_read_req_from_dma, kSpBanks);
   OutputArray(bit, accum_read_req_val, kAccBanks);
-  OutputArray(SmeshLocalAddr, accum_read_req_addr, kAccBanks);
+  OutputArray(u32, accum_read_req_addr, kAccBanks); // row within selected accumulator bank
   OutputArray(u32, accum_read_req_scale, kAccBanks);
   OutputArray(bit, accum_read_req_full, kAccBanks);
   OutputArray(u8, accum_read_req_act, kAccBanks);
