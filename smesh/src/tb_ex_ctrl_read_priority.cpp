@@ -2,7 +2,7 @@
 // smesh/src/tb_ex_ctrl_read_priority.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 28 2026
-// Focused ExCtrlReadPriority skeleton test.
+// Focused ExCtrlReadPriority arbitration test.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
@@ -10,6 +10,128 @@
 #include "ExCtrlReadPriority.hpp"
 
 #include <cstdio>
+
+namespace {
+
+constexpr int kCaseCount = 10;
+
+struct PriorityCase {
+  const char* name = "";
+  smesh::ExCtrlOperand a{};
+  smesh::ExCtrlOperand b{};
+  smesh::ExCtrlOperand d{};
+  std::uint32_t total_rows = 4;
+  bit im2col_wire = 0;
+  bit im2col_en = 0;
+  bit expected_a_valid = 1;
+  bit expected_b_valid = 1;
+  bit expected_d_valid = 1;
+};
+
+smesh::ExCtrlOperand operand(smesh::SmeshLocalAddr addr,
+                             std::uint8_t priority,
+                             std::uint32_t counter = 0) {
+  smesh::ExCtrlOperand result{};
+  result.addr = addr;
+  result.start_inputting = 1;
+  result.counter = counter;
+  result.started = 1;
+  result.priority = priority;
+  return result;
+}
+
+PriorityCase priorityCase(int index) {
+  PriorityCase test{};
+  test.a = operand(smesh::makeSpAddr(0), 0);
+  test.b = operand(smesh::makeSpAddr(smesh::kSpBankRows), 1);
+  test.d = operand(smesh::makeSpAddr(2 * smesh::kSpBankRows), 2);
+
+  switch (index) {
+    case 0:
+      test.name = "independent banks";
+      break;
+
+    case 1:
+      test.name = "shared spad bank";
+      test.b.addr = smesh::makeSpAddr(1);
+      test.d.addr = smesh::makeSpAddr(2);
+      test.expected_b_valid = 0;
+      test.expected_d_valid = 0;
+      break;
+
+    case 2:
+      test.name = "accum contention";
+      test.a.addr = smesh::makeAccAddr(0);
+      test.b.addr = smesh::makeAccAddr(smesh::kAccBankRows);
+      test.d.addr = smesh::makeSpAddr(0);
+      test.expected_b_valid = 0;
+      break;
+
+    case 3:
+      test.name = "accum versus spad";
+      test.a.addr = smesh::makeAccAddr(0);
+      test.b.addr = smesh::makeSpAddr(0);
+      test.d.addr = smesh::makeSpAddr(smesh::kSpBankRows);
+      break;
+
+    case 4:
+      test.name = "one row ahead";
+      test.a.counter = 2;
+      test.b.counter = 1;
+      test.d.counter = 1;
+      test.expected_a_valid = 0;
+      break;
+
+    case 5:
+      test.name = "wraparound ahead";
+      test.a.counter = 0;
+      test.b.counter = 3;
+      test.d.counter = 3;
+      test.expected_a_valid = 0;
+      break;
+
+    case 6:
+      test.name = "garbage suppression";
+      test.b.addr = smesh::makeSpAddr(1);
+      test.a.is_garbage = 1;
+      break;
+
+    case 7:
+      test.name = "inactive suppression";
+      test.b.addr = smesh::makeSpAddr(1);
+      test.a.start_inputting = 0;
+      break;
+
+    case 8:
+      test.name = "im2col suppression";
+      test.b.addr = smesh::makeSpAddr(1);
+      test.a.can_be_im2colled = 1;
+      test.im2col_wire = 1;
+      test.im2col_en = 1;
+      break;
+
+    case 9:
+      test.name = "B priority over D";
+      test.a.start_inputting = 0;
+      test.b.addr = smesh::makeSpAddr(1);
+      test.d.addr = smesh::makeSpAddr(2);
+      test.expected_d_valid = 0;
+      break;
+
+    default:
+      test.name = "invalid case";
+      test.expected_a_valid = 0;
+      test.expected_b_valid = 0;
+      test.expected_d_valid = 0;
+      break;
+  }
+
+  return test;
+}
+
+TraceKey(read_priority_view);
+
+} // namespace
 
 class ReadPriorityDriver : public Component {
   DECLARE_COMPONENT(ReadPriorityDriver);
@@ -27,6 +149,9 @@ class ReadPriorityDriver : public Component {
 
   void update();
   void reset();
+
+ private:
+  int cycle_ = 0;
 };
 
 class ReadPriorityMonitor : public Component {
@@ -47,9 +172,9 @@ class ReadPriorityMonitor : public Component {
   bool passed() const { return passed_; }
 
  private:
-  bool checked_ = false;
+  int cycle_ = 0;
   bool done_ = false;
-  bool passed_ = false;
+  bool passed_ = true;
 };
 
 ReadPriorityDriver::ReadPriorityDriver(std::string /*name*/, IMPL_CTOR) {
@@ -57,30 +182,18 @@ ReadPriorityDriver::ReadPriorityDriver(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ReadPriorityDriver::update() {
-  smesh::ExCtrlOperand a{};
-  a.addr = smesh::makeSpAddr(0);
-  a.start_inputting = 1;
-  a.priority = 0;
-
-  smesh::ExCtrlOperand b{};
-  b.addr = smesh::makeSpAddr(1);
-  b.start_inputting = 1;
-  b.priority = 1;
-
-  smesh::ExCtrlOperand d{};
-  d.addr = smesh::makeSpAddr(2);
-  d.start_inputting = 1;
-  d.priority = 2;
-
-  a_operand = a;
-  b_operand = b;
-  d_operand = d;
-  total_rows = 4;
-  im2col_wire = 0;
-  im2col_en = 0;
+  const auto test = priorityCase(cycle_);
+  a_operand = test.a;
+  b_operand = test.b;
+  d_operand = test.d;
+  total_rows = test.total_rows;
+  im2col_wire = test.im2col_wire;
+  im2col_en = test.im2col_en;
+  ++cycle_;
 }
 
 void ReadPriorityDriver::reset() {
+  cycle_ = 0;
   a_operand.reset(smesh::ExCtrlOperand{});
   b_operand.reset(smesh::ExCtrlOperand{});
   d_operand.reset(smesh::ExCtrlOperand{});
@@ -94,19 +207,48 @@ ReadPriorityMonitor::ReadPriorityMonitor(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ReadPriorityMonitor::update() {
-  if (Sim::state == Sim::SimResetting || checked_) {
+  if (Sim::state == Sim::SimResetting || done_) {
     return;
   }
 
-  passed_ = a_valid == 0 && b_valid == 0 && d_valid == 0;
-  checked_ = true;
-  done_ = true;
+  const auto test = priorityCase(cycle_);
+  const bool case_passed =
+      a_valid == test.expected_a_valid &&
+      b_valid == test.expected_b_valid &&
+      d_valid == test.expected_d_valid;
+
+  s_trace(read_priority_view,
+          "case=%02d %-20s got{%u%u%u} expected{%u%u%u}\n",
+          cycle_,
+          test.name,
+          static_cast<unsigned>(a_valid != 0),
+          static_cast<unsigned>(b_valid != 0),
+          static_cast<unsigned>(d_valid != 0),
+          static_cast<unsigned>(test.expected_a_valid != 0),
+          static_cast<unsigned>(test.expected_b_valid != 0),
+          static_cast<unsigned>(test.expected_d_valid != 0));
+
+  if (!case_passed) {
+    std::printf("[EX_CTRL_READ_PRIORITY] case %d (%s) got {%u,%u,%u}, expected {%u,%u,%u}\n",
+                cycle_,
+                test.name,
+                static_cast<unsigned>(a_valid != 0),
+                static_cast<unsigned>(b_valid != 0),
+                static_cast<unsigned>(d_valid != 0),
+                static_cast<unsigned>(test.expected_a_valid != 0),
+                static_cast<unsigned>(test.expected_b_valid != 0),
+                static_cast<unsigned>(test.expected_d_valid != 0));
+    passed_ = false;
+  }
+
+  ++cycle_;
+  done_ = cycle_ == kCaseCount;
 }
 
 void ReadPriorityMonitor::reset() {
-  checked_ = false;
+  cycle_ = 0;
   done_ = false;
-  passed_ = false;
+  passed_ = true;
 }
 
 int main(int argc, char* argv[]) {
@@ -138,11 +280,12 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  for (int i = 0; i < 4 && !monitor.done(); ++i) {
+  for (int i = 0; i < kCaseCount + 4 && !monitor.done(); ++i) {
     Sim::run();
   }
 
   const bool ok = monitor.done() && monitor.passed();
-  std::printf("[EX_CTRL_READ_PRIORITY] %s skeleton\n", ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL_READ_PRIORITY] %s arbitration\n", ok ? "PASS" : "FAIL");
+  descore::flushLog();
   return ok ? 0 : 1;
 }

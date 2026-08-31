@@ -9,12 +9,8 @@ namespace smesh {
 
 ExCtrlRowFeedState::ExCtrlRowFeedState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateView)
-      .writes(a_fire_counter,
-              b_fire_counter,
-              d_fire_counter,
-              a_fire_started,
-              b_fire_started,
-              d_fire_started)
+      .writes(a_fire_counter, b_fire_counter, d_fire_counter,
+              a_fire_started, b_fire_started, d_fire_started)
       .writes(first,
               a_addr_offset,
               mul_pre_counter_sub)
