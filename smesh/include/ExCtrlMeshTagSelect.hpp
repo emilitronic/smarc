@@ -4,6 +4,9 @@
 // Sebastian Claudiusz Magierowski Aug 16 2026
 /*
 Combinational selector for the RS tag carried in mesh-control packets.
+
+If current operation is not a standalone mult and the C destination is not garbage, 
+then the RS tag is valid and should be used to generate a completion packet.
 */
 
 #pragma once
@@ -30,8 +33,8 @@ class ExCtrlMeshTagSelect : public Component {
   Input(bit,             performing_single_mul);       // single-mul packets do not carry completion tags
   Input(SmeshLocalAddr,  c_address_rs2);               // garbage C suppresses mesh completion tag
 
-  Output(bit,        mesh_rs_tag_valid); // rob_id.valid equivalent for mesh-control packet
-  Output(SmeshRsTag, mesh_rs_tag);       // rob_id.bits equivalent selected from preload_cmd_place
+  Output(bit,        mesh_rs_tag_valid); // if true, an RS completion should be generated using this tag
+  Output(SmeshRsTag, mesh_rs_tag);       // command's rs tag
 
   void update();
 };
