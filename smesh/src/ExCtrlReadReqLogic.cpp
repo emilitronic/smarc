@@ -48,19 +48,72 @@ ExCtrlReadReqLogic::ExCtrlReadReqLogic(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ExCtrlReadReqLogic::update() {
-  a_ready = 0;
-  b_ready = 0;
-  d_ready = 0;
+  const auto a_addr = *a_address;
+  const auto b_addr = *b_address;
+  const auto d_addr = *d_address;
+  const bool a_uses_im2col = im2col_wire != 0 && im2col_en != 0;
 
+  // Operands that need no memory access are ready immediately. A real read
+  // lowers the corresponding ready signal only when its selected bank stalls.
+  bool next_a_ready = true;
+  bool next_b_ready = true;
+  bool next_d_ready = true;
+
+  // Convert the arbitrated A/B/D candidates into per-bank scratchpad reads.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    spad_read_req_val[bank]      = 0;
-    spad_read_req_addr[bank]     = 0;
+    const bool read_a = a_valid != 0 && a_read_from_acc == 0 && dataAbank == bank &&
+                        start_inputting_a != 0 && multiply_garbage == 0 &&
+                        a_row_is_not_all_zeros != 0 && !a_uses_im2col;
+    const bool read_b = b_valid != 0 && b_read_from_acc == 0 && dataBbank == bank &&
+                        start_inputting_b != 0 && accumulate_zeros == 0 &&
+                        b_row_is_not_all_zeros != 0;
+    const bool read_d = d_valid != 0 && d_read_from_acc == 0 && dataDbank == bank &&
+                        start_inputting_d != 0 && preload_zeros == 0 &&
+                        d_row_is_not_all_zeros != 0;
+
+    if (read_a && spad_read_req_rdy[bank] == 0) {
+      next_a_ready = false;
+    }
+    if (read_b && spad_read_req_rdy[bank] == 0) {
+      next_b_ready = false;
+    }
+    if (read_d && spad_read_req_rdy[bank] == 0) {
+      next_d_ready = false;
+    }
+
+    // Upstream priority logic normally makes these candidates exclusive.
+    const auto selected_addr = read_b ? b_addr : read_d ? d_addr : a_addr;
+    spad_read_req_val[bank] = bit((read_a || read_b || read_d) && cntl_rdy != 0);
+    spad_read_req_addr[bank] = selected_addr.sp_row();
     spad_read_req_from_dma[bank] = 0;
   }
 
+  // Accumulator reads use the same operand conditions and bank-local address
+  // selection, with the CONFIG_EX scale/activation settings attached.
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_read_req_val[bank]           = 0;
-    accum_read_req_addr[bank]          = 0;
+    const bool read_a = a_valid != 0 && a_read_from_acc != 0 && dataABankAcc == bank &&
+                        start_inputting_a != 0 && multiply_garbage == 0 &&
+                        a_row_is_not_all_zeros != 0 && !a_uses_im2col;
+    const bool read_b = b_valid != 0 && b_read_from_acc != 0 && dataBBankAcc == bank &&
+                        start_inputting_b != 0 && accumulate_zeros == 0 &&
+                        b_row_is_not_all_zeros != 0;
+    const bool read_d = d_valid != 0 && d_read_from_acc != 0 && dataDBankAcc == bank &&
+                        start_inputting_d != 0 && preload_zeros == 0 &&
+                        d_row_is_not_all_zeros != 0;
+
+    if (read_a && accum_read_req_rdy[bank] == 0) {
+      next_a_ready = false;
+    }
+    if (read_b && accum_read_req_rdy[bank] == 0) {
+      next_b_ready = false;
+    }
+    if (read_d && accum_read_req_rdy[bank] == 0) {
+      next_d_ready = false;
+    }
+
+    const auto selected_addr = read_b ? b_addr : read_d ? d_addr : a_addr;
+    accum_read_req_val[bank]           = bit(read_a || read_b || read_d);
+    accum_read_req_addr[bank]          = selected_addr.acc_row();
     accum_read_req_scale[bank]         = acc_scale;
     accum_read_req_full[bank]          = 0;
     accum_read_req_act[bank]           = activation;
@@ -70,6 +123,10 @@ void ExCtrlReadReqLogic::update() {
     accum_read_req_iexp_qln2_inv[bank] = 0;
     accum_read_req_from_dma[bank]      = 0;
   }
+
+  a_ready = bit(next_a_ready);
+  b_ready = bit(next_b_ready);
+  d_ready = bit(next_d_ready);
 }
 
 } // namespace smesh
