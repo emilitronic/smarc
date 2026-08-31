@@ -44,7 +44,9 @@ class ExCtrlRowFeedState : public Component {
   Output(u32, preload_zero_counter); // TODO: refine when preload-zero path is implemented
   Output(bit, about_to_fire_all_rows);// final row-beat for the active operation is about to fire
 
-  void updateView();
+  void updateView();        // publishes private registered states (must not read the fire signals)
+  void updateAboutToFire(); // computes combinational status signal
+  void updateStorage();     // updates private state for next cycle when firing & fire & cntl_rdy is true
   void reset();
 
  private:
@@ -60,7 +62,7 @@ class ExCtrlRowFeedState : public Component {
   bool mul_pre_counter_lock_ = false;
   std::uint32_t preload_zero_counter_ = 0;
 
-  // TODO: use fire signals, total_rows, and a_addr_stride to update row-feed progress state.
+  // TODO: implement multiply-preload and preload-zero counter updates.
 };
 
 } // namespace smesh

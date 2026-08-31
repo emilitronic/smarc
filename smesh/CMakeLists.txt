@@ -166,6 +166,19 @@ target_link_libraries(tb_ex_ctrl_row_pad
     -lpthread
 )
 
+add_executable(tb_ex_ctrl_row_feed_state
+  src/tb_ex_ctrl_row_feed_state.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_row_feed_state
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_ex_ctrl_operand_pack
   src/tb_ex_ctrl_operand_pack.cpp
 )

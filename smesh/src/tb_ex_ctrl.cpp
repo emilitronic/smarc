@@ -17,6 +17,8 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_pad_view
 - Execute operand read-request generation (ExCtrlReadReqLogic)
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_read_req_view
+- Execute row-feed logic (ExCtrlRowFeedState)
+  ./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/ex_ctrl_row_feed_view
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 - You can combine them:
