@@ -56,21 +56,21 @@ void ExCtrlOperandPack::update() {
                           static_cast<std::uint32_t>(*a_fire_counter),
                           *a_fire_started,
                           true,
-                          0);
+                          0); // A operand has highest priority
   b_operand = packOperand(*b_address,
                           *b_address_rs2,
                           *start_inputting_b,
                           static_cast<std::uint32_t>(*b_fire_counter),
                           *b_fire_started,
                           false,
-                          1);
+                          1); // B operand has second priority
   d_operand = packOperand(*d_address,
                           *d_address_rs1,
                           *start_inputting_d,
                           static_cast<std::uint32_t>(*d_fire_counter),
                           *d_fire_started,
                           false,
-                          2);
+                          2); // D operand has lowest priority
 }
 
 } // namespace smesh

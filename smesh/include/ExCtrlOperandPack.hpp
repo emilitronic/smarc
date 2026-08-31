@@ -4,6 +4,8 @@
 // Sebastian Claudiusz Magierowski Jul 28 2026
 /*
 Combinational operand packing for ExecuteController row-feed arbitration.
+Groups per-operand signals into A/B/D operand records so shared arbitration 
+code can process them uniformly.
 */
 
 #pragma once
@@ -18,12 +20,12 @@ namespace smesh {
 
 struct ExCtrlOperand {
   SmeshLocalAddr addr{};
-  bit            is_garbage = 0;
-  bit            start_inputting = 0;
-  std::uint32_t  counter = 0;
-  bit            started = 0;
+  bit            is_garbage       = 0;
+  bit            start_inputting  = 0;
+  std::uint32_t  counter          = 0; // = a/b/d_fire_counter = row progress counter
+  bit            started          = 0; // = a/b/d_fire_started = whether A/B/D stream has begun
   bit            can_be_im2colled = 0;
-  std::uint8_t   priority = 0;
+  std::uint8_t   priority         = 0;
 };
 
 class ExCtrlOperandPack : public Component {
