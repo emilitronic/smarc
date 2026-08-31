@@ -45,6 +45,8 @@ class ReadReqLogicDriver : public Component {
   OutputArray(bit, spad_read_req_rdy, smesh::kSpBanks);
   OutputArray(bit, accum_read_req_rdy, smesh::kAccBanks);
   Output(bit, cntl_rdy);
+  Output(u32, acc_scale);
+  Output(u8, activation);
 
   void update();
   void reset();
@@ -103,7 +105,9 @@ ReadReqLogicDriver::ReadReqLogicDriver(std::string /*name*/, IMPL_CTOR) {
               dataDBankAcc)
       .writes(spad_read_req_rdy,
               accum_read_req_rdy,
-              cntl_rdy);
+              cntl_rdy,
+              acc_scale,
+              activation);
 }
 
 void ReadReqLogicDriver::update() {
@@ -132,6 +136,8 @@ void ReadReqLogicDriver::update() {
   dataBBankAcc = 0;
   dataDBankAcc = 0;
   cntl_rdy = 1;
+  acc_scale = 0;
+  activation = 0;
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad_read_req_rdy[bank] = 1;
@@ -167,6 +173,8 @@ void ReadReqLogicDriver::reset() {
   dataBBankAcc.reset(0);
   dataDBankAcc.reset(0);
   cntl_rdy.reset(0);
+  acc_scale.reset(0);
+  activation.reset(0);
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad_read_req_rdy[bank].reset(0);
@@ -240,6 +248,8 @@ int main(int argc, char* argv[]) {
   logic.dataBBankAcc << driver.dataBBankAcc;
   logic.dataDBankAcc << driver.dataDBankAcc;
   logic.cntl_rdy << driver.cntl_rdy;
+  logic.acc_scale << driver.acc_scale;
+  logic.activation << driver.activation;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     logic.spad_read_req_rdy[bank] << driver.spad_read_req_rdy[bank];
     monitor.spad_read_req_val[bank] << logic.spad_read_req_val[bank];

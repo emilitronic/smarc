@@ -54,6 +54,7 @@ class ExCtrlState : public Component {
   Output(bit, bd_transpose);        // CONFIG_EX B/D transpose register, TODO: decode when encoded
   Output(u8,  current_dataflow);    // execute dataflow register, TODO: decode when encoded
   Output(u8,  activation);          // CONFIG_EX activation register
+  Output(u32, acc_scale);           // CONFIG_EX accumulator read scaling register
   Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
   Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
   Output(u8,  shift);               // CONFIG_EX in_shift register for mesh-control packets
@@ -93,6 +94,7 @@ class ExCtrlState : public Component {
   bool in_prop_flush_          = false;
   std::uint8_t current_dataflow_ = kExDataflowWS;
   std::uint8_t activation_ = 0;
+  std::uint32_t acc_scale_ = 0;
   std::uint8_t in_shift_        = 0;
   std::uint32_t a_addr_stride_ = 1;
   std::uint32_t c_addr_stride_ = 1;
@@ -105,8 +107,8 @@ class ExCtrlState : public Component {
   // perform_mul_pre
 
   // programmed execution settings:
-  // activation
-  // acc_scale
+  // activation (done)
+  // acc_scale (done)
   // a_transpose
   // bd_transpose
   // config_initialized

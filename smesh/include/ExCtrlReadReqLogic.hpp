@@ -4,6 +4,8 @@
 // Sebastian Claudiusz Magierowski Jul 28 2026
 /*
 Combinational ExecuteController operand-read request generation.
+
+Turns A/B/D decisions into actual per-bank read requests to scratchpad or accumulator.
 */
 
 #pragma once
@@ -50,6 +52,8 @@ class ExCtrlReadReqLogic : public Component {
   InputArray(bit, spad_read_req_rdy, kSpBanks);
   InputArray(bit, accum_read_req_rdy, kAccBanks);
   Input(bit, cntl_rdy);
+  Input(u32, acc_scale);  // CONFIG_EX accumulator read scaling setting
+  Input(u8, activation);  // CONFIG_EX accumulator read activation setting
 
   Output(bit, a_ready);
   Output(bit, b_ready);

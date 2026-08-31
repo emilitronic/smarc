@@ -29,6 +29,7 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               bd_transpose,
               current_dataflow,
               activation,
+              acc_scale,
               a_addr_stride)
       .writes(c_addr_stride, shift)
       .writes(
@@ -96,6 +97,7 @@ void ExCtrlState::update() {
             // TODO check for nonlinear activations
             in_shift_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
             activation_       = static_cast<std::uint8_t>(unpackConfigExecuteActivation(rs1));
+            acc_scale_        = unpackConfigExecuteAccScale(rs1);
             a_transpose_      = unpackConfigExecuteATranspose(rs1);
             bd_transpose_     = unpackConfigExecuteBTranspose(rs1);
             current_dataflow_ = static_cast<std::uint8_t>(unpackConfigExecuteDataflow(rs1));
@@ -153,6 +155,7 @@ void ExCtrlState::update() {
   bd_transpose       = bit(bd_transpose_);
   current_dataflow   = current_dataflow_;
   activation         = activation_;
+  acc_scale          = acc_scale_;
   a_addr_stride      = a_addr_stride_;
   c_addr_stride      = c_addr_stride_;
   shift              = in_shift_;
@@ -167,6 +170,7 @@ void ExCtrlState::reset() {
   in_prop_flush_      = false;
   current_dataflow_   = kExDataflowWS;
   activation_         = 0;
+  acc_scale_          = 0;
   in_shift_           = 0;
   a_addr_stride_      = 1;
   c_addr_stride_      = 1;
@@ -176,6 +180,7 @@ void ExCtrlState::reset() {
   bd_transpose.reset(0);
   current_dataflow.reset(kExDataflowWS);
   activation.reset(0);
+  acc_scale.reset(0);
   a_addr_stride.reset(1);
   c_addr_stride.reset(1);
   shift.reset(0);

@@ -200,6 +200,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rd_req_->dataBBankAcc           << cmd_rowaddr_->dataBBankAcc;
   rd_req_->dataDBankAcc           << cmd_rowaddr_->dataDBankAcc;
   rd_req_->cntl_rdy               << cntl_rdy_;
+  rd_req_->acc_scale              << cmd_state_->acc_scale;
+  rd_req_->activation             << cmd_state_->activation;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     rd_req_->spad_read_req_rdy[bank] << spad_read_req_rdy[bank];
   }
