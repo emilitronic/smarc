@@ -7,6 +7,8 @@
 
 namespace smesh {
 
+TraceKey(ex_ctrl_read_req_view);
+
 ExCtrlReadReqLogic::ExCtrlReadReqLogic(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
       .reads(start_inputting_a, start_inputting_b, start_inputting_d,
@@ -118,6 +120,51 @@ void ExCtrlReadReqLogic::update() {
   a_ready = bit(next_a_ready);
   b_ready = bit(next_b_ready);
   d_ready = bit(next_d_ready);
+
+  unsigned spad_valid_mask  = 0; // bitmask of which spad banks are being read this cycle, e.g. 0x2 = 0010
+  unsigned accum_valid_mask = 0;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    spad_valid_mask |= static_cast<unsigned>(spad_read_req_val[bank] != 0) << bank;
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    accum_valid_mask |= static_cast<unsigned>(accum_read_req_val[bank] != 0) << bank;
+  }
+  trace(ex_ctrl_read_req_view,
+        "start{%u%u%u} allow{%u%u%u} ready{%u%u%u} sp_mask=0x%x acc_mask=0x%x cntl_rdy=%u\n",
+        static_cast<unsigned>(start_inputting_a != 0),
+        static_cast<unsigned>(start_inputting_b != 0),
+        static_cast<unsigned>(start_inputting_d != 0),
+        static_cast<unsigned>(a_valid != 0),
+        static_cast<unsigned>(b_valid != 0),
+        static_cast<unsigned>(d_valid != 0),
+        static_cast<unsigned>(next_a_ready),
+        static_cast<unsigned>(next_b_ready),
+        static_cast<unsigned>(next_d_ready),
+        spad_valid_mask,
+        accum_valid_mask,
+        static_cast<unsigned>(cntl_rdy != 0));
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    if (spad_read_req_val[bank] != 0) {
+      trace(ex_ctrl_read_req_view,
+            "  spad[%u] row=%u ready=%u from_dma=%u\n",
+            static_cast<unsigned>(bank),
+            static_cast<unsigned>(*spad_read_req_addr[bank]),
+            static_cast<unsigned>(spad_read_req_rdy[bank] != 0),
+            static_cast<unsigned>(spad_read_req_from_dma[bank] != 0));
+    }
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    if (accum_read_req_val[bank] != 0) {
+      trace(ex_ctrl_read_req_view,
+            "  accum[%u] row=%u ready=%u scale=0x%x act=%u from_dma=%u\n",
+            static_cast<unsigned>(bank),
+            static_cast<unsigned>(*accum_read_req_addr[bank]),
+            static_cast<unsigned>(accum_read_req_rdy[bank] != 0),
+            static_cast<unsigned>(*accum_read_req_scale[bank]),
+            static_cast<unsigned>(*accum_read_req_act[bank]),
+            static_cast<unsigned>(accum_read_req_from_dma[bank] != 0));
+    }
+  }
 }
 
 } // namespace smesh

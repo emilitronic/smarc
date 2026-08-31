@@ -15,6 +15,8 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_addr_view
 - Current A/B/D row-padding calculation (ExCtrlRowPad)
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_pad_view
+- Execute operand read-request generation (ExCtrlReadReqLogic)
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_read_req_view
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 - You can combine them:
@@ -99,6 +101,20 @@ class ExCtrlDriver : public Component {
   Input(u32, rowpad_a_unpadded_cols);
   Input(u32, rowpad_b_unpadded_cols);
   Input(u32, rowpad_d_unpadded_cols);
+  OutputArray(bit, spad_read_req_rdy, smesh::kSpBanks);
+  InputArray(bit, spad_read_req_val, smesh::kSpBanks);
+  InputArray(smesh::SpadBankReadReq, spad_read_req_bits, smesh::kSpBanks);
+  OutputArray(bit, accum_read_req_rdy, smesh::kAccBanks);
+  InputArray(bit, accum_read_req_val, smesh::kAccBanks);
+
+  void update_memory_ready() {
+    for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+      spad_read_req_rdy[bank] = 1;
+    }
+    for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
+      accum_read_req_rdy[bank] = 1;
+    }
+  }
 
   void update_issue() {
     if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size() || cmd_out.full()) {
@@ -160,9 +176,40 @@ class ExCtrlDriver : public Component {
                         *rowpad_d_unpadded_cols == smesh::kDim;
     }
 
+    bool any_read_request = false;
+    for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+      any_read_request |= spad_read_req_val[bank] != 0;
+    }
+    for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
+      any_read_request |= accum_read_req_val[bank] != 0;
+    }
+
+    if (!read_req_checked_ &&
+        *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute) &&
+        any_read_request) {
+      read_req_checked_ = true;
+      const auto expected = smesh::makeSpAddr(7);
+      bool expected_spad_pattern = true;
+      for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+        const bool should_be_valid = bank == expected.sp_bank();
+        expected_spad_pattern &= (spad_read_req_val[bank] != 0) == should_be_valid;
+        if (should_be_valid) {
+          expected_spad_pattern &= spad_read_req_bits[bank]->addr == expected.sp_row();
+          expected_spad_pattern &= spad_read_req_bits[bank]->from_dma == 0;
+        }
+      }
+
+      bool no_accum_request = true;
+      for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
+        no_accum_request &= accum_read_req_val[bank] == 0;
+      }
+      read_req_matched_ = expected_spad_pattern && no_accum_request;
+    }
+
     matched_ = seen_[0] && seen_[1] && seen_[2] &&
                rowaddr_checked_ && rowaddr_matched_ &&
-               rowpad_checked_ && rowpad_matched_;
+               rowpad_checked_ && rowpad_matched_ &&
+               read_req_checked_ && read_req_matched_;
     done_ = matched_;
     ++cycle_;
   }
@@ -174,6 +221,8 @@ class ExCtrlDriver : public Component {
     rowaddr_matched_ = false;
     rowpad_checked_ = false;
     rowpad_matched_ = false;
+    read_req_checked_ = false;
+    read_req_matched_ = false;
     done_ = false;
     matched_ = false;
     cycle_ = 0;
@@ -217,12 +266,15 @@ class ExCtrlDriver : public Component {
   bool rowaddr_matched_ = false;
   bool rowpad_checked_ = false;
   bool rowpad_matched_ = false;
+  bool read_req_checked_ = false;
+  bool read_req_matched_ = false;
   bool done_ = false;
   bool matched_ = false;
 };
 
 ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update_issue).writes(cmd_out);
+  UPDATE(update_memory_ready).writes(spad_read_req_rdy, accum_read_req_rdy);
   UPDATE(update_completion).reads(control_state, config_val, config_rs_tag_valid, config_rs_tag,
                                   head_val, head_bits)
                            .reads(rowaddr_a_address, rowaddr_b_address, rowaddr_d_address,
@@ -230,7 +282,9 @@ ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
                            .reads(rowaddr_a_garbage, rowaddr_b_garbage, rowaddr_d_garbage)
                            .reads(rowpad_a_row_not_zero, rowpad_b_row_not_zero, rowpad_d_row_not_zero,
                                   rowpad_a_unpadded_cols, rowpad_b_unpadded_cols,
-                                  rowpad_d_unpadded_cols);
+                                  rowpad_d_unpadded_cols)
+                           .reads(spad_read_req_val, spad_read_req_bits,
+                                  accum_read_req_val);
 }
 
 int main(int argc, char* argv[]) {
@@ -261,6 +315,15 @@ int main(int argc, char* argv[]) {
   driver.rowpad_a_unpadded_cols << ctrl.rowpad_a_unpadded_cols;
   driver.rowpad_b_unpadded_cols << ctrl.rowpad_b_unpadded_cols;
   driver.rowpad_d_unpadded_cols << ctrl.rowpad_d_unpadded_cols;
+  for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+    ctrl.spad_read_req_rdy[bank] << driver.spad_read_req_rdy[bank];
+    driver.spad_read_req_val[bank] << ctrl.spad_read_req_val[bank];
+    driver.spad_read_req_bits[bank] << ctrl.spad_read_req_bits[bank];
+  }
+  for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
+    ctrl.accum_read_req_rdy[bank] << driver.accum_read_req_rdy[bank];
+    driver.accum_read_req_val[bank] << ctrl.accum_read_req_val[bank];
+  }
   for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
     driver.head_val[i] << ctrl.cmd_queue_head_val[i];
     driver.head_bits[i] << ctrl.cmd_queue_head_bits[i];
@@ -280,7 +343,8 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ok = driver.done() && driver.matched();
-  std::printf("[EX_CTRL] %s config_preload_compute_first_row_addr_pad\n", ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL] %s config_preload_compute_first_row_addr_pad_read_req\n",
+              ok ? "PASS" : "FAIL");
   descore::flushLog(); // flush log before exiting because trace o/p is buffered
   return ok ? 0 : 1;
 }
