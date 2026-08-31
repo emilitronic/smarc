@@ -32,6 +32,9 @@ class RowFeedDriver : public Component {
 
   void update();
   void reset();
+
+ private:
+  int cycle_ = 0;
 };
 
 RowFeedDriver::RowFeedDriver(std::string /*name*/, IMPL_CTOR) {
@@ -46,10 +49,12 @@ void RowFeedDriver::update() {
   d_fire = 1;
   total_rows = 4;
   a_addr_stride = 2;
-  cntl_rdy = 1;
+  cntl_rdy = bit(cycle_ != 0); // hold the state during the first active cycle
+  ++cycle_;
 }
 
 void RowFeedDriver::reset() {
+  cycle_ = 0;
   firing.reset(0);
   a_fire.reset(0);
   b_fire.reset(0);
@@ -75,6 +80,7 @@ class RowFeedMonitor : public Component {
   Input(bit, first);
   Input(u32, a_addr_offset);
   Input(bit, about_to_fire_all_rows);
+  Input(bit, cntl_rdy);
 
   void update();
   void reset();
@@ -83,6 +89,7 @@ class RowFeedMonitor : public Component {
   bool passed() const { return passed_; }
 
  private:
+  bool saw_stall_hold_ = false;
   bool saw_first_advance_ = false;
   bool saw_final_beat_ = false;
   bool done_ = false;
@@ -93,7 +100,7 @@ RowFeedMonitor::RowFeedMonitor(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).reads(a_fire_counter, b_fire_counter, d_fire_counter,
                        a_fire_started, b_fire_started, d_fire_started,
                        first, a_addr_offset)
-                .reads(about_to_fire_all_rows);
+                .reads(about_to_fire_all_rows, cntl_rdy);
 }
 
 void RowFeedMonitor::update() {
@@ -105,8 +112,15 @@ void RowFeedMonitor::update() {
   const auto b_count = static_cast<std::uint32_t>(*b_fire_counter);
   const auto d_count = static_cast<std::uint32_t>(*d_fire_counter);
 
+  if (cntl_rdy == 0) {
+    saw_stall_hold_ = a_count == 0 && b_count == 0 && d_count == 0 &&
+                      a_fire_started == 0 && b_fire_started == 0 &&
+                      d_fire_started == 0 && *a_addr_offset == 0;
+  }
+
   if (!saw_first_advance_ && a_count == 1 && b_count == 1 && d_count == 1) {
-    saw_first_advance_ = a_fire_started != 0 && b_fire_started != 0 &&
+    saw_first_advance_ = saw_stall_hold_ &&
+                         a_fire_started != 0 && b_fire_started != 0 &&
                          d_fire_started != 0 && *a_addr_offset == 2 && first == 0;
   }
 
@@ -122,6 +136,7 @@ void RowFeedMonitor::update() {
 }
 
 void RowFeedMonitor::reset() {
+  saw_stall_hold_ = false;
   saw_first_advance_ = false;
   saw_final_beat_ = false;
   done_ = false;
@@ -154,6 +169,7 @@ int main(int argc, char* argv[]) {
   monitor.first << state.first;
   monitor.a_addr_offset << state.a_addr_offset;
   monitor.about_to_fire_all_rows << state.about_to_fire_all_rows;
+  monitor.cntl_rdy << driver.cntl_rdy;
 
   Clock clk;
   driver.clk << clk;

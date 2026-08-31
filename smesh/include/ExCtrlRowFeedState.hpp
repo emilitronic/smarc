@@ -44,23 +44,22 @@ class ExCtrlRowFeedState : public Component {
   Output(u32, preload_zero_counter); // TODO: refine when preload-zero path is implemented
   Output(bit, about_to_fire_all_rows);// final row-beat for the active operation is about to fire
 
-  void updateView();        // publishes private registered states (must not read the fire signals)
-  void updateAboutToFire(); // computes combinational status signal
-  void updateStorage();     // updates private state for next cycle when firing & fire & cntl_rdy is true
+  void updateStatus();    // computes first/final-row combinational status
+  void updateNextState(); // computes values written into the state registers
   void reset();
 
  private:
-  std::uint32_t a_fire_counter_ = 0;
-  std::uint32_t b_fire_counter_ = 0;
-  std::uint32_t d_fire_counter_ = 0;
-  bool a_fire_started_ = false;
-  bool b_fire_started_ = false;
-  bool d_fire_started_ = false;
-  std::uint32_t a_addr_offset_ = 0;
-  std::uint32_t mul_pre_counter_sub_ = 0;
-  std::uint32_t mul_pre_counter_count_ = 0;
-  bool mul_pre_counter_lock_ = false;
-  std::uint32_t preload_zero_counter_ = 0;
+  Register(u32, a_fire_counter_reg_);
+  Register(u32, b_fire_counter_reg_);
+  Register(u32, d_fire_counter_reg_);
+  Register(bit, a_fire_started_reg_);
+  Register(bit, b_fire_started_reg_);
+  Register(bit, d_fire_started_reg_);
+  Register(u32, a_addr_offset_reg_);
+  Register(u32, mul_pre_counter_sub_reg_);
+  Register(u32, mul_pre_counter_count_reg_);
+  Register(bit, mul_pre_counter_lock_reg_);
+  Register(u32, preload_zero_counter_reg_);
 
   // TODO: implement multiply-preload and preload-zero counter updates.
 };
