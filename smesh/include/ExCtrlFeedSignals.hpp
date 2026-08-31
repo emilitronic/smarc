@@ -4,6 +4,9 @@
 // Sebastian Claudiusz Magierowski Jul 29 2026
 /*
 Small derived control signals for ExecuteController row feeding.
+
+Tells ExCtrlRowFeedState which operand transfers occurred.
+The operand handshake signals (*_fire) are also stored in mesh-control packet.
 */
 
 #pragma once

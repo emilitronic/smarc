@@ -9,14 +9,9 @@ namespace smesh {
 
 ExCtrlFeedSignals::ExCtrlFeedSignals(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
-      .reads(start_inputting_a,
-             start_inputting_b,
-             start_inputting_d,
-             a_valid,
-             b_valid,
-             d_valid,
-             a_ready,
-             b_ready)
+      .reads(start_inputting_a, start_inputting_b, start_inputting_d,
+             a_valid, b_valid, d_valid,
+             a_ready, b_ready)
       .reads(d_ready)
       .writes(firing, a_fire, b_fire, d_fire);
 }
