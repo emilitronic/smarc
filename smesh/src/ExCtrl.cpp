@@ -202,6 +202,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rd_req_->cntl_rdy               << cntl_rdy_;
   rd_req_->acc_scale              << cmd_state_->acc_scale;
   rd_req_->activation             << cmd_state_->activation;
+  rd_req_->im2col_wire            << im2col_wire_;
+  rd_req_->im2col_en              << im2col_en_;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     rd_req_->spad_read_req_rdy[bank] << spad_read_req_rdy[bank];
   }

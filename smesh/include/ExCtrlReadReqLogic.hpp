@@ -54,6 +54,8 @@ class ExCtrlReadReqLogic : public Component {
   Input(bit, cntl_rdy);
   Input(u32, acc_scale);  // CONFIG_EX accumulator read scaling setting
   Input(u8, activation);  // CONFIG_EX accumulator read activation setting
+  Input(bit, im2col_wire); // im2col path can accept A instead of local-memory read
+  Input(bit, im2col_en);   // im2col is enabled by execute configuration
 
   Output(bit, a_ready);
   Output(bit, b_ready);

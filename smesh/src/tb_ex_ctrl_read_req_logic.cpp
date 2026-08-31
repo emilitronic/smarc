@@ -47,6 +47,8 @@ class ReadReqLogicDriver : public Component {
   Output(bit, cntl_rdy);
   Output(u32, acc_scale);
   Output(u8, activation);
+  Output(bit, im2col_wire);
+  Output(bit, im2col_en);
 
   void update();
   void reset();
@@ -107,7 +109,9 @@ ReadReqLogicDriver::ReadReqLogicDriver(std::string /*name*/, IMPL_CTOR) {
               accum_read_req_rdy,
               cntl_rdy,
               acc_scale,
-              activation);
+              activation,
+              im2col_wire,
+              im2col_en);
 }
 
 void ReadReqLogicDriver::update() {
@@ -138,6 +142,8 @@ void ReadReqLogicDriver::update() {
   cntl_rdy = 1;
   acc_scale = 0;
   activation = 0;
+  im2col_wire = 0;
+  im2col_en = 0;
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad_read_req_rdy[bank] = 1;
@@ -175,6 +181,8 @@ void ReadReqLogicDriver::reset() {
   cntl_rdy.reset(0);
   acc_scale.reset(0);
   activation.reset(0);
+  im2col_wire.reset(0);
+  im2col_en.reset(0);
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad_read_req_rdy[bank].reset(0);
@@ -250,6 +258,8 @@ int main(int argc, char* argv[]) {
   logic.cntl_rdy << driver.cntl_rdy;
   logic.acc_scale << driver.acc_scale;
   logic.activation << driver.activation;
+  logic.im2col_wire << driver.im2col_wire;
+  logic.im2col_en << driver.im2col_en;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     logic.spad_read_req_rdy[bank] << driver.spad_read_req_rdy[bank];
     monitor.spad_read_req_val[bank] << logic.spad_read_req_val[bank];

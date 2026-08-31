@@ -27,7 +27,9 @@ ExCtrlReadReqLogic::ExCtrlReadReqLogic(std::string /*name*/, IMPL_CTOR) {
              accum_read_req_rdy,
              cntl_rdy,
              acc_scale,
-             activation)
+             activation,
+             im2col_wire,
+             im2col_en)
       .writes(a_ready, b_ready, d_ready,
               spad_read_req_val,
               spad_read_req_addr,
@@ -51,22 +53,22 @@ void ExCtrlReadReqLogic::update() {
   d_ready = 0;
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    spad_read_req_val[bank] = 0;
-    spad_read_req_addr[bank] = 0;
+    spad_read_req_val[bank]      = 0;
+    spad_read_req_addr[bank]     = 0;
     spad_read_req_from_dma[bank] = 0;
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_read_req_val[bank] = 0;
-    accum_read_req_addr[bank] = 0;
-    accum_read_req_scale[bank] = acc_scale;
-    accum_read_req_full[bank] = 0;
-    accum_read_req_act[bank] = activation;
-    accum_read_req_igelu_qb[bank] = 0;
-    accum_read_req_igelu_qc[bank] = 0;
-    accum_read_req_iexp_qln2[bank] = 0;
+    accum_read_req_val[bank]           = 0;
+    accum_read_req_addr[bank]          = 0;
+    accum_read_req_scale[bank]         = acc_scale;
+    accum_read_req_full[bank]          = 0;
+    accum_read_req_act[bank]           = activation;
+    accum_read_req_igelu_qb[bank]      = 0;
+    accum_read_req_igelu_qc[bank]      = 0;
+    accum_read_req_iexp_qln2[bank]     = 0;
     accum_read_req_iexp_qln2_inv[bank] = 0;
-    accum_read_req_from_dma[bank] = 0;
+    accum_read_req_from_dma[bank]      = 0;
   }
 }
 
