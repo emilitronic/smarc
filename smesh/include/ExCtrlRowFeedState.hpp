@@ -22,13 +22,13 @@ class ExCtrlRowFeedState : public Component {
 
   Clock(clk);
 
-  Input(bit, firing); // any A/B/D row-feed stream is active this cycle
-  Input(bit, a_fire); // A row-beat was accepted this cycle
-  Input(bit, b_fire); // B row-beat was accepted this cycle
-  Input(bit, d_fire); // D row-beat was accepted this cycle
-  Input(u32, total_rows); // total row-beats for the active mesh request
+  Input(bit, firing);        // any A/B/D row-feed stream is active this cycle
+  Input(bit, a_fire);        // A row-beat was accepted this cycle
+  Input(bit, b_fire);        // B row-beat was accepted this cycle
+  Input(bit, d_fire);        // D row-beat was accepted this cycle
+  Input(u32, total_rows);    // total row-beats for the active mesh request
   Input(u32, a_addr_stride); // CONFIG_EX A local-address stride
-  Input(bit, cntl_rdy); // MQ can accept the matching mesh-control packet
+  Input(bit, cntl_rdy);      // MQ can accept the matching mesh-control packet
 
   Output(u32, a_fire_counter);       // number of A row-beats accepted so far
   Output(u32, b_fire_counter);       // number of B row-beats accepted so far

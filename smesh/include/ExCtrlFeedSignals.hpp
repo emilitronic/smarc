@@ -20,9 +20,9 @@ class ExCtrlFeedSignals : public Component {
 
   Clock(clk);
 
-  Input(bit, start_inputting_a);
-  Input(bit, start_inputting_b);
-  Input(bit, start_inputting_d);
+  Input(bit, start_inputting_a); // FSM indicates that A row-feed stream is active
+  Input(bit, start_inputting_b); // FSM indicates that B row-feed stream is active
+  Input(bit, start_inputting_d); // FSM indicates that D row-feed stream is active
   Input(bit, a_valid);
   Input(bit, b_valid);
   Input(bit, d_valid);

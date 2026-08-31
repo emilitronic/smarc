@@ -20,9 +20,9 @@ class ExCtrlRowPad : public Component {
 
   Clock(clk);
 
-  Input(u32, a_fire_counter);
-  Input(u32, b_fire_counter);
-  Input(u32, d_fire_counter);
+  Input(u32, a_fire_counter); // which A row beat is being input into the spatial array
+  Input(u32, b_fire_counter); // which B row beat is being input into the spatial array
+  Input(u32, d_fire_counter); // which D row beat is being input into the spatial array
   Input(u16, a_rows);
   Input(u16, b_rows);
   Input(u16, d_rows);
