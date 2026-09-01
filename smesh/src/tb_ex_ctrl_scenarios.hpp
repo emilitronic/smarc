@@ -39,10 +39,8 @@ struct ExCtrlScenario {
 };
 
 // Build one RS-like command with a tag, opcode, and packed operands.
-inline SmeshIssue makeScenarioIssue(SmeshRsTag tag,
-                                    SmeshFunct funct,
-                                    std::uint64_t rs1 = 0,
-                                    std::uint64_t rs2 = 0,
+inline SmeshIssue makeScenarioIssue(SmeshRsTag tag, SmeshFunct funct,
+                                    std::uint64_t rs1 = 0, std::uint64_t rs2 = 0,
                                     bool tag_valid = true) {
   SmeshIssue issue{};
   issue.rs_tag_valid = bit(tag_valid);
@@ -60,13 +58,13 @@ inline ExCtrlScenario makeConfigPreloadComputeScenario() {
 
   // The test deliberately uses a short, readable command sequence:
   //   1. CONFIG_EX: establish WS mode and unit address strides.
-  //   2. PRELOAD:  read weights from SPAD row 4 and target C at ACC row 8.
-  //   3. COMPUTE:  read A from SPAD row 12 and B from SPAD row 4.
+  //   2. PRELOAD:   read weights from SPAD row 4 and target C at ACC row 8.
+  //   3. COMPUTE:   read A from SPAD row 12 and B from SPAD row 4.
   // Each command has a distinct RS tag so queue movement is easy to inspect.
   scenario.program = {
-      makeScenarioIssue(7, SmeshFunct::Config,      packConfigExecuteRs1(1), packConfigExecuteRs2(1)),
+      makeScenarioIssue(7, SmeshFunct::Config,      packConfigExecuteRs1(1),                 packConfigExecuteRs2(1)),
       makeScenarioIssue(8, SmeshFunct::Preload,     packLocal(makeSpAddr(4),  {kDim, kDim}), packLocal(makeAccAddr(8), {kDim, kDim})),
-      makeScenarioIssue(9, SmeshFunct::ComputeStay, packLocal(makeSpAddr(12), {kDim, kDim}), packLocal(makeSpAddr(4), {kDim, kDim})),
+      makeScenarioIssue(9, SmeshFunct::ComputeStay, packLocal(makeSpAddr(12), {kDim, kDim}), packLocal(makeSpAddr(4),  {kDim, kDim})),
   };
 
   // The first row-address view is taken from the COMPUTE command. D is fed in

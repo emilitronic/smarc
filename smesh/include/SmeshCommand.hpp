@@ -40,13 +40,13 @@ struct LocalMatrix {
   MatrixShape shape{};
 };
 
-constexpr std::uint32_t kLocalAddrBits = 32;
+constexpr std::uint32_t kLocalAddrBits = 32; // number of bits in the local address field of rs1/rs2 operands
 constexpr std::uint64_t kLocalAddrMask = 0xffffffffull;
 
 // Note packed matrix operand form:
 // bits [31:0]   local address / row
-// bits [47:32]  cols
-// bits [63:48]  rows
+// bits [47:32]  cols (<< 32)
+// bits [63:48]  rows (<< 32+16)
 // Build encoded rs1/rs2 operanad
 // Packs row (where matrix starts locally), cols (no. of cols), rows (no. of rows) into a 64-bit value for passing in rs2 = (rows << 48) | (cols << 32) | row (local addr)
 inline std::uint64_t packLocal(std::uint32_t row, MatrixShape shape) {
@@ -99,7 +99,7 @@ inline std::uint32_t unpackConfigStateId(std::uint64_t rs1) {
 inline std::uint32_t unpackConfigLoadBlockStride(std::uint64_t rs1) {
   return static_cast<std::uint32_t>((rs1 >> kConfigLoadBlockStrideShift) & kConfigLoadBlockStrideMask);
 }
-
+// Build 64-bit rs1 operand for CONFIG_EX
 inline std::uint64_t packConfigExecuteRs1(std::uint32_t a_stride,
                                           bool a_transpose         = false,
                                           bool b_transpose         = false,
@@ -116,7 +116,7 @@ inline std::uint64_t packConfigExecuteRs1(std::uint32_t a_stride,
          (static_cast<std::uint64_t>(a_stride & 0xffffu) << kConfigExecuteAStrideShift) |
          (static_cast<std::uint64_t>(acc_scale) << kConfigExecuteAccScaleShift);
 }
-
+// Build 64-bit rs2 operand for CONFIG_EX
 inline std::uint64_t packConfigExecuteRs2(std::uint32_t c_stride,
                                           std::uint32_t in_shift    = 0,
                                           std::uint32_t relu6_shift = 0) {

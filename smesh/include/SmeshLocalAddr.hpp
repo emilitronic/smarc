@@ -127,9 +127,8 @@ struct SmeshLocalAddrAddResult {
 constexpr SmeshLocalAddr makeLocalAddr(std::uint32_t raw) {
   return SmeshLocalAddr{raw}; // store existing encoded bits in the address type
 }
-
+// makes encoded spad address from a flat row number; metadata remains zero.
 constexpr SmeshLocalAddr makeSpAddr(std::uint32_t full_sp_addr) {
-  // Make encoded SP address from a flat row number; metadata remains zero.
   return SmeshLocalAddr{full_sp_addr & kSpAddrMask};
 }
 // makes local addr with accumulator metadata
