@@ -61,7 +61,15 @@ class ExCtrlRowFeedState : public Component {
   Register(bit, mul_pre_counter_lock_reg_);
   Register(u32, preload_zero_counter_reg_);
 
-  // TODO: implement multiply-preload and preload-zero counter updates.
+  // TODO: complete the specialized row-feed counters when their real sources exist.
+  // - mul_pre_counter_count/lock need performing_mul_pre and cntl_rdy; capture
+  //   d_fire_counter on the first MQ stall, then lock until mul-pre ends.
+  // - mul_pre_counter_sub needs performing_mul_pre and the im2col response's
+  //   im2col_delay flag; load 2 on a delay and count back toward zero otherwise.
+  // - preload_zero_counter needs mesh A/D data-valid signals plus the dequeued
+  //   control packet's preload_zeros and operation-mode fields. Reassess whether
+  //   that state belongs here or closer to the mesh-input/dequeue logic first.
+  // Keep these registers reset to zero until those dependencies are connected.
 };
 
 } // namespace smesh
