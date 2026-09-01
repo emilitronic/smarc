@@ -32,7 +32,7 @@ Use smesh-cascade-testing skill
 #include <descore/Parameter.hpp>
 
 #include "ExCtrl.hpp"
-#include "SmeshCommand.hpp"
+#include "tb_ex_ctrl_scenarios.hpp" // ExCtrl test scenarios
 
 #include <array>
 #include <cstdio>
@@ -72,6 +72,8 @@ const char* stateName(std::uint8_t state) {
 }
 
 } // namespace
+
+const auto kScenario = smesh::tb::makeConfigPreloadComputeScenario();
 
 class ExCtrlDriver : public Component {
   DECLARE_COMPONENT(ExCtrlDriver);
@@ -119,11 +121,11 @@ class ExCtrlDriver : public Component {
   }
 
   void update_issue() {
-    if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size() || cmd_out.full()) {
+    if (Sim::state == Sim::SimResetting || next_issue_ >= kScenario.program.size() || cmd_out.full()) {
       return;
     }
 
-    cmd_out.push(program_[next_issue_]);
+    cmd_out.push(kScenario.program[next_issue_]);
     ++next_issue_;
   }
 
@@ -146,9 +148,9 @@ class ExCtrlDriver : public Component {
       if (head_val[i] == 0) {
         continue;
       }
-      for (std::size_t j = 0; j < program_.size(); ++j) {
-        if (head_bits[i]->rs_tag == program_[j].rs_tag &&
-            head_bits[i]->cmd.funct == program_[j].cmd.funct) {
+      for (std::size_t j = 0; j < kScenario.program.size(); ++j) {
+        if (head_bits[i]->rs_tag == kScenario.program[j].rs_tag &&
+            head_bits[i]->cmd.funct == kScenario.program[j].cmd.funct) {
           seen_[j] = true;
         }
       }
@@ -156,12 +158,12 @@ class ExCtrlDriver : public Component {
     if (!rowaddr_checked_ &&
         *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute)) {
       rowaddr_checked_ = true;
-      rowaddr_matched_ = rowaddr_a_address->data() == 12 &&
-                         rowaddr_b_address->data() == 4 &&
-                         rowaddr_d_address->data() == 7 &&
-                         *rowaddr_a_bank == smesh::makeSpAddr(12).sp_bank() &&
-                         *rowaddr_b_bank == smesh::makeSpAddr(4).sp_bank() &&
-                         *rowaddr_d_bank == smesh::makeSpAddr(7).sp_bank() &&
+      rowaddr_matched_ = rowaddr_a_address->data() == kScenario.expected.rowaddr_a_address &&
+                         rowaddr_b_address->data() == kScenario.expected.rowaddr_b_address &&
+                         rowaddr_d_address->data() == kScenario.expected.rowaddr_d_address &&
+                         *rowaddr_a_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_a_address).sp_bank() &&
+                         *rowaddr_b_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_b_address).sp_bank() &&
+                         *rowaddr_d_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_d_address).sp_bank() &&
                          rowaddr_a_garbage != 0 &&
                          rowaddr_b_garbage != 0 &&
                          rowaddr_d_garbage == 0;
@@ -190,7 +192,7 @@ class ExCtrlDriver : public Component {
         *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute) &&
         any_read_request) {
       read_req_checked_ = true;
-      const auto expected = smesh::makeSpAddr(7);
+      const auto expected = smesh::makeSpAddr(kScenario.expected.first_read_address);
       bool expected_spad_pattern = true;
       for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
         const bool should_be_valid = bank == expected.sp_bank();
@@ -234,33 +236,6 @@ class ExCtrlDriver : public Component {
   bool matched() const { return matched_; }
 
  private:
-  static smesh::SmeshIssue makeIssue(smesh::SmeshRsTag tag, smesh::SmeshFunct funct,
-                                     std::uint64_t rs1 = 0, std::uint64_t rs2 = 0,
-                                     bool tag_valid = true) {
-    smesh::SmeshIssue issue{};
-    issue.rs_tag_valid = bit(tag_valid);
-    issue.rs_tag = tag;
-    issue.cmd.funct = static_cast<std::uint32_t>(funct);
-    issue.cmd.rs1 = rs1;
-    issue.cmd.rs2 = rs2;
-    return issue;
-  }
-
-  // Use distinct 4x4 local operands so the decoder and first-row address
-  // calculations can be checked directly in the next test step.
-  const std::array<smesh::SmeshIssue, 3> program_{
-      makeIssue(7, smesh::SmeshFunct::Config,
-                smesh::packConfigExecuteRs1(1),
-                smesh::packConfigExecuteRs2(1)),
-      makeIssue(8, smesh::SmeshFunct::Preload,
-                smesh::packLocal(smesh::makeSpAddr(4), {smesh::kDim, smesh::kDim}),
-                smesh::packLocal(smesh::makeAccAddr(8), {smesh::kDim, smesh::kDim}),
-                true),
-      makeIssue(9, smesh::SmeshFunct::ComputeStay,
-                smesh::packLocal(smesh::makeSpAddr(12), {smesh::kDim, smesh::kDim}),
-                smesh::packLocal(smesh::makeSpAddr(4), {smesh::kDim, smesh::kDim})),
-  };
-
   int cycle_ = 0;
   std::size_t next_issue_ = 0;
   std::array<bool, 3> seen_{};
