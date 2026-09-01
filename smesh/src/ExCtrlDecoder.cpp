@@ -65,10 +65,7 @@ ExCtrlDecoder::ExCtrlDecoder(std::string /*name*/, IMPL_CTOR) {
              ex_read_from_acc,
              ex_write_to_spad,
              tags_in_progress)
-      .writes(functs,
-              rs1s,
-              rs2s,
-              do_config,
+      .writes(do_config,
               do_computes,
               do_preloads,
               in_prop)
@@ -106,10 +103,6 @@ void ExCtrlDecoder::update() {
     rs1[i]   = rawRs1(issue[i]);
     rs2[i]   = rawRs2(issue[i]);
     funct[i] = functOf(issue[i]);
-    // funnel decoded values to decoder outputs
-    functs[i] = static_cast<std::uint32_t>(funct[i]);
-    rs1s[i]   = rs1[i];
-    rs2s[i]   = rs2[i];
     do_computes[i] = bit(head_val[i] != 0 && isCompute(funct[i]));
     do_preloads[i] = bit(head_val[i] != 0 && funct[i] == SmeshFunct::Preload);
   }
@@ -118,31 +111,28 @@ void ExCtrlDecoder::update() {
   in_prop   = bit(head_val[0] != 0 && funct[0] == SmeshFunct::ComputeFlip);
 
   const std::uint8_t preload_place = do_preloads[0] != 0 ? 0 : 1; // is PRELOAD in cmd(0) or cmd(1)? (cmd(2) is never PRELOAD)
+  preload_cmd_place = preload_place;  // determine place of preload command and addresses of operands
   const bool dataflow_os     = current_dataflow == kExDataflowOS;
   const bool dataflow_ws     = current_dataflow == kExDataflowWS;
   const bool a_to_transposer = dataflow_os ? a_transpose == 0 : a_transpose != 0;
   const bool b_to_transposer = dataflow_os && bd_transpose != 0;
   const bool d_to_transposer = dataflow_ws && bd_transpose != 0;
-  // a_address_place = a_place which cmd slot loads A operand, 0, 1, or 2
-  // b_address_place = b_place which cmd slot loads B operand, 0, 1, or 2
+
+  // if PRELOAD in cmd(0), A/B operands are in cmd(1), else if PRELOAD in cmd(1), A/B are in cmd(0) or cmd(2) 
   const std::uint8_t a_place = preload_place == 0 ? 1 : (a_to_transposer ? 2 : 0); // determine place of A operand in cmd queue head (depends on sensed code seq)
   const std::uint8_t b_place = preload_place == 0 ? 1 : (b_to_transposer ? 2 : 0); // determine place of B operand in cmd queue head (depends on sensed code seq)
-  // determine place of preload command and addresses of operands
-  preload_cmd_place = preload_place;
-
   const auto a_rs1 = rs1[a_place];
   const auto b_rs2 = rs2[b_place];
-  const auto d_rs1 = rs1[preload_place];
-  const auto c_rs2 = rs2[preload_place];
-
+  const auto d_rs1 = rs1[preload_place]; // PRELOAD's rs1 is D operand (weights in WS, initial accum in OS)
+  const auto c_rs2 = rs2[preload_place]; // PRELOAD's rs2 is C operand
   a_address_rs1 = addrOf(a_rs1);
   b_address_rs2 = addrOf(b_rs2);
   d_address_rs1 = addrOf(d_rs1);
   c_address_rs2 = addrOf(c_rs2);
 
-  multiply_garbage = bit(addrOf(a_rs1).is_garbage());
-  accumulate_zeros = bit(addrOf(b_rs2).is_garbage());
-  preload_zeros    = bit(addrOf(d_rs1).is_garbage());
+  multiply_garbage = bit(addrOf(a_rs1).is_garbage()); // A i/p for mult is garbage (don't gen read req)
+  accumulate_zeros = bit(addrOf(b_rs2).is_garbage()); // in WS B carries partial sum, it should start at zero
+  preload_zeros    = bit(addrOf(d_rs1).is_garbage()); // sometimes we preload zeros into array (WS) or accum (OS)
 
   const auto a_rows_default = rowsOf(a_rs1);
   const auto a_cols_default = colsOf(a_rs1);
@@ -173,8 +163,7 @@ void ExCtrlDecoder::update() {
   // **** RAW Hazard detection logic ****
   // 1) Disable condition
   // If Ex never reads from accum & never writes to spad, then RAW hazard class can't happen
-  const bool raw_hazards_impossible = ex_read_from_acc == 0 && 
-                                      ex_write_to_spad == 0;
+  const bool raw_hazards_impossible = ex_read_from_acc == 0 &&  ex_write_to_spad == 0;
   raw_hazards_are_impossible = bit(raw_hazards_impossible);
   // TODO: compute from mesh tags_in_progress addresses.
   // 2) Preload hazard detection used when cmd(0)=PRELOAD (a single preload case).

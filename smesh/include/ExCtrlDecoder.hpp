@@ -26,24 +26,20 @@ class ExCtrlDecoder : public Component {
 
   Clock(clk);
 
-  InputArray(bit, head_val, kExCtrlCmdWindow);
+  InputArray(bit,        head_val,  kExCtrlCmdWindow);
   InputArray(SmeshIssue, head_bits, kExCtrlCmdWindow);
 
-  Input(u8, current_dataflow); // from ExCtrlState FSM
-  Input(bit, a_transpose);
-  Input(bit, bd_transpose);
-  Input(bit, ex_read_from_acc);
-  Input(bit, ex_write_to_spad);
+  Input(u8,  current_dataflow); // from ExCtrlState FSM
+  Input(bit, a_transpose);      // from ExCtrlState FSM
+  Input(bit, bd_transpose);     // from ExCtrlState FSM
+  Input(bit, ex_read_from_acc); // HW config permits ExC reads from accumulator
+  Input(bit, ex_write_to_spad); // HW config permits ExC writes to spad
   InputArray(MesherTag, tags_in_progress, kMesherTagQueueEntries);
 
-  OutputArray(u32, functs, kExCtrlCmdWindow);
-  OutputArray(u64, rs1s, kExCtrlCmdWindow);
-  OutputArray(u64, rs2s, kExCtrlCmdWindow);
-
-  Output(bit, do_config);
-  OutputArray(bit, do_computes, kExCtrlCmdWindow);
-  OutputArray(bit, do_preloads, kExCtrlCmdWindow);
-  Output(bit, in_prop); // cmd(0) is COMPUTE_AND_FLIP
+  Output(bit,      do_config);                     // cmd(0) is CONFIG
+  OutputArray(bit, do_computes, kExCtrlCmdWindow); // cmd(0/1/2) is COMPUTE
+  OutputArray(bit, do_preloads, kExCtrlCmdWindow); // cmd(0/1/2) is PRELOAD
+  Output(bit,      in_prop);                       // cmd(0) is COMPUTE_AND_FLIP
 
   Output(u8, preload_cmd_place); // which cmd slot has PRELOAD, 0 or 1
 
