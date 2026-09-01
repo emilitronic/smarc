@@ -49,11 +49,12 @@ class ExCtrlWriteback : public Component {
   Output(SmeshRsTag, completed_bits);  // execute completion tag
 
   void updateView();
-  void updateState();
+  void updateNextState();
   void reset();
 
  private:
-  std::uint32_t output_counter_ = 0; // current mesh-output row counter
+  Output(u32, output_counter_q_);  // current mesh-output row counter
+  Register(u32, output_counter_d_); // counter value committed next cycle
 };
 
 } // namespace smesh

@@ -288,6 +288,11 @@ struct AccumBankWriteReq {
   u32          mask = 0;
 };
 
+// TODO: migrate the local-memory write arbiters and Spad/Accum bank write
+// ports to these bank-local payloads. Adapt load-return and future zero-write
+// sources at or before the arbiters, and keep DmaReadResp confined to the DMA
+// reader/load-return pipeline. The store path uses the banked read interface.
+
 using MesherTag = ExCtrlMeshTag;
 
 } // namespace smesh

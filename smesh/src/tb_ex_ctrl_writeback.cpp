@@ -34,7 +34,8 @@ class ExCtrlWritebackDriver : public Component {
   void reset();
 
  private:
-  std::size_t cycle_ = 0;
+  Output(u32, cycle_);
+  Register(u32, cycle_reg_);
 };
 
 class ExCtrlWritebackMonitor : public Component {
@@ -59,13 +60,17 @@ class ExCtrlWritebackMonitor : public Component {
 
  private:
   bool saw_spad_write_ = false;
+  bool saw_spad_second_row_ = false;
   bool saw_accum_write_ = false;
   bool done_ = false;
   bool passed_ = false;
 };
 
 ExCtrlWritebackDriver::ExCtrlWritebackDriver(std::string /*name*/, IMPL_CTOR) {
+  cycle_ <= cycle_reg_;
+
   UPDATE(update)
+      .reads(cycle_)
       .writes(mesh_resp_val,
               mesh_resp_bits,
               current_dataflow,
@@ -76,23 +81,25 @@ ExCtrlWritebackDriver::ExCtrlWritebackDriver(std::string /*name*/, IMPL_CTOR) {
               ex_write_to_acc)
       .writes(
               spad_write_rdy,
-              accum_write_rdy);
+              accum_write_rdy)
+      .writes(cycle_reg_);
 }
 
 void ExCtrlWritebackDriver::update() {
+  const auto cycle = static_cast<std::uint32_t>(*cycle_);
   smesh::MesherResp resp{};
   resp.tag.rs_tag_valid = 1;
   resp.tag.rs_tag = 7;
-  resp.tag.rows = 1;
+  resp.tag.rows = cycle < 2 ? 2 : 1;
   resp.tag.cols = smesh::kDim;
-  resp.tag.addr = cycle_ % 2 == 0
+  resp.tag.addr = cycle < 2
                       ? smesh::makeSpAddr(smesh::kSpBankRows + 2)
                       : smesh::makeAccAddr(smesh::kAccBankRows + 3, true);
   for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
     resp.data[lane] = static_cast<smesh::Acc>(lane + 1);
   }
-  resp.total_rows = 1;
-  resp.last = 1;
+  resp.total_rows = cycle < 2 ? 2 : 1;
+  resp.last = bit(cycle != 0);
 
   mesh_resp_val = 1;
   mesh_resp_bits = resp;
@@ -108,11 +115,11 @@ void ExCtrlWritebackDriver::update() {
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
     accum_write_rdy[bank] = 1;
   }
-  ++cycle_;
+  cycle_reg_ = cycle + 1;
 }
 
 void ExCtrlWritebackDriver::reset() {
-  cycle_ = 0;
+  cycle_reg_.reset(0);
   mesh_resp_val.reset(0);
   mesh_resp_bits.reset(smesh::MesherResp{});
   current_dataflow.reset(smesh::kExDataflowWS);
@@ -150,7 +157,12 @@ void ExCtrlWritebackMonitor::update() {
     for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
       data_matches = data_matches && write.data[lane] == static_cast<smesh::Elem>(lane + 1);
     }
-    saw_spad_write_ = write.addr == 2 && write.mask == 0xf && data_matches;
+    if (write.addr == 2) {
+      saw_spad_write_ = write.mask == 0xf && data_matches && completed_val == 0;
+    } else if (write.addr == 3) {
+      saw_spad_second_row_ = saw_spad_write_ && write.mask == 0xf && data_matches &&
+                               completed_val != 0;
+    }
   }
 
   if (accum_write_val[1] != 0) {
@@ -163,7 +175,7 @@ void ExCtrlWritebackMonitor::update() {
                        write.acc != 0 && data_matches;
   }
 
-  if (saw_spad_write_ && saw_accum_write_) {
+  if (saw_spad_write_ && saw_spad_second_row_ && saw_accum_write_) {
     passed_ = mesh_completed_rs_tag_fire != 0 && completed_val != 0;
     done_ = true;
   }
@@ -171,6 +183,7 @@ void ExCtrlWritebackMonitor::update() {
 
 void ExCtrlWritebackMonitor::reset() {
   saw_spad_write_ = false;
+  saw_spad_second_row_ = false;
   saw_accum_write_ = false;
   done_ = false;
   passed_ = false;

@@ -11,6 +11,8 @@
 
 namespace smesh {
 
+TraceKey(ex_ctrl_writeback_view);
+
 namespace {
 
 constexpr std::uint8_t kActivationRelu = 1;
@@ -53,6 +55,8 @@ MeshInputRow narrowInputRow(const MeshAccumRow& row, std::uint8_t activation) {
 } // namespace
 
 ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
+  output_counter_q_ <= output_counter_d_;
+
   UPDATE(updateView)
       .reads(mesh_resp_val,
              mesh_resp_bits,
@@ -62,6 +66,7 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
              aligned_to,
              ex_write_to_spad,
              ex_write_to_acc)
+      .reads(output_counter_q_)
       .reads(spad_write_rdy,
              accum_write_rdy)
       .writes(spad_write_val,
@@ -71,15 +76,17 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
       .writes(mesh_completed_rs_tag_fire,
               completed_val,
               completed_bits);
-  UPDATE(updateState)
-      .reads(mesh_resp_val, mesh_resp_bits);
+  UPDATE(updateNextState)
+      .reads(mesh_resp_val, mesh_resp_bits, output_counter_q_)
+      .writes(output_counter_d_);
 }
 
 void ExCtrlWriteback::updateView() {
   const auto& response              = *mesh_resp_bits;
   const auto base_address           = response.tag.addr;
   const auto total_rows             = response.total_rows;
-  const auto offset                 = output_counter_ * c_addr_stride;
+  const auto output_counter        = static_cast<std::uint32_t>(*output_counter_q_);
+  const auto offset                 = output_counter * c_addr_stride;
   const auto output_offset          = current_dataflow == kExDataflowWS
                                       ? offset
                                       : total_rows - 1u - offset;
@@ -88,8 +95,8 @@ void ExCtrlWriteback::updateView() {
   const bool is_garbage_address     = base_address.is_garbage();
   const bool response_is_tracked    = mesh_resp_val != 0 && response.tag.rs_tag_valid != 0;
   const bool write_this_row         = total_rows != 0 && (current_dataflow == kExDataflowWS
-                                      ? output_counter_ < response.tag.rows
-                                      : total_rows - 1u - output_counter_ < response.tag.rows);
+                                      ? output_counter < response.tag.rows
+                                      : total_rows - 1u - output_counter < response.tag.rows);
   const bool start_array_outputting = response_is_tracked && !is_garbage_address;
   const auto spad_write_mask        = maskForColumns(response.tag.cols, sizeof(Elem), static_cast<std::uint32_t>(*aligned_to));
   const auto accum_write_mask       = maskForColumns(response.tag.cols, sizeof(Acc), static_cast<std::uint32_t>(*aligned_to));
@@ -136,25 +143,37 @@ void ExCtrlWriteback::updateView() {
   completed_bits             = response.tag.rs_tag;
 }
 
-void ExCtrlWriteback::updateState() {
+void ExCtrlWriteback::updateNextState() {
   const bool mesh_resp_fire = mesh_resp_val != 0;
+  const auto current = static_cast<std::uint32_t>(*output_counter_q_);
+  auto next = current;
 
   if (mesh_resp_fire && mesh_resp_bits->tag.rs_tag_valid != 0) {
     const auto total_rows = mesh_resp_bits->total_rows;
     if (total_rows == 0) {
-      output_counter_ = 0;
+      next = 0;
     } else {
-      output_counter_ = (output_counter_ + 1) % total_rows;
+      next = (current + 1) % total_rows;
     }
 
     if (mesh_resp_bits->last) {
-      output_counter_ = 0;
+      next = 0;
     }
   }
+
+  output_counter_d_ = next;
+  trace(ex_ctrl_writeback_view,
+        "counter current=%u next=%u resp_val=%u tracked=%u total_rows=%u last=%u\n",
+        current,
+        next,
+        static_cast<unsigned>(mesh_resp_val != 0),
+        static_cast<unsigned>(mesh_resp_bits->tag.rs_tag_valid != 0),
+        static_cast<unsigned>(mesh_resp_bits->total_rows),
+        static_cast<unsigned>(mesh_resp_bits->last != 0));
 }
 
 void ExCtrlWriteback::reset() {
-  output_counter_ = 0;
+  output_counter_d_.reset(0);
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_write_val[bank].reset(0);
