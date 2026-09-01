@@ -125,6 +125,9 @@ void ExCtrlWriteback::updateView() {
       write.mask = accum_write_mask;
       accum_write_bits[bank] = write;
     }
+
+    assert_always(!(accum_write_val[bank] != 0 && accum_write_rdy[bank] == 0),
+                  "Execute controller write to accumulator was skipped");
   }
 
   const bool mesh_completed = response_is_tracked && response.last;
