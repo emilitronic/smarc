@@ -272,6 +272,22 @@ struct MesherResp {
   bit           last       = 0;
 };
 
+// Bank-local scratchpad write produced by ExecuteController writeback. The
+// containing array port identifies the bank, so addr is only the row in it.
+struct SpadBankWriteReq {
+  u32          addr = 0;
+  MeshInputRow data{};
+  u32          mask = 0;
+};
+
+// Bank-local accumulator write produced by ExecuteController writeback.
+struct AccumBankWriteReq {
+  u32          addr = 0;
+  MeshAccumRow data{};
+  bit          acc  = 0;
+  u32          mask = 0;
+};
+
 using MesherTag = ExCtrlMeshTag;
 
 } // namespace smesh

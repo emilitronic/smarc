@@ -83,11 +83,11 @@ class ExCtrl : public Component {
 
   OutputArray(bit, spad_write_val, kSpBanks);
   InputArray(bit, spad_write_rdy, kSpBanks);
-  OutputArray(DmaReadResp, spad_write_bits, kSpBanks);
+  OutputArray(SpadBankWriteReq, spad_write_bits, kSpBanks);
 
   OutputArray(bit, accum_write_val, kAccBanks);
   InputArray(bit, accum_write_rdy, kAccBanks);
-  OutputArray(DmaReadResp, accum_write_bits, kAccBanks);
+  OutputArray(AccumBankWriteReq, accum_write_bits, kAccBanks);
 
   void updateReadPorts();
   void updateDecoderInputs();

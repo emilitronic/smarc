@@ -3,11 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 30 2026
 /*
-Execute-controller writeback shell.
-
-This block will route mesh responses either toward scratchpad/accumulator
-writes or toward execute completion bookkeeping. For now it only establishes
-the hardware boundary and owns the output_counter state.
+Routes mesh responses to bank-local scratchpad/accumulator writes and execute
+completion bookkeeping.
 */
 
 #pragma once
@@ -41,11 +38,11 @@ class ExCtrlWriteback : public Component {
 
   InputArray(bit, spad_write_rdy, kSpBanks);    // selected spad bank can accept exwrite
   OutputArray(bit, spad_write_val, kSpBanks);   // ExC writes selected spad bank
-  OutputArray(DmaReadResp, spad_write_bits, kSpBanks);
+  OutputArray(SpadBankWriteReq, spad_write_bits, kSpBanks);
 
   InputArray(bit, accum_write_rdy, kAccBanks);  // selected accum bank can accept exwrite
   OutputArray(bit, accum_write_val, kAccBanks); // ExC writes selected accum bank
-  OutputArray(DmaReadResp, accum_write_bits, kAccBanks);
+  OutputArray(AccumBankWriteReq, accum_write_bits, kAccBanks);
 
   Output(bit, mesh_completed_rs_tag_fire); // mesh response produced a completion event
   Output(bit, completed_val);          // execute completion valid
