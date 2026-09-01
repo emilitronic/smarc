@@ -11,6 +11,7 @@ Combinational execute-controller command decoder implementation.
 #include "SmeshCommand.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 
 namespace smesh {
@@ -165,18 +166,18 @@ void ExCtrlDecoder::update() {
   // If Ex never reads from accum & never writes to spad, then RAW hazard class can't happen
   const bool raw_hazards_impossible = ex_read_from_acc == 0 &&  ex_write_to_spad == 0;
   raw_hazards_are_impossible = bit(raw_hazards_impossible);
-  // TODO: compute from mesh tags_in_progress addresses.
+
   // 2) Preload hazard detection used when cmd(0)=PRELOAD (a single preload case).
-  // Generally (not semantically as in "B vs C") compares older in-flight mesh output address against:
-  // cmd(0).rs1 - PRELOAD's read B addr may conflict with mesh's queued write addr
-  // cmd(1).rs1 - COMPUTE's read A addr may conflict with mesh's queued write addr
-  // cmd(1).rs2 - COMPUTE's read B addr may conflict with mesh's queued write addr
+  // Compare every older in-flight mesh destination against the addresses read
+  // by cmd(0)=PRELOAD and its cmd(1)=COMPUTE lookahead.
+  const std::array<SmeshLocalAddr, 3> preload_read_addresses{
+      addrOf(rs1[0]), addrOf(rs1[1]), addrOf(rs2[1])};
   bool next_raw_hazard_pre = false;
+
   // 3) Mul/Preload hazard detection used when cmd(0)=COMPUTE and cmd(1)=PRELOAD
-  // Compares older in-flight mesh output address agains:
-  // cmd(1).rs1 - PRELOAD's rs1 is B addr to read
-  // cmd(2).rs1 - COMPUTE's rs1 is A addr to read
-  // cmd(2).rs2 - COMPUTE's rs2 is B addr to read
+  // Compare against cmd(1)=PRELOAD and the optional cmd(2)=COMPUTE lookahead.
+  const std::array<SmeshLocalAddr, 3> mulpre_read_addresses{
+      addrOf(rs1[1]), addrOf(rs1[2]), addrOf(rs2[2])};
   bool next_raw_hazard_mulpre = false;
 
   for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
@@ -185,13 +186,12 @@ void ExCtrlDecoder::update() {
       continue;
     }
 
-    const bool pre_raw_haz = isSameAddress(tag.addr, addrOf(rs1[0]));
-    const bool mul_raw_haz = isSameAddress(tag.addr, addrOf(rs1[1])) || isSameAddress(tag.addr, addrOf(rs2[1]));
-    next_raw_hazard_pre = next_raw_hazard_pre || pre_raw_haz || mul_raw_haz;
-
-    const bool pre_raw_haz_mulpre = isSameAddress(tag.addr, addrOf(rs1[1]));
-    const bool mul_raw_haz_mulpre = isSameAddress(tag.addr, addrOf(rs1[2])) || isSameAddress(tag.addr, addrOf(rs2[2]));
-    next_raw_hazard_mulpre = next_raw_hazard_mulpre || pre_raw_haz_mulpre || mul_raw_haz_mulpre;
+    next_raw_hazard_pre = next_raw_hazard_pre ||
+        std::any_of(preload_read_addresses.begin(), preload_read_addresses.end(),
+                    [&tag](SmeshLocalAddr addr) { return isSameAddress(tag.addr, addr); });
+    next_raw_hazard_mulpre = next_raw_hazard_mulpre ||
+        std::any_of(mulpre_read_addresses.begin(), mulpre_read_addresses.end(),
+                    [&tag](SmeshLocalAddr addr) { return isSameAddress(tag.addr, addr); });
   }
   raw_hazard_pre    = bit(next_raw_hazard_pre);
   raw_hazard_mulpre = bit(next_raw_hazard_mulpre);

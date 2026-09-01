@@ -12,6 +12,8 @@
 
 #include <cstdio>
 
+TraceKey(ex_ctrl_decoder_hazard_view);
+
 class DecoderDriver : public Component {
   DECLARE_COMPONENT(DecoderDriver);
 
@@ -26,7 +28,7 @@ class DecoderDriver : public Component {
   Output(bit, bd_transpose);
   Output(bit, ex_read_from_acc);
   Output(bit, ex_write_to_spad);
-  OutputArray(smesh::MesherTag, tags_in_progress, smesh::kRsExecuteEntries);
+  OutputArray(smesh::MesherTag, tags_in_progress, smesh::kMesherTagQueueEntries);
 
   void update();
   void reset();
@@ -59,6 +61,7 @@ class DecoderMonitor : public Component {
   Input(u16, d_cols);
   Input(u16, c_rows);
   Input(u16, c_cols);
+  Input(bit, raw_hazards_are_impossible);
   Input(bit, third_instruction_needed);
   Input(bit, matmul_in_progress);
   Input(bit, raw_hazard_pre);
@@ -84,6 +87,21 @@ smesh::SmeshIssue makeIssue(smesh::SmeshFunct funct, std::uint64_t rs1, std::uin
   issue.cmd.rs1 = u64(rs1);
   issue.cmd.rs2 = u64(rs2);
   return issue;
+}
+
+smesh::SmeshLocalAddr makeGarbageAddr() {
+  return smesh::SmeshLocalAddr{
+      smesh::kLocalAddrIsAccMask |
+      smesh::kLocalAddrAccumulateMask |
+      smesh::kLocalAddrReadFullAccRowMask |
+      smesh::kLocalAddrGarbageMask |
+      smesh::kLocalAddrDataMask};
+}
+
+smesh::MesherTag makeGarbageTag() {
+  smesh::MesherTag tag{};
+  tag.addr = makeGarbageAddr();
+  return tag;
 }
 
 } // namespace
@@ -119,22 +137,52 @@ void DecoderDriver::update() {
   current_dataflow = smesh::kExDataflowWS;
   a_transpose = 0;
   bd_transpose = 0;
-  ex_read_from_acc = 0;
+  ex_read_from_acc = cycle_ == 0 ? bit(0) : bit(1);
   ex_write_to_spad = 0;
-  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
-    tags_in_progress[i] = smesh::MesherTag{};
+  for (std::size_t i = 0; i < smesh::kMesherTagQueueEntries; ++i) {
+    tags_in_progress[i] = makeGarbageTag();
   }
-  if (cycle_ == 1) {
+
+  if (cycle_ == 2) {
     smesh::MesherTag active{};
     active.rs_tag_valid = 1;
     active.rs_tag = 99;
+    active.addr = smesh::makeSpAddr(9);
     tags_in_progress[0] = active;
-  } else if (cycle_ == 2) {
-    ex_read_from_acc = 1;
+  } else if (cycle_ == 3) {
     smesh::MesherTag active{};
     active.rs_tag_valid = 1;
     active.rs_tag = 100;
+    active.addr = b_addr;
+    tags_in_progress[0] = active;
+  } else if (cycle_ == 4) {
+    const auto next_a_addr = smesh::makeSpAddr(12);
+    const auto next_b_addr = smesh::makeSpAddr(13);
+    head_val[2] = 1;
+    head_bits[2] = makeIssue(smesh::SmeshFunct::ComputeStay,
+                             smesh::packLocal(next_a_addr, shape),
+                             smesh::packLocal(next_b_addr, shape));
+    smesh::MesherTag active{};
+    active.rs_tag_valid = 1;
+    active.rs_tag = 101;
+    active.addr = next_a_addr;
+    tags_in_progress[0] = active;
+  } else if (cycle_ == 5) {
+    smesh::MesherTag active{};
+    active.rs_tag_valid = 1;
+    active.rs_tag = 102;
     active.addr = a_addr;
+    tags_in_progress[0] = active;
+  } else if (cycle_ == 6) {
+    smesh::MesherTag active{};
+    active.rs_tag_valid = 1;
+    active.rs_tag = 103;
+    active.addr = smesh::makeAccAddr(4);
+    tags_in_progress[0] = active;
+  } else if (cycle_ == 7) {
+    auto active = makeGarbageTag();
+    active.rs_tag_valid = 1;
+    active.rs_tag = 104;
     tags_in_progress[0] = active;
   }
   ++cycle_;
@@ -151,8 +199,8 @@ void DecoderDriver::reset() {
   bd_transpose.reset(0);
   ex_read_from_acc.reset(0);
   ex_write_to_spad.reset(0);
-  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
-    tags_in_progress[i].reset(smesh::MesherTag{});
+  for (std::size_t i = 0; i < smesh::kMesherTagQueueEntries; ++i) {
+    tags_in_progress[i].reset(makeGarbageTag());
   }
 }
 
@@ -175,6 +223,7 @@ DecoderMonitor::DecoderMonitor(std::string /*name*/, IMPL_CTOR) {
              d_cols)
       .reads(c_rows,
              c_cols,
+             raw_hazards_are_impossible,
              third_instruction_needed,
              matmul_in_progress,
              raw_hazard_pre,
@@ -205,21 +254,57 @@ void DecoderMonitor::update() {
       b_rows == smesh::kDim && b_cols == smesh::kDim &&
       d_rows == smesh::kDim && d_cols == smesh::kDim &&
       c_rows == smesh::kDim && c_cols == smesh::kDim;
-  const bool hazards_ok = third_instruction_needed == 0 &&
-                          matmul_in_progress == 0;
+
+  s_trace(ex_ctrl_decoder_hazard_view,
+          "cycle=%d impossible=%u in_progress=%u pre=%u mulpre=%u\n",
+          cycle_,
+          static_cast<unsigned>(raw_hazards_are_impossible != 0),
+          static_cast<unsigned>(matmul_in_progress != 0),
+          static_cast<unsigned>(raw_hazard_pre != 0),
+          static_cast<unsigned>(raw_hazard_mulpre != 0));
 
   if (cycle_ == 0) {
-    passed_ = classes_ok && places_ok && addrs_ok && dims_ok && hazards_ok;
+    passed_ = classes_ok && places_ok && addrs_ok && dims_ok &&
+              raw_hazards_are_impossible != 0 &&
+              third_instruction_needed == 0 &&
+              matmul_in_progress == 0 &&
+              raw_hazard_pre == 0 &&
+              raw_hazard_mulpre == 0;
   } else if (cycle_ == 1) {
     passed_ = passed_ &&
-              matmul_in_progress != 0 &&
+              raw_hazards_are_impossible == 0 &&
+              third_instruction_needed != 0 &&
+              matmul_in_progress == 0 &&
               raw_hazard_pre == 0 &&
               raw_hazard_mulpre == 0;
   } else if (cycle_ == 2) {
     passed_ = passed_ &&
               matmul_in_progress != 0 &&
+              raw_hazard_pre == 0 &&
+              raw_hazard_mulpre == 0;
+  } else if (cycle_ == 3) {
+    passed_ = passed_ &&
+              matmul_in_progress != 0 &&
+              raw_hazard_pre != 0 &&
+              raw_hazard_mulpre == 0;
+  } else if (cycle_ == 4) {
+    passed_ = passed_ &&
+              matmul_in_progress != 0 &&
+              raw_hazard_pre == 0 &&
+              raw_hazard_mulpre != 0;
+  } else if (cycle_ == 5) {
+    passed_ = passed_ &&
+              matmul_in_progress != 0 &&
               raw_hazard_pre != 0 &&
               raw_hazard_mulpre != 0;
+  } else if (cycle_ == 6 || cycle_ == 7) {
+    passed_ = passed_ &&
+              matmul_in_progress != 0 &&
+              raw_hazard_pre == 0 &&
+              raw_hazard_mulpre == 0;
+  }
+
+  if (cycle_ == 7) {
     done_ = true;
   }
 
@@ -252,7 +337,7 @@ int main(int argc, char* argv[]) {
   decoder.bd_transpose << driver.bd_transpose;
   decoder.ex_read_from_acc << driver.ex_read_from_acc;
   decoder.ex_write_to_spad << driver.ex_write_to_spad;
-  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < smesh::kMesherTagQueueEntries; ++i) {
     decoder.tags_in_progress[i] << driver.tags_in_progress[i];
   }
 
@@ -271,6 +356,7 @@ int main(int argc, char* argv[]) {
   monitor.d_cols << decoder.d_cols;
   monitor.c_rows << decoder.c_rows;
   monitor.c_cols << decoder.c_cols;
+  monitor.raw_hazards_are_impossible << decoder.raw_hazards_are_impossible;
   monitor.third_instruction_needed << decoder.third_instruction_needed;
   monitor.matmul_in_progress << decoder.matmul_in_progress;
   monitor.raw_hazard_pre << decoder.raw_hazard_pre;
@@ -285,11 +371,12 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  for (int i = 0; i < 4 && !monitor.done(); ++i) {
+  for (int i = 0; i < 9 && !monitor.done(); ++i) {
     Sim::run();
   }
 
   const bool ok = monitor.done() && monitor.passed();
   std::printf("[EX_CTRL_DECODER] %s preload_compute_window\n", ok ? "PASS" : "FAIL");
+  descore::flushLog();
   return ok ? 0 : 1;
 }
