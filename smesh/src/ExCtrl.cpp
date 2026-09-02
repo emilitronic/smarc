@@ -15,7 +15,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_rowaddr_     = new ExCtrlRowAddr("ExCtrlRowAddr");
   cmd_rowpad_      = new ExCtrlRowPad("ExCtrlRowPad");
   op_pack_         = new ExCtrlOperandPack("ExCtrlOperandPack");
-  row_feed_        = new ExCtrlRowFeedState("ExCtrlRowFeedState");
+  row_feed_        = new ExCtrlRowFeedState("RowFeed");
   tag_select_      = new ExCtrlMeshTagSelect("ExCtrlMeshTagSelect");
   read_prio_       = new ExCtrlReadPriority("ExCtrlReadPriority");
   rd_req_          = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");

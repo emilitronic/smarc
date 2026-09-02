@@ -19,7 +19,7 @@ std::uint32_t wrappingIncrement(std::uint32_t value, std::uint32_t max_plus_one)
 
 } // namespace
 
-TraceKey(ex_ctrl_row_feed_view);
+TraceKey(row_feed_);
 
 ExCtrlRowFeedState::ExCtrlRowFeedState(std::string /*name*/, IMPL_CTOR) {
   // Registered outputs are driven and updated structurally
@@ -72,7 +72,7 @@ void ExCtrlRowFeedState::updateStatus() {
   first = bit(a_fire_started == 0 && b_fire_started == 0 && d_fire_started == 0);
   about_to_fire_all_rows = bit(finishing);
 
-  trace(ex_ctrl_row_feed_view,
+  trace(row_feed_,
         "fire{%u%u%u} cnt{%u,%u,%u} started{%u%u%u} offset=%u rows=%u cntl_rdy=%u last=%u\n",
         static_cast<unsigned>(a_fire != 0),
         static_cast<unsigned>(b_fire != 0),

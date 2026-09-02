@@ -9,18 +9,25 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 
 - Queue/testbench view
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view
-- FSM condition inputs
+
+- ExCtrlState: FSM condition inputs
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_state_view
-- Current A/B/D row-address calculation (ExCtrlRowAddr)
+
+- ExCtrlRowAddr: Current A/B/D row-address calculation
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_addr_view
-- Current A/B/D row-padding calculation (ExCtrlRowPad)
+
+- ExCtrlRowPad:Current A/B/D row-padding calculation
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_row_pad_view
-- Execute operand read-request generation (ExCtrlReadReqLogic)
+
+- ExCtrlReadReqLogic: Execute operand read-request generation 
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_read_req_view
-- Execute row-feed logic (ExCtrlRowFeedState)
-  ./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/ex_ctrl_row_feed_view
+
+- ExCtrlRowFeedState: Execute row-feed logic
+./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/row_feed_
+
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
+
 - You can combine them:
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view';''*'/ex_ctrl_state_view
 

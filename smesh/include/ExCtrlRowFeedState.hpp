@@ -15,7 +15,7 @@ Row-feed progress state for ExecuteController operand feeding.
 namespace smesh {
 
 class ExCtrlRowFeedState : public Component {
-  DECLARE_COMPONENT(ExCtrlRowFeedState);
+  DECLARE_COMPONENT(ExCtrlRowFeedState, RowFeed);
 
  public:
   ExCtrlRowFeedState(std::string name, COMPONENT_CTOR);
