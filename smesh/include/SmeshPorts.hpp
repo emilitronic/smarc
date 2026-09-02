@@ -243,21 +243,21 @@ struct ExCtrlMeshPeControl {
   bit propagate = 0;
   u8  shift     = 0;
 };
-// components of a mesh request: tag and address for the matmul
+// components of a mesh request: RS tag and address for the matmul
 struct ExCtrlMeshTag {
-  bit            rs_tag_valid = 0;
-  SmeshRsTag     rs_tag       = 0;
-  SmeshLocalAddr addr{};
-  std::uint32_t  rows         = 0;
-  std::uint32_t  cols         = 0;
+  bit            rs_tag_valid = 0; // whether the rs_tag is valid
+  SmeshRsTag     rs_tag       = 0; // RS tag for the matmul
+  SmeshLocalAddr addr{};           // local address for matmul result destination (incl. memory selection and metadata)
+  std::uint32_t  rows         = 0; // number of valid o/p rows in result matrix
+  std::uint32_t  cols         = 0; // number of valid o/p cols in ea. o/p row
 };
 // mesh request: low-level action command from ExCtrl to the mesh; one per matmul
 struct ExCtrlMeshReq {
-  ExCtrlMeshPeControl pe_control{};
+  ExCtrlMeshPeControl pe_control{};     // internal PE control settings
   bit                 a_transpose  = 0;
   bit                 bd_transpose = 0;
   std::uint32_t       total_rows   = 0; // number of row-beats of execution per command
-  ExCtrlMeshTag       tag{};
+  ExCtrlMeshTag       tag{};            // RS tag and address for the matmul
   u8                  flush        = 0; // flush row count/control value, up to DIM
 };
 // mesh input row payload from ExCtrl into Mesher

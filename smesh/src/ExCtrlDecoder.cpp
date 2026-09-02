@@ -170,6 +170,10 @@ void ExCtrlDecoder::update() {
   // 2) Preload hazard detection used when cmd(0)=PRELOAD (a single preload case).
   // Compare every older in-flight mesh destination against the addresses read
   // by cmd(0)=PRELOAD and its cmd(1)=COMPUTE lookahead.
+  // Those addresses are: 
+  // cmd(0).rs1 - preload destination (D)
+  // cmd(1).rs1 - compute A operand
+  // cmd(1).rs2 - compute B operand
   const std::array<SmeshLocalAddr, 3> preload_read_addresses{
       addrOf(rs1[0]), addrOf(rs1[1]), addrOf(rs2[1])};
   bool next_raw_hazard_pre = false;

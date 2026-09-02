@@ -23,7 +23,7 @@ A default example is:
   local_addr[28:26] = norm_cmd
   local_addr[25:15] = garbage
   local_addr[14]    = garbage_bit
-  local_addr[13:0]  = data
+  local_addr[13:0]  = data address bits (14 bits for SP, 10 bits for Acc)
 */
 #pragma once
 

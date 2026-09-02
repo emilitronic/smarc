@@ -52,12 +52,8 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
 }
 
 void Mesher::updateReady() {
-  const bool input_next_row_into_spatial_array =
-      req_state_valid_ &&
-      ((a_written_ && b_written_ && d_written_) || req_state_.flush > 0);
-  const bool last_fire =
-      input_next_row_into_spatial_array &&
-      fire_counter_ == req_state_.total_rows - 1;
+  const bool input_next_row_into_spatial_array = req_state_valid_ && ((a_written_ && b_written_ && d_written_) || req_state_.flush > 0);
+  const bool last_fire = input_next_row_into_spatial_array && fire_counter_ == req_state_.total_rows - 1;
 
   req_rdy = bit(!req_state_valid_ || last_fire);
   a_rdy   = bit(!a_written_ || input_next_row_into_spatial_array || req_rdy != 0);
@@ -79,7 +75,7 @@ void Mesher::update() {
   const auto cur_matmul_id          = matmul_id_;
   const auto cur_next_matmul_id     = next_matmul_id_;
   const bool cur_in_prop            = in_prop_;
-  const bool cur_a_written          = a_written_;
+  const bool cur_a_written          = a_written_; // true when io.a.fire
   const bool cur_b_written          = b_written_;
   const bool cur_d_written          = d_written_;
   const auto cur_fire_counter       = fire_counter_;
@@ -93,30 +89,31 @@ void Mesher::update() {
   // *******************
   // Combinational Logic
   // *******************
+  // when req.valid && a/b/d_written or flush > 0, wrapper considers row beat complete
   const bool input_next_row_into_spatial_array = cur_req_state_valid && ((cur_a_written && cur_b_written && cur_d_written) || cur_req_state.flush > 0);
+  // pause if not completing, yes, cur_req_state_valid is redundant, but makes intent clearer
   const bool pause = !cur_req_state_valid || !input_next_row_into_spatial_array;
+  // total row-beats that current mesh request must accept
   const auto total_fires = cur_req_state.total_rows;
   // note: keep input_next_row_into_spatial_array first so C++ does not evaluate total_fires - 1 when no request is active.
   const bool last_fire = input_next_row_into_spatial_array && cur_fire_counter == total_fires - 1;
 
+  // whether a new request can be accepted this cycle
   const bool req_ready = !cur_req_state_valid || last_fire;
   const bool a_ready   = !cur_a_written || input_next_row_into_spatial_array || req_ready;
   const bool b_ready   = !cur_b_written || input_next_row_into_spatial_array || req_ready;
   const bool d_ready   = !cur_d_written || input_next_row_into_spatial_array || req_ready;
 
   const bool req_fire = req_val != 0 && req_ready;
-  const bool a_fire   = a_val != 0 && a_ready;
-  const bool b_fire   = b_val != 0 && b_ready;
-  const bool d_fire   = d_val != 0 && d_ready;
+  const bool a_fire   = a_val   != 0 && a_ready;
+  const bool b_fire   = b_val   != 0 && b_ready;
+  const bool d_fire   = d_val   != 0 && d_ready;
   const bool dataflow_os = cur_req_state.pe_control.dataflow == kExDataflowOS;
   const bool dataflow_ws = cur_req_state.pe_control.dataflow == kExDataflowWS;
   const bool a_from_transposer = dataflow_os ? cur_req_state.a_transpose == 0 : cur_req_state.a_transpose != 0;
   const bool b_from_transposer = dataflow_os && cur_req_state.bd_transpose != 0;
   const bool d_from_transposer = dataflow_ws && cur_req_state.bd_transpose != 0;
-  const int transposer_sources =
-      (a_from_transposer ? 1 : 0) +
-      (b_from_transposer ? 1 : 0) +
-      (d_from_transposer ? 1 : 0);
+  const int transposer_sources = (a_from_transposer ? 1 : 0) + (b_from_transposer ? 1 : 0) + (d_from_transposer ? 1 : 0);
   if (transposer_sources > 1) {
     throw std::logic_error("Mesher: multiple operands selected for the single transposer");
   }
@@ -152,8 +149,14 @@ void Mesher::update() {
   // ************************************
   // Tracking Queues & Response Formation
   // ************************************
-  const auto matmul_id_of_output  = wrappingAdd(cur_matmul_id, 2, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
+  // matmul_id_of_current = matmul_id + 1 because we act in the same cycle as the request is accepted, but the matmul_id is not incremented until the next cycle.
   const auto matmul_id_of_current = wrappingAdd(cur_matmul_id, 1, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
+  // matmul_id_of_output = matmul_id + 2, +1 to account for the delay as above and another +1 because...
+  // request ID 1: PRELOAD only, no output, just a preload
+  // request ID 2: COMPUTE + PRELOAD, output is produced for the COMPUTE, here's the other  +1 for that output, but now COMPUTE and next PRELOAD overlap
+  // request ID 3: COMPUTE + PRELOAD, output is produced for the COMPUTE, overlap continues, so we just need one +2 offest at start (not a +2 increment)
+  const auto matmul_id_of_output  = wrappingAdd(cur_matmul_id, 2, static_cast<std::uint8_t>(kMaxSimultaneousMatmuls));
+  
   // tagq & total_rows_q logic (RTL relies on tagqlen sizing; the C++ model guards array writes explicitly)
   const bool metadata_queues_have_space = cur_tagq_count < kMesherTagQueueEntries && cur_total_rows_q_count < kMesherTagQueueEntries;
   // when non-flush req is accepted and queues have space (store metadata in tagq and total_rows_q)
@@ -235,13 +238,13 @@ void Mesher::update() {
   }
   // enq tagq and total_rows_q
   if (enqueue_mesh_metadata) {
-    next_tagq[cur_tagq_tail].tag = req_bits->tag;
-    next_tagq[cur_tagq_tail].id  = matmul_id_of_output;
+    next_tagq[cur_tagq_tail].tag = req_bits->tag; // rs_tag_valid, rs_tag, addr, rows, cols
+    next_tagq[cur_tagq_tail].id  = matmul_id_of_output; // effectively track request-output ID, identifies result that eventually uses that request’s destination tag
     next_tagq_tail               = wrappingAdd(cur_tagq_tail, 1, static_cast<std::uint8_t>(kMesherTagQueueEntries));
     next_tagq_count              = static_cast<std::uint8_t>(cur_tagq_count + 1);
 
-    next_total_rows_q[cur_total_rows_q_tail].total_rows = req_bits->total_rows;
-    next_total_rows_q[cur_total_rows_q_tail].id         = matmul_id_of_current;
+    next_total_rows_q[cur_total_rows_q_tail].total_rows = req_bits->total_rows; // number of row-beats of execution per cmd
+    next_total_rows_q[cur_total_rows_q_tail].id         = matmul_id_of_current; // effectively track request-input ID, identifies the row-beats entering the mesh for that request
     next_total_rows_q_tail                              = wrappingAdd(cur_total_rows_q_tail, 1, static_cast<std::uint8_t>(kMesherTagQueueEntries));
     next_total_rows_q_count                             = static_cast<std::uint8_t>(cur_total_rows_q_count + 1);
   }
