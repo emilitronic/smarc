@@ -171,19 +171,18 @@ void ExCtrlDecoder::update() {
   // Compare every older in-flight mesh destination against the addresses read
   // by cmd(0)=PRELOAD and its cmd(1)=COMPUTE lookahead.
   // Those addresses are: 
-  // cmd(0).rs1 - preload destination (D)
-  // cmd(1).rs1 - compute A operand
-  // cmd(1).rs2 - compute B operand
-  const std::array<SmeshLocalAddr, 3> preload_read_addresses{
-      addrOf(rs1[0]), addrOf(rs1[1]), addrOf(rs2[1])};
+  // cmd(0).rs1 - preload destination (D), cmd(1).rs1 - compute A operand, cmd(1).rs2 - compute B operand
+  const std::array<SmeshLocalAddr, 3> preload_read_addresses{addrOf(rs1[0]), addrOf(rs1[1]), addrOf(rs2[1])};
   bool next_raw_hazard_pre = false;
 
   // 3) Mul/Preload hazard detection used when cmd(0)=COMPUTE and cmd(1)=PRELOAD
   // Compare against cmd(1)=PRELOAD and the optional cmd(2)=COMPUTE lookahead.
-  const std::array<SmeshLocalAddr, 3> mulpre_read_addresses{
-      addrOf(rs1[1]), addrOf(rs1[2]), addrOf(rs2[2])};
+  // Those addresses are:
+  // cmd(1).rs1 - preload destination (D), cmd(2).rs1 - compute A operand, cmd(2).rs2 - compute B operand
+  const std::array<SmeshLocalAddr, 3> mulpre_read_addresses{addrOf(rs1[1]), addrOf(rs1[2]), addrOf(rs2[2])};
   bool next_raw_hazard_mulpre = false;
 
+  // Now compare your read addresses to the write addresses in tags_in_progress
   for (std::size_t i = 0; i < kMesherTagQueueEntries; ++i) {
     const auto tag = *tags_in_progress[i];
     if (tag.addr.is_garbage() || raw_hazards_impossible) {
@@ -191,11 +190,13 @@ void ExCtrlDecoder::update() {
     }
 
     next_raw_hazard_pre = next_raw_hazard_pre ||
-        std::any_of(preload_read_addresses.begin(), preload_read_addresses.end(),
-                    [&tag](SmeshLocalAddr addr) { return isSameAddress(tag.addr, addr); });
+      std::any_of(preload_read_addresses.begin(), preload_read_addresses.end(),
+                  [&tag](SmeshLocalAddr addr) 
+                  { return isSameAddress(tag.addr, addr); });
     next_raw_hazard_mulpre = next_raw_hazard_mulpre ||
-        std::any_of(mulpre_read_addresses.begin(), mulpre_read_addresses.end(),
-                    [&tag](SmeshLocalAddr addr) { return isSameAddress(tag.addr, addr); });
+      std::any_of(mulpre_read_addresses.begin(), mulpre_read_addresses.end(),
+                  [&tag](SmeshLocalAddr addr) 
+                  { return isSameAddress(tag.addr, addr); });
   }
   raw_hazard_pre    = bit(next_raw_hazard_pre);
   raw_hazard_mulpre = bit(next_raw_hazard_mulpre);
