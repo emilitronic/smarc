@@ -153,10 +153,9 @@ void ExCtrlState::update() {
         }
         // TODO else if CONFIG_IM2COL
       // Preload: if cmd(0) has valid PRELOAD and cmd(1) is also present and no RAW hazard blocks  
-      } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 &&
-                 (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
-        taking_single_preload         = true;
-        perform_single_preload_reg_   = 1;
+      } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 && (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
+        taking_single_preload       = true; // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
+        perform_single_preload_reg_ = 1;
         control_state_reg_ = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
       }
       // TODO else if Overlap Compute and Preload: if cmd(0) has valid PRELOAD and cmd(1) is COMPUTE and no RAW hazard blocks
@@ -190,9 +189,7 @@ void ExCtrlState::update() {
       break;
   }
 
-  const auto next_performing_single_preload =
-      bit((perform_single_preload_q_ != 0 && state == ExCtrlFsmState::Compute) ||
-          taking_single_preload);
+  const auto next_performing_single_preload = bit((perform_single_preload_q_ != 0 && state == ExCtrlFsmState::Compute) || taking_single_preload);
   performing_single_preload = next_performing_single_preload;
   // TODO: include performing_mul_pre and performing_single_mul when those modes exist.
   computing = next_performing_single_preload;
