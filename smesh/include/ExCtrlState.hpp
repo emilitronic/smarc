@@ -90,7 +90,7 @@ class ExCtrlState : public Component {
   bool config_initialized_     = false;
   bool a_transpose_            = false;
   bool bd_transpose_           = false;
-  bool perform_single_preload_ = false; // denote standalone PRELOAD mode
+  bool perform_single_preload_ = false; // denote standalone PRELOAD mode remains in progress
   bool in_prop_flush_          = false;
   std::uint8_t current_dataflow_ = kExDataflowWS;
   std::uint8_t activation_ = 0;

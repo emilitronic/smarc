@@ -59,7 +59,9 @@ void ExCtrlMeshCntlQueue::updateStorage() {
   auto next_count   = count_;
 
   if (do_deq) {
-    trace("ex_mesh_cntl_q: issued tag=%u", static_cast<unsigned>(entries_[head_].rs_tag));
+    trace(mq_,
+      "deq tag=%u\n", 
+      static_cast<unsigned>(entries_[head_].rs_tag));
     next_entries[head_] = ExCtrlMeshCntl{};
     next_head = (head_ + 1) % kDepth;
     --next_count;
@@ -72,14 +74,14 @@ void ExCtrlMeshCntlQueue::updateStorage() {
     ++next_count;
 
     trace(mq_,
-          "enq mulpre=%u mul=%u preload=%u a_fire=%u b_fire=%u d_fire=%u tag=%u\n",
-          static_cast<unsigned>(accepted.perform_mul_pre),
-          static_cast<unsigned>(accepted.perform_single_mul),
-          static_cast<unsigned>(accepted.perform_single_preload),
-          static_cast<unsigned>(accepted.a_fire),
-          static_cast<unsigned>(accepted.b_fire),
-          static_cast<unsigned>(accepted.d_fire),
-          static_cast<unsigned>(accepted.rs_tag));
+      "enq mulpre=%u mul=%u preload=%u a/b/d_fire=%u%u%u tag=%u\n",
+      static_cast<unsigned>(accepted.perform_mul_pre),
+      static_cast<unsigned>(accepted.perform_single_mul),
+      static_cast<unsigned>(accepted.perform_single_preload),
+      static_cast<unsigned>(accepted.a_fire),
+      static_cast<unsigned>(accepted.b_fire),
+      static_cast<unsigned>(accepted.d_fire),
+      static_cast<unsigned>(accepted.rs_tag));
   }
 
   entries_ = next_entries;

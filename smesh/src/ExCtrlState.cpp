@@ -71,7 +71,7 @@ void ExCtrlState::update() {
   start_inputting_d      = 0;
   prop                   = 0;
   cmd_pop_count          = 0;
-  bool taking_single_preload = false;
+  bool taking_single_preload = false;  // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
 
   switch (state_) {
     // **** WAITING_FOR_CMD: check for new commands and decide what to do next ****
