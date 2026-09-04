@@ -28,6 +28,8 @@ ExCtrlMeshReq makeMeshReq(const ExCtrlMeshCntl& cntl) {
 
 } // namespace
 
+TraceKey(mq_);
+
 ExCtrlMeshCntlQueue::ExCtrlMeshCntlQueue(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateEnqReady).writes(enq_rdy);
   UPDATE(updateDeqView).writes(cntl_val, cntl_bits, mesh_req_bits);
@@ -69,7 +71,8 @@ void ExCtrlMeshCntlQueue::updateStorage() {
     next_tail = (tail_ + 1) % kDepth;
     ++next_count;
 
-    trace("ex_mesh_cntl_q: accepted mulpre=%u mul=%u preload=%u a_fire=%u b_fire=%u d_fire=%u tag=%u",
+    trace(mq_,
+          "enq mulpre=%u mul=%u preload=%u a_fire=%u b_fire=%u d_fire=%u tag=%u\n",
           static_cast<unsigned>(accepted.perform_mul_pre),
           static_cast<unsigned>(accepted.perform_single_mul),
           static_cast<unsigned>(accepted.perform_single_preload),

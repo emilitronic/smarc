@@ -21,7 +21,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rd_req_          = new ExCtrlReadReqLogic("ExCtrlReadReqLogic");
   feed_signals_    = new ExCtrlFeedSignals("ExCtrlFeedSignals");
   mesh_cntl_pack_  = new ExCtrlMeshCntlPack("ExCtrlMeshCntlPack");
-  mesh_cntl_queue_ = new ExCtrlMeshCntlQueue("ExCtrlMeshCntlQueue");
+  mesh_cntl_queue_ = new ExCtrlMeshCntlQueue("MQ");
   mesh_in_sel_pad_ = new ExCtrlMeshInSelPad("ExCtrlMeshInSelPad");
   mesh_cntl_deq_ctrl_ = new ExCtrlMeshCntlDeqCtrl("ExCtrlMeshCntlDeqCtrl");
   mesher_          = new Mesher("Mesher");

@@ -8,7 +8,6 @@
 namespace smesh {
 
 namespace {
-
 // Increment modulo max_plus_one while avoiding unsigned underflow when it is zero.
 std::uint32_t wrappingIncrement(std::uint32_t value, std::uint32_t max_plus_one) {
   if (max_plus_one == 0) {

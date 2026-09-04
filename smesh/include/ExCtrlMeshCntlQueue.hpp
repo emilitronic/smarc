@@ -61,7 +61,7 @@ struct ExCtrlMeshCntl {
 };
 
 class ExCtrlMeshCntlQueue : public Component {
-  DECLARE_COMPONENT(ExCtrlMeshCntlQueue);
+  DECLARE_COMPONENT(ExCtrlMeshCntlQueue, MQ);
 
  public:
   ExCtrlMeshCntlQueue(std::string name, COMPONENT_CTOR);
