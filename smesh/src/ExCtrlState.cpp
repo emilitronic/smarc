@@ -10,6 +10,20 @@ namespace smesh {
 TraceKey(ex_ctrl_state_view);
 
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
+  // Explicit cycle boundaries for FSM mode and CONFIG_EX state.
+  control_state        <= control_state_reg_;
+  config_initialized   <= config_initialized_reg_;
+  a_transpose          <= a_transpose_reg_;
+  bd_transpose         <= bd_transpose_reg_;
+  current_dataflow     <= current_dataflow_reg_;
+  activation           <= activation_reg_;
+  acc_scale            <= acc_scale_reg_;
+  a_addr_stride        <= a_addr_stride_reg_;
+  c_addr_stride        <= c_addr_stride_reg_;
+  shift                <= in_shift_reg_;
+  perform_single_preload_q_ <= perform_single_preload_reg_;
+  in_prop_flush_q_           <= in_prop_flush_reg_;
+
   UPDATE(update)
       .reads(head_val,
              head_bits,
@@ -23,15 +37,19 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
              b_should_be_fed_into_transposer,
              d_should_be_fed_into_transposer,
              in_prop)
-      .writes(control_state,
-              config_initialized,
-              a_transpose,
-              bd_transpose,
-              current_dataflow,
-              activation,
-              acc_scale,
-              a_addr_stride)
-      .writes(c_addr_stride, shift)
+      .reads(control_state,
+             config_initialized,
+             a_transpose,
+             bd_transpose,
+             current_dataflow,
+             activation,
+             acc_scale,
+             a_addr_stride)
+      .reads(
+             c_addr_stride,
+             shift,
+             perform_single_preload_q_,
+             in_prop_flush_q_)
       .writes(
               config_val,
               config_rs_tag_valid,
@@ -44,19 +62,47 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               start_inputting_b)
       .writes(start_inputting_d,
               prop,
-              cmd_pop_count);
+              cmd_pop_count)
+      .writes(control_state_reg_,
+              config_initialized_reg_,
+              a_transpose_reg_,
+              bd_transpose_reg_,
+              current_dataflow_reg_,
+              activation_reg_)
+      .writes(
+              acc_scale_reg_,
+              a_addr_stride_reg_,
+              c_addr_stride_reg_,
+              in_shift_reg_,
+              perform_single_preload_reg_,
+              in_prop_flush_reg_);
 }
 
 void ExCtrlState::update() {
+  const auto state = static_cast<ExCtrlFsmState>(static_cast<std::uint8_t>(*control_state));
+
   trace(ex_ctrl_state_view,
         "state=%u head0=%u do_config=%u matmul_in_progress=%u pending_completed_valid=%u\n",
-        static_cast<unsigned>(state_),
+        static_cast<unsigned>(state),
         static_cast<unsigned>(head_val[0]),
         static_cast<unsigned>(do_config),
         static_cast<unsigned>(matmul_in_progress),
         static_cast<unsigned>(pending_completed_valid));
 
-  control_state          = static_cast<std::uint8_t>(state_);
+  // Hold every register by default; accepted FSM branches override next state.
+  control_state_reg_          = *control_state;
+  config_initialized_reg_     = *config_initialized;
+  a_transpose_reg_            = *a_transpose;
+  bd_transpose_reg_           = *bd_transpose;
+  current_dataflow_reg_       = *current_dataflow;
+  activation_reg_             = *activation;
+  acc_scale_reg_              = *acc_scale;
+  a_addr_stride_reg_          = *a_addr_stride;
+  c_addr_stride_reg_          = *c_addr_stride;
+  in_shift_reg_               = *shift;
+  perform_single_preload_reg_ = *perform_single_preload_q_;
+  in_prop_flush_reg_          = *in_prop_flush_q_;
+
   config_val             = 0; // FSM accepts/processes a CONFIG command this cycle
   config_rs_tag_valid    = 0;
   config_rs_tag          = 0;
@@ -73,7 +119,7 @@ void ExCtrlState::update() {
   cmd_pop_count          = 0;
   bool taking_single_preload = false;  // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
 
-  switch (state_) {
+  switch (state) {
     // **** WAITING_FOR_CMD: check for new commands and decide what to do next ****
     // ****************************************************************************
     case ExCtrlFsmState::WaitingForCmd: {
@@ -92,26 +138,26 @@ void ExCtrlState::update() {
         // if CONFIG is Execute (CONFIG_EX), update FSM registers with the new settings
         if (kind == ConfigKind::Execute) {
           const bool set_only_strides = unpackConfigExecuteSetOnlyStrides(rs1);
-          config_initialized_ = true;
+          config_initialized_reg_ = 1;
           if (!set_only_strides) {
             // TODO check for nonlinear activations
-            in_shift_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
-            activation_       = static_cast<std::uint8_t>(unpackConfigExecuteActivation(rs1));
-            acc_scale_        = unpackConfigExecuteAccScale(rs1);
-            a_transpose_      = unpackConfigExecuteATranspose(rs1);
-            bd_transpose_     = unpackConfigExecuteBTranspose(rs1);
-            current_dataflow_ = static_cast<std::uint8_t>(unpackConfigExecuteDataflow(rs1));
+            in_shift_reg_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
+            activation_reg_       = static_cast<std::uint8_t>(unpackConfigExecuteActivation(rs1));
+            acc_scale_reg_        = unpackConfigExecuteAccScale(rs1);
+            a_transpose_reg_      = bit(unpackConfigExecuteATranspose(rs1));
+            bd_transpose_reg_     = bit(unpackConfigExecuteBTranspose(rs1));
+            current_dataflow_reg_ = static_cast<std::uint8_t>(unpackConfigExecuteDataflow(rs1));
           }
-          a_addr_stride_ = unpackConfigExecuteAStride(rs1);
-          c_addr_stride_ = unpackConfigExecuteCStride(rs2);
+          a_addr_stride_reg_ = unpackConfigExecuteAStride(rs1);
+          c_addr_stride_reg_ = unpackConfigExecuteCStride(rs2);
         }
         // TODO else if CONFIG_IM2COL
       // Preload: if cmd(0) has valid PRELOAD and cmd(1) is also present and no RAW hazard blocks  
       } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 &&
                  (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
-        taking_single_preload   = true;
-        perform_single_preload_ = true;
-        state_ = ExCtrlFsmState::Compute; // go to COMPUTE state
+        taking_single_preload         = true;
+        perform_single_preload_reg_   = 1;
+        control_state_reg_ = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
       }
       // TODO else if Overlap Compute and Preload: if cmd(0) has valid PRELOAD and cmd(1) is COMPUTE and no RAW hazard blocks
       // TODO else if Single Mul: if cmd(0) has valid COMPUTE
@@ -121,7 +167,7 @@ void ExCtrlState::update() {
     // **** COMPUTE: issue operand reads and wait for all rows to enter the mesh ****
     // ******************************************************************************
     case ExCtrlFsmState::Compute:
-      if (perform_single_preload_) {
+      if (perform_single_preload_q_ != 0) {
         // keep issuing one preload row-beat per cycle, if memory/mesh are ready
         start_inputting_a = a_should_be_fed_into_transposer; // false for simple WS
         start_inputting_b = b_should_be_fed_into_transposer; // false for simple WS
@@ -144,47 +190,29 @@ void ExCtrlState::update() {
       break;
   }
 
-  const auto next_performing_single_preload = bit((perform_single_preload_ && state_ == ExCtrlFsmState::Compute) ||
-                                                 taking_single_preload);
+  const auto next_performing_single_preload =
+      bit((perform_single_preload_q_ != 0 && state == ExCtrlFsmState::Compute) ||
+          taking_single_preload);
   performing_single_preload = next_performing_single_preload;
   // TODO: include performing_mul_pre and performing_single_mul when those modes exist.
   computing = next_performing_single_preload;
-  prop = next_performing_single_preload != 0 ? bit(in_prop_flush_) : *in_prop;
-  config_initialized = bit(config_initialized_);
-  a_transpose        = bit(a_transpose_);
-  bd_transpose       = bit(bd_transpose_);
-  current_dataflow   = current_dataflow_;
-  activation         = activation_;
-  acc_scale          = acc_scale_;
-  a_addr_stride      = a_addr_stride_;
-  c_addr_stride      = c_addr_stride_;
-  shift              = in_shift_;
+  prop = next_performing_single_preload != 0 ? *in_prop_flush_q_ : *in_prop;
 }
 
 void ExCtrlState::reset() {
-  state_              = ExCtrlFsmState::WaitingForCmd;
-  config_initialized_ = false;
-  a_transpose_        = false;
-  bd_transpose_       = false;
-  perform_single_preload_ = false;
-  in_prop_flush_      = false;
-  current_dataflow_   = kExDataflowWS;
-  activation_         = 0;
-  acc_scale_          = 0;
-  in_shift_           = 0;
-  a_addr_stride_      = 1;
-  c_addr_stride_      = 1;
+  control_state_reg_.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
+  config_initialized_reg_.reset(0);
+  a_transpose_reg_.reset(0);
+  bd_transpose_reg_.reset(0);
+  current_dataflow_reg_.reset(kExDataflowWS);
+  activation_reg_.reset(0);
+  acc_scale_reg_.reset(0);
+  a_addr_stride_reg_.reset(1);
+  c_addr_stride_reg_.reset(1);
+  in_shift_reg_.reset(0);
+  perform_single_preload_reg_.reset(0);
+  in_prop_flush_reg_.reset(0);
 
-  config_initialized.reset(0);
-  a_transpose.reset(0);
-  bd_transpose.reset(0);
-  current_dataflow.reset(kExDataflowWS);
-  activation.reset(0);
-  acc_scale.reset(0);
-  a_addr_stride.reset(1);
-  c_addr_stride.reset(1);
-  shift.reset(0);
-  control_state.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
   config_val.reset(0);
   config_rs_tag_valid.reset(0);
   config_rs_tag.reset(0);

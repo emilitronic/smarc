@@ -85,19 +85,24 @@ class ExCtrlState : public Component {
   void reset();
 
  private:
-  ExCtrlFsmState state_ = ExCtrlFsmState::WaitingForCmd; // control_state register
+  // Current-state views for mode registers which are not public FSM outputs.
+  Output(bit, perform_single_preload_q_); // standalone PRELOAD remains in progress
+  Output(bit, in_prop_flush_q_);
 
-  bool config_initialized_     = false;
-  bool a_transpose_            = false;
-  bool bd_transpose_           = false;
-  bool perform_single_preload_ = false; // denote standalone PRELOAD mode remains in progress
-  bool in_prop_flush_          = false;
-  std::uint8_t current_dataflow_ = kExDataflowWS;
-  std::uint8_t activation_ = 0;
-  std::uint32_t acc_scale_ = 0;
-  std::uint8_t in_shift_        = 0;
-  std::uint32_t a_addr_stride_ = 1;
-  std::uint32_t c_addr_stride_ = 1;
+  // Register inputs. Their committed values appear on the public state/config
+  // outputs above, or on the private *_q_ views, on the following cycle.
+  Register(u8,  control_state_reg_);
+  Register(bit, config_initialized_reg_);
+  Register(bit, a_transpose_reg_);
+  Register(bit, bd_transpose_reg_);
+  Register(u8,  current_dataflow_reg_);
+  Register(u8,  activation_reg_);
+  Register(u32, acc_scale_reg_);
+  Register(u32, a_addr_stride_reg_);
+  Register(u32, c_addr_stride_reg_);
+  Register(u8,  in_shift_reg_);
+  Register(bit, perform_single_preload_reg_);
+  Register(bit, in_prop_flush_reg_);
 
   // TODO: add later:
 
