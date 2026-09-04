@@ -19,6 +19,7 @@ constexpr std::size_t kDim              = kDefaultConfig.dim;                // 
 constexpr std::size_t kSpBanks          = kDefaultConfig.sp_banks;
 constexpr std::size_t kSpBankRows       = kDefaultConfig.sp_bank_rows;
 constexpr std::size_t kSpRows           = kSpBanks * kSpBankRows;            // total rows in SP
+constexpr std::size_t kSpadReadDelay     = kDefaultConfig.spad_read_delay;
 constexpr std::size_t kAccBanks         = kDefaultConfig.acc_banks;
 constexpr std::size_t kAccBankRows      = kDefaultConfig.acc_bank_rows;
 constexpr std::size_t kAccRows          = kAccBanks * kAccBankRows;          // total rows in accumulator

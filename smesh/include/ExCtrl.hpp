@@ -33,7 +33,7 @@ Structural shell for the smesh execute controller.
 namespace smesh {
 
 class ExCtrl : public Component {
-  DECLARE_COMPONENT(ExCtrl);
+  DECLARE_COMPONENT(ExCtrl, ExC);
 
  public:
   ExCtrl(std::string name, COMPONENT_CTOR);

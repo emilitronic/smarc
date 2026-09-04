@@ -27,6 +27,9 @@ struct ExCtrlExpected {
 
   // The first bank-local scratchpad row request emitted by the read logic.
   std::uint32_t first_read_address = 0;
+
+  // Standalone PRELOAD feeds D from the final source row back to the first.
+  std::array<std::uint32_t, kDim> preload_read_addresses{};
 };
 
 // One test program plus the observations expected from that program.
@@ -75,6 +78,7 @@ inline ExCtrlScenario makeConfigPreloadComputeScenario() {
 
   // The first real read request is the bank-local SPAD row selected for D.
   scenario.expected.first_read_address = 7;
+  scenario.expected.preload_read_addresses = {7, 6, 5, 4};
   return scenario;
 }
 

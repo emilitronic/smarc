@@ -73,10 +73,11 @@ void ExCtrlRowFeedState::updateStatus() {
   about_to_fire_all_rows = bit(finishing);
 
   trace(row_feed_,
-        "fire{%u%u%u} cnt{%u,%u,%u} started{%u%u%u} offset=%u rows=%u cntl_rdy=%u last=%u\n",
+        "fire{%u%u%u_%u} cnt{%u,%u,%u} started{%u%u%u} offset=%u rows=%u cntl_rdy=%u last=%u\n",
         static_cast<unsigned>(a_fire != 0),
         static_cast<unsigned>(b_fire != 0),
         static_cast<unsigned>(d_fire != 0),
+        static_cast<unsigned>(firing != 0),
         a_counter,
         b_counter,
         d_counter,

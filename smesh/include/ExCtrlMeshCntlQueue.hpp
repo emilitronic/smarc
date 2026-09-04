@@ -83,7 +83,8 @@ class ExCtrlMeshCntlQueue : public Component {
   void reset();
 
  private:
-  static constexpr std::size_t kDepth = 5; // TODO: think about this more deeply and check spad read delay
+  // Hold control metadata until the corresponding fixed-latency SPAD data returns.
+  static constexpr std::size_t kDepth = kSpadReadDelay + 1;
 
   std::array<ExCtrlMeshCntl, kDepth> entries_{};
   std::size_t head_  = 0;
