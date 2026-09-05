@@ -34,9 +34,9 @@ class ExCtrlState : public Component {
 
   Clock(clk);
   // inputs to FSM
-  InputArray(bit, head_val, kExCtrlCmdWindow);         // cmd queue head valid bits
+  InputArray(bit,        head_val,  kExCtrlCmdWindow); // cmd queue head valid bits
   InputArray(SmeshIssue, head_bits, kExCtrlCmdWindow); // cmd queue head bits
-  Input(bit, do_config);                               // cmd(0) is config?
+  Input(bit,      do_config);                          // cmd(0) is config?
   InputArray(bit, do_preloads, kExCtrlCmdWindow);      // cmd(0/1/2) is preload?
   InputArray(bit, do_computes, kExCtrlCmdWindow);      // cmd(0/1/2) is compute?
   Input(bit, matmul_in_progress);                      // mesh reports an in-flight matmul
@@ -47,6 +47,8 @@ class ExCtrlState : public Component {
   Input(bit, b_should_be_fed_into_transposer);         // decoder says B should start through transposer path
   Input(bit, d_should_be_fed_into_transposer);         // decoder says D should start through transposer path
   Input(bit, in_prop);                                 // cmd(0) is COMPUTE_AND_FLIP
+  Input(bit, about_to_fire_all_rows);                  // row-feed logic reports the final row-beat can fire
+  Input(SmeshLocalAddr, c_address_rs2);                // decoder's PRELOAD output destination
 
   Output(u8,  control_state);       // current value of the FSM state register
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
@@ -65,16 +67,15 @@ class ExCtrlState : public Component {
   OutputArray(SmeshRsTag, pending_completed_set_bits, 2); // tags written into pending slots
   Output(bit, performing_single_preload); // immediately signal standalone PRELOAD active (while latching perform_single_preload)
   Output(bit, computing);           // any execute operation mode is currently feeding rows
-  Output(bit, start_inputting_a);   // begin feeding A operand rows
-  Output(bit, start_inputting_b);   // begin feeding B operand rows
-  Output(bit, start_inputting_d);   // begin feeding D/preload operand rows
+  Output(bit, start_inputting_a);   // begin feeding A operand rows (drive read req & row-feed logic)
+  Output(bit, start_inputting_b);   // begin feeding B operand rows (drive read req & row-feed logic)
+  Output(bit, start_inputting_d);   // begin feeding D/preload operand rows  (drive read req & row-feed logic)
   Output(bit, prop);                // mesh-control propagate value
   Output(u8, cmd_pop_count);        // number of command-window entries consumed this cycle
 
   // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
   // Input(bit, raw_hazard_mulpre);
   // Input(bit, third_instruction_needed);
-  // Input(bit, about_to_fire_all_rows);
   // Input(u8, current_dataflow);
   // Input(bit, mesh_req_fire);
   // Input(bit, mesh_req_rdy);
@@ -82,6 +83,7 @@ class ExCtrlState : public Component {
   // Output(bit, performing_single_mul);
 
   void update();
+  void updateStartInputs(); // operand feeding is independent of the final-row decision
   void reset();
 
  private:

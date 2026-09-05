@@ -33,10 +33,7 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
              pending_completed_valid,
              raw_hazards_are_impossible,
              raw_hazard_pre)
-      .reads(a_should_be_fed_into_transposer,
-             b_should_be_fed_into_transposer,
-             d_should_be_fed_into_transposer,
-             in_prop)
+      .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
       .reads(control_state,
              config_initialized,
              a_transpose,
@@ -57,11 +54,8 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
       .writes(pending_completed_set_val,
               pending_completed_set_bits,
               performing_single_preload,
-              computing,
-              start_inputting_a,
-              start_inputting_b)
-      .writes(start_inputting_d,
-              prop,
+              computing)
+      .writes(prop,
               cmd_pop_count)
       .writes(control_state_reg_,
               config_initialized_reg_,
@@ -76,6 +70,25 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
               in_shift_reg_,
               perform_single_preload_reg_,
               in_prop_flush_reg_);
+
+  // These signals cause row feeding; its final-row feedback must not drive them.
+  UPDATE(updateStartInputs)
+      .reads(control_state, perform_single_preload_q_,
+             a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
+      .writes(start_inputting_a, start_inputting_b, start_inputting_d);
+}
+
+// Start-signal generation 
+void ExCtrlState::updateStartInputs() {
+  start_inputting_a = 0;
+  start_inputting_b = 0;
+  start_inputting_d = 0;
+  // ff we are in the Compute state and a single preload is in progress, start feeding the operands.
+  if (*control_state == static_cast<std::uint8_t>(ExCtrlFsmState::Compute) && perform_single_preload_q_ != 0) {
+    start_inputting_a = a_should_be_fed_into_transposer; // don't do nothin with A on preload, unless it's a transpose
+    start_inputting_b = b_should_be_fed_into_transposer;
+    start_inputting_d = 1;
+  }
 }
 
 void ExCtrlState::update() {
@@ -112,9 +125,6 @@ void ExCtrlState::update() {
   }
   performing_single_preload = 0;
   computing              = 0;
-  start_inputting_a      = 0;
-  start_inputting_b      = 0;
-  start_inputting_d      = 0;
   prop                   = 0;
   cmd_pop_count          = 0;
   bool taking_single_preload = false;  // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
@@ -123,6 +133,7 @@ void ExCtrlState::update() {
     // **** WAITING_FOR_CMD: check for new commands and decide what to do next ****
     // ****************************************************************************
     case ExCtrlFsmState::WaitingForCmd: {
+      perform_single_preload_reg_ = 0;
       // if cmd(0) has valid CONFIG and we can accept it
       if (head_val[0] != 0 && do_config != 0 && matmul_in_progress == 0 && pending_completed_valid == 0) {
         const auto issue = *head_bits[0];
@@ -167,15 +178,25 @@ void ExCtrlState::update() {
     // ******************************************************************************
     case ExCtrlFsmState::Compute:
       if (perform_single_preload_q_ != 0) {
-        // keep issuing one preload row-beat per cycle, if memory/mesh are ready
-        start_inputting_a = a_should_be_fed_into_transposer; // false for simple WS
-        start_inputting_b = b_should_be_fed_into_transposer; // false for simple WS
-        start_inputting_d = 1; // D is the preload path from spad
+        // updateStartInputs keeps feeding through this final row-beat.
+        if (about_to_fire_all_rows != 0) {
+          cmd_pop_count = 1;
+          control_state_reg_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
 
-        // TODO: check for completion of the single PRELOAD row-beats
-        // if (about_to_fire_all_rows) {
-        //   finish PRELOAD
-        // }
+          const auto issue     = *head_bits[0];
+          const bool c_garbage = c_address_rs2->is_garbage();
+          // signals for completion logic: if single PRELOAD is valid and C addr is garbage, then PRELOAD is complete 
+          pending_completed_set_val[0]  = bit(issue.rs_tag_valid != 0 && c_garbage);
+          pending_completed_set_bits[0] = issue.rs_tag;
+
+          if (current_dataflow == kExDataflowOS) {
+            in_prop_flush_reg_ = bit(!c_garbage);
+          }
+          
+          trace(ex_ctrl_state_view, "preload rows finished: pop=1 tag=%u pending=%u next=WAIT\n",
+                static_cast<unsigned>(issue.rs_tag),
+                static_cast<unsigned>(issue.rs_tag_valid != 0 && c_garbage));
+        }
       }
       // TODO: issue operand reads and wait for all rows to enter the mesh.
       break;

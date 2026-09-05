@@ -93,6 +93,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_state_->b_should_be_fed_into_transposer << cmd_decoder_->b_should_be_fed_into_transposer;
   cmd_state_->d_should_be_fed_into_transposer << cmd_decoder_->d_should_be_fed_into_transposer;
   cmd_state_->in_prop                         << cmd_decoder_->in_prop;
+  cmd_state_->c_address_rs2                   << cmd_decoder_->c_address_rs2;
   // pass some HW build info to decoder
   cmd_decoder_->ex_read_from_acc << decoder_ex_read_from_acc_;    // const from SmeshConfig.hpp
   cmd_decoder_->ex_write_to_spad << decoder_ex_write_to_spad_;    // const from SmeshConfig.hpp
@@ -230,6 +231,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   row_feed_->total_rows    << cmd_rowaddr_->total_rows;
   row_feed_->a_addr_stride << cmd_state_->a_addr_stride;
   row_feed_->cntl_rdy      << cntl_rdy_;
+  cmd_state_->about_to_fire_all_rows << row_feed_->about_to_fire_all_rows;
 
   // Mesh-control packet packaging. Its output will feed MQ once MQ is installed
   // inside ExCtrl.

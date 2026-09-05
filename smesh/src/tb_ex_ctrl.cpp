@@ -36,6 +36,7 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 
 - You can combine them:
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view';''*'/ex_ctrl_state_view
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view';''*'/mq_
 
 Use smesh-cascade-testing skill
 - $smesh-cascade-testing can invoke it
