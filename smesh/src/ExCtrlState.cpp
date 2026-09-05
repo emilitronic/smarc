@@ -11,71 +11,39 @@ TraceKey(ex_ctrl_state_view);
 
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   // Explicit cycle boundaries for FSM mode and CONFIG_EX state.
-  control_state        <= control_state_reg_;
-  config_initialized   <= config_initialized_reg_;
-  a_transpose          <= a_transpose_reg_;
-  bd_transpose         <= bd_transpose_reg_;
-  current_dataflow     <= current_dataflow_reg_;
-  activation           <= activation_reg_;
-  acc_scale            <= acc_scale_reg_;
-  a_addr_stride        <= a_addr_stride_reg_;
-  c_addr_stride        <= c_addr_stride_reg_;
-  shift                <= in_shift_reg_;
+  control_state             <= control_state_reg_;
+  config_initialized        <= config_initialized_reg_;
+  a_transpose               <= a_transpose_reg_;
+  bd_transpose              <= bd_transpose_reg_;
+  current_dataflow          <= current_dataflow_reg_;
+  activation                <= activation_reg_;
+  acc_scale                 <= acc_scale_reg_;
+  a_addr_stride             <= a_addr_stride_reg_;
+  c_addr_stride             <= c_addr_stride_reg_;
+  shift                     <= in_shift_reg_;
   perform_single_preload_q_ <= perform_single_preload_reg_;
-  in_prop_flush_q_           <= in_prop_flush_reg_;
+  in_prop_flush_q_          <= in_prop_flush_reg_;
 
   UPDATE(update)
-      .reads(head_val,
-             head_bits,
-             do_config,
-             do_preloads,
-             matmul_in_progress,
-             pending_completed_valid,
-             raw_hazards_are_impossible,
-             raw_hazard_pre)
-      .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
-      .reads(control_state,
-             config_initialized,
-             a_transpose,
-             bd_transpose,
-             current_dataflow,
-             activation,
-             acc_scale,
-             a_addr_stride)
-      .reads(
-             c_addr_stride,
-             shift,
-             perform_single_preload_q_,
-             in_prop_flush_q_)
-      .writes(
-              config_val,
-              config_rs_tag_valid,
-              config_rs_tag)
-      .writes(pending_completed_set_val,
-              pending_completed_set_bits,
-              performing_single_preload,
-              computing)
-      .writes(prop,
-              cmd_pop_count)
-      .writes(control_state_reg_,
-              config_initialized_reg_,
-              a_transpose_reg_,
-              bd_transpose_reg_,
-              current_dataflow_reg_,
-              activation_reg_)
-      .writes(
-              acc_scale_reg_,
-              a_addr_stride_reg_,
-              c_addr_stride_reg_,
-              in_shift_reg_,
-              perform_single_preload_reg_,
-              in_prop_flush_reg_);
+    .reads(head_val, head_bits, do_config, do_preloads, matmul_in_progress, pending_completed_valid,
+           raw_hazards_are_impossible, raw_hazard_pre)
+    .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
+    .reads(control_state, config_initialized, a_transpose, bd_transpose, current_dataflow,
+           activation, acc_scale, a_addr_stride)
+    .reads(c_addr_stride, shift, perform_single_preload_q_, in_prop_flush_q_)
+    .writes(config_val, config_rs_tag_valid, config_rs_tag)
+    .writes(pending_completed_set_val, pending_completed_set_bits, performing_single_preload, computing)
+    .writes(prop, cmd_pop_count)
+    .writes(control_state_reg_, config_initialized_reg_, a_transpose_reg_, bd_transpose_reg_,
+            current_dataflow_reg_, activation_reg_)
+    .writes(acc_scale_reg_, a_addr_stride_reg_, c_addr_stride_reg_, in_shift_reg_,
+            perform_single_preload_reg_, in_prop_flush_reg_);
 
-  // These signals cause row feeding; its final-row feedback must not drive them.
+  // These signals cause row feeding; row feede's about_to_fire_all_rows must not drive them.
   UPDATE(updateStartInputs)
-      .reads(control_state, perform_single_preload_q_,
-             a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
-      .writes(start_inputting_a, start_inputting_b, start_inputting_d);
+    .reads(control_state, perform_single_preload_q_,
+           a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
+    .writes(start_inputting_a, start_inputting_b, start_inputting_d);
 }
 
 // Start-signal generation 
@@ -83,7 +51,7 @@ void ExCtrlState::updateStartInputs() {
   start_inputting_a = 0;
   start_inputting_b = 0;
   start_inputting_d = 0;
-  // ff we are in the Compute state and a single preload is in progress, start feeding the operands.
+  // if in Compute and single preload in progress, start feeding operands
   if (*control_state == static_cast<std::uint8_t>(ExCtrlFsmState::Compute) && perform_single_preload_q_ != 0) {
     start_inputting_a = a_should_be_fed_into_transposer; // don't do nothin with A on preload, unless it's a transpose
     start_inputting_b = b_should_be_fed_into_transposer;
@@ -124,9 +92,9 @@ void ExCtrlState::update() {
     pending_completed_set_bits[i] = 0;
   }
   performing_single_preload = 0;
-  computing              = 0;
-  prop                   = 0;
-  cmd_pop_count          = 0;
+  computing                 = 0;
+  prop                      = 0;
+  cmd_pop_count             = 0;
   bool taking_single_preload = false;  // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
 
   switch (state) {
@@ -134,19 +102,19 @@ void ExCtrlState::update() {
     // ****************************************************************************
     case ExCtrlFsmState::WaitingForCmd: {
       perform_single_preload_reg_ = 0;
-      // if cmd(0) has valid CONFIG and we can accept it
+      // if cmd(0) is valid CONFIG && we can accept it
       if (head_val[0] != 0 && do_config != 0 && matmul_in_progress == 0 && pending_completed_valid == 0) {
         const auto issue = *head_bits[0];
         const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
         const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
         const auto kind  = static_cast<ConfigKind>(rs1 & 0x3u);
-        // reply to completion logic
+        // for completion logic
         config_val          = 1;
         config_rs_tag_valid = issue.rs_tag_valid;
         config_rs_tag       = issue.rs_tag;
-        // tell cmd q how many entries to pop (1 for CONFIG)
+        // tell cmd q how many entries to pop (1 for CONFIG_EX)
         cmd_pop_count       = 1; 
-        // if CONFIG is Execute (CONFIG_EX), update FSM registers with the new settings
+        // if cmd(0)=CONFIG_EX, update FSM registers with the new settings
         if (kind == ConfigKind::Execute) {
           const bool set_only_strides = unpackConfigExecuteSetOnlyStrides(rs1);
           config_initialized_reg_ = 1;
@@ -163,7 +131,7 @@ void ExCtrlState::update() {
           c_addr_stride_reg_ = unpackConfigExecuteCStride(rs2);
         }
         // TODO else if CONFIG_IM2COL
-      // Preload: if cmd(0) has valid PRELOAD and cmd(1) is also present and no RAW hazard blocks  
+      // if cmd(0)=PRELOAD && cmd(1) is val && no RAW hazard 
       } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 && (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
         taking_single_preload       = true; // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
         perform_single_preload_reg_ = 1;
