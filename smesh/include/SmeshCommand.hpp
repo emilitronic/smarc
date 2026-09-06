@@ -32,6 +32,7 @@ enum class ConfigKind : std::uint32_t {
   Execute = 0,
   Load = 1,
   Store = 2,
+  Im2Col = 3,
 };
 
 // Represents a local matrix in the SPAD.  This is used for passing matrix location and shape information in the rs1/rs2 fields of commands.

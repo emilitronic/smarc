@@ -107,11 +107,21 @@ class ExCtrlState : public Component {
   Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
   Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
   Output(u8,  shift);               // CONFIG_EX in_shift register for mesh-control packets
+  Output(u8,  ocol);                // CONFIG_IM2COL output columns
+  Output(u8,  kdim2);               // CONFIG_IM2COL squared kernel dimension
+  Output(u8,  krow);                // CONFIG_IM2COL kernel row
+  Output(u32, channel);             // CONFIG_IM2COL input channel
+  Output(u8,  weight_stride);       // CONFIG_IM2COL weight stride
+  Output(bit, weight_double_bank);  // CONFIG_IM2COL double-bank mode
+  Output(bit, weight_triple_bank);  // CONFIG_IM2COL triple-bank mode
+  Output(u8,  row_left);            // CONFIG_IM2COL rows remaining
+  Output(u32, row_turn);            // CONFIG_IM2COL row-turn count
   Output(bit, start_inputting_a);   // begin feeding A operand rows (drive read req & row-feed logic)
   Output(bit, start_inputting_b);   // begin feeding B operand rows (drive read req & row-feed logic)
   Output(bit, start_inputting_d);   // begin feeding D/preload operand rows  (drive read req & row-feed logic)
   Output(bit, prop);                // mesh-control propagate value
 
+  void updateStartInputting();
   void update();
   void reset();
 
@@ -125,6 +135,15 @@ class ExCtrlState : public Component {
   Register(u8,  current_dataflow_D_);
   Register(u32, a_addr_stride_D_);
   Register(u32, c_addr_stride_D_);
+  Register(u8,  ocol_D_);
+  Register(u8,  kdim2_D_);
+  Register(u8,  krow_D_);
+  Register(u32, channel_D_);
+  Register(u8,  weight_stride_D_);
+  Register(bit, weight_double_bank_D_);
+  Register(bit, weight_triple_bank_D_);
+  Register(u8,  row_left_D_);
+  Register(u32, row_turn_D_);
 
   Output(bit,   config_initialized_Q_);  // CONFIG_EX has initialized execute config registers
   Register(bit, config_initialized_D_);
