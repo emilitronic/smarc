@@ -77,7 +77,7 @@ class ExCtrlState2 : public Component {
   Output(bit, start_inputting_d);
   Output(bit, prop);
 
-  void updateDecisionAndOutputs();
+  void updateCmdAcceptanceAndOutputs();
   void updateState();
   void reset();
 

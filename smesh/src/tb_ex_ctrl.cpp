@@ -350,20 +350,6 @@ class ExCtrlDriver : public Component {
         }
       }
     }
-    if (!rowaddr_checked_ &&
-        *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute)) {
-      rowaddr_checked_ = true;
-      rowaddr_matched_ = rowaddr_a_address->data() == kScenario.expected.rowaddr_a_address &&
-                         rowaddr_b_address->data() == kScenario.expected.rowaddr_b_address &&
-                         rowaddr_d_address->data() == kScenario.expected.rowaddr_d_address &&
-                         *rowaddr_a_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_a_address).sp_bank() &&
-                         *rowaddr_b_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_b_address).sp_bank() &&
-                         *rowaddr_d_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_d_address).sp_bank() &&
-                         rowaddr_a_garbage != 0 &&
-                         rowaddr_b_garbage != 0 &&
-                         rowaddr_d_garbage == 0;
-    }
-
     if (!rowpad_checked_ &&
         *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute)) {
       rowpad_checked_ = true;
@@ -381,6 +367,23 @@ class ExCtrlDriver : public Component {
     }
     for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
       any_read_request |= accum_read_req_val[bank] != 0;
+    }
+
+    const bool preload_compute_visible =
+        head_val[0] == 1 && head_val[1] == 1 &&
+        head_bits[0]->cmd.funct == static_cast<std::uint32_t>(smesh::SmeshFunct::Preload) &&
+        head_bits[1]->cmd.funct == static_cast<std::uint32_t>(smesh::SmeshFunct::ComputeStay);
+    if (!rowaddr_matched_ && preload_compute_visible) {
+      rowaddr_checked_ = true;
+      rowaddr_matched_ = rowaddr_a_address->data() == kScenario.expected.rowaddr_a_address &&
+                         rowaddr_b_address->data() == kScenario.expected.rowaddr_b_address &&
+                         rowaddr_d_address->data() == kScenario.expected.rowaddr_d_address &&
+                         *rowaddr_a_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_a_address).sp_bank() &&
+                         *rowaddr_b_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_b_address).sp_bank() &&
+                         *rowaddr_d_bank == smesh::makeSpAddr(kScenario.expected.rowaddr_d_address).sp_bank() &&
+                         rowaddr_a_garbage != 0 &&
+                         rowaddr_b_garbage != 0 &&
+                         rowaddr_d_garbage == 0;
     }
 
     if (!read_req_checked_ &&

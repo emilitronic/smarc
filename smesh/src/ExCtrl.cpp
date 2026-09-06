@@ -11,7 +11,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_       = new ExCtrlCmdQueue("ExCtrlCmdQueue");
   completion_      = new ExCtrlCompletion("ExCtrlCompletion");
   cmd_decoder_     = new ExCtrlDecoder("ExCtrlDecoder");
-  cmd_state_       = new ExCtrlState("ExCtrlState");
+  cmd_state_       = new ExCtrlState2("ExCtrlState2");
   cmd_rowaddr_     = new ExCtrlRowAddr("ExCtrlRowAddr");
   cmd_rowpad_      = new ExCtrlRowPad("ExCtrlRowPad");
   op_pack_         = new ExCtrlOperandPack("ExCtrlOperandPack");
