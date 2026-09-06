@@ -4,7 +4,6 @@
 // Sebastian Claudiusz Magierowski Sep 6 2026
 /*
 Alternative ExCtrl FSM organization which selects each accepted action once.
-This component is not wired into ExCtrl; it is a comparison implementation.
 */
 
 #pragma once

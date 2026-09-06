@@ -156,15 +156,13 @@ void ExCtrlState2::updateState() {
       break;
 
     case ExCtrlFsmState::Compute:
-      if (perform_single_preload_Q_ == 1 &&
-          about_to_fire_all_rows == 1) {
+      if (perform_single_preload_Q_ == 1 && about_to_fire_all_rows == 1) {
         cmd_pop_count    = 1;
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
 
         const auto cmdq      = *head_bits[0];
         const bool c_garbage = c_address_rs2->is_garbage();
-        pending_completed_set_val[0] =
-            bit(cmdq.rs_tag_valid != 0 && c_garbage);
+        pending_completed_set_val[0]  = bit(cmdq.rs_tag_valid != 0 && c_garbage);
         pending_completed_set_bits[0] = cmdq.rs_tag;
 
         if (current_dataflow == kExDataflowOS) {
