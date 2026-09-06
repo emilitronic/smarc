@@ -61,12 +61,14 @@ class ExCtrlState : public Component {
   InputArray(bit,        do_computes, kExCtrlCmdWindow);   // cmd(0/1/2) is compute?
   Input(bit,             matmul_in_progress);              // mesh reports an in-flight matmul
   Input(bit,             pending_completed_val);           // completion block has pending completions
-
-  Output(u8, control_state); // current FSM state
-
-  //---------------------------
   Input(bit,             raw_hazards_are_impossible);      // no RAW hazards possible for this hardware config
   Input(bit,             raw_hazard_pre);                  // PRELOAD branch has a RAW hazard
+
+  // FSM/mode
+  Output(u8,  control_state);             // current FSM state
+  Output(bit, performing_single_preload); // standalone PRELOAD is active this cycle (put in )
+
+  //---------------------------
   Input(bit,             a_should_be_fed_into_transposer); // decoder says A should start through transposer path
   Input(bit,             b_should_be_fed_into_transposer); // decoder says B should start through transposer path
   Input(bit,             d_should_be_fed_into_transposer); // decoder says D should start through transposer path
@@ -74,8 +76,6 @@ class ExCtrlState : public Component {
   Input(bit,             about_to_fire_all_rows);          // row-feed logic reports the final row-beat can fire
   Input(SmeshLocalAddr,  c_address_rs2);                   // decoder's PRELOAD output destination
 
-  // FSM/mode
-  Output(bit, performing_single_preload); // immediately signal standalone PRELOAD active (while latching perform_single_preload)
   // Config/programmed
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
   Output(bit, a_transpose);         // CONFIG_EX A transpose register
@@ -113,6 +113,9 @@ class ExCtrlState : public Component {
   Register(u8,  current_dataflow_reg_);
   Register(u32, a_addr_stride_reg_);
   Register(u32, c_addr_stride_reg_);
+
+  Output(bit,   perform_single_preload);    // registered standalone PRELOAD mode
+  Register(bit, perform_single_preload_reg_);
 };
 
 } // namespace smesh
