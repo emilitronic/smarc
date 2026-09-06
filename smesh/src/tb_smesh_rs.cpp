@@ -114,8 +114,8 @@ bool testDependencies() {
   }
   const auto config_ex = command(
       smesh::SmeshFunct::Config,
-      smesh::packConfigExecuteRs1(1),
-      smesh::packConfigExecuteRs2(1));
+      smesh::packConfigExRs1(1),
+      smesh::packConfigExRs2(1));
   if (!load_ex_rs.allocate(config_ex) ||
       !load_ex_rs.complete(load_ex_rs.entry().rs_tag)) {
     return false;
@@ -281,8 +281,8 @@ bool testPreloadRange() {
 
   const auto config = command(
       smesh::SmeshFunct::Config,
-      smesh::packConfigExecuteRs1(1),
-      smesh::packConfigExecuteRs2(2));
+      smesh::packConfigExRs1(1),
+      smesh::packConfigExRs2(2));
   if (!rs.allocate(config)) {
     return false;
   }
@@ -327,8 +327,8 @@ bool testComputeRange() {
   smesh::SmeshRS flip_rs("ComputeFlipRS");
   const auto flip_config = command(
       smesh::SmeshFunct::Config,
-      smesh::packConfigExecuteRs1(2, false),
-      smesh::packConfigExecuteRs2(1));
+      smesh::packConfigExRs1(2, false),
+      smesh::packConfigExRs2(1));
   if (!flip_rs.allocate(flip_config) ||
       !flip_rs.complete(flip_rs.entry().rs_tag)) {
     return false;
@@ -352,8 +352,8 @@ bool testComputeRange() {
   smesh::SmeshRS stay_rs("ComputeStayRS");
   const auto stay_config = command(
       smesh::SmeshFunct::Config,
-      smesh::packConfigExecuteRs1(2, true),
-      smesh::packConfigExecuteRs2(1));
+      smesh::packConfigExRs1(2, true),
+      smesh::packConfigExRs2(1));
   if (!stay_rs.allocate(stay_config) ||
       !stay_rs.complete(stay_rs.entry().rs_tag)) {
     return false;

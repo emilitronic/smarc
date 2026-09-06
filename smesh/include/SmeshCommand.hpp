@@ -84,7 +84,7 @@ constexpr std::uint32_t kConfigExecuteAccScaleShift     = 32;
 constexpr std::uint32_t kConfigExecuteCStrideShift      =  0;
 constexpr std::uint32_t kConfigExecuteRelu6ShiftShift   = 16;
 constexpr std::uint32_t kConfigExecuteInShiftShift      = 32;
-// Packs rs1 for generic CONFIG commands; CONFIG_EX uses packConfigExecuteRs1/rs2
+// Packs rs1 for generic CONFIG commands; CONFIG_EX uses packConfigExRs1/rs2
 inline std::uint64_t packConfig(ConfigKind kind, std::uint32_t state_id = 0, std::uint32_t ld_block_stride = 0) {
   return static_cast<std::uint64_t>(kind) |
          (static_cast<std::uint64_t>(state_id & 0x3u) << kConfigStateIdShift) |
@@ -100,7 +100,7 @@ inline std::uint32_t unpackConfigLoadBlockStride(std::uint64_t rs1) {
   return static_cast<std::uint32_t>((rs1 >> kConfigLoadBlockStrideShift) & kConfigLoadBlockStrideMask);
 }
 // Build 64-bit rs1 operand for CONFIG_EX
-inline std::uint64_t packConfigExecuteRs1(std::uint32_t a_stride,
+inline std::uint64_t packConfigExRs1(std::uint32_t a_stride,
                                           bool a_transpose         = false,
                                           bool b_transpose         = false,
                                           std::uint32_t dataflow   = 0,
@@ -117,7 +117,7 @@ inline std::uint64_t packConfigExecuteRs1(std::uint32_t a_stride,
          (static_cast<std::uint64_t>(acc_scale) << kConfigExecuteAccScaleShift);
 }
 // Build 64-bit rs2 operand for CONFIG_EX
-inline std::uint64_t packConfigExecuteRs2(std::uint32_t c_stride,
+inline std::uint64_t packConfigExRs2(std::uint32_t c_stride,
                                           std::uint32_t in_shift    = 0,
                                           std::uint32_t relu6_shift = 0) {
   return (static_cast<std::uint64_t>(c_stride & 0xffffu) << kConfigExecuteCStrideShift) |
@@ -125,43 +125,43 @@ inline std::uint64_t packConfigExecuteRs2(std::uint32_t c_stride,
          (static_cast<std::uint64_t>(in_shift) << kConfigExecuteInShiftShift);
 }
 // Extracts CONFIG_EX rs1[2], the execute dataflow selector
-inline std::uint32_t unpackConfigExecuteDataflow(std::uint64_t rs1) {
+inline std::uint32_t unpackConfigExDataflow(std::uint64_t rs1) {
   return static_cast<std::uint32_t>((rs1 >> kConfigExecuteDataflowBit) & 0x1u);
 }
 // Extracts CONFIG_EX rs1[4:3], the activation selector
-inline std::uint32_t unpackConfigExecuteActivation(std::uint64_t rs1) {
+inline std::uint32_t unpackConfigExActivation(std::uint64_t rs1) {
   return static_cast<std::uint32_t>((rs1 >> kConfigExecuteActivationShift) & 0x3u);
 }
 //Extracts CONFIG_EX rs1[7], which limits CONFIG_EX to stride updates
-inline bool unpackConfigExecuteSetOnlyStrides(std::uint64_t rs1) {
+inline bool unpackConfigExSetOnlyStrides(std::uint64_t rs1) {
   return ((rs1 >> kConfigExecuteSetOnlyStridesBit) & 0x1u) != 0;
 }
 // Extracts CONFIG_EX rs1[31:16], the A-address stride
-inline std::uint32_t unpackConfigExecuteAStride(std::uint64_t rs1) {
+inline std::uint32_t unpackConfigExAStride(std::uint64_t rs1) {
   return static_cast<std::uint32_t>((rs1 >> kConfigExecuteAStrideShift) & 0xffffu);
 }
 // Extracts CONFIG_EX rs1[8], the A transpose flag
-inline bool unpackConfigExecuteATranspose(std::uint64_t rs1) {
+inline bool unpackConfigExATranspose(std::uint64_t rs1) {
   return ((rs1 >> kConfigExecuteATransposeBit) & 0x1u) != 0;
 }
 // Extracts CONFIG_EX rs1[9], the B/D transpose flag
-inline bool unpackConfigExecuteBTranspose(std::uint64_t rs1) {
+inline bool unpackConfigExBTranspose(std::uint64_t rs1) {
   return ((rs1 >> kConfigExecuteBTransposeBit) & 0x1u) != 0;
 }
 // Extracts CONFIG_EX rs1[63:32], the accumulator scale field
-inline std::uint32_t unpackConfigExecuteAccScale(std::uint64_t rs1) {
+inline std::uint32_t unpackConfigExAccScale(std::uint64_t rs1) {
   return static_cast<std::uint32_t>((rs1 >> kConfigExecuteAccScaleShift) & 0xffffffffull);
 }
 // Extracts CONFIG_EX rs2[15:0], the C-address stride
-inline std::uint32_t unpackConfigExecuteCStride(std::uint64_t rs2) {
+inline std::uint32_t unpackConfigExCStride(std::uint64_t rs2) {
   return static_cast<std::uint32_t>((rs2 >> kConfigExecuteCStrideShift) & 0xffffu);
 }
 // Extracts CONFIG_EX rs2[31:16], the ReLU6 shift field
-inline std::uint32_t unpackConfigExecuteRelu6Shift(std::uint64_t rs2) {
+inline std::uint32_t unpackConfigExRelu6Shift(std::uint64_t rs2) {
   return static_cast<std::uint32_t>((rs2 >> kConfigExecuteRelu6ShiftShift) & 0xffffu);
 }
 // Extracts CONFIG_EX rs2[63:32], the mesh input shift amount
-inline std::uint32_t unpackConfigExecuteInShift(std::uint64_t rs2) {
+inline std::uint32_t unpackConfigExInShift(std::uint64_t rs2) {
   return static_cast<std::uint32_t>((rs2 >> kConfigExecuteInShiftShift) & 0xffffffffull);
 }
 // Packs STORE_SPAD destination metadata: local address plus stride

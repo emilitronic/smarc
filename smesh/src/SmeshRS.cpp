@@ -114,10 +114,10 @@ void updateConfigState(const SmeshCmd& cmd, SmeshRSConfigState& state) {
   const auto rs1 = static_cast<std::uint64_t>(cmd.rs1);
   const auto kind = static_cast<ConfigKind>(rs1 & 0x3u);
   if (kind == ConfigKind::Execute) {
-    state.a_stride = unpackConfigExecuteAStride(rs1);
+    state.a_stride = unpackConfigExAStride(rs1);
     state.c_stride =
-        unpackConfigExecuteCStride(static_cast<std::uint64_t>(cmd.rs2));
-    state.a_transpose = unpackConfigExecuteATranspose(rs1);
+        unpackConfigExCStride(static_cast<std::uint64_t>(cmd.rs2));
+    state.a_transpose = unpackConfigExATranspose(rs1);
     return;
   }
   if (kind != ConfigKind::Load) {

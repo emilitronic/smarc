@@ -94,8 +94,8 @@ void CmdQueueDriver::update() {
     issue.rs_tag_valid = 1;
     issue.rs_tag = 7;
     issue.cmd.funct = static_cast<std::uint32_t>(smesh::SmeshFunct::Config);
-    issue.cmd.rs1 = smesh::packConfigExecuteRs1(1);
-    issue.cmd.rs2 = smesh::packConfigExecuteRs2(1);
+    issue.cmd.rs1 = smesh::packConfigExRs1(1);
+    issue.cmd.rs2 = smesh::packConfigExRs2(1);
     cmd_out.push(issue);
     sent_ = true;
     return;
@@ -106,8 +106,8 @@ void CmdQueueDriver::update() {
     passed_ = issue.rs_tag_valid != 0 &&
               issue.rs_tag == 7 &&
               issue.cmd.funct == static_cast<std::uint32_t>(smesh::SmeshFunct::Config) &&
-              issue.cmd.rs1 == smesh::packConfigExecuteRs1(1) &&
-              issue.cmd.rs2 == smesh::packConfigExecuteRs2(1) &&
+              issue.cmd.rs1 == smesh::packConfigExRs1(1) &&
+              issue.cmd.rs2 == smesh::packConfigExRs2(1) &&
               head_val[1] == 0;
     done_ = true;
   }

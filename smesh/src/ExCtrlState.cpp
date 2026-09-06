@@ -42,19 +42,19 @@ void ExCtrlState::update() {
         config_rs_tag     = cmdq.rs_tag;
         cmd_pop_count     = 1; // tell cmd q how many entries to pop (1 for CONFIG_EX)
         if (type == ConfigKind::Execute) {
-          const bool set_only_strides = unpackConfigExecuteSetOnlyStrides(rs1);
+          const bool set_only_strides = unpackConfigExSetOnlyStrides(rs1);
           config_initialized_reg_ = 1;
           if (!set_only_strides) {
             // TODO check for nonlinear activations
-            in_shift_reg_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
-            activation_reg_       = static_cast<std::uint8_t>(unpackConfigExecuteActivation(rs1));
-            acc_scale_reg_        = unpackConfigExecuteAccScale(rs1);
-            a_transpose_reg_      = bit(unpackConfigExecuteATranspose(rs1));
-            bd_transpose_reg_     = bit(unpackConfigExecuteBTranspose(rs1));
-            current_dataflow_reg_ = static_cast<std::uint8_t>(unpackConfigExecuteDataflow(rs1));
+            in_shift_reg_         = static_cast<std::uint8_t>(unpackConfigExInShift(rs2));
+            activation_reg_       = static_cast<std::uint8_t>(unpackConfigExActivation(rs1));
+            acc_scale_reg_        = unpackConfigExAccScale(rs1);
+            a_transpose_reg_      = bit(unpackConfigExATranspose(rs1));
+            bd_transpose_reg_     = bit(unpackConfigExBTranspose(rs1));
+            current_dataflow_reg_ = static_cast<std::uint8_t>(unpackConfigExDataflow(rs1));
           }
-          a_addr_stride_reg_ = unpackConfigExecuteAStride(rs1);
-          c_addr_stride_reg_ = unpackConfigExecuteCStride(rs2);
+          a_addr_stride_reg_ = unpackConfigExAStride(rs1);
+          c_addr_stride_reg_ = unpackConfigExCStride(rs2);
         }
       }
       break;

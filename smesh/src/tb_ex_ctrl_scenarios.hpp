@@ -65,7 +65,7 @@ inline ExCtrlScenario makeConfigPreloadComputeScenario() {
   //   3. COMPUTE:   read A from SPAD row 12 and B from SPAD row 4.
   // Each command has a distinct RS tag so queue movement is easy to inspect.
   scenario.program = {
-      makeScenarioIssue(7, SmeshFunct::Config,      packConfigExecuteRs1(1),                 packConfigExecuteRs2(1)),
+      makeScenarioIssue(7, SmeshFunct::Config,      packConfigExRs1(1),                 packConfigExRs2(1)),
       makeScenarioIssue(8, SmeshFunct::Preload,     packLocal(makeSpAddr(4),  {kDim, kDim}), packLocal(makeAccAddr(8), {kDim, kDim})),
       makeScenarioIssue(9, SmeshFunct::ComputeStay, packLocal(makeSpAddr(12), {kDim, kDim}), packLocal(makeSpAddr(4),  {kDim, kDim})),
   };
