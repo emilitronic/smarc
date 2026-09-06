@@ -31,19 +31,23 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
     .reads(raw_hazards_are_impossible, raw_hazard_pre)
     .reads(control_state)
     .reads(perform_single_preload)
-    .reads(in_prop_flush)
+    .reads(c_address_rs2)
+    .reads(about_to_fire_all_rows)
+    .reads(in_prop_flush, in_prop)
+    .writes(cmd_pop_count)
     .writes(performing_single_preload)
+    .writes(config_val, config_rs_tag_val, config_rs_tag)
+    .writes(pending_completed_set_val, pending_completed_set_bits)
+    .writes(start_inputting_a, start_inputting_b, start_inputting_d)
+    .writes(computing)
+    .writes(prop)
 
-    .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
     .reads(config_initialized, a_transpose, bd_transpose, current_dataflow,
            activation, acc_scale, a_addr_stride)
     .reads(c_addr_stride, shift)
-    .writes(config_val, config_rs_tag_val, config_rs_tag)
-    .writes(pending_completed_set_val, pending_completed_set_bits, computing)
-    .writes(prop, cmd_pop_count)
+
     .writes(control_state_D_, perform_single_preload_D_)
-    .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
-    .writes(start_inputting_a, start_inputting_b, start_inputting_d);
+    .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer);
 }
 
 void ExCtrlState::update() {
@@ -54,6 +58,8 @@ void ExCtrlState::update() {
   performing_single_preload = bit(perform_single_preload == 1 && fsm_state == ExCtrlFsmState::Compute);
   if (perform_single_preload == 1 && fsm_state == ExCtrlFsmState::Compute) { start_inputting_a = a_should_be_fed_into_transposer; start_inputting_b = b_should_be_fed_into_transposer; start_inputting_d = 1;
   } else {  start_inputting_a = 0; start_inputting_b = 0; start_inputting_d = 0;}
+  prop = performing_single_preload == 1 ? *in_prop_flush : *in_prop;
+  computing = performing_single_preload || performing_mul_pre || performing_single_mul;
 
   // ///////////////////////////////////////
   // STATE TRANS (& SAME-CYCLE OUTPUTS)
@@ -95,7 +101,8 @@ void ExCtrlState::update() {
               (raw_hazards_are_impossible == 1 || raw_hazard_pre == 0)) {
 
         perform_single_preload_D_ = 1;
-        performing_single_preload   = 1;
+        performing_single_preload = 1;
+        prop                      = performing_single_preload == 1 ? *in_prop_flush : *in_prop;
         control_state_D_          = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
       }
       // TODO else if overlap compute and preload
@@ -134,6 +141,7 @@ void ExCtrlState::update() {
 }
 
 void ExCtrlState::reset() {
+  // reset FSM configuration
   control_state_D_.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
   config_initialized_D_.reset(0);
   in_shift_D_.reset(0);
@@ -147,6 +155,10 @@ void ExCtrlState::reset() {
 
   perform_single_preload_D_.reset(0);
   performing_single_preload.reset(0);
+  performing_mul_pre.reset(0);
+  performing_single_mul.reset(0);
+
+  computing.reset(0);
 
   in_prop_flush_D_.reset(0);
   // reset output to completion block

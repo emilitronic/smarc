@@ -68,10 +68,15 @@ class ExCtrlState : public Component {
   Input(bit,            b_should_be_fed_into_transposer); // decoder says B should start through transposer path
   Input(bit,            d_should_be_fed_into_transposer); // decoder says D should start through transposer path
   Input(SmeshLocalAddr, c_address_rs2);                   // decoder's PRELOAD output destination
+  Input(bit,            in_prop);                         // cmd(0) is COMPUTE_AND_FLIP
+  // input to FSM from row-feed logic
+  Input(bit,            about_to_fire_all_rows);          // row-feed logic reports the final row-beat can fire
 
   // FSM/mode
   Output(u8,  control_state);             // current FSM state
   Output(bit, performing_single_preload); // standalone PRELOAD is active this cycle (put in )
+  Output(bit, performing_mul_pre);
+  Output(bit, performing_single_mul);
 
   // outputs to cmd queue
   Output(u8,  cmd_pop_count); // number of command-window entries consumed this cycle
@@ -85,8 +90,6 @@ class ExCtrlState : public Component {
   
   
   //---------------------------
-  Input(bit,             in_prop);                         // cmd(0) is COMPUTE_AND_FLIP
-  Input(bit,             about_to_fire_all_rows);          // row-feed logic reports the final row-beat can fire
 
   // Config/programmed
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
@@ -119,8 +122,12 @@ class ExCtrlState : public Component {
   Register(u32, a_addr_stride_D_);
   Register(u32, c_addr_stride_D_);
 
-  Output(bit,   perform_single_preload);    // registered standalone PRELOAD mode
+  Output(bit,   perform_single_preload); // registered standalone PRELOAD mode
   Register(bit, perform_single_preload_D_);
+  Output(bit,   perform_mul_pre);        // registered standalone MUL_PRE mode
+  Register(bit, perform_mul_pre_D_);
+  Output(bit,   perform_single_mul);     // registered standalone PRELOAD mode
+  Register(bit, perform_single_mul_D_);
 
   Output(bit,   in_prop_flush);
   Register(bit, in_prop_flush_D_);
