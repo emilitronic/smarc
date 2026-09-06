@@ -108,19 +108,23 @@ class ExCtrlState : public Component {
   void reset();
 
  private:
-  Register(u8,  control_state_reg_); // next FSM state
-  Register(bit, config_initialized_reg_);
-  Register(u8,  in_shift_reg_);
-  Register(u8,  activation_reg_);
-  Register(u32, acc_scale_reg_);
-  Register(bit, a_transpose_reg_);
-  Register(bit, bd_transpose_reg_);  
-  Register(u8,  current_dataflow_reg_);
-  Register(u32, a_addr_stride_reg_);
-  Register(u32, c_addr_stride_reg_);
+  Register(u8,  control_state_D_); // next FSM state
+  Register(bit, config_initialized_D_);
+  Register(u8,  in_shift_D_);
+  Register(u8,  activation_D_);
+  Register(u32, acc_scale_D_);
+  Register(bit, a_transpose_D_);
+  Register(bit, bd_transpose_D_);
+  Register(u8,  current_dataflow_D_);
+  Register(u32, a_addr_stride_D_);
+  Register(u32, c_addr_stride_D_);
 
   Output(bit,   perform_single_preload);    // registered standalone PRELOAD mode
-  Register(bit, perform_single_preload_reg_);
+  Register(bit, perform_single_preload_D_);
+
+  Output(bit,   in_prop_flush);
+  Register(bit, in_prop_flush_D_);
+
 };
 
 } // namespace smesh

@@ -9,20 +9,20 @@ namespace smesh {
 
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   //                      Q <= D
-  control_state             <= control_state_reg_;
-  config_initialized        <= config_initialized_reg_;
-  shift                     <= in_shift_reg_;
-  activation                <= activation_reg_;
-  acc_scale                 <= acc_scale_reg_;
-  a_transpose               <= a_transpose_reg_;
-  bd_transpose              <= bd_transpose_reg_;
-  current_dataflow          <= current_dataflow_reg_;
-  a_addr_stride             <= a_addr_stride_reg_;
-  c_addr_stride             <= c_addr_stride_reg_;
+  control_state             <= control_state_D_;
+  config_initialized        <= config_initialized_D_;
+  shift                     <= in_shift_D_;
+  activation                <= activation_D_;
+  acc_scale                 <= acc_scale_D_;
+  a_transpose               <= a_transpose_D_;
+  bd_transpose              <= bd_transpose_D_;
+  current_dataflow          <= current_dataflow_D_;
+  a_addr_stride             <= a_addr_stride_D_;
+  c_addr_stride             <= c_addr_stride_D_;
 
-  perform_single_preload    <= perform_single_preload_reg_;
+  perform_single_preload    <= perform_single_preload_D_;
 
-  in_prop_flush             <= in_prop_flush_reg_;
+  in_prop_flush             <= in_prop_flush_D_;
 
   UPDATE(update)
     .reads(head_val, head_bits)
@@ -41,7 +41,7 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
     .writes(config_val, config_rs_tag_val, config_rs_tag)
     .writes(pending_completed_set_val, pending_completed_set_bits, computing)
     .writes(prop, cmd_pop_count)
-    .writes(control_state_reg_, perform_single_preload_reg_)
+    .writes(control_state_D_, perform_single_preload_D_)
     .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
     .writes(start_inputting_a, start_inputting_b, start_inputting_d);
 }
@@ -60,7 +60,7 @@ void ExCtrlState::update() {
   // ///////////////////////////////////////
   switch (fsm_state) {
     case ExCtrlFsmState::WaitingForCmd: 
-      perform_single_preload_reg_ = 0;
+        perform_single_preload_D_ = 0;
 
       if (do_config == 1 && head_val[0] == 1 && 
           matmul_in_progress == 0 && pending_completed_val == 0) {
@@ -77,26 +77,26 @@ void ExCtrlState::update() {
 
         if (type == ConfigKind::Execute) {
           const bool set_only_strides = unpackConfigExSetOnlyStrides(rs1);
-          config_initialized_reg_ = 1;
+          config_initialized_D_ = 1;
           if (!set_only_strides) {
             // TODO check for nonlinear activations
-            in_shift_reg_         = static_cast<std::uint8_t>(unpackConfigExInShift(rs2));
-            activation_reg_       = static_cast<std::uint8_t>(unpackConfigExActivation(rs1));
-            acc_scale_reg_        = unpackConfigExAccScale(rs1);
-            a_transpose_reg_      = bit(unpackConfigExATranspose(rs1));
-            bd_transpose_reg_     = bit(unpackConfigExBTranspose(rs1));
-            current_dataflow_reg_ = static_cast<std::uint8_t>(unpackConfigExDataflow(rs1));
+            in_shift_D_         = static_cast<std::uint8_t>(unpackConfigExInShift(rs2));
+            activation_D_       = static_cast<std::uint8_t>(unpackConfigExActivation(rs1));
+            acc_scale_D_        = unpackConfigExAccScale(rs1);
+            a_transpose_D_      = bit(unpackConfigExATranspose(rs1));
+            bd_transpose_D_     = bit(unpackConfigExBTranspose(rs1));
+            current_dataflow_D_ = static_cast<std::uint8_t>(unpackConfigExDataflow(rs1));
           }
-          a_addr_stride_reg_ = unpackConfigExAStride(rs1);
-          c_addr_stride_reg_ = unpackConfigExCStride(rs2);
+          a_addr_stride_D_ = unpackConfigExAStride(rs1);
+          c_addr_stride_D_ = unpackConfigExCStride(rs2);
         }
       } // TODO else if CONFIG_IM2COL
       else if (do_preloads[0] == 1 && head_val[0] == 1 &&  head_val[1] == 1 && 
               (raw_hazards_are_impossible == 1 || raw_hazard_pre == 0)) {
 
-        perform_single_preload_reg_ = 1;
+        perform_single_preload_D_ = 1;
         performing_single_preload   = 1;
-        control_state_reg_          = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
+        control_state_D_          = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
       }
       // TODO else if overlap compute and preload
       // TODO else if single mul
@@ -108,7 +108,7 @@ void ExCtrlState::update() {
         // combinational outputs for single preload sub-state are already set above
         if (about_to_fire_all_rows == 1) {
           cmd_pop_count = 1;
-          control_state_reg_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
+          control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
 
           const auto cmdq      = *head_bits[0];
           const bool c_garbage = c_address_rs2->is_garbage();
@@ -117,7 +117,7 @@ void ExCtrlState::update() {
           pending_completed_set_bits[0] = cmdq.rs_tag;
 
           if (current_dataflow == kExDataflowOS) {
-            in_prop_flush_reg_ = bit(!c_garbage);
+            in_prop_flush_D_ = bit(!c_garbage);
           }
 
         }
@@ -134,21 +134,21 @@ void ExCtrlState::update() {
 }
 
 void ExCtrlState::reset() {
-  control_state_reg_.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
-  config_initialized_reg_.reset(0);
-  in_shift_reg_.reset(0);
-  activation_reg_.reset(0);
-  acc_scale_reg_.reset(0);
-  a_transpose_reg_.reset(0);
-  bd_transpose_reg_.reset(0);
-  current_dataflow_reg_.reset(kExDataflowWS);
-  a_addr_stride_reg_.reset(1);
-  c_addr_stride_reg_.reset(1);
+  control_state_D_.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
+  config_initialized_D_.reset(0);
+  in_shift_D_.reset(0);
+  activation_D_.reset(0);
+  acc_scale_D_.reset(0);
+  a_transpose_D_.reset(0);
+  bd_transpose_D_.reset(0);
+  current_dataflow_D_.reset(kExDataflowWS);
+  a_addr_stride_D_.reset(1);
+  c_addr_stride_D_.reset(1);
 
-  perform_single_preload_reg_.reset(0);
+  perform_single_preload_D_.reset(0);
   performing_single_preload.reset(0);
 
-  in_prop_flush_reg_.reset(0);
+  in_prop_flush_D_.reset(0);
   // reset output to completion block
   config_val.reset(0);
   config_rs_tag_val.reset(0);
