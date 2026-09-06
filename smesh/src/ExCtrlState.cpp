@@ -66,7 +66,6 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
 
 void ExCtrlState::updateStartInputting() {
   const auto fsm_state = toFsmState(*control_state);
-
   start_inputting_a = 0; start_inputting_b = 0; start_inputting_d = 0;
   if (perform_single_preload_Q_ == 1 && fsm_state == ExCtrlFsmState::Compute) {
     start_inputting_a = a_should_be_fed_into_transposer; start_inputting_b = b_should_be_fed_into_transposer; start_inputting_d = 1;

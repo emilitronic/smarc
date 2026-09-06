@@ -25,6 +25,7 @@ add_library(smesh_model
   src/ExCtrlRowAddr.cpp
   src/ExCtrlRowPad.cpp
   src/ExCtrlState.cpp
+  src/ExCtrlState2.cpp
   src/ExCtrlWriteback.cpp
   src/LdCtrl.cpp
   src/MvinLocalRouter.cpp
