@@ -1,0 +1,144 @@
+// **********************************************************************
+// smesh/include/ExCtrlState.hpp
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Jul 26 2026
+/*
+Central execute-controller FSM state holder.
+*/
+
+#pragma once
+
+#include <cascade/Cascade.hpp>
+
+#include "ExCtrlQueues.hpp"
+#include "ExCtrlDecoder.hpp"
+#include "SmeshCommand.hpp"
+#include "SmeshPorts.hpp"
+
+#include <cstdint>
+
+namespace smesh {
+
+enum class ExCtrlFsmState : std::uint8_t {
+  WaitingForCmd = 0,
+  Compute       = 1,
+  Flush         = 2,
+  Flushing      = 3,
+};
+
+class ExCtrlState : public Component {
+  DECLARE_COMPONENT(ExCtrlState);
+
+ public:
+  ExCtrlState(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+  // inputs to FSM
+  InputArray(bit,        head_val,  kExCtrlCmdWindow);     // cmd queue head valid bits
+  InputArray(SmeshIssue, head_bits, kExCtrlCmdWindow);     // cmd queue head bits
+  Input(bit,             do_config);                       // cmd(0) is config?
+  InputArray(bit,        do_preloads, kExCtrlCmdWindow);   // cmd(0/1/2) is preload?
+  InputArray(bit,        do_computes, kExCtrlCmdWindow);   // cmd(0/1/2) is compute?
+  Input(bit,             matmul_in_progress);              // mesh reports an in-flight matmul
+  Input(bit,             raw_hazards_are_impossible);      // no RAW hazards possible for this hardware config
+  Input(bit,             raw_hazard_pre);                  // PRELOAD branch has a RAW hazard
+  Input(bit,             a_should_be_fed_into_transposer); // decoder says A should start through transposer path
+  Input(bit,             b_should_be_fed_into_transposer); // decoder says B should start through transposer path
+  Input(bit,             d_should_be_fed_into_transposer); // decoder says D should start through transposer path
+  Input(bit,             in_prop);                         // cmd(0) is COMPUTE_AND_FLIP
+  Input(bit,             about_to_fire_all_rows);          // row-feed logic reports the final row-beat can fire
+  Input(SmeshLocalAddr,  c_address_rs2);                   // decoder's PRELOAD output destination
+  Input(bit,             pending_completed_valid);         // completion block has pending completions
+
+  // FSM/mode
+  Output(u8,  control_state);             // current value of the FSM state register
+  Output(bit, performing_single_preload); // immediately signal standalone PRELOAD active (while latching perform_single_preload)
+  // Config/programmed
+  Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
+  Output(bit, a_transpose);         // CONFIG_EX A transpose register
+  Output(bit, bd_transpose);        // CONFIG_EX B/D transpose register, TODO: decode when encoded
+  Output(u8,  current_dataflow);    // execute dataflow register, TODO: decode when encoded
+  Output(u8,  activation);          // CONFIG_EX activation register
+  Output(u32, acc_scale);           // CONFIG_EX accumulator read scaling register
+  Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
+  Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
+  Output(u8,  shift);               // CONFIG_EX in_shift register for mesh-control packets
+  Output(bit, computing);           // any execute operation mode is currently feeding rows
+  Output(bit, start_inputting_a);   // begin feeding A operand rows (drive read req & row-feed logic)
+  Output(bit, start_inputting_b);   // begin feeding B operand rows (drive read req & row-feed logic)
+  Output(bit, start_inputting_d);   // begin feeding D/preload operand rows  (drive read req & row-feed logic)
+  Output(bit, prop);                // mesh-control propagate value
+  Output(u8,  cmd_pop_count);       // number of command-window entries consumed this cycle
+  // Completion
+  Output(bit,             config_val);                    // FSM accepts CONFIG_EX this cycle
+  Output(bit,             config_rs_tag_valid);           // val CONFIG_EX completion tag
+  Output(SmeshRsTag,      config_rs_tag);                 // info to send back on completed port
+  OutputArray(bit,        pending_completed_set_val, 2);  // FSM writes pending completion slots
+  OutputArray(SmeshRsTag, pending_completed_set_bits, 2); // tags written into pending slots
+
+  // TODO: add the remaining Gemmini-aligned FSM inputs as we use them:
+  // Input(bit, raw_hazard_mulpre);
+  // Input(bit, third_instruction_needed);
+  // Input(u8, current_dataflow);
+  // Input(bit, mesh_req_fire);
+  // Input(bit, mesh_req_rdy);
+  // Output(bit, performing_mul_pre);
+  // Output(bit, performing_single_mul);
+
+  void update();
+  void updateStartInputs(); // operand feeding is independent of the final-row decision
+  void reset();
+
+ private:
+  // Current-state views for mode registers which are not public FSM outputs.
+  Output(bit, perform_single_preload_q_); // standalone PRELOAD remains in progress
+  Output(bit, in_prop_flush_q_);
+
+  // Register inputs. Their committed values appear on the public state/config
+  // outputs above, or on the private *_q_ views, on the following cycle.
+  Register(u8,  control_state_reg_);
+  Register(bit, config_initialized_reg_);
+  Register(bit, a_transpose_reg_);
+  Register(bit, bd_transpose_reg_);
+  Register(u8,  current_dataflow_reg_);
+  Register(u8,  activation_reg_);
+  Register(u32, acc_scale_reg_);
+  Register(u32, a_addr_stride_reg_);
+  Register(u32, c_addr_stride_reg_);
+  Register(u8,  in_shift_reg_);
+  Register(bit, perform_single_preload_reg_);
+  Register(bit, in_prop_flush_reg_);
+
+  // TODO: add later:
+
+  // command mode registers:
+  // perform_single_preload (done)
+  // perform_single_mul
+  // perform_mul_pre
+
+  // programmed execution settings:
+  // activation (done)
+  // acc_scale (done)
+  // a_transpose
+  // bd_transpose
+  // config_initialized
+  // a_addr_stride
+  // c_addr_stride
+
+  // TODO: add im2col config registers settings:
+  // ocol
+  // orow
+  // krow
+  // weight_stride
+  // channel
+  // row_turn
+  // row_left
+  // kdim2
+  // weight_double_bank
+  // weight_triple_bank
+
+  // TODO: other
+  // in_prop_flush (started)
+};
+
+} // namespace smesh

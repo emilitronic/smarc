@@ -1,0 +1,219 @@
+// **********************************************************************
+// smesh/src/ExCtrlState.cpp
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Jul 26 2026
+
+#include "ExCtrlState.hpp"
+
+namespace smesh {
+
+TraceKey(ex_ctrl_state_view);
+
+ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
+  // Explicit cycle boundaries for FSM mode and CONFIG_EX state.
+  control_state             <= control_state_reg_;
+  config_initialized        <= config_initialized_reg_;
+  a_transpose               <= a_transpose_reg_;
+  bd_transpose              <= bd_transpose_reg_;
+  current_dataflow          <= current_dataflow_reg_;
+  activation                <= activation_reg_;
+  acc_scale                 <= acc_scale_reg_;
+  a_addr_stride             <= a_addr_stride_reg_;
+  c_addr_stride             <= c_addr_stride_reg_;
+  shift                     <= in_shift_reg_;
+  perform_single_preload_q_ <= perform_single_preload_reg_;
+  in_prop_flush_q_          <= in_prop_flush_reg_;
+
+  UPDATE(update)
+    .reads(head_val, head_bits, do_config, do_preloads, matmul_in_progress, pending_completed_valid,
+           raw_hazards_are_impossible, raw_hazard_pre)
+    .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
+    .reads(control_state, config_initialized, a_transpose, bd_transpose, current_dataflow,
+           activation, acc_scale, a_addr_stride)
+    .reads(c_addr_stride, shift, perform_single_preload_q_, in_prop_flush_q_)
+    .writes(config_val, config_rs_tag_valid, config_rs_tag)
+    .writes(pending_completed_set_val, pending_completed_set_bits, performing_single_preload, computing)
+    .writes(prop, cmd_pop_count)
+    .writes(control_state_reg_, config_initialized_reg_, a_transpose_reg_, bd_transpose_reg_,
+            current_dataflow_reg_, activation_reg_)
+    .writes(acc_scale_reg_, a_addr_stride_reg_, c_addr_stride_reg_, in_shift_reg_,
+            perform_single_preload_reg_, in_prop_flush_reg_);
+
+  // These signals cause row feeding; row feede's about_to_fire_all_rows must not drive them.
+  UPDATE(updateStartInputs)
+    .reads(control_state, perform_single_preload_q_,
+           a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
+    .writes(start_inputting_a, start_inputting_b, start_inputting_d);
+}
+
+// Start-signal generation 
+void ExCtrlState::updateStartInputs() {
+  start_inputting_a = 0;
+  start_inputting_b = 0;
+  start_inputting_d = 0;
+  // if in Compute and single preload in progress, start feeding operands
+  if (*control_state == static_cast<std::uint8_t>(ExCtrlFsmState::Compute) && perform_single_preload_q_ != 0) {
+    start_inputting_a = a_should_be_fed_into_transposer; // don't do nothin with A on preload, unless it's a transpose
+    start_inputting_b = b_should_be_fed_into_transposer;
+    start_inputting_d = 1;
+  }
+}
+
+void ExCtrlState::update() {
+  const auto state = static_cast<ExCtrlFsmState>(static_cast<std::uint8_t>(*control_state));
+
+  trace(ex_ctrl_state_view,
+        "state=%u head0=%u do_config=%u matmul_in_progress=%u pending_completed_valid=%u\n",
+        static_cast<unsigned>(state),
+        static_cast<unsigned>(head_val[0]),
+        static_cast<unsigned>(do_config),
+        static_cast<unsigned>(matmul_in_progress),
+        static_cast<unsigned>(pending_completed_valid));
+
+  // Hold every register by default; accepted FSM branches override next state.
+  control_state_reg_          = *control_state;
+  config_initialized_reg_     = *config_initialized;
+  a_transpose_reg_            = *a_transpose;
+  bd_transpose_reg_           = *bd_transpose;
+  current_dataflow_reg_       = *current_dataflow;
+  activation_reg_             = *activation;
+  acc_scale_reg_              = *acc_scale;
+  a_addr_stride_reg_          = *a_addr_stride;
+  c_addr_stride_reg_          = *c_addr_stride;
+  in_shift_reg_               = *shift;
+  perform_single_preload_reg_ = *perform_single_preload_q_;
+  in_prop_flush_reg_          = *in_prop_flush_q_;
+
+  config_val             = 0; // FSM accepts/processes a CONFIG command this cycle
+  config_rs_tag_valid    = 0;
+  config_rs_tag          = 0;
+  for (std::size_t i = 0; i < 2; ++i) {
+    pending_completed_set_val[i] = 0;
+    pending_completed_set_bits[i] = 0;
+  }
+  performing_single_preload = 0;
+  computing                 = 0;
+  prop                      = 0;
+  cmd_pop_count             = 0;
+  bool taking_single_preload = false;  // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
+
+  switch (state) {
+    // **** WAITING_FOR_CMD: check for new commands and decide what to do next ****
+    // ****************************************************************************
+    case ExCtrlFsmState::WaitingForCmd: {
+      perform_single_preload_reg_ = 0;
+      // if cmd(0) is CONFIG && we can accept it
+      if (head_val[0] != 0 && do_config != 0 && matmul_in_progress == 0 && pending_completed_valid == 0) {
+        const auto issue = *head_bits[0];
+        const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
+        const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
+        const auto kind  = static_cast<ConfigKind>(rs1 & 0x3u);
+        
+        // for completion logic
+        config_val          = 1;
+        config_rs_tag_valid = issue.rs_tag_valid;
+        config_rs_tag       = issue.rs_tag;
+        cmd_pop_count       = 1; // tell cmd q how many entries to pop (1 for CONFIG_EX)
+
+        // if cmd(0)=CONFIG_EX, update FSM registers with the new settings
+        if (kind == ConfigKind::Execute) {
+          const bool set_only_strides = unpackConfigExecuteSetOnlyStrides(rs1);
+          config_initialized_reg_ = 1;
+          if (!set_only_strides) {
+            // TODO check for nonlinear activations
+            in_shift_reg_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
+            activation_reg_       = static_cast<std::uint8_t>(unpackConfigExecuteActivation(rs1));
+            acc_scale_reg_        = unpackConfigExecuteAccScale(rs1);
+            a_transpose_reg_      = bit(unpackConfigExecuteATranspose(rs1));
+            bd_transpose_reg_     = bit(unpackConfigExecuteBTranspose(rs1));
+            current_dataflow_reg_ = static_cast<std::uint8_t>(unpackConfigExecuteDataflow(rs1));
+          }
+          a_addr_stride_reg_ = unpackConfigExecuteAStride(rs1);
+          c_addr_stride_reg_ = unpackConfigExecuteCStride(rs2);
+        }
+        // TODO else if CONFIG_IM2COL
+      // if cmd(0)=PRELOAD && cmd(1) is val && no RAW hazard 
+      } else if (head_val[0] != 0 && do_preloads[0] != 0 && head_val[1] != 0 && (raw_hazards_are_impossible != 0 || raw_hazard_pre == 0)) {
+        taking_single_preload       = true; // WaitingForCmd logic is accepting a standalone PRELOAD command this cycle
+        perform_single_preload_reg_ = 1;
+        control_state_reg_ = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
+      }
+      // TODO else if Overlap Compute and Preload: if cmd(0) has valid PRELOAD and cmd(1) is COMPUTE and no RAW hazard blocks
+      // TODO else if Single Mul: if cmd(0) has valid COMPUTE
+      // TODO else if Flush
+      break;
+    }
+    // **** COMPUTE: issue operand reads and wait for all rows to enter the mesh ****
+    // ******************************************************************************
+    case ExCtrlFsmState::Compute:
+      if (perform_single_preload_q_ != 0) {
+        // updateStartInputs keeps feeding through this final row-beat.
+        if (about_to_fire_all_rows != 0) {
+          cmd_pop_count = 1;
+          control_state_reg_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
+
+          const auto issue     = *head_bits[0];
+          const bool c_garbage = c_address_rs2->is_garbage();
+          // signals for completion logic: if single PRELOAD is valid and C addr is garbage, then PRELOAD is complete 
+          pending_completed_set_val[0]  = bit(issue.rs_tag_valid != 0 && c_garbage);
+          pending_completed_set_bits[0] = issue.rs_tag;
+
+          if (current_dataflow == kExDataflowOS) {
+            in_prop_flush_reg_ = bit(!c_garbage);
+          }
+          
+          trace(ex_ctrl_state_view, "preload rows finished: pop=1 tag=%u pending=%u next=WAIT\n",
+                static_cast<unsigned>(issue.rs_tag),
+                static_cast<unsigned>(issue.rs_tag_valid != 0 && c_garbage));
+        }
+      }
+      // TODO: issue operand reads and wait for all rows to enter the mesh.
+      break;
+
+    case ExCtrlFsmState::Flush:
+      // TODO: send a mesh flush request.
+      break;
+
+    case ExCtrlFsmState::Flushing:
+      // TODO: wait for mesh drain/flush completion.
+      break;
+  }
+
+  const auto next_performing_single_preload = bit((perform_single_preload_q_ != 0 && state == ExCtrlFsmState::Compute) || taking_single_preload);
+  performing_single_preload = next_performing_single_preload;
+  // TODO: include performing_mul_pre and performing_single_mul when those modes exist.
+  computing = next_performing_single_preload;
+  prop = next_performing_single_preload != 0 ? *in_prop_flush_q_ : *in_prop;
+}
+
+void ExCtrlState::reset() {
+  control_state_reg_.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
+  config_initialized_reg_.reset(0);
+  a_transpose_reg_.reset(0);
+  bd_transpose_reg_.reset(0);
+  current_dataflow_reg_.reset(kExDataflowWS);
+  activation_reg_.reset(0);
+  acc_scale_reg_.reset(0);
+  a_addr_stride_reg_.reset(1);
+  c_addr_stride_reg_.reset(1);
+  in_shift_reg_.reset(0);
+  perform_single_preload_reg_.reset(0);
+  in_prop_flush_reg_.reset(0);
+
+  config_val.reset(0);
+  config_rs_tag_valid.reset(0);
+  config_rs_tag.reset(0);
+  for (std::size_t i = 0; i < 2; ++i) {
+    pending_completed_set_val[i].reset(0);
+    pending_completed_set_bits[i].reset(0);
+  }
+  performing_single_preload.reset(0);
+  computing.reset(0);
+  start_inputting_a.reset(0);
+  start_inputting_b.reset(0);
+  start_inputting_d.reset(0);
+  prop.reset(0);
+  cmd_pop_count.reset(0);
+}
+
+} // namespace smesh
