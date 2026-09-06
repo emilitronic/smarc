@@ -13,13 +13,13 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
     .reads(head_val, head_bits)
     .reads(do_config, do_preloads, do_computes)
-    .reads(matmul_in_progress, pending_completed_valid)
+    .reads(matmul_in_progress, pending_completed_val)
     
     .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
     .reads(control_state, config_initialized, a_transpose, bd_transpose, current_dataflow,
            activation, acc_scale, a_addr_stride)
     .reads(c_addr_stride, shift)
-    .writes(config_val, config_rs_tag_valid, config_rs_tag)
+    .writes(config_val, config_rs_tag_val, config_rs_tag)
     .writes(pending_completed_set_val, pending_completed_set_bits, performing_single_preload, computing)
     .writes(prop, cmd_pop_count)
     .writes(control_state_reg_)
@@ -32,11 +32,30 @@ void ExCtrlState::update() {
    
   switch (state) {
     case ExCtrlFsmState::WaitingForCmd: {
-      if (head_val[0] == 1 && do_config == 1 && matmul_in_progress == 0 && pending_completed_valid == 0) {
+      if (head_val[0] == 1 && do_config == 1 && matmul_in_progress == 0 && pending_completed_val == 0) {
         const auto cmdq  = *head_bits[0];
         const auto rs1   = rawRs1(cmdq);
         const auto rs2   = rawRs2(cmdq);
-        const auto kind  = configKind(rs1);
+        const auto type  = configType(rs1); // type of config
+        config_val        = 1;
+        config_rs_tag_val = cmdq.rs_tag_valid;
+        config_rs_tag     = cmdq.rs_tag;
+        cmd_pop_count     = 1; // tell cmd q how many entries to pop (1 for CONFIG_EX)
+        if (type == ConfigKind::Execute) {
+          const bool set_only_strides = unpackConfigExecuteSetOnlyStrides(rs1);
+          config_initialized_reg_ = 1;
+          if (!set_only_strides) {
+            // TODO check for nonlinear activations
+            in_shift_reg_         = static_cast<std::uint8_t>(unpackConfigExecuteInShift(rs2));
+            activation_reg_       = static_cast<std::uint8_t>(unpackConfigExecuteActivation(rs1));
+            acc_scale_reg_        = unpackConfigExecuteAccScale(rs1);
+            a_transpose_reg_      = bit(unpackConfigExecuteATranspose(rs1));
+            bd_transpose_reg_     = bit(unpackConfigExecuteBTranspose(rs1));
+            current_dataflow_reg_ = static_cast<std::uint8_t>(unpackConfigExecuteDataflow(rs1));
+          }
+          a_addr_stride_reg_ = unpackConfigExecuteAStride(rs1);
+          c_addr_stride_reg_ = unpackConfigExecuteCStride(rs2);
+        }
       }
       break;
     }
@@ -54,6 +73,15 @@ void ExCtrlState::update() {
 
 void ExCtrlState::reset() {
   control_state_reg_.reset(static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd));
+  config_initialized_reg_.reset(0);
+  in_shift_reg_.reset(0);
+  activation_reg_.reset(0);
+  acc_scale_reg_.reset(0);
+  a_transpose_reg_.reset(0);
+  bd_transpose_reg_.reset(0);
+  current_dataflow_reg_.reset(kExDataflowWS);
+  a_addr_stride_reg_.reset(1);
+  c_addr_stride_reg_.reset(1);
 }
 
 } // namespace smesh

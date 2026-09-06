@@ -47,7 +47,7 @@ class ExCtrl : public Component {
   // TEMPORARY TEST OBSERVABILITY: these are not functional ExCtrl ports.
   Output(u8, control_state);
   Output(bit, config_val);
-  Output(bit, config_rs_tag_valid);
+  Output(bit, config_rs_tag_val);
   Output(SmeshRsTag, config_rs_tag);
   OutputArray(bit, cmd_queue_head_val, kExCtrlCmdWindow);
   OutputArray(SmeshIssue, cmd_queue_head_bits, kExCtrlCmdWindow);

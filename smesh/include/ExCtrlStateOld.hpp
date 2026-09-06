@@ -48,7 +48,7 @@ class ExCtrlState : public Component {
   Input(bit,             in_prop);                         // cmd(0) is COMPUTE_AND_FLIP
   Input(bit,             about_to_fire_all_rows);          // row-feed logic reports the final row-beat can fire
   Input(SmeshLocalAddr,  c_address_rs2);                   // decoder's PRELOAD output destination
-  Input(bit,             pending_completed_valid);         // completion block has pending completions
+  Input(bit,             pending_completed_val);           // completion block has pending completions
 
   // FSM/mode
   Output(u8,  control_state);             // current value of the FSM state register
@@ -71,7 +71,7 @@ class ExCtrlState : public Component {
   Output(u8,  cmd_pop_count);       // number of command-window entries consumed this cycle
   // Completion
   Output(bit,             config_val);                    // FSM accepts CONFIG_EX this cycle
-  Output(bit,             config_rs_tag_valid);           // val CONFIG_EX completion tag
+  Output(bit,             config_rs_tag_val);             // val CONFIG_EX completion tag
   Output(SmeshRsTag,      config_rs_tag);                 // info to send back on completed port
   OutputArray(bit,        pending_completed_set_val, 2);  // FSM writes pending completion slots
   OutputArray(SmeshRsTag, pending_completed_set_bits, 2); // tags written into pending slots

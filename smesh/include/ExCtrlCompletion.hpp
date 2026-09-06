@@ -23,7 +23,7 @@ class ExCtrlCompletion : public Component {
   Clock(clk);
 
   Input(bit, config_val);               // FSM accepted a CONFIG command
-  Input(bit, config_rs_tag_valid);      // FSM cmd rs_tag_valid for CONFIG command
+  Input(bit, config_rs_tag_val);        // FSM cmd rs_tag_valid for CONFIG command
   Input(SmeshRsTag, config_rs_tag);     // FSM cmd rs_tag for CONFIG command
   InputArray(bit, pending_completed_set_val, 2); // FSM writes pending slot valid values
   InputArray(SmeshRsTag, pending_completed_set_bits, 2); // FSM writes pending slot tags
@@ -31,7 +31,7 @@ class ExCtrlCompletion : public Component {
   Input(SmeshRsTag, mesh_completed_bits);  // completed mesh operation tag
   Output(bit, completed_val);           // selected execute completion valid
   Output(SmeshRsTag, completed_bits);   // selected execute completion tag
-  Output(bit, pending_completed_valid); // any pending completion register is occupied
+  Output(bit, pending_completed_val); // any pending completion register is occupied
 
   void updatePendingView();
   void updateCompletionView();
@@ -39,7 +39,7 @@ class ExCtrlCompletion : public Component {
   void reset();
 
  private:
-  bool pending_completed_valid_[2] = {false, false};
+  bool pending_completed_val_[2] = {false, false};
   SmeshRsTag pending_completed_bits_[2] = {0, 0};
   std::uint16_t complete_bits_count_ = 0;
 

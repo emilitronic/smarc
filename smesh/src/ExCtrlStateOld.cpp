@@ -25,13 +25,13 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   in_prop_flush_q_          <= in_prop_flush_reg_;
 
   UPDATE(update)
-    .reads(head_val, head_bits, do_config, do_preloads, matmul_in_progress, pending_completed_valid,
+    .reads(head_val, head_bits, do_config, do_preloads, matmul_in_progress, pending_completed_val,
            raw_hazards_are_impossible, raw_hazard_pre)
     .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
     .reads(control_state, config_initialized, a_transpose, bd_transpose, current_dataflow,
            activation, acc_scale, a_addr_stride)
     .reads(c_addr_stride, shift, perform_single_preload_q_, in_prop_flush_q_)
-    .writes(config_val, config_rs_tag_valid, config_rs_tag)
+    .writes(config_val, config_rs_tag_val, config_rs_tag)
     .writes(pending_completed_set_val, pending_completed_set_bits, performing_single_preload, computing)
     .writes(prop, cmd_pop_count)
     .writes(control_state_reg_, config_initialized_reg_, a_transpose_reg_, bd_transpose_reg_,
@@ -63,12 +63,12 @@ void ExCtrlState::update() {
   const auto state = static_cast<ExCtrlFsmState>(static_cast<std::uint8_t>(*control_state));
 
   trace(ex_ctrl_state_view,
-        "state=%u head0=%u do_config=%u matmul_in_progress=%u pending_completed_valid=%u\n",
+        "state=%u head0=%u do_config=%u matmul_in_progress=%u pending_completed_val=%u\n",
         static_cast<unsigned>(state),
         static_cast<unsigned>(head_val[0]),
         static_cast<unsigned>(do_config),
         static_cast<unsigned>(matmul_in_progress),
-        static_cast<unsigned>(pending_completed_valid));
+        static_cast<unsigned>(pending_completed_val));
 
   // Hold every register by default; accepted FSM branches override next state.
   control_state_reg_          = *control_state;
@@ -85,7 +85,7 @@ void ExCtrlState::update() {
   in_prop_flush_reg_          = *in_prop_flush_q_;
 
   config_val             = 0; // FSM accepts/processes a CONFIG command this cycle
-  config_rs_tag_valid    = 0;
+  config_rs_tag_val      = 0;
   config_rs_tag          = 0;
   for (std::size_t i = 0; i < 2; ++i) {
     pending_completed_set_val[i] = 0;
@@ -103,7 +103,7 @@ void ExCtrlState::update() {
     case ExCtrlFsmState::WaitingForCmd: {
       perform_single_preload_reg_ = 0;
       // if cmd(0) is CONFIG && we can accept it
-      if (head_val[0] != 0 && do_config != 0 && matmul_in_progress == 0 && pending_completed_valid == 0) {
+      if (head_val[0] != 0 && do_config != 0 && matmul_in_progress == 0 && pending_completed_val == 0) {
         const auto issue = *head_bits[0];
         const auto rs1   = static_cast<std::uint64_t>(issue.cmd.rs1);
         const auto rs2   = static_cast<std::uint64_t>(issue.cmd.rs2);
@@ -111,7 +111,7 @@ void ExCtrlState::update() {
         
         // for completion logic
         config_val          = 1;
-        config_rs_tag_valid = issue.rs_tag_valid;
+        config_rs_tag_val = issue.rs_tag_valid;
         config_rs_tag       = issue.rs_tag;
         cmd_pop_count       = 1; // tell cmd q how many entries to pop (1 for CONFIG_EX)
 
@@ -201,7 +201,7 @@ void ExCtrlState::reset() {
   in_prop_flush_reg_.reset(0);
 
   config_val.reset(0);
-  config_rs_tag_valid.reset(0);
+  config_rs_tag_val.reset(0);
   config_rs_tag.reset(0);
   for (std::size_t i = 0; i < 2; ++i) {
     pending_completed_set_val[i].reset(0);

@@ -275,7 +275,7 @@ class ExCtrlDriver : public Component {
   // Test-only taps from ExCtrl; completion is intentionally not checked here.
   Input(u8, control_state);
   Input(bit, config_val);
-  Input(bit, config_rs_tag_valid);
+  Input(bit, config_rs_tag_val);
   Input(smesh::SmeshRsTag, config_rs_tag);
   InputArray(bit, head_val, smesh::kExCtrlCmdWindow);
   InputArray(smesh::SmeshIssue, head_bits, smesh::kExCtrlCmdWindow);
@@ -524,7 +524,7 @@ ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update_memory_ready)
       .writes(accum_read_req_rdy, accum_read_resp_val, accum_read_resp_bits,
               spad_write_rdy, accum_write_rdy);
-  UPDATE(update_completion).reads(control_state, config_val, config_rs_tag_valid, config_rs_tag,
+  UPDATE(update_completion).reads(control_state, config_val, config_rs_tag_val, config_rs_tag,
                                   head_val, head_bits)
                            .reads(rowaddr_a_address, rowaddr_b_address, rowaddr_d_address,
                                   rowaddr_a_bank, rowaddr_b_bank, rowaddr_d_bank)
@@ -549,7 +549,7 @@ int main(int argc, char* argv[]) {
   ctrl.cmd_in << driver.cmd_out;
   driver.control_state << ctrl.control_state;
   driver.config_val << ctrl.config_val;
-  driver.config_rs_tag_valid << ctrl.config_rs_tag_valid;
+  driver.config_rs_tag_val << ctrl.config_rs_tag_val;
   driver.config_rs_tag << ctrl.config_rs_tag;
   driver.rowaddr_a_address << ctrl.rowaddr_a_address;
   driver.rowaddr_b_address << ctrl.rowaddr_b_address;

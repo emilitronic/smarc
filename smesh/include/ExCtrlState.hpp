@@ -29,7 +29,7 @@ namespace smesh {
 // *******
 // Helpers
 // *******
-// Convert the registered state value to the FSM enum.
+// Convert the registered numeric u8 state value to the FSM enum.
 inline ExCtrlFsmState toFsmState(u8 value) {
   return static_cast<ExCtrlFsmState>(static_cast<std::uint8_t>(value));
 }
@@ -42,7 +42,7 @@ inline std::uint64_t rawRs2(const SmeshIssue& issue) {
   return static_cast<std::uint64_t>(issue.cmd.rs2);
 }
 // Decode the two low bits that select the CONFIG command kind.
-inline ConfigKind configKind(std::uint64_t rs1) {
+inline ConfigKind configType(std::uint64_t rs1) {
   return static_cast<ConfigKind>(rs1 & 0x3u);
 }
 
@@ -60,10 +60,11 @@ class ExCtrlState : public Component {
   InputArray(bit,        do_preloads, kExCtrlCmdWindow);   // cmd(0/1/2) is preload?
   InputArray(bit,        do_computes, kExCtrlCmdWindow);   // cmd(0/1/2) is compute?
   Input(bit,             matmul_in_progress);              // mesh reports an in-flight matmul
-  Input(bit,             pending_completed_valid);         // completion block has pending completions
+  Input(bit,             pending_completed_val);           // completion block has pending completions
 
   Output(u8, control_state); // current FSM state
 
+  //---------------------------
   Input(bit,             raw_hazards_are_impossible);      // no RAW hazards possible for this hardware config
   Input(bit,             raw_hazard_pre);                  // PRELOAD branch has a RAW hazard
   Input(bit,             a_should_be_fed_into_transposer); // decoder says A should start through transposer path
@@ -93,7 +94,7 @@ class ExCtrlState : public Component {
   Output(u8,  cmd_pop_count);       // number of command-window entries consumed this cycle
   // Completion
   Output(bit,             config_val);                    // FSM accepts CONFIG_EX this cycle
-  Output(bit,             config_rs_tag_valid);           // val CONFIG_EX completion tag
+  Output(bit,             config_rs_tag_val);             // val CONFIG_EX completion tag
   Output(SmeshRsTag,      config_rs_tag);                 // info to send back on completed port
   OutputArray(bit,        pending_completed_set_val, 2);  // FSM writes pending completion slots
   OutputArray(SmeshRsTag, pending_completed_set_bits, 2); // tags written into pending slots
@@ -102,7 +103,16 @@ class ExCtrlState : public Component {
   void reset();
 
  private:
-  Register(u8, control_state_reg_); // next FSM state
+  Register(u8,  control_state_reg_); // next FSM state
+  Register(bit, config_initialized_reg_);
+  Register(u8,  in_shift_reg_);
+  Register(u8,  activation_reg_);
+  Register(u32, acc_scale_reg_);
+  Register(bit, a_transpose_reg_);
+  Register(bit, bd_transpose_reg_);  
+  Register(u8,  current_dataflow_reg_);
+  Register(u32, a_addr_stride_reg_);
+  Register(u32, c_addr_stride_reg_);
 };
 
 } // namespace smesh

@@ -52,7 +52,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   // TEMPORARY TEST OBSERVABILITY: expose internal queue/FSM signals at ExCtrl.
   control_state         << cmd_state_->control_state;
   config_val            << cmd_state_->config_val;
-  config_rs_tag_valid   << cmd_state_->config_rs_tag_valid;
+  config_rs_tag_val     << cmd_state_->config_rs_tag_val;
   config_rs_tag         << cmd_state_->config_rs_tag;
   rowaddr_a_address     << cmd_rowaddr_->a_address;
   rowaddr_b_address     << cmd_rowaddr_->b_address;
@@ -103,10 +103,10 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_decoder_->bd_transpose     <= cmd_state_->bd_transpose;     //
   // pass some other status signals to FSM
   cmd_state_->matmul_in_progress      << cmd_decoder_->matmul_in_progress;
-  cmd_state_->pending_completed_valid << completion_->pending_completed_valid;
+  cmd_state_->pending_completed_val << completion_->pending_completed_val;
   // pass some status signals to completion block
   completion_->config_val          << cmd_state_->config_val;
-  completion_->config_rs_tag_valid << cmd_state_->config_rs_tag_valid;
+  completion_->config_rs_tag_val   << cmd_state_->config_rs_tag_val;
   completion_->config_rs_tag       << cmd_state_->config_rs_tag;
   for (std::size_t i = 0; i < 2; ++i) {
     completion_->pending_completed_set_val[i]  << cmd_state_->pending_completed_set_val[i];
