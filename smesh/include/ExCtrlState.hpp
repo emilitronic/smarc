@@ -53,28 +53,40 @@ class ExCtrlState : public Component {
   ExCtrlState(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  // inputs to FSM
+  // inputs to FSM from cmd queue
   InputArray(bit,        head_val,  kExCtrlCmdWindow);     // cmd queue head valid bits
   InputArray(SmeshIssue, head_bits, kExCtrlCmdWindow);     // cmd queue head bits
-  Input(bit,             do_config);                       // cmd(0) is config?
-  InputArray(bit,        do_preloads, kExCtrlCmdWindow);   // cmd(0/1/2) is preload?
-  InputArray(bit,        do_computes, kExCtrlCmdWindow);   // cmd(0/1/2) is compute?
-  Input(bit,             matmul_in_progress);              // mesh reports an in-flight matmul
-  Input(bit,             pending_completed_val);           // completion block has pending completions
-  Input(bit,             raw_hazards_are_impossible);      // no RAW hazards possible for this hardware config
-  Input(bit,             raw_hazard_pre);                  // PRELOAD branch has a RAW hazard
+  // inputs to FSM from cmd decoder
+  Input(bit,            do_config);                       // cmd(0) is config?
+  InputArray(bit,       do_preloads, kExCtrlCmdWindow);   // cmd(0/1/2) is preload?
+  InputArray(bit,       do_computes, kExCtrlCmdWindow);   // cmd(0/1/2) is compute?
+  Input(bit,            matmul_in_progress);              // mesh reports an in-flight matmul
+  Input(bit,            pending_completed_val);           // completion block has pending completions
+  Input(bit,            raw_hazards_are_impossible);      // no RAW hazards possible for this hardware config
+  Input(bit,            raw_hazard_pre);                  // PRELOAD branch has a RAW hazard
+  Input(bit,            a_should_be_fed_into_transposer); // decoder says A should start through transposer path
+  Input(bit,            b_should_be_fed_into_transposer); // decoder says B should start through transposer path
+  Input(bit,            d_should_be_fed_into_transposer); // decoder says D should start through transposer path
+  Input(SmeshLocalAddr, c_address_rs2);                   // decoder's PRELOAD output destination
 
   // FSM/mode
   Output(u8,  control_state);             // current FSM state
   Output(bit, performing_single_preload); // standalone PRELOAD is active this cycle (put in )
 
+  // outputs to cmd queue
+  Output(u8,  cmd_pop_count); // number of command-window entries consumed this cycle
+
+  // outputs to completion block
+  Output(bit,             config_val);                    // FSM accepts CONFIG_EX this cycle
+  Output(bit,             config_rs_tag_val);             // val CONFIG_EX completion tag
+  Output(SmeshRsTag,      config_rs_tag);                 // info to send back on completed port
+  OutputArray(bit,        pending_completed_set_val, 2);  // FSM writes pending completion slots
+  OutputArray(SmeshRsTag, pending_completed_set_bits, 2); // tags written into pending slots
+  
+  
   //---------------------------
-  Input(bit,             a_should_be_fed_into_transposer); // decoder says A should start through transposer path
-  Input(bit,             b_should_be_fed_into_transposer); // decoder says B should start through transposer path
-  Input(bit,             d_should_be_fed_into_transposer); // decoder says D should start through transposer path
   Input(bit,             in_prop);                         // cmd(0) is COMPUTE_AND_FLIP
   Input(bit,             about_to_fire_all_rows);          // row-feed logic reports the final row-beat can fire
-  Input(SmeshLocalAddr,  c_address_rs2);                   // decoder's PRELOAD output destination
 
   // Config/programmed
   Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
@@ -91,13 +103,6 @@ class ExCtrlState : public Component {
   Output(bit, start_inputting_b);   // begin feeding B operand rows (drive read req & row-feed logic)
   Output(bit, start_inputting_d);   // begin feeding D/preload operand rows  (drive read req & row-feed logic)
   Output(bit, prop);                // mesh-control propagate value
-  Output(u8,  cmd_pop_count);       // number of command-window entries consumed this cycle
-  // Completion
-  Output(bit,             config_val);                    // FSM accepts CONFIG_EX this cycle
-  Output(bit,             config_rs_tag_val);             // val CONFIG_EX completion tag
-  Output(SmeshRsTag,      config_rs_tag);                 // info to send back on completed port
-  OutputArray(bit,        pending_completed_set_val, 2);  // FSM writes pending completion slots
-  OutputArray(SmeshRsTag, pending_completed_set_bits, 2); // tags written into pending slots
 
   void update();
   void reset();
