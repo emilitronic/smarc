@@ -10,7 +10,7 @@ namespace smesh {
 ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   //                      Q <= D
   control_state             <= control_state_D_;
-  config_initialized        <= config_initialized_D_;
+  config_initialized_Q_     <= config_initialized_D_;
   shift                     <= in_shift_D_;
   activation                <= activation_D_;
   acc_scale                 <= acc_scale_D_;
@@ -20,34 +20,37 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   a_addr_stride             <= a_addr_stride_D_;
   c_addr_stride             <= c_addr_stride_D_;
 
-  perform_single_preload    <= perform_single_preload_D_;
+  perform_single_preload_Q_ <= perform_single_preload_D_;
+  perform_mul_pre_Q_        <= perform_mul_pre_D_;
+  perform_single_mul_Q_     <= perform_single_mul_D_;
 
   in_prop_flush             <= in_prop_flush_D_;
 
   UPDATE(update)
-    .reads(head_val, head_bits)
-    .reads(do_config, do_preloads, do_computes)
+    .reads(head_val, head_bits).reads(do_config, do_preloads, do_computes)
     .reads(matmul_in_progress, pending_completed_val)
     .reads(raw_hazards_are_impossible, raw_hazard_pre)
-    .reads(control_state)
-    .reads(perform_single_preload)
+    .reads(control_state, perform_single_preload_Q_, perform_mul_pre_Q_, perform_single_mul_Q_)
     .reads(c_address_rs2)
     .reads(about_to_fire_all_rows)
     .reads(in_prop_flush, in_prop)
+    .reads(config_initialized_Q_)
+    .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
+    .reads(a_addr_stride, c_addr_stride)
+    .reads(a_transpose, bd_transpose, current_dataflow, activation, acc_scale)
+    .reads(shift)    
     .writes(cmd_pop_count)
+    .writes(control_state_D_, perform_single_preload_D_, perform_mul_pre_D_, perform_single_mul_D_)
+    .writes(config_initialized_D_, in_shift_D_, activation_D_, acc_scale_D_)
+    .writes(a_transpose_D_, bd_transpose_D_, current_dataflow_D_)
+    .writes(a_addr_stride_D_, c_addr_stride_D_)
+    .writes(in_prop_flush_D_)
     .writes(performing_single_preload)
     .writes(config_val, config_rs_tag_val, config_rs_tag)
     .writes(pending_completed_set_val, pending_completed_set_bits)
     .writes(start_inputting_a, start_inputting_b, start_inputting_d)
     .writes(computing)
-    .writes(prop)
-
-    .reads(config_initialized, a_transpose, bd_transpose, current_dataflow,
-           activation, acc_scale, a_addr_stride)
-    .reads(c_addr_stride, shift)
-
-    .writes(control_state_D_, perform_single_preload_D_)
-    .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer);
+    .writes(prop);
 }
 
 void ExCtrlState::update() {
@@ -55,8 +58,8 @@ void ExCtrlState::update() {
   // ///////////////////////////////////////
   // COMBINATIONAL OUTPUTS
   // ///////////////////////////////////////
-  performing_single_preload = bit(perform_single_preload == 1 && fsm_state == ExCtrlFsmState::Compute);
-  if (perform_single_preload == 1 && fsm_state == ExCtrlFsmState::Compute) { start_inputting_a = a_should_be_fed_into_transposer; start_inputting_b = b_should_be_fed_into_transposer; start_inputting_d = 1;
+  performing_single_preload = bit(perform_single_preload_Q_ == 1 && fsm_state == ExCtrlFsmState::Compute);
+  if (perform_single_preload_Q_ == 1 && fsm_state == ExCtrlFsmState::Compute) { start_inputting_a = a_should_be_fed_into_transposer; start_inputting_b = b_should_be_fed_into_transposer; start_inputting_d = 1;
   } else {  start_inputting_a = 0; start_inputting_b = 0; start_inputting_d = 0;}
   prop = performing_single_preload == 1 ? *in_prop_flush : *in_prop;
   computing = performing_single_preload || performing_mul_pre || performing_single_mul;
@@ -66,7 +69,9 @@ void ExCtrlState::update() {
   // ///////////////////////////////////////
   switch (fsm_state) {
     case ExCtrlFsmState::WaitingForCmd: 
-        perform_single_preload_D_ = 0;
+      perform_single_preload_D_ = 0;
+      perform_mul_pre_D_        = 0;
+      perform_single_mul_D_     = 0;
 
       if (do_config == 1 && head_val[0] == 1 && 
           matmul_in_progress == 0 && pending_completed_val == 0) {
@@ -100,9 +105,9 @@ void ExCtrlState::update() {
       else if (do_preloads[0] == 1 && head_val[0] == 1 &&  head_val[1] == 1 && 
               (raw_hazards_are_impossible == 1 || raw_hazard_pre == 0)) {
 
-        perform_single_preload_D_ = 1;
-        performing_single_preload = 1;
+        perform_single_preload_D_ = 1; performing_single_preload = 1;
         prop                      = performing_single_preload == 1 ? *in_prop_flush : *in_prop;
+        computing                 = performing_single_preload || performing_mul_pre || performing_single_mul;
         control_state_D_          = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
       }
       // TODO else if overlap compute and preload
@@ -111,10 +116,10 @@ void ExCtrlState::update() {
       break;
     
     case ExCtrlFsmState::Compute:
-      if (perform_single_preload == 1) {
+      if (perform_single_preload_Q_ == 1) {
         // combinational outputs for single preload sub-state are already set above
         if (about_to_fire_all_rows == 1) {
-          cmd_pop_count = 1;
+          cmd_pop_count    = 1;
           control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
 
           const auto cmdq      = *head_bits[0];
@@ -154,6 +159,8 @@ void ExCtrlState::reset() {
   c_addr_stride_D_.reset(1);
 
   perform_single_preload_D_.reset(0);
+  perform_mul_pre_D_.reset(0);
+  perform_single_mul_D_.reset(0);
   performing_single_preload.reset(0);
   performing_mul_pre.reset(0);
   performing_single_mul.reset(0);

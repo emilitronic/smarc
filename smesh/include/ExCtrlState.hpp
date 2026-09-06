@@ -61,7 +61,6 @@ class ExCtrlState : public Component {
   InputArray(bit,       do_preloads, kExCtrlCmdWindow);   // cmd(0/1/2) is preload?
   InputArray(bit,       do_computes, kExCtrlCmdWindow);   // cmd(0/1/2) is compute?
   Input(bit,            matmul_in_progress);              // mesh reports an in-flight matmul
-  Input(bit,            pending_completed_val);           // completion block has pending completions
   Input(bit,            raw_hazards_are_impossible);      // no RAW hazards possible for this hardware config
   Input(bit,            raw_hazard_pre);                  // PRELOAD branch has a RAW hazard
   Input(bit,            a_should_be_fed_into_transposer); // decoder says A should start through transposer path
@@ -71,15 +70,24 @@ class ExCtrlState : public Component {
   Input(bit,            in_prop);                         // cmd(0) is COMPUTE_AND_FLIP
   // input to FSM from row-feed logic
   Input(bit,            about_to_fire_all_rows);          // row-feed logic reports the final row-beat can fire
+  // input to FSM form completion block
+  Input(bit,            pending_completed_val);           // completion block has pending completions
 
-  // FSM/mode
-  Output(u8,  control_state);             // current FSM state
+  // outputs to cmd queue
+  Output(u8,  cmd_pop_count); // number of command-window entries consumed this cycle
+
+  // outputs to decoder
+  Output(bit, a_transpose);         // CONFIG_EX A transpose register
+  Output(bit, bd_transpose);        // CONFIG_EX B/D transpose register, TODO: decode when encoded
+
+  // output to cntl packet
   Output(bit, performing_single_preload); // standalone PRELOAD is active this cycle (put in )
   Output(bit, performing_mul_pre);
   Output(bit, performing_single_mul);
 
-  // outputs to cmd queue
-  Output(u8,  cmd_pop_count); // number of command-window entries consumed this cycle
+  // output to cntl queue and its logic
+  Output(u8,  control_state);             // current FSM state
+  Output(bit, computing);           // any execute operation mode is currently feeding rows
 
   // outputs to completion block
   Output(bit,             config_val);                    // FSM accepts CONFIG_EX this cycle
@@ -92,16 +100,13 @@ class ExCtrlState : public Component {
   //---------------------------
 
   // Config/programmed
-  Output(bit, config_initialized);  // CONFIG_EX has initialized execute config registers
-  Output(bit, a_transpose);         // CONFIG_EX A transpose register
-  Output(bit, bd_transpose);        // CONFIG_EX B/D transpose register, TODO: decode when encoded
+
   Output(u8,  current_dataflow);    // execute dataflow register, TODO: decode when encoded
   Output(u8,  activation);          // CONFIG_EX activation register
   Output(u32, acc_scale);           // CONFIG_EX accumulator read scaling register
   Output(u32, a_addr_stride);       // CONFIG_EX A local-address stride
   Output(u32, c_addr_stride);       // CONFIG_EX C local-address stride
   Output(u8,  shift);               // CONFIG_EX in_shift register for mesh-control packets
-  Output(bit, computing);           // any execute operation mode is currently feeding rows
   Output(bit, start_inputting_a);   // begin feeding A operand rows (drive read req & row-feed logic)
   Output(bit, start_inputting_b);   // begin feeding B operand rows (drive read req & row-feed logic)
   Output(bit, start_inputting_d);   // begin feeding D/preload operand rows  (drive read req & row-feed logic)
@@ -112,7 +117,6 @@ class ExCtrlState : public Component {
 
  private:
   Register(u8,  control_state_D_); // next FSM state
-  Register(bit, config_initialized_D_);
   Register(u8,  in_shift_D_);
   Register(u8,  activation_D_);
   Register(u32, acc_scale_D_);
@@ -122,11 +126,14 @@ class ExCtrlState : public Component {
   Register(u32, a_addr_stride_D_);
   Register(u32, c_addr_stride_D_);
 
-  Output(bit,   perform_single_preload); // registered standalone PRELOAD mode
+  Output(bit,   config_initialized_Q_);  // CONFIG_EX has initialized execute config registers
+  Register(bit, config_initialized_D_);
+
+  Output(bit,   perform_single_preload_Q_); // registered standalone PRELOAD mode
   Register(bit, perform_single_preload_D_);
-  Output(bit,   perform_mul_pre);        // registered standalone MUL_PRE mode
+  Output(bit,   perform_mul_pre_Q_);        // registered standalone MUL_PRE mode
   Register(bit, perform_mul_pre_D_);
-  Output(bit,   perform_single_mul);     // registered standalone PRELOAD mode
+  Output(bit,   perform_single_mul_Q_);     // registered standalone PRELOAD mode
   Register(bit, perform_single_mul_D_);
 
   Output(bit,   in_prop_flush);
