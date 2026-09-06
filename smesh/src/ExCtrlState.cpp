@@ -13,7 +13,18 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update)
     .reads(head_val, head_bits)
     .reads(do_config, do_preloads, do_computes)
-    .reads(matmul_in_progress, pending_completed_valid);
+    .reads(matmul_in_progress, pending_completed_valid)
+    
+    .reads(in_prop, about_to_fire_all_rows, c_address_rs2)
+    .reads(control_state, config_initialized, a_transpose, bd_transpose, current_dataflow,
+           activation, acc_scale, a_addr_stride)
+    .reads(c_addr_stride, shift)
+    .writes(config_val, config_rs_tag_valid, config_rs_tag)
+    .writes(pending_completed_set_val, pending_completed_set_bits, performing_single_preload, computing)
+    .writes(prop, cmd_pop_count)
+    .writes(control_state_reg_)
+    .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
+    .writes(start_inputting_a, start_inputting_b, start_inputting_d);
 }
 
 void ExCtrlState::update() {
