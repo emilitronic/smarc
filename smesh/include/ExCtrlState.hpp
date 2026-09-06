@@ -155,7 +155,7 @@ class ExCtrlState : public Component {
   Output(bit,   perform_single_mul_Q_);     // registered standalone PRELOAD mode
   Register(bit, perform_single_mul_D_);
 
-  Output(bit,   in_prop_flush);
+  Output(bit,   in_prop_flush_Q_);
   Register(bit, in_prop_flush_D_);
 
 };

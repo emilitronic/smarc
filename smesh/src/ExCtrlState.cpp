@@ -33,7 +33,7 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
   perform_mul_pre_Q_        <= perform_mul_pre_D_;
   perform_single_mul_Q_     <= perform_single_mul_D_;
 
-  in_prop_flush             <= in_prop_flush_D_;
+  in_prop_flush_Q_          <= in_prop_flush_D_;
 
   UPDATE(updateStartInputting)
     .reads(control_state)
@@ -48,7 +48,7 @@ ExCtrlState::ExCtrlState(std::string /*name*/, IMPL_CTOR) {
     .reads(control_state, perform_single_preload_Q_, perform_mul_pre_Q_, perform_single_mul_Q_)
     .reads(c_address_rs2)
     .reads(about_to_fire_all_rows)
-    .reads(in_prop_flush, in_prop)
+    .reads(in_prop_flush_Q_, in_prop)
     .reads(current_dataflow)
     .writes(cmd_pop_count)
     .writes(control_state_D_, perform_single_preload_D_, perform_mul_pre_D_, perform_single_mul_D_)
@@ -80,7 +80,7 @@ void ExCtrlState::update() {
   performing_mul_pre        = bit(perform_mul_pre_Q_        == 1 && fsm_state == ExCtrlFsmState::Compute);
   performing_single_mul     = bit(perform_single_mul_Q_     == 1 && fsm_state == ExCtrlFsmState::Compute);
   computing = performing_single_preload || performing_mul_pre || performing_single_mul;
-  prop = performing_single_preload == 1 ? *in_prop_flush : *in_prop;
+  prop = performing_single_preload == 1 ? *in_prop_flush_Q_ : *in_prop;
 
   // Default one-cycle control outputs; accepted FSM branches override them.
   cmd_pop_count     = 0;
@@ -101,9 +101,7 @@ void ExCtrlState::update() {
       perform_mul_pre_D_        = 0;
       perform_single_mul_D_     = 0;
 
-      if (do_config == 1 && head_val[0] == 1 && 
-          matmul_in_progress == 0 && pending_completed_val == 0) {
-
+      if (do_config == 1 && head_val[0] == 1 &&  matmul_in_progress == 0 && pending_completed_val == 0) {
         const auto cmdq  = *head_bits[0];
         const auto rs1   = rawRs1(cmdq);
         const auto rs2   = rawRs2(cmdq);
@@ -140,13 +138,12 @@ void ExCtrlState::update() {
           row_turn_D_           = static_cast<std::uint32_t>((rs1 >> 42) & 0xfffu);
         }
       }
-      else if (do_preloads[0] == 1 && head_val[0] == 1 &&  head_val[1] == 1 && 
-              (raw_hazards_are_impossible == 1 || raw_hazard_pre == 0)) {
 
+      else if (do_preloads[0] == 1 && head_val[0] == 1 &&  head_val[1] == 1 &&  (raw_hazards_are_impossible == 1 || raw_hazard_pre == 0)) {
         perform_single_preload_D_ = 1;
         performing_single_preload = 1;
         computing                 = 1;
-        prop                      = *in_prop_flush;
+        prop                      = *in_prop_flush_Q_;
         control_state_D_          = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
       }
       // TODO else if overlap compute and preload
