@@ -149,7 +149,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 
   // mesh completion-tag selection for future mesh-control queue enqueue path
   tag_select_->preload_cmd_place     << cmd_decoder_->preload_cmd_place;
-  tag_select_->performing_single_mul << tag_select_performing_single_mul_; // temp until FSM exposes this mode
+  tag_select_->performing_single_mul << cmd_state_->performing_single_mul;
   tag_select_->c_address_rs2         << cmd_decoder_->c_address_rs2;
 
   // operand packaging for A/B/D read-priority logic
@@ -238,7 +238,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   // Mesh-control packet packaging. Its output will feed MQ once MQ is installed
   // inside ExCtrl.
   mesh_cntl_pack_->perform_mul_pre        << cmd_state_->performing_mul_pre;
-  mesh_cntl_pack_->perform_single_mul     << tag_select_performing_single_mul_;
+  mesh_cntl_pack_->perform_single_mul     << cmd_state_->performing_single_mul;
   mesh_cntl_pack_->perform_single_preload << cmd_state_->performing_single_preload;
   mesh_cntl_pack_->a_bank                 << cmd_rowaddr_->dataAbank;
   mesh_cntl_pack_->b_bank                 << cmd_rowaddr_->dataBbank;
@@ -355,7 +355,6 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                      decoder_ex_write_to_spad_,
                                      writeback_ex_write_to_acc_,
                                      writeback_aligned_to_,
-                                     tag_select_performing_single_mul_,
                                      im2col_wire_,
                                      im2col_en_)
                              .writes(im2colling_,
@@ -414,7 +413,6 @@ void ExCtrl::updateDecoderInputs() {
   decoder_ex_write_to_spad_         = bit(kDefaultConfig.ex_write_to_spad);
   writeback_ex_write_to_acc_        = bit(kDefaultConfig.ex_write_to_acc);
   writeback_aligned_to_             = static_cast<u32>(kDefaultConfig.aligned_to);
-  tag_select_performing_single_mul_ = 0;
   im2col_wire_                      = 0;
   im2col_en_                        = 0;
   im2colling_                       = 0;
@@ -427,7 +425,6 @@ void ExCtrl::reset() {
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
   writeback_ex_write_to_acc_.reset(bit(kDefaultConfig.ex_write_to_acc));
   writeback_aligned_to_.reset(static_cast<u32>(kDefaultConfig.aligned_to));
-  tag_select_performing_single_mul_.reset(0);
   im2col_wire_.reset(0);
   im2col_en_.reset(0);
   im2colling_.reset(0);
