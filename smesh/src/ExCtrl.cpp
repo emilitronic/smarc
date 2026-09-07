@@ -234,6 +234,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   row_feed_->a_addr_stride << cmd_state_->a_addr_stride;
   row_feed_->cntl_rdy      << cntl_rdy_;
   cmd_state_->about_to_fire_all_rows << row_feed_->about_to_fire_all_rows;
+  cmd_state_->mesh_req_rdy           << mesher_->req_rdy;
 
   // Mesh-control packet packaging. Its output will feed MQ once MQ is installed
   // inside ExCtrl.

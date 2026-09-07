@@ -55,7 +55,7 @@ ExCtrlState2::ExCtrlState2(std::string /*name*/, IMPL_CTOR) {
       .reads(accepting_config_, accepting_single_preload_, accepting_mul_pre_,
              accepting_single_mul_)
       .reads(head_bits, about_to_fire_all_rows, c_address_rs2, current_dataflow)
-      .reads(mesh_req_fire)
+      .reads(mesh_req_fire, mesh_req_rdy)
       .reads(control_state, perform_single_preload_Q_, perform_mul_pre_Q_,
              perform_single_mul_Q_)
       .writes(cmd_pop_count)
@@ -91,11 +91,14 @@ void ExCtrlState2::updateCmdAcceptanceAndOutputs() {
   const bool accepting_single_mul     = waiting && !accepting_config &&
                                         !accepting_single_preload && !accepting_mul_pre &&
                                         head_val[0] == 1 && do_computes[0] == 1;
-  const bool starting_flush           = waiting && head_val[0] == 1 &&
+  const bool no_command_os_flush      = head_val[0] == 0 &&
+                                        current_dataflow == kExDataflowOS;
+  const bool blocked_command_flush    = head_val[0] == 1 &&
                                         !accepting_config && !accepting_single_preload &&
                                         !accepting_mul_pre && !accepting_single_mul &&
-                                        matmul_in_progress == 1 &&
                                         (current_dataflow == kExDataflowOS || do_config == 1);
+  const bool starting_flush           = waiting && matmul_in_progress == 1 &&
+                                        (blocked_command_flush || no_command_os_flush);
   accepting_config_         = bit(accepting_config);
   accepting_single_preload_ = bit(accepting_single_preload);
   accepting_mul_pre_        = bit(accepting_mul_pre);
@@ -252,6 +255,9 @@ void ExCtrlState2::updateState() {
       break;
 
     case ExCtrlFsmState::Flushing:
+      if (mesh_req_rdy == 1) {
+        control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
+      }
       break;
   }
 }

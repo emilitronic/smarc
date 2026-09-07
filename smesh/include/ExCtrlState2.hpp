@@ -40,6 +40,7 @@ class ExCtrlState2 : public Component {
   Input(bit,             about_to_fire_all_rows);
   Input(bit,             pending_completed_val);
   Input(bit,             mesh_req_fire);
+  Input(bit,             mesh_req_rdy);
 
   Output(u8, cmd_pop_count);
 
