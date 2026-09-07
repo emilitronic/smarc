@@ -89,6 +89,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   cmd_state_->do_config                       << cmd_decoder_->do_config;
   cmd_state_->raw_hazards_are_impossible      << cmd_decoder_->raw_hazards_are_impossible;
   cmd_state_->raw_hazard_pre                  << cmd_decoder_->raw_hazard_pre;
+  cmd_state_->raw_hazard_mulpre               << cmd_decoder_->raw_hazard_mulpre;
+  cmd_state_->third_instruction_needed        << cmd_decoder_->third_instruction_needed;
   cmd_state_->a_should_be_fed_into_transposer << cmd_decoder_->a_should_be_fed_into_transposer;
   cmd_state_->b_should_be_fed_into_transposer << cmd_decoder_->b_should_be_fed_into_transposer;
   cmd_state_->d_should_be_fed_into_transposer << cmd_decoder_->d_should_be_fed_into_transposer;
@@ -235,7 +237,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
 
   // Mesh-control packet packaging. Its output will feed MQ once MQ is installed
   // inside ExCtrl.
-  mesh_cntl_pack_->perform_mul_pre        << mesh_cntl_pack_perform_mul_pre_;
+  mesh_cntl_pack_->perform_mul_pre        << cmd_state_->performing_mul_pre;
   mesh_cntl_pack_->perform_single_mul     << tag_select_performing_single_mul_;
   mesh_cntl_pack_->perform_single_preload << cmd_state_->performing_single_preload;
   mesh_cntl_pack_->a_bank                 << cmd_rowaddr_->dataAbank;
@@ -353,7 +355,6 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                      decoder_ex_write_to_spad_,
                                      writeback_ex_write_to_acc_,
                                      writeback_aligned_to_,
-                                     mesh_cntl_pack_perform_mul_pre_,
                                      tag_select_performing_single_mul_,
                                      im2col_wire_,
                                      im2col_en_)
@@ -413,7 +414,6 @@ void ExCtrl::updateDecoderInputs() {
   decoder_ex_write_to_spad_         = bit(kDefaultConfig.ex_write_to_spad);
   writeback_ex_write_to_acc_        = bit(kDefaultConfig.ex_write_to_acc);
   writeback_aligned_to_             = static_cast<u32>(kDefaultConfig.aligned_to);
-  mesh_cntl_pack_perform_mul_pre_   = 0;
   tag_select_performing_single_mul_ = 0;
   im2col_wire_                      = 0;
   im2col_en_                        = 0;
@@ -427,7 +427,6 @@ void ExCtrl::reset() {
   decoder_ex_write_to_spad_.reset(bit(kDefaultConfig.ex_write_to_spad));
   writeback_ex_write_to_acc_.reset(bit(kDefaultConfig.ex_write_to_acc));
   writeback_aligned_to_.reset(static_cast<u32>(kDefaultConfig.aligned_to));
-  mesh_cntl_pack_perform_mul_pre_.reset(0);
   tag_select_performing_single_mul_.reset(0);
   im2col_wire_.reset(0);
   im2col_en_.reset(0);

@@ -30,6 +30,8 @@ class ExCtrlState2 : public Component {
   Input(bit,             matmul_in_progress);
   Input(bit,             raw_hazards_are_impossible);
   Input(bit,             raw_hazard_pre);
+  Input(bit,             raw_hazard_mulpre);
+  Input(bit,             third_instruction_needed);
   Input(bit,             a_should_be_fed_into_transposer);
   Input(bit,             b_should_be_fed_into_transposer);
   Input(bit,             d_should_be_fed_into_transposer);
@@ -84,6 +86,7 @@ class ExCtrlState2 : public Component {
   // Combinational decisions naming the WaitingForCmd branch selected now.
   Output(bit, accepting_config_);
   Output(bit, accepting_single_preload_);
+  Output(bit, accepting_mul_pre_);
 
   Register(u8,  control_state_D_);
   Register(u8,  in_shift_D_);

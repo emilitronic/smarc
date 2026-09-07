@@ -116,7 +116,6 @@ class ExCtrl : public Component {
   Output(bit, decoder_ex_write_to_spad_);
   Output(bit, writeback_ex_write_to_acc_);
   Output(u32, writeback_aligned_to_);
-  Output(bit, mesh_cntl_pack_perform_mul_pre_);
   Output(bit, tag_select_performing_single_mul_);
   Output(bit, im2col_wire_);
   Output(bit, im2col_en_);

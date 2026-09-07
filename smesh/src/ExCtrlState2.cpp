@@ -36,22 +36,23 @@ ExCtrlState2::ExCtrlState2(std::string /*name*/, IMPL_CTOR) {
   // .reads() & .writes() should guide Cascade's dependency graph to execute our updates
   // in the ricth order, updateCmdAcceptanceAndOutputs() first, then updateState() second.
   UPDATE(updateCmdAcceptanceAndOutputs)
-      .reads(head_val, do_config, do_preloads)
+      .reads(head_val, do_config, do_preloads, do_computes)
       .reads(matmul_in_progress, pending_completed_val)
-      .reads(raw_hazards_are_impossible, raw_hazard_pre)
+      .reads(raw_hazards_are_impossible, raw_hazard_pre, raw_hazard_mulpre)
+      .reads(third_instruction_needed)
       .reads(control_state)
       .reads(perform_single_preload_Q_, perform_mul_pre_Q_, perform_single_mul_Q_)
       .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
       .reads(in_prop_flush_Q_, in_prop)
-      .writes(accepting_config_, accepting_single_preload_)
+      .writes(accepting_config_, accepting_single_preload_, accepting_mul_pre_)
       .writes(performing_single_preload, performing_mul_pre, performing_single_mul)
       .writes(start_inputting_a, start_inputting_b, start_inputting_d)
       .writes(computing, prop);
 
   UPDATE(updateState)
-      .reads(accepting_config_, accepting_single_preload_)
+      .reads(accepting_config_, accepting_single_preload_, accepting_mul_pre_)
       .reads(head_bits, about_to_fire_all_rows, c_address_rs2, current_dataflow)
-      .reads(control_state, perform_single_preload_Q_)
+      .reads(control_state, perform_single_preload_Q_, perform_mul_pre_Q_)
       .writes(cmd_pop_count)
       .writes(control_state_D_)
       .writes(perform_single_preload_D_, perform_mul_pre_D_, perform_single_mul_D_)
@@ -69,29 +70,47 @@ ExCtrlState2::ExCtrlState2(std::string /*name*/, IMPL_CTOR) {
 void ExCtrlState2::updateCmdAcceptanceAndOutputs() {
   const auto fsm_state = toFsmState(*control_state);
   const bool waiting   = fsm_state == ExCtrlFsmState::WaitingForCmd;
-
-  const bool accepting_config         = waiting && head_val[0] == 1 && do_config == 1 &&  matmul_in_progress == 0 && pending_completed_val == 0;
-  const bool accepting_single_preload = waiting && !accepting_config && head_val[0] == 1 && do_preloads[0] == 1 && head_val[1] == 1 && (raw_hazards_are_impossible == 1 || raw_hazard_pre == 0);
-
+  // what cmd handling state are possible to accept
+  const bool accepting_config         = waiting && 
+                                        head_val[0] == 1  && do_config == 1 &&  
+                                        matmul_in_progress == 0 && pending_completed_val == 0;
+  const bool accepting_single_preload = waiting && !accepting_config && 
+                                        head_val[0] == 1 && do_preloads[0] == 1 && 
+                                        head_val[1] == 1 && 
+                                        (raw_hazards_are_impossible == 1 || raw_hazard_pre == 0);
+  const bool accepting_mul_pre        = waiting && !accepting_config && !accepting_single_preload &&
+                                        head_val[0] == 1 && do_computes[0] == 1 &&
+                                        head_val[1] == 1 && do_preloads[1] == 1 &&
+                                        (third_instruction_needed == 0 ||
+                                          (head_val[2] == 1 && raw_hazard_mulpre == 0));
   accepting_config_         = bit(accepting_config);
   accepting_single_preload_ = bit(accepting_single_preload);
-
+  accepting_mul_pre_        = bit(accepting_mul_pre);
+  // what cmd handling state are active now
   const bool active_single_preload = fsm_state == ExCtrlFsmState::Compute && perform_single_preload_Q_ == 1;
   const bool active_mul_pre        = fsm_state == ExCtrlFsmState::Compute && perform_mul_pre_Q_ == 1;
   const bool active_single_mul     = fsm_state == ExCtrlFsmState::Compute && perform_single_mul_Q_ == 1;
-
+  // what cmd handling states are active now or being accepted this cycle
   performing_single_preload = bit(active_single_preload || accepting_single_preload);
-  performing_mul_pre        = bit(active_mul_pre);
+  performing_mul_pre        = bit(active_mul_pre || accepting_mul_pre);
   performing_single_mul     = bit(active_single_mul);
-
+  // default start_inputting signals
   start_inputting_a = 0; start_inputting_b = 0; start_inputting_d = 0;
+  // if cmd handling states are active now or being accepted this cycle
+  // set start_inputting signals to feed A/B/D into transposer
   if (active_single_preload || accepting_single_preload) {
     start_inputting_a = a_should_be_fed_into_transposer;
     start_inputting_b = b_should_be_fed_into_transposer;
     start_inputting_d = 1;
+  } else if (active_mul_pre || accepting_mul_pre) {
+    start_inputting_a = 1;
+    start_inputting_b = 1;
+    start_inputting_d = 1;
   }
 
-  computing = bit(active_single_preload || accepting_single_preload || active_mul_pre || active_single_mul);
+  computing = bit(active_single_preload || accepting_single_preload ||
+                  active_mul_pre || accepting_mul_pre || 
+                  active_single_mul);
   prop = performing_single_preload == 1 ? *in_prop_flush_Q_ : *in_prop;
 }
 
@@ -152,10 +171,15 @@ void ExCtrlState2::updateState() {
       } else if (accepting_single_preload_ == 1) {
         perform_single_preload_D_ = 1;
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
+      } else if (accepting_mul_pre_ == 1) {
+        perform_mul_pre_D_ = 1;
+        control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
       }
       break;
 
     case ExCtrlFsmState::Compute:
+      // starting already set before entereing this state
+      // now check if we are about to finish single preload
       if (perform_single_preload_Q_ == 1 && about_to_fire_all_rows == 1) {
         cmd_pop_count    = 1;
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
@@ -164,6 +188,24 @@ void ExCtrlState2::updateState() {
         const bool c_garbage = c_address_rs2->is_garbage();
         pending_completed_set_val[0]  = bit(cmdq.rs_tag_valid != 0 && c_garbage);
         pending_completed_set_bits[0] = cmdq.rs_tag;
+
+        if (current_dataflow == kExDataflowOS) {
+          in_prop_flush_D_ = bit(!c_garbage);
+        }
+      // starting already set before entereing this state
+      // now check if we are about to finish overlapping mul & preload
+      } else if (perform_mul_pre_Q_ == 1 && about_to_fire_all_rows == 1) {
+        cmd_pop_count    = 2;
+        control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
+
+        const auto compute_cmd = *head_bits[0];
+        const auto preload_cmd = *head_bits[1];
+        const bool c_garbage   = c_address_rs2->is_garbage();
+
+        pending_completed_set_val[0]  = compute_cmd.rs_tag_valid;
+        pending_completed_set_bits[0] = compute_cmd.rs_tag;
+        pending_completed_set_val[1]  = bit(preload_cmd.rs_tag_valid != 0 && c_garbage);
+        pending_completed_set_bits[1] = preload_cmd.rs_tag;
 
         if (current_dataflow == kExDataflowOS) {
           in_prop_flush_D_ = bit(!c_garbage);
@@ -207,6 +249,7 @@ void ExCtrlState2::reset() {
 
   accepting_config_.reset(0);
   accepting_single_preload_.reset(0);
+  accepting_mul_pre_.reset(0);
   performing_single_preload.reset(0);
   performing_mul_pre.reset(0);
   performing_single_mul.reset(0);
