@@ -39,6 +39,7 @@ class ExCtrlState2 : public Component {
   Input(bit,             in_prop);
   Input(bit,             about_to_fire_all_rows);
   Input(bit,             pending_completed_val);
+  Input(bit,             mesh_req_fire);
 
   Output(u8, cmd_pop_count);
 
@@ -88,6 +89,7 @@ class ExCtrlState2 : public Component {
   Output(bit, accepting_single_preload_);
   Output(bit, accepting_mul_pre_);
   Output(bit, accepting_single_mul_);
+  Output(bit, starting_flush_);
 
   Register(u8,  control_state_D_);
   Register(u8,  in_shift_D_);

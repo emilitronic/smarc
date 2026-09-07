@@ -41,11 +41,12 @@ ExCtrlState2::ExCtrlState2(std::string /*name*/, IMPL_CTOR) {
       .reads(raw_hazards_are_impossible, raw_hazard_pre, raw_hazard_mulpre)
       .reads(third_instruction_needed)
       .reads(control_state)
+      .reads(current_dataflow)
       .reads(perform_single_preload_Q_, perform_mul_pre_Q_, perform_single_mul_Q_)
       .reads(a_should_be_fed_into_transposer, b_should_be_fed_into_transposer)
       .reads(in_prop_flush_Q_, in_prop)
       .writes(accepting_config_, accepting_single_preload_, accepting_mul_pre_,
-              accepting_single_mul_)
+              accepting_single_mul_, starting_flush_)
       .writes(performing_single_preload, performing_mul_pre, performing_single_mul)
       .writes(start_inputting_a, start_inputting_b, start_inputting_d)
       .writes(computing, prop);
@@ -54,6 +55,7 @@ ExCtrlState2::ExCtrlState2(std::string /*name*/, IMPL_CTOR) {
       .reads(accepting_config_, accepting_single_preload_, accepting_mul_pre_,
              accepting_single_mul_)
       .reads(head_bits, about_to_fire_all_rows, c_address_rs2, current_dataflow)
+      .reads(mesh_req_fire)
       .reads(control_state, perform_single_preload_Q_, perform_mul_pre_Q_,
              perform_single_mul_Q_)
       .writes(cmd_pop_count)
@@ -89,10 +91,16 @@ void ExCtrlState2::updateCmdAcceptanceAndOutputs() {
   const bool accepting_single_mul     = waiting && !accepting_config &&
                                         !accepting_single_preload && !accepting_mul_pre &&
                                         head_val[0] == 1 && do_computes[0] == 1;
+  const bool starting_flush           = waiting && head_val[0] == 1 &&
+                                        !accepting_config && !accepting_single_preload &&
+                                        !accepting_mul_pre && !accepting_single_mul &&
+                                        matmul_in_progress == 1 &&
+                                        (current_dataflow == kExDataflowOS || do_config == 1);
   accepting_config_         = bit(accepting_config);
   accepting_single_preload_ = bit(accepting_single_preload);
   accepting_mul_pre_        = bit(accepting_mul_pre);
   accepting_single_mul_     = bit(accepting_single_mul);
+  starting_flush_           = bit(starting_flush);
   // what cmd handling state are active now
   const bool active_single_preload = fsm_state == ExCtrlFsmState::Compute && perform_single_preload_Q_ == 1;
   const bool active_mul_pre        = fsm_state == ExCtrlFsmState::Compute && perform_mul_pre_Q_ == 1;
@@ -187,6 +195,8 @@ void ExCtrlState2::updateState() {
       } else if (accepting_single_mul_ == 1) {
         perform_single_mul_D_ = 1;
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::Compute);
+      } else if (starting_flush_ == 1) {
+        control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::Flush);
       }
       break;
 
@@ -236,6 +246,9 @@ void ExCtrlState2::updateState() {
       break;
 
     case ExCtrlFsmState::Flush:
+      if (mesh_req_fire == 1) {
+        control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::Flushing);
+      }
       break;
 
     case ExCtrlFsmState::Flushing:
@@ -273,6 +286,7 @@ void ExCtrlState2::reset() {
   accepting_single_preload_.reset(0);
   accepting_mul_pre_.reset(0);
   accepting_single_mul_.reset(0);
+  starting_flush_.reset(0);
   performing_single_preload.reset(0);
   performing_mul_pre.reset(0);
   performing_single_mul.reset(0);

@@ -16,7 +16,8 @@ ExCtrlMeshCntlDeqCtrl::ExCtrlMeshCntlDeqCtrl(std::string /*name*/, IMPL_CTOR) {
              mesh_a_rdy, mesh_b_rdy)
       .reads(mesh_d_rdy,
              mesh_req_rdy)
-      .writes(mesh_cntl_deq_rdy, mesh_cntl_deq_fire, mesh_cntl_req_val);
+      .writes(mesh_cntl_deq_rdy, mesh_cntl_deq_fire,
+              mesh_cntl_req_val, mesh_req_fire);
 }
 
 void ExCtrlMeshCntlDeqCtrl::update() {
@@ -37,7 +38,8 @@ void ExCtrlMeshCntlDeqCtrl::update() {
 
 
   // valid signal to Mesher's request port
-  mesh_cntl_req_val = bit(control_state == static_cast<std::uint8_t>(ExCtrlFsmState::Flush));
+  bit next_mesh_cntl_req_val =
+      bit(control_state == static_cast<std::uint8_t>(ExCtrlFsmState::Flush));
   
   // Mesher req valid asserted only when:
   //   1. the mesh-control queue pops, and
@@ -47,8 +49,13 @@ void ExCtrlMeshCntlDeqCtrl::update() {
   // For zero/garbage/padded operands, *_fire can mean the stream advanced
   // without a real memory read.
   if (cntl_val != 0) {
-    mesh_cntl_req_val = bit(mesh_cntl_deq_fire != 0 && (cntl.a_fire != 0 || cntl.b_fire != 0 || cntl.d_fire != 0));
+    next_mesh_cntl_req_val =
+        bit(mesh_cntl_deq_fire != 0 &&
+            (cntl.a_fire != 0 || cntl.b_fire != 0 || cntl.d_fire != 0));
   }
+
+  mesh_cntl_req_val = next_mesh_cntl_req_val;
+  mesh_req_fire = bit(next_mesh_cntl_req_val == 1 && mesh_req_rdy == 1);
 }
 
 } // namespace smesh

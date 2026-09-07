@@ -303,6 +303,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesher_->req_bits << mesh_cntl_queue_->mesh_req_bits;
   mesher_->req_val  << mesh_cntl_deq_ctrl_->mesh_cntl_req_val;
   mesh_cntl_deq_ctrl_->mesh_req_rdy << mesher_->req_rdy;
+  cmd_state_->mesh_req_fire << mesh_cntl_deq_ctrl_->mesh_req_fire;
 
   // A/B/D mesh-input path and its backpressure.
   mesher_->a_bits << mesh_in_sel_pad_->mesh_a;
