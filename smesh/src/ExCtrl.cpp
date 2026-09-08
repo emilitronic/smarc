@@ -27,6 +27,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesher_          = new Mesher("Mesher");
   writeback_       = new ExCtrlWriteback("ExCtrlWriteback");
 
+  cntl_rdy_ << mesh_cntl_queue_->enq_rdy;
+
   cmd_queue_->clk          << clk;
   completion_->clk         << clk;
   cmd_decoder_->clk        << clk;
@@ -359,9 +361,7 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
                                      writeback_aligned_to_,
                                      im2col_wire_,
                                      im2col_en_)
-                             .writes(im2colling_,
-                                     cntl_rdy_,
-                                     row_addr_block_size_);
+                             .writes(im2colling_, row_addr_block_size_);
 }
 
 ExCtrl::~ExCtrl() {
@@ -418,7 +418,6 @@ void ExCtrl::updateDecoderInputs() {
   im2col_wire_                      = 0;
   im2col_en_                        = 0;
   im2colling_                       = 0;
-  cntl_rdy_ = mesh_cntl_queue_->enq_rdy;
   row_addr_block_size_      = static_cast<u32>(kDefaultConfig.dim);
 }
 
@@ -430,7 +429,6 @@ void ExCtrl::reset() {
   im2col_wire_.reset(0);
   im2col_en_.reset(0);
   im2colling_.reset(0);
-  cntl_rdy_.reset(1);
   row_addr_block_size_.reset(static_cast<u32>(kDefaultConfig.dim));
 
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {

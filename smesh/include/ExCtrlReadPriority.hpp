@@ -5,6 +5,7 @@
 /*
 Combinational A/B/D read-priority gating for ExecuteController row feeds.
 Prevents two operands from trying to read the same local-memory bank in the same cycle.
+Outputs a/b/d_valid signals that gate the operand read requests to local memory.
 */
 
 #pragma once
@@ -30,7 +31,7 @@ class ExCtrlReadPriority : public Component {
   Input(bit, im2col_wire); // external im2col req rdy
   Input(bit, im2col_en);
 
-  Output(bit, a_valid); // A operand is not being held back by another operand
+  Output(bit, a_valid); // A operand not blocked by another operand, A permitted to initiate local-mem read for this row-beat
   Output(bit, b_valid);
   Output(bit, d_valid);
 

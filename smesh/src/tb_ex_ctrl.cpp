@@ -411,31 +411,61 @@ class ExCtrlDriver : public Component {
       read_req_matched_ = expected_spad_pattern && no_accum_request;
     }
 
-    // Record the first standalone-PRELOAD request/response sequence. Later
-    // requests are intentionally ignored until the FSM termination step exists.
+    // Record the standalone PRELOAD followed by the standalone COMPUTE reads.
     for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
-      if (spad_read_req_val[bank] != 0 && spad_read_req_rdy[bank] != 0 &&
-          preload_req_count_ < smesh::kDim) {
+      if (spad_read_req_val[bank] != 0 && spad_read_req_rdy[bank] != 0) {
         const auto full_row = static_cast<std::uint32_t>(bank * smesh::kSpBankRows) +
                               static_cast<std::uint32_t>(spad_read_req_bits[bank]->addr);
-        preload_memory_matched_ &=
-            full_row == kScenario.expected.preload_read_addresses[preload_req_count_];
-        preload_req_cycle_[preload_req_count_] = cycle_;
-        ++preload_req_count_;
+        if (preload_req_count_ < smesh::kDim) {
+          preload_memory_matched_ &=
+              full_row == kScenario.expected.preload_read_addresses[preload_req_count_];
+          preload_req_cycle_[preload_req_count_] = cycle_;
+          ++preload_req_count_;
+        } else if (bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_a_read_addresses[0]).sp_bank() &&
+                   compute_a_req_count_ < smesh::kDim) {
+          compute_memory_matched_ &=
+              full_row == kScenario.expected.compute_a_read_addresses[compute_a_req_count_];
+          ++compute_a_req_count_;
+        } else if (bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_b_read_addresses[0]).sp_bank() &&
+                   compute_b_req_count_ < smesh::kDim) {
+          compute_memory_matched_ &=
+              full_row == kScenario.expected.compute_b_read_addresses[compute_b_req_count_];
+          ++compute_b_req_count_;
+        }
       }
 
-      if (spad_read_resp_val[bank] != 0 && spad_read_resp_rdy[bank] != 0 &&
-          preload_resp_count_ < smesh::kDim) {
+      if (spad_read_resp_val[bank] != 0 && spad_read_resp_rdy[bank] != 0) {
         const auto& response = *spad_read_resp_bits[bank];
-        const auto expected_row = kScenario.expected.preload_read_addresses[preload_resp_count_];
-        preload_memory_matched_ &= response.laddr.full_sp_addr() == expected_row;
-        preload_memory_matched_ &= response.from_dma == 0;
-        for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
-          const auto expected_value =
-              static_cast<smesh::Elem>(expected_row * smesh::kDim + lane);
-          preload_memory_matched_ &= response.data[lane] == expected_value;
+        if (bank == smesh::makeSpAddr(
+                        kScenario.expected.preload_read_addresses[0]).sp_bank() &&
+            preload_resp_count_ < smesh::kDim) {
+          const auto expected_row =
+              kScenario.expected.preload_read_addresses[preload_resp_count_];
+          preload_memory_matched_ &= response.laddr.full_sp_addr() == expected_row;
+          preload_memory_matched_ &= response.from_dma == 0;
+          for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+            const auto expected_value =
+                static_cast<smesh::Elem>(expected_row * smesh::kDim + lane);
+            preload_memory_matched_ &= response.data[lane] == expected_value;
+          }
+          ++preload_resp_count_;
+        } else if (bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_a_read_addresses[0]).sp_bank() &&
+                   compute_a_resp_count_ < smesh::kDim) {
+          const auto expected_row =
+              kScenario.expected.compute_a_read_addresses[compute_a_resp_count_];
+          compute_memory_matched_ &= response.laddr.full_sp_addr() == expected_row;
+          ++compute_a_resp_count_;
+        } else if (bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_b_read_addresses[0]).sp_bank() &&
+                   compute_b_resp_count_ < smesh::kDim) {
+          const auto expected_row =
+              kScenario.expected.compute_b_read_addresses[compute_b_resp_count_];
+          compute_memory_matched_ &= response.laddr.full_sp_addr() == expected_row;
+          ++compute_b_resp_count_;
         }
-        ++preload_resp_count_;
       }
 
       if (!first_resp_available_checked_ && spad_read_resp_val[bank] != 0) {
@@ -454,6 +484,16 @@ class ExCtrlDriver : public Component {
       }
     }
 
+    bool compute_visible = false;
+    for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
+      compute_visible |= head_val[i] == 1 &&
+                         head_bits[i]->rs_tag == kScenario.program[2].rs_tag;
+    }
+    if (seen_[2] && !compute_visible &&
+        *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::WaitingForCmd)) {
+      compute_popped_ = true;
+    }
+
     const bool early_pipeline_matched =
         seen_[0] && seen_[1] && seen_[2] &&
         rowaddr_checked_ && rowaddr_matched_ &&
@@ -461,9 +501,13 @@ class ExCtrlDriver : public Component {
         read_req_checked_ && read_req_matched_;
     const bool preload_memory_complete =
         preload_req_count_ == smesh::kDim && preload_resp_count_ == smesh::kDim;
-    matched_ = early_pipeline_matched && preload_memory_complete &&
+    const bool compute_memory_complete =
+        compute_a_req_count_ == smesh::kDim && compute_b_req_count_ == smesh::kDim &&
+        compute_a_resp_count_ == smesh::kDim && compute_b_resp_count_ == smesh::kDim;
+    matched_ = early_pipeline_matched && preload_memory_complete && compute_memory_complete &&
                preload_memory_matched_ && first_resp_available_checked_ &&
-               first_resp_available_matched_ && !unexpected_accum_read_;
+               first_resp_available_matched_ && compute_memory_matched_ &&
+               compute_popped_ && !unexpected_accum_read_;
     done_ = matched_;
     ++cycle_;
   }
@@ -481,6 +525,12 @@ class ExCtrlDriver : public Component {
     preload_req_count_ = 0;
     preload_resp_count_ = 0;
     preload_memory_matched_ = true;
+    compute_a_req_count_ = 0;
+    compute_b_req_count_ = 0;
+    compute_a_resp_count_ = 0;
+    compute_b_resp_count_ = 0;
+    compute_memory_matched_ = true;
+    compute_popped_ = false;
     first_resp_available_checked_ = false;
     first_resp_available_matched_ = false;
     unexpected_accum_read_ = false;
@@ -494,13 +544,18 @@ class ExCtrlDriver : public Component {
   void reportFailure() const {
     std::printf(
         "  early{seen=%u%u%u addr=%u pad=%u read=%u} "
-        "spad{req=%zu resp=%zu seq=%u first_offer=%u} accum_read=%u\n",
+        "pre{req=%zu resp=%zu seq=%u first_offer=%u} "
+        "compute{a=%zu/%zu b=%zu/%zu seq=%u pop=%u} accum_read=%u\n",
         static_cast<unsigned>(seen_[0]), static_cast<unsigned>(seen_[1]),
         static_cast<unsigned>(seen_[2]), static_cast<unsigned>(rowaddr_matched_),
         static_cast<unsigned>(rowpad_matched_), static_cast<unsigned>(read_req_matched_),
         preload_req_count_, preload_resp_count_,
         static_cast<unsigned>(preload_memory_matched_),
         static_cast<unsigned>(first_resp_available_matched_),
+        compute_a_req_count_, compute_a_resp_count_,
+        compute_b_req_count_, compute_b_resp_count_,
+        static_cast<unsigned>(compute_memory_matched_),
+        static_cast<unsigned>(compute_popped_),
         static_cast<unsigned>(unexpected_accum_read_));
   }
 
@@ -518,6 +573,12 @@ class ExCtrlDriver : public Component {
   std::size_t preload_req_count_ = 0;
   std::size_t preload_resp_count_ = 0;
   bool preload_memory_matched_ = true;
+  std::size_t compute_a_req_count_ = 0;
+  std::size_t compute_b_req_count_ = 0;
+  std::size_t compute_a_resp_count_ = 0;
+  std::size_t compute_b_resp_count_ = 0;
+  bool compute_memory_matched_ = true;
+  bool compute_popped_ = false;
   bool first_resp_available_checked_ = false;
   bool first_resp_available_matched_ = false;
   bool unexpected_accum_read_ = false;
@@ -610,7 +671,7 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  for (int i = 0; i < 32 && !driver.done(); ++i) {
+  for (int i = 0; i < 64 && !driver.done(); ++i) {
     Sim::run();
   }
 

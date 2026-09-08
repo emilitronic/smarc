@@ -26,7 +26,8 @@ class MeshCntlQueueDriver : public Component {
   Output(smesh::ExCtrlMeshCntl, enq_bits);
   Output(bit, mesh_cntl_deq_rdy);
 
-  void update();
+  void updateEnq();
+  void updateDeq();
   void reset();
 
   bool done() const { return done_; }
@@ -98,22 +99,26 @@ bool meshReqMatchesExpected(const smesh::ExCtrlMeshReq& req) {
 } // namespace
 
 MeshCntlQueueDriver::MeshCntlQueueDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(enq_rdy, cntl_val, cntl_bits, mesh_req_bits).writes(enq_val, enq_bits, mesh_cntl_deq_rdy);
+  UPDATE(updateEnq).reads(enq_rdy).writes(enq_val, enq_bits);
+  UPDATE(updateDeq)
+      .reads(cntl_val, cntl_bits, mesh_req_bits)
+      .writes(mesh_cntl_deq_rdy);
 }
 
-void MeshCntlQueueDriver::update() {
+void MeshCntlQueueDriver::updateEnq() {
   enq_val = 0;
   enq_bits = smesh::ExCtrlMeshCntl{};
-  mesh_cntl_deq_rdy = 0;
 
   if (!sent_ && enq_rdy != 0) {
     enq_val = 1;
     enq_bits = makeExpected();
     sent_ = true;
-    return;
   }
+}
 
-  if (sent_ && cntl_val != 0) {
+void MeshCntlQueueDriver::updateDeq() {
+  mesh_cntl_deq_rdy = 0;
+  if (cntl_val != 0) {
     passed_ = matchesExpected(*cntl_bits) && meshReqMatchesExpected(*mesh_req_bits);
     mesh_cntl_deq_rdy = 1;
     done_ = true;

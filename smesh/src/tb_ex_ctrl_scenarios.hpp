@@ -30,6 +30,10 @@ struct ExCtrlExpected {
 
   // Standalone PRELOAD feeds D from the final source row back to the first.
   std::array<std::uint32_t, kDim> preload_read_addresses{};
+
+  // Standalone COMPUTE feeds A and B forward from their respective bases.
+  std::array<std::uint32_t, kDim> compute_a_read_addresses{};
+  std::array<std::uint32_t, kDim> compute_b_read_addresses{};
 };
 
 // One test program plus the observations expected from that program.
@@ -79,6 +83,8 @@ inline ExCtrlScenario makeConfigPreloadComputeScenario() {
   // The first real read request is the bank-local SPAD row selected for D.
   scenario.expected.first_read_address = 7;
   scenario.expected.preload_read_addresses = {7, 6, 5, 4};
+  scenario.expected.compute_a_read_addresses = {12, 13, 14, 15};
+  scenario.expected.compute_b_read_addresses = {4, 5, 6, 7};
   return scenario;
 }
 

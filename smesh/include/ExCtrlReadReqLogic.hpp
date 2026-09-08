@@ -6,6 +6,9 @@
 Combinational ExecuteController operand-read request generation.
 
 Turns A/B/D decisions into actual per-bank read requests to scratchpad or accumulator.
+There are two main output types:
+1) Per-bank read requests to scratchpad or accumulator, which are sent to the memory interface.
+2) Per-operand ready signals, which indicate whether the operand can be accepted this row-beat.
 */
 
 #pragma once
@@ -57,7 +60,7 @@ class ExCtrlReadReqLogic : public Component {
   Input(bit, im2col_wire); // im2col path can accept A instead of local-memory read
   Input(bit, im2col_en);   // im2col is enabled by execute configuration
 
-  Output(bit, a_ready);
+  Output(bit, a_ready); // A opnd not blocked from being accepted this row-beat (i.e., if A is real opnd, local-mem req can proceed; if A is garbage or padding, don't block it) 
   Output(bit, b_ready);
   Output(bit, d_ready);
   OutputArray(bit, spad_read_req_val, kSpBanks);

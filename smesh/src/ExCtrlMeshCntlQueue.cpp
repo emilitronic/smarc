@@ -31,13 +31,14 @@ ExCtrlMeshReq makeMeshReq(const ExCtrlMeshCntl& cntl) {
 TraceKey(mq_);
 
 ExCtrlMeshCntlQueue::ExCtrlMeshCntlQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateEnqReady).writes(enq_rdy);
+  UPDATE(updateEnqReady).reads(mesh_cntl_deq_rdy).writes(enq_rdy);
   UPDATE(updateDeqView).writes(cntl_val, cntl_bits, mesh_req_bits);
   UPDATE(updateStorage).reads(enq_val, enq_bits, mesh_cntl_deq_rdy);
 }
-// can I accept an enqueue request?  yes if the queue is not full
+// A full pipelined queue can accept when its current head dequeues this cycle.
 void ExCtrlMeshCntlQueue::updateEnqReady() {
-  enq_rdy = bit(count_ < kDepth);
+  const bool do_deq = count_ != 0 && mesh_cntl_deq_rdy == 1;
+  enq_rdy = bit(count_ < kDepth || do_deq);
 }
 // what is at the head of the queue?
 void ExCtrlMeshCntlQueue::updateDeqView() {
