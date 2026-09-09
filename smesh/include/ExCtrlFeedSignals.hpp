@@ -26,17 +26,17 @@ class ExCtrlFeedSignals : public Component {
   Input(bit, start_inputting_a); // FSM indicates that A row-feed stream is active
   Input(bit, start_inputting_b); // FSM indicates that B row-feed stream is active
   Input(bit, start_inputting_d); // FSM indicates that D row-feed stream is active
-  Input(bit, a_valid);
+  Input(bit, a_valid); // arbiration allows A to proceed
   Input(bit, b_valid);
   Input(bit, d_valid);
-  Input(bit, a_ready);
+  Input(bit, a_ready); // A path is not blocked
   Input(bit, b_ready);
   Input(bit, d_ready);
 
-  Output(bit, firing); // any A/B/D row-feed stream is active
-  Output(bit, a_fire); // A row-beat handshake
-  Output(bit, b_fire); // B row-beat handshake
-  Output(bit, d_fire); // D row-beat handshake
+  Output(bit, firing); // current op needs at least one A/B/D stream to be fed into mesh
+  Output(bit, a_fire); // A row-beat handshake, A is accepted for this row-beat
+  Output(bit, b_fire); 
+  Output(bit, d_fire); 
 
   void update();
 };

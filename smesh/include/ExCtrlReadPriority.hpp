@@ -31,7 +31,7 @@ class ExCtrlReadPriority : public Component {
   Input(bit, im2col_wire); // external im2col req rdy
   Input(bit, im2col_en);
 
-  Output(bit, a_valid); // A operand not blocked by another operand, A permitted to initiate local-mem read for this row-beat
+  Output(bit, a_valid); // arbitration allows A to proceed (to make mem req or move as garbage/padding)
   Output(bit, b_valid);
   Output(bit, d_valid);
 

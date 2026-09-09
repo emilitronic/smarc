@@ -51,7 +51,7 @@ ExCtrlRowFeedState::ExCtrlRowFeedState(std::string /*name*/, IMPL_CTOR) {
               a_addr_offset_reg_);
 }
 
-// Compute remaining status o/p: first & about_to_fire_all_rows
+// Read current register anc compute "remaining status" outputs: first & about_to_fire_all_rows
 void ExCtrlRowFeedState::updateStatus() {
   const auto rows      = static_cast<std::uint32_t>(*total_rows);
   const auto a_counter = static_cast<std::uint32_t>(*a_fire_counter);
@@ -83,7 +83,8 @@ void ExCtrlRowFeedState::updateStatus() {
     static_cast<unsigned>(finishing));
 }
 
-// Compute the row-feed state values to store for the next cycle
+// Compute the row-feed regsiter state values that take effect next cycle
+// such as counters, started flags, and address offset
 void ExCtrlRowFeedState::updateNextState() {
   const bool active = firing != 0;
   const bool control_ready = cntl_rdy != 0;
@@ -91,29 +92,26 @@ void ExCtrlRowFeedState::updateNextState() {
   const auto a_counter = static_cast<std::uint32_t>(*a_fire_counter);
   const auto b_counter = static_cast<std::uint32_t>(*b_fire_counter);
   const auto d_counter = static_cast<std::uint32_t>(*d_fire_counter);
-  const bool a_finishes =
-      ((rows != 0 && a_counter == rows - 1 && a_fire != 0) || a_counter == 0);
-  const bool b_finishes =
-      ((rows != 0 && b_counter == rows - 1 && b_fire != 0) || b_counter == 0);
-  const bool d_finishes =
-      ((rows != 0 && d_counter == rows - 1 && d_fire != 0) || d_counter == 0);
+  const bool a_finishes = ((rows != 0 && a_counter == rows - 1 && a_fire != 0) || a_counter == 0);
+  const bool b_finishes = ((rows != 0 && b_counter == rows - 1 && b_fire != 0) || b_counter == 0);
+  const bool d_finishes = ((rows != 0 && d_counter == rows - 1 && d_fire != 0) || d_counter == 0);
   const bool finishing = a_finishes && b_finishes && d_finishes &&
                          (a_fire_started != 0 || b_fire_started != 0 || d_fire_started != 0) &&
                          control_ready;
 
+  // reset counters & address offset if no row-feed stream is active, else
+  // incr counters and update address offset for A if it is active and cntl queue is rdy
   if (!active) {
     a_fire_counter_reg_ = 0;
-    a_addr_offset_reg_ = 0;
+    a_addr_offset_reg_  = 0;
   } else if (a_fire != 0 && control_ready) {
     const bool a_on_last = rows != 0 && a_counter == rows - 1;
     a_fire_counter_reg_ = wrappingIncrement(a_counter, rows);
-    a_addr_offset_reg_ = a_on_last
-                             ? 0
-                             : static_cast<std::uint32_t>(*a_addr_offset) +
-                                   static_cast<std::uint32_t>(*a_addr_stride);
+    a_addr_offset_reg_  = a_on_last ? 0 : static_cast<std::uint32_t>(*a_addr_offset) + static_cast<std::uint32_t>(*a_addr_stride);
     a_fire_started_reg_ = 1;
   }
-
+  // reset the other counters if no row-feed stream is active, else 
+  // incr counters if that stream is active and cntl queue is rdy 
   if (!active) {
     b_fire_counter_reg_ = 0;
   } else if (b_fire != 0 && control_ready) {

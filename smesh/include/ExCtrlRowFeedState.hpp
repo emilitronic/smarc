@@ -4,6 +4,8 @@
 // Sebastian Claudiusz Magierowski Jul 28 2026
 /*
 Row-feed progress state for ExecuteController operand feeding.
+
+
 */
 
 #pragma once
@@ -22,10 +24,10 @@ class ExCtrlRowFeedState : public Component {
 
   Clock(clk);
 
-  Input(bit, firing);        // any A/B/D row-feed stream is active this cycle
-  Input(bit, a_fire);        // A row-beat was accepted this cycle
-  Input(bit, b_fire);        // B row-beat was accepted this cycle
-  Input(bit, d_fire);        // D row-beat was accepted this cycle
+  Input(bit, firing);        // FSM wants at least one A/B/D stream to be fed into mesh
+  Input(bit, a_fire);        // A opnd is proceeding (toward mesh) this row-beat, its read req was accepted or it is garbage/padding
+  Input(bit, b_fire);        // 
+  Input(bit, d_fire);        // 
   Input(u32, total_rows);    // total row-beats for the active mesh request
   Input(u32, a_addr_stride); // CONFIG_EX A local-address stride
   Input(bit, cntl_rdy);      // MQ can accept the matching mesh-control packet

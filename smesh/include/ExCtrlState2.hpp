@@ -75,7 +75,7 @@ class ExCtrlState2 : public Component {
   Output(bit, weight_triple_bank);
   Output(u8,  row_left);
   Output(u32, row_turn);
-  Output(bit, start_inputting_a);
+  Output(bit, start_inputting_a); // current op requires A stream supplied to mesh
   Output(bit, start_inputting_b);
   Output(bit, start_inputting_d);
   Output(bit, prop);

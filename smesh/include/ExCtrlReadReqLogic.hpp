@@ -34,7 +34,7 @@ class ExCtrlReadReqLogic : public Component {
   Input(SmeshLocalAddr, a_address);
   Input(SmeshLocalAddr, b_address);
   Input(SmeshLocalAddr, d_address);
-  Input(bit, a_valid); // this operand stream allowed to issue this cycle
+  Input(bit, a_valid); // arbitration allows A to proceed (to make mem req or move as garbage/padding)
   Input(bit, b_valid);
   Input(bit, d_valid);
   Input(bit, a_row_is_not_all_zeros); // from row-padding logic
