@@ -195,6 +195,7 @@ void Mesher::update() {
   hull_in.b_is_from_transposer = bit(b_from_transposer);
   hull_in.d_is_from_transposer = bit(d_from_transposer);
   hull_in.pe_control = cur_req_state.pe_control;
+  hull_in.pe_control.propagate = bit(cur_in_prop);
   hull_in.matmul_id  = cur_matmul_id;
   hull_in.last_fire  = bit(last_fire);
   hull_in.not_paused = bit(!pause);
