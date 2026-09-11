@@ -516,6 +516,7 @@ class ExCtrlDriver : public Component {
         mesher_req_matched_ &= request.pe_control.dataflow == smesh::kExDataflowWS;
         mesher_req_matched_ &= request.total_rows == smesh::kDim;
         mesher_req_matched_ &= request.tag.rs_tag_valid == 0;
+        mesher_req_matched_ &= request.tag.addr.is_garbage();
         mesher_req_matched_ &= request.flush == 0;
       } else {
         mesher_req_matched_ = false;

@@ -23,6 +23,18 @@ ExCtrlMeshReq makeMeshReq(const ExCtrlMeshCntl& cntl) {
   req.tag.rows             = cntl.c_rows;
   req.tag.cols             = cntl.c_cols;
   req.flush = 0;
+
+  // A standalone COMPUTE uses destination metadata supplied by an earlier
+  // PRELOAD, so this request must not introduce another destination address.
+  // Hence we're making its destnation address garbage.
+  if (cntl.perform_single_mul == 1) {
+    req.tag.addr = SmeshLocalAddr{
+        kLocalAddrIsAccMask |
+        kLocalAddrAccumulateMask |
+        kLocalAddrReadFullAccRowMask |
+        kLocalAddrGarbageMask |
+        kLocalAddrDataMask};
+  }
   return req;
 }
 
