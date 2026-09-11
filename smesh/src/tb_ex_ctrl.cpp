@@ -34,6 +34,9 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 - Mesher request handshake
 ./build/smesh/tb_ex_ctrl -trace '*'/mesher_req_
 
+- Mesher A/B/D input handshakes and row data
+./build/smesh/tb_ex_ctrl -trace '*'/mesher_in_
+
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 
@@ -303,6 +306,15 @@ class ExCtrlDriver : public Component {
   Input(bit, mesher_req_val);
   Input(bit, mesher_req_rdy);
   Input(smesh::ExCtrlMeshReq, mesher_req_bits);
+  Input(bit, mesher_a_val);
+  Input(bit, mesher_a_rdy);
+  Input(smesh::ExCtrlMeshIn, mesher_a_bits);
+  Input(bit, mesher_b_val);
+  Input(bit, mesher_b_rdy);
+  Input(smesh::ExCtrlMeshIn, mesher_b_bits);
+  Input(bit, mesher_d_val);
+  Input(bit, mesher_d_rdy);
+  Input(smesh::ExCtrlMeshIn, mesher_d_bits);
   InputArray(bit, spad_read_req_rdy, smesh::kSpBanks);
   InputArray(bit, spad_read_req_val, smesh::kSpBanks);
   InputArray(smesh::SpadBankReadReq, spad_read_req_bits, smesh::kSpBanks);
@@ -524,6 +536,44 @@ class ExCtrlDriver : public Component {
       ++mesher_req_count_;
     }
 
+    const bool mesher_a_fire = mesher_a_val == 1 && mesher_a_rdy == 1;
+    const bool mesher_b_fire = mesher_b_val == 1 && mesher_b_rdy == 1;
+    const bool mesher_d_fire = mesher_d_val == 1 && mesher_d_rdy == 1;
+    if (mesher_req_count_ == 1 && mesher_d_fire) {
+      if (mesher_preload_row_count_ < smesh::kDim) {
+        const auto expected_row =
+            kScenario.expected.preload_read_addresses[mesher_preload_row_count_];
+        mesher_input_matched_ &= mesher_a_fire && mesher_b_fire;
+        for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+          mesher_input_matched_ &= mesher_a_bits->data[lane] == 0;
+          mesher_input_matched_ &= mesher_b_bits->data[lane] == 0;
+          mesher_input_matched_ &= mesher_d_bits->data[lane] ==
+              static_cast<smesh::Elem>(expected_row * smesh::kDim + lane);
+        }
+      } else {
+        mesher_input_matched_ = false;
+      }
+      ++mesher_preload_row_count_;
+    } else if (mesher_req_count_ == 2 && mesher_a_fire && mesher_b_fire) {
+      if (mesher_compute_row_count_ < smesh::kDim) {
+        const auto expected_a_row =
+            kScenario.expected.compute_a_read_addresses[mesher_compute_row_count_];
+        const auto expected_b_row =
+            kScenario.expected.compute_b_read_addresses[mesher_compute_row_count_];
+        mesher_input_matched_ &= mesher_d_fire;
+        for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+          mesher_input_matched_ &= mesher_a_bits->data[lane] ==
+              static_cast<smesh::Elem>(expected_a_row * smesh::kDim + lane);
+          mesher_input_matched_ &= mesher_b_bits->data[lane] ==
+              static_cast<smesh::Elem>(expected_b_row * smesh::kDim + lane);
+          mesher_input_matched_ &= mesher_d_bits->data[lane] == 0;
+        }
+      } else {
+        mesher_input_matched_ = false;
+      }
+      ++mesher_compute_row_count_;
+    }
+
     const bool early_pipeline_matched =
         seen_[0] && seen_[1] && seen_[2] &&
         rowaddr_checked_ && rowaddr_matched_ &&
@@ -538,6 +588,8 @@ class ExCtrlDriver : public Component {
                preload_memory_matched_ && first_resp_available_checked_ &&
                first_resp_available_matched_ && compute_memory_matched_ &&
                compute_popped_ && mesher_req_count_ == 2 && mesher_req_matched_ &&
+               mesher_preload_row_count_ == smesh::kDim &&
+               mesher_compute_row_count_ == smesh::kDim && mesher_input_matched_ &&
                !unexpected_accum_read_;
     done_ = matched_;
     ++cycle_;
@@ -564,6 +616,9 @@ class ExCtrlDriver : public Component {
     compute_popped_ = false;
     mesher_req_count_ = 0;
     mesher_req_matched_ = true;
+    mesher_preload_row_count_ = 0;
+    mesher_compute_row_count_ = 0;
+    mesher_input_matched_ = true;
     first_resp_available_checked_ = false;
     first_resp_available_matched_ = false;
     unexpected_accum_read_ = false;
@@ -578,7 +633,8 @@ class ExCtrlDriver : public Component {
     std::printf(
         "  early{seen=%u%u%u addr=%u pad=%u read=%u} "
         "pre{req=%zu resp=%zu seq=%u first_offer=%u} "
-        "compute{a=%zu/%zu b=%zu/%zu seq=%u pop=%u} mesh_req{%zu ok=%u} accum_read=%u\n",
+        "compute{a=%zu/%zu b=%zu/%zu seq=%u pop=%u} "
+        "mesh_req{%zu ok=%u} mesh_in{pre=%zu comp=%zu ok=%u} accum_read=%u\n",
         static_cast<unsigned>(seen_[0]), static_cast<unsigned>(seen_[1]),
         static_cast<unsigned>(seen_[2]), static_cast<unsigned>(rowaddr_matched_),
         static_cast<unsigned>(rowpad_matched_), static_cast<unsigned>(read_req_matched_),
@@ -590,6 +646,8 @@ class ExCtrlDriver : public Component {
         static_cast<unsigned>(compute_memory_matched_),
         static_cast<unsigned>(compute_popped_),
         mesher_req_count_, static_cast<unsigned>(mesher_req_matched_),
+        mesher_preload_row_count_, mesher_compute_row_count_,
+        static_cast<unsigned>(mesher_input_matched_),
         static_cast<unsigned>(unexpected_accum_read_));
   }
 
@@ -615,6 +673,9 @@ class ExCtrlDriver : public Component {
   bool compute_popped_ = false;
   std::size_t mesher_req_count_ = 0;
   bool mesher_req_matched_ = true;
+  std::size_t mesher_preload_row_count_ = 0;
+  std::size_t mesher_compute_row_count_ = 0;
+  bool mesher_input_matched_ = true;
   bool first_resp_available_checked_ = false;
   bool first_resp_available_matched_ = false;
   bool unexpected_accum_read_ = false;
@@ -636,6 +697,9 @@ ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
                                   rowpad_a_unpadded_cols, rowpad_b_unpadded_cols,
                                   rowpad_d_unpadded_cols)
                            .reads(mesher_req_val, mesher_req_rdy, mesher_req_bits)
+                           .reads(mesher_a_val, mesher_a_rdy, mesher_a_bits,
+                                  mesher_b_val, mesher_b_rdy, mesher_b_bits)
+                           .reads(mesher_d_val, mesher_d_rdy, mesher_d_bits)
                            .reads(spad_read_req_val, spad_read_req_rdy, spad_read_req_bits,
                                   spad_read_resp_val, spad_read_resp_rdy, spad_read_resp_bits,
                                   accum_read_req_val, accum_read_req_rdy);
@@ -673,6 +737,15 @@ int main(int argc, char* argv[]) {
   driver.mesher_req_val << ctrl.mesher_req_val;
   driver.mesher_req_rdy << ctrl.mesher_req_rdy;
   driver.mesher_req_bits << ctrl.mesher_req_bits;
+  driver.mesher_a_val << ctrl.mesher_a_val;
+  driver.mesher_a_rdy << ctrl.mesher_a_rdy;
+  driver.mesher_a_bits << ctrl.mesher_a_bits;
+  driver.mesher_b_val << ctrl.mesher_b_val;
+  driver.mesher_b_rdy << ctrl.mesher_b_rdy;
+  driver.mesher_b_bits << ctrl.mesher_b_bits;
+  driver.mesher_d_val << ctrl.mesher_d_val;
+  driver.mesher_d_rdy << ctrl.mesher_d_rdy;
+  driver.mesher_d_bits << ctrl.mesher_d_bits;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad.req_val[bank] << ctrl.spad_read_req_val[bank];
     spad.req_bits[bank] << ctrl.spad_read_req_bits[bank];

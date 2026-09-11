@@ -35,6 +35,7 @@ MesherTag makeGarbageTag() {
 } // namespace
 
 TraceKey(mesher_req_);
+TraceKey(mesher_in_);
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady)
@@ -129,6 +130,35 @@ void Mesher::update() {
           static_cast<unsigned>(request.tag.addr.is_garbage()),
           static_cast<unsigned>(request.tag.addr.data()),
           static_cast<unsigned>(request.flush));
+  }
+
+  // Show operand rows presented to Mesher and their input handshakes.
+  if (a_val == 1 || b_val == 1 || d_val == 1) {
+    const auto a_data = a_bits->data;
+    const auto b_data = b_bits->data;
+    const auto d_data = d_bits->data;
+    trace(mesher_in_,
+          "state{reqv=%u next=%u written=%u%u%u} "
+          "A{v=%u r=%u f=%u data={%d,%d,%d,%d}} "
+          "B{v=%u r=%u f=%u data={%d,%d,%d,%d}} "
+          "D{v=%u r=%u f=%u data={%d,%d,%d,%d}}\n",
+          static_cast<unsigned>(cur_req_state_valid),
+          static_cast<unsigned>(input_next_row_into_spatial_array),
+          static_cast<unsigned>(cur_a_written),
+          static_cast<unsigned>(cur_b_written),
+          static_cast<unsigned>(cur_d_written),
+          static_cast<unsigned>(a_val == 1), static_cast<unsigned>(a_ready),
+          static_cast<unsigned>(a_fire),
+          static_cast<int>(a_data[0]), static_cast<int>(a_data[1]),
+          static_cast<int>(a_data[2]), static_cast<int>(a_data[3]),
+          static_cast<unsigned>(b_val == 1), static_cast<unsigned>(b_ready),
+          static_cast<unsigned>(b_fire),
+          static_cast<int>(b_data[0]), static_cast<int>(b_data[1]),
+          static_cast<int>(b_data[2]), static_cast<int>(b_data[3]),
+          static_cast<unsigned>(d_val == 1), static_cast<unsigned>(d_ready),
+          static_cast<unsigned>(d_fire),
+          static_cast<int>(d_data[0]), static_cast<int>(d_data[1]),
+          static_cast<int>(d_data[2]), static_cast<int>(d_data[3]));
   }
 
   const bool dataflow_os = cur_req_state.pe_control.dataflow == kExDataflowOS;
@@ -243,6 +273,15 @@ void Mesher::update() {
     next_req_state.flush = static_cast<u8>(cur_req_state.flush - 1);
   }
 
+  // Order matters
+  if (input_next_row_into_spatial_array) {
+    next_fire_counter = wrappingAdd(cur_fire_counter, 1u, total_fires); // track how many rows of current req have entered mesh
+    next_a_written    = false;
+    next_b_written    = false;
+    next_d_written    = false;
+  }
+  // A new input accepted while the previous row advances remains written for
+  // the next row; these assignments therefore have priority over the clears.
   if (a_fire) {
     next_a_written = true;
   }
@@ -251,13 +290,6 @@ void Mesher::update() {
   }
   if (d_fire) {
     next_d_written = true;
-  }
-
-  if (input_next_row_into_spatial_array) {
-    next_fire_counter = wrappingAdd(cur_fire_counter, 1u, total_fires); // track how many rows of current req have entered mesh
-    next_a_written    = false;
-    next_b_written    = false;
-    next_d_written    = false;
   }
   // enq tagq and total_rows_q
   if (enqueue_mesh_metadata) {
