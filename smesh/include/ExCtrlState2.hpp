@@ -4,6 +4,13 @@
 // Sebastian Claudiusz Magierowski Sep 6 2026
 /*
 Alternative ExCtrl FSM organization which selects each accepted action once.
+Takes CONFIG cmd to update configuration registers and subsequently pops it from cmd queue.
+In COMPUTE mode, selects which op (SINGLE_PRELOAD, MUL_PRE, or SINGLE_MUL) is active
+and asserts required start_inputting_a/b/d signals while rows are being fed.
+When all rows have been issued, it pops, the cmd, records any pending completion and returns
+to WAITING_FOR_CMD.  
+If a FLUSH command is accepted, it enters FLUSHING state and waits for mesh_req_rdy
+to return to WAITING_FOR_CMD
 */
 
 #pragma once

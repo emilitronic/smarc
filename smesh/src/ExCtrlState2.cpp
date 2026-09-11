@@ -75,7 +75,7 @@ ExCtrlState2::ExCtrlState2(std::string /*name*/, IMPL_CTOR) {
 void ExCtrlState2::updateCmdAcceptanceAndOutputs() {
   const auto fsm_state = toFsmState(*control_state);
   const bool waiting   = fsm_state == ExCtrlFsmState::WaitingForCmd;
-  // what cmd handling state are possible to accept
+  // what cmd handling state are possible for FSM to accept
   const bool accepting_config         = waiting && 
                                         head_val[0] == 1  && do_config == 1 &&  
                                         matmul_in_progress == 0 && pending_completed_val == 0;
@@ -88,8 +88,7 @@ void ExCtrlState2::updateCmdAcceptanceAndOutputs() {
                                         head_val[1] == 1 && do_preloads[1] == 1 &&
                                         (third_instruction_needed == 0 ||
                                           (head_val[2] == 1 && raw_hazard_mulpre == 0));
-  const bool accepting_single_mul     = waiting && !accepting_config &&
-                                        !accepting_single_preload && !accepting_mul_pre &&
+  const bool accepting_single_mul     = waiting && !accepting_config && !accepting_single_preload && !accepting_mul_pre &&
                                         head_val[0] == 1 && do_computes[0] == 1;
   const bool no_command_os_flush      = head_val[0] == 0 &&
                                         current_dataflow == kExDataflowOS;
@@ -108,10 +107,13 @@ void ExCtrlState2::updateCmdAcceptanceAndOutputs() {
   const bool active_single_preload = fsm_state == ExCtrlFsmState::Compute && perform_single_preload_Q_ == 1;
   const bool active_mul_pre        = fsm_state == ExCtrlFsmState::Compute && perform_mul_pre_Q_ == 1;
   const bool active_single_mul     = fsm_state == ExCtrlFsmState::Compute && perform_single_mul_Q_ == 1;
-  // what cmd handling states are active now or being accepted this cycle
+
+  // *** KEY FSM OUTUPTS: what cmd handling states are active now or being accepted this cycle
   performing_single_preload = bit(active_single_preload || accepting_single_preload);
   performing_mul_pre        = bit(active_mul_pre || accepting_mul_pre);
   performing_single_mul     = bit(active_single_mul || accepting_single_mul);
+
+  // *** KEY FSM OUTUPTS: start_inputting signals
   // default start_inputting signals
   start_inputting_a = 0; start_inputting_b = 0; start_inputting_d = 0;
   // if cmd handling states are active now or being accepted this cycle
@@ -149,7 +151,8 @@ void ExCtrlState2::updateState() {
   }
 
   switch (fsm_state) {
-    case ExCtrlFsmState::WaitingForCmd:
+    // *** WAITING FOR CMD: CONFIG, SINGLE_PRELOAD, MUL_PRE, SINGLE_MUL, FLUSH
+    case ExCtrlFsmState::WaitingForCmd: {
       perform_single_preload_D_ = 0;
       perform_mul_pre_D_        = 0;
       perform_single_mul_D_     = 0;
@@ -202,8 +205,9 @@ void ExCtrlState2::updateState() {
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::Flush);
       }
       break;
-
-    case ExCtrlFsmState::Compute:
+    }
+    // *** COMPUTE: SINGLE_PRELOAD, MUL_PRE, SINGLE_MUL
+    case ExCtrlFsmState::Compute: {
       // starting already set before entereing this state
       // now check if we are about to finish single preload
       if (perform_single_preload_Q_ == 1 && about_to_fire_all_rows == 1) {
@@ -247,18 +251,21 @@ void ExCtrlState2::updateState() {
         pending_completed_set_bits[0] = compute_cmd.rs_tag;
       }
       break;
-
-    case ExCtrlFsmState::Flush:
+    }
+    // *** FLUSH: FLUSHING
+    case ExCtrlFsmState::Flush: {
       if (mesh_req_fire == 1) {
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::Flushing);
       }
       break;
-
-    case ExCtrlFsmState::Flushing:
+    }
+    // *** FLUSHING: WAITING_FOR_CMD
+    case ExCtrlFsmState::Flushing: {
       if (mesh_req_rdy == 1) {
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
       }
       break;
+    }
   }
 }
 
