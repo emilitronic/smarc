@@ -71,6 +71,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   rowpad_a_unpadded_cols << cmd_rowpad_->a_unpadded_cols;
   rowpad_b_unpadded_cols << cmd_rowpad_->b_unpadded_cols;
   rowpad_d_unpadded_cols << cmd_rowpad_->d_unpadded_cols;
+  mesher_req_val         << mesh_cntl_deq_ctrl_->mesh_cntl_req_val;
+  mesher_req_rdy         << mesher_->req_rdy;
+  mesher_req_bits        << mesh_cntl_queue_->mesh_req_bits;
   
   // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {

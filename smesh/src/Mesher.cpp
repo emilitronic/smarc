@@ -34,6 +34,8 @@ MesherTag makeGarbageTag() {
 
 } // namespace
 
+TraceKey(mesher_req_);
+
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady)
       .writes(req_rdy, a_rdy, b_rdy, d_rdy);
@@ -108,6 +110,27 @@ void Mesher::update() {
   const bool a_fire   = a_val   != 0 && a_ready;
   const bool b_fire   = b_val   != 0 && b_ready;
   const bool d_fire   = d_val   != 0 && d_ready;
+
+  // Show each request presented to Mesher and whether it is accepted.
+  if (req_val == 1) {
+    const auto request = *req_bits;
+    trace(mesher_req_,
+          "req{v=1 r=%u f=%u} ctrl{df=%u prop=%u shift=%u} rows=%u "
+          "tag{v=%u t=%u} dst{acc=%u garbage=%u data=%u} flush=%u\n",
+          static_cast<unsigned>(req_ready),
+          static_cast<unsigned>(req_fire),
+          static_cast<unsigned>(request.pe_control.dataflow),
+          static_cast<unsigned>(request.pe_control.propagate),
+          static_cast<unsigned>(request.pe_control.shift),
+          static_cast<unsigned>(request.total_rows),
+          static_cast<unsigned>(request.tag.rs_tag_valid),
+          static_cast<unsigned>(request.tag.rs_tag),
+          static_cast<unsigned>(request.tag.addr.is_acc_addr()),
+          static_cast<unsigned>(request.tag.addr.is_garbage()),
+          static_cast<unsigned>(request.tag.addr.data()),
+          static_cast<unsigned>(request.flush));
+  }
+
   const bool dataflow_os = cur_req_state.pe_control.dataflow == kExDataflowOS;
   const bool dataflow_ws = cur_req_state.pe_control.dataflow == kExDataflowWS;
   const bool a_from_transposer = dataflow_os ? cur_req_state.a_transpose == 0 : cur_req_state.a_transpose != 0;

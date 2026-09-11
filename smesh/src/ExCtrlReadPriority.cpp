@@ -55,8 +55,7 @@ bool mustWaitFor(const ExCtrlOperand& operand,
   const bool operand_is_one_ahead = operand.started != 0 &&
                                     operand.counter == wrappingAddOne(other.counter, total_rows);
   // Op must wait if it is contending for the same bank with a higher-priority peer in the same phase, or if it has advanced one row ahead of its peer
-  return (same_bank && other_has_higher_priority && same_counter_phase) ||
-         operand_is_one_ahead;
+  return (same_bank && other_has_higher_priority && same_counter_phase) || operand_is_one_ahead;
 }
 
 } // namespace

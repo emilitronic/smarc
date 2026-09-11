@@ -66,6 +66,9 @@ class ExCtrl : public Component {
   Output(u32, rowpad_a_unpadded_cols);
   Output(u32, rowpad_b_unpadded_cols);
   Output(u32, rowpad_d_unpadded_cols);
+  Output(bit, mesher_req_val);
+  Output(bit, mesher_req_rdy);
+  Output(ExCtrlMeshReq, mesher_req_bits);
 
   OutputArray(bit, spad_read_req_val, kSpBanks);
   InputArray(bit, spad_read_req_rdy, kSpBanks);
