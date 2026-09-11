@@ -784,7 +784,8 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  for (int i = 0; i < 64 && !driver.done(); ++i) {
+  // Keep running after the final input handshake so the mesh can drain.
+  for (int i = 0; i < 64; ++i) {
     Sim::run();
   }
 

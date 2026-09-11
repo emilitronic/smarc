@@ -36,6 +36,7 @@ MesherTag makeGarbageTag() {
 
 TraceKey(mesher_req_);
 TraceKey(mesher_in_);
+TraceKey(mesher_resp_);
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady)
@@ -236,6 +237,25 @@ void Mesher::update() {
   next_resp_bits.tag        = tagq_id_matches ? tagq_front_bits.tag : makeGarbageTag();
   next_resp_bits.total_rows = total_rows_id_matches ? total_rows_q_front_bits.total_rows : static_cast<std::uint32_t>(kDim);
   resp_bits = next_resp_bits;
+
+  // Show each response row produced by the mesh and its matched metadata.
+  if (resp_valid) {
+    trace(mesher_resp_,
+          "id=%u data={%d,%d,%d,%d} last=%u rows=%u "
+          "tag{v=%u t=%u} dst{acc=%u garbage=%u data=%u}\n",
+          static_cast<unsigned>(out_matmul_id),
+          static_cast<int>(next_resp_bits.data[0]),
+          static_cast<int>(next_resp_bits.data[1]),
+          static_cast<int>(next_resp_bits.data[2]),
+          static_cast<int>(next_resp_bits.data[3]),
+          static_cast<unsigned>(next_resp_bits.last),
+          static_cast<unsigned>(next_resp_bits.total_rows),
+          static_cast<unsigned>(next_resp_bits.tag.rs_tag_valid),
+          static_cast<unsigned>(next_resp_bits.tag.rs_tag),
+          static_cast<unsigned>(next_resp_bits.tag.addr.is_acc_addr()),
+          static_cast<unsigned>(next_resp_bits.tag.addr.is_garbage()),
+          static_cast<unsigned>(next_resp_bits.tag.addr.data()));
+  }
 
   // pop tagq when matching o/p ID appears and this is last o/p row for that tagged operation
   const bool tagq_deq_fire = resp_valid && resp_last && tagq_id_matches;

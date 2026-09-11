@@ -5,7 +5,11 @@
 
 #include "MeshCore.hpp"
 
+#include <descore/Trace.hpp>
+
 namespace smesh {
+
+TraceKey(mesh_core_pe_);
 
 void MeshCore::reset() {
   c1_            = InputGrid{};
@@ -47,6 +51,21 @@ void MeshCore::step(const MeshCoreIn& in) {
 
       if (status.valid) {  // if PE's signal is valid...
         next_b[row][col] = b_in + static_cast<Acc>(a) * static_cast<Acc>(weight); // ...update B/out_b for PE below
+      }
+
+      // Follow one representative PE's weight loading and MAC selection.
+      if (row == 0 && col == 0 && status.valid) {
+        s_trace(mesh_core_pe_,
+                "pe{0,0} valid=1 prop=%u a=%d b=%d d=%d "
+                "c1=%d c2=%d weight=%d mac=%d\n",
+                static_cast<unsigned>(control.prop),
+                static_cast<int>(a),
+                static_cast<int>(b_in),
+                static_cast<int>(d_in),
+                static_cast<int>(c1_[row][col]),
+                static_cast<int>(c2_[row][col]),
+                static_cast<int>(weight),
+                static_cast<int>(next_b[row][col]));
       }
 
       if (status.valid) { // if PE's signal is valid...
