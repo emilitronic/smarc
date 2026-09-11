@@ -71,7 +71,7 @@ inline ExCtrlScenario makeConfigPreloadComputeScenario() {
   scenario.program = {
       makeScenarioIssue(7, SmeshFunct::Config,      packConfigExRs1(1),                 packConfigExRs2(1)),
       makeScenarioIssue(8, SmeshFunct::Preload,     packLocal(makeSpAddr(4),  {kDim, kDim}), packLocal(makeAccAddr(8), {kDim, kDim})),
-      makeScenarioIssue(9, SmeshFunct::ComputeStay, packLocal(makeSpAddr(12), {kDim, kDim}), packLocal(makeSpAddr(4),  {kDim, kDim})),
+      makeScenarioIssue(9, SmeshFunct::ComputeFlip, packLocal(makeSpAddr(12), {kDim, kDim}), packLocal(makeSpAddr(4),  {kDim, kDim})),
   };
 
   // The first row-address view is taken from the COMPUTE command. D is fed in

@@ -393,7 +393,7 @@ class ExCtrlDriver : public Component {
     const bool preload_compute_visible =
         head_val[0] == 1 && head_val[1] == 1 &&
         head_bits[0]->cmd.funct == static_cast<std::uint32_t>(smesh::SmeshFunct::Preload) &&
-        head_bits[1]->cmd.funct == static_cast<std::uint32_t>(smesh::SmeshFunct::ComputeStay);
+        head_bits[1]->cmd.funct == static_cast<std::uint32_t>(smesh::SmeshFunct::ComputeFlip);
     if (!rowaddr_matched_ && preload_compute_visible) {
       rowaddr_checked_ = true;
       rowaddr_matched_ = rowaddr_a_address->data() == kScenario.expected.rowaddr_a_address &&
