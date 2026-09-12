@@ -78,6 +78,8 @@ class ExCtrl : public Component {
   Output(bit, mesher_d_val);
   Output(bit, mesher_d_rdy);
   Output(ExCtrlMeshIn, mesher_d_bits);
+  Output(bit, mesher_resp_val);
+  Output(MesherResp, mesher_resp_bits);
 
   OutputArray(bit, spad_read_req_val, kSpBanks);
   InputArray(bit, spad_read_req_rdy, kSpBanks);

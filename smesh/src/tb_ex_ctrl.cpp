@@ -50,6 +50,7 @@ Use smesh-cascade-testing skill
 - $smesh-cascade-testing can invoke it
 */
 // ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_view;*/row_feed_;*/ex_ctrl_spad_mem_view'
+// ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_view;*/row_feed_;*/ex_ctrl_spad_mem_view;*/mesher_req_;*/mesher_in_;*/mesher_resp_'
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
@@ -315,6 +316,8 @@ class ExCtrlDriver : public Component {
   Input(bit, mesher_d_val);
   Input(bit, mesher_d_rdy);
   Input(smesh::ExCtrlMeshIn, mesher_d_bits);
+  Input(bit, mesher_resp_val);
+  Input(smesh::MesherResp, mesher_resp_bits);
   InputArray(bit, spad_read_req_rdy, smesh::kSpBanks);
   InputArray(bit, spad_read_req_val, smesh::kSpBanks);
   InputArray(smesh::SpadBankReadReq, spad_read_req_bits, smesh::kSpBanks);
@@ -439,15 +442,15 @@ class ExCtrlDriver : public Component {
               full_row == kScenario.expected.preload_read_addresses[preload_req_count_];
           preload_req_cycle_[preload_req_count_] = cycle_;
           ++preload_req_count_;
-        } else if (bank == smesh::makeSpAddr(
-                               kScenario.expected.compute_a_read_addresses[0]).sp_bank() &&
-                   compute_a_req_count_ < smesh::kDim) {
+        } else if (compute_a_req_count_ < kScenario.expected.compute_a_read_addresses.size() &&
+                   bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_a_read_addresses[compute_a_req_count_]).sp_bank()) {
           compute_memory_matched_ &=
               full_row == kScenario.expected.compute_a_read_addresses[compute_a_req_count_];
           ++compute_a_req_count_;
-        } else if (bank == smesh::makeSpAddr(
-                               kScenario.expected.compute_b_read_addresses[0]).sp_bank() &&
-                   compute_b_req_count_ < smesh::kDim) {
+        } else if (compute_b_req_count_ < kScenario.expected.compute_b_read_addresses.size() &&
+                   bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_b_read_addresses[compute_b_req_count_]).sp_bank()) {
           compute_memory_matched_ &=
               full_row == kScenario.expected.compute_b_read_addresses[compute_b_req_count_];
           ++compute_b_req_count_;
@@ -469,16 +472,16 @@ class ExCtrlDriver : public Component {
             preload_memory_matched_ &= response.data[lane] == expected_value;
           }
           ++preload_resp_count_;
-        } else if (bank == smesh::makeSpAddr(
-                               kScenario.expected.compute_a_read_addresses[0]).sp_bank() &&
-                   compute_a_resp_count_ < smesh::kDim) {
+        } else if (compute_a_resp_count_ < kScenario.expected.compute_a_read_addresses.size() &&
+                   bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_a_read_addresses[compute_a_resp_count_]).sp_bank()) {
           const auto expected_row =
               kScenario.expected.compute_a_read_addresses[compute_a_resp_count_];
           compute_memory_matched_ &= response.laddr.full_sp_addr() == expected_row;
           ++compute_a_resp_count_;
-        } else if (bank == smesh::makeSpAddr(
-                               kScenario.expected.compute_b_read_addresses[0]).sp_bank() &&
-                   compute_b_resp_count_ < smesh::kDim) {
+        } else if (compute_b_resp_count_ < kScenario.expected.compute_b_read_addresses.size() &&
+                   bank == smesh::makeSpAddr(
+                               kScenario.expected.compute_b_read_addresses[compute_b_resp_count_]).sp_bank()) {
           const auto expected_row =
               kScenario.expected.compute_b_read_addresses[compute_b_resp_count_];
           compute_memory_matched_ &= response.laddr.full_sp_addr() == expected_row;
@@ -505,9 +508,10 @@ class ExCtrlDriver : public Component {
     bool compute_visible = false;
     for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
       compute_visible |= head_val[i] == 1 &&
-                         head_bits[i]->rs_tag == kScenario.program[2].rs_tag;
+                         (head_bits[i]->rs_tag == kScenario.program[2].rs_tag ||
+                          head_bits[i]->rs_tag == kScenario.program[3].rs_tag);
     }
-    if (seen_[2] && !compute_visible &&
+    if (seen_[2] && seen_[3] && !compute_visible &&
         *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::WaitingForCmd)) {
       compute_popped_ = true;
     }
@@ -526,6 +530,14 @@ class ExCtrlDriver : public Component {
         mesher_req_matched_ &= request.flush == 0;
       } else if (mesher_req_count_ == 1) {
         mesher_req_matched_ &= request.pe_control.dataflow == smesh::kExDataflowWS;
+        mesher_req_matched_ &= request.pe_control.propagate == 1;
+        mesher_req_matched_ &= request.total_rows == smesh::kDim;
+        mesher_req_matched_ &= request.tag.rs_tag_valid == 0;
+        mesher_req_matched_ &= request.tag.addr.is_garbage();
+        mesher_req_matched_ &= request.flush == 0;
+      } else if (mesher_req_count_ == 2) {
+        mesher_req_matched_ &= request.pe_control.dataflow == smesh::kExDataflowWS;
+        mesher_req_matched_ &= request.pe_control.propagate == 0;
         mesher_req_matched_ &= request.total_rows == smesh::kDim;
         mesher_req_matched_ &= request.tag.rs_tag_valid == 0;
         mesher_req_matched_ &= request.tag.addr.is_garbage();
@@ -554,8 +566,9 @@ class ExCtrlDriver : public Component {
         mesher_input_matched_ = false;
       }
       ++mesher_preload_row_count_;
-    } else if (mesher_req_count_ == 2 && mesher_a_fire && mesher_b_fire) {
-      if (mesher_compute_row_count_ < smesh::kDim) {
+    } else if ((mesher_req_count_ == 2 || mesher_req_count_ == 3) &&
+               mesher_a_fire && mesher_b_fire) {
+      if (mesher_compute_row_count_ < kScenario.expected.compute_a_read_addresses.size()) {
         const auto expected_a_row =
             kScenario.expected.compute_a_read_addresses[mesher_compute_row_count_];
         const auto expected_b_row =
@@ -574,6 +587,33 @@ class ExCtrlDriver : public Component {
       ++mesher_compute_row_count_;
     }
 
+    if (mesher_resp_val == 1) {
+      const auto response = *mesher_resp_bits;
+      if (mesher_resp_count_ < smesh::kDim) {
+        for (const auto value : response.data) {
+          mesher_resp_matched_ &= value == 0;
+        }
+        mesher_resp_matched_ &= response.tag.addr.is_garbage();
+      } else if (mesher_resp_count_ < 3 * smesh::kDim) {
+        const auto output_row = mesher_resp_count_ - smesh::kDim;
+        const auto& expected = kScenario.expected.compute_output_rows[output_row];
+        for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+          mesher_resp_matched_ &= response.data[lane] == expected[lane];
+        }
+        if (output_row < smesh::kDim) {
+          mesher_resp_matched_ &= response.tag.rs_tag_valid == 1;
+          mesher_resp_matched_ &= response.tag.rs_tag == kScenario.program[1].rs_tag;
+        } else {
+          mesher_resp_matched_ &= response.tag.addr.is_garbage();
+        }
+      } else {
+        mesher_resp_matched_ = false;
+      }
+      mesher_resp_matched_ &= (response.last == 1) ==
+                              (mesher_resp_count_ % smesh::kDim == smesh::kDim - 1);
+      ++mesher_resp_count_;
+    }
+
     const bool early_pipeline_matched =
         seen_[0] && seen_[1] && seen_[2] &&
         rowaddr_checked_ && rowaddr_matched_ &&
@@ -582,14 +622,17 @@ class ExCtrlDriver : public Component {
     const bool preload_memory_complete =
         preload_req_count_ == smesh::kDim && preload_resp_count_ == smesh::kDim;
     const bool compute_memory_complete =
-        compute_a_req_count_ == smesh::kDim && compute_b_req_count_ == smesh::kDim &&
-        compute_a_resp_count_ == smesh::kDim && compute_b_resp_count_ == smesh::kDim;
+        compute_a_req_count_ == kScenario.expected.compute_a_read_addresses.size() &&
+        compute_b_req_count_ == kScenario.expected.compute_b_read_addresses.size() &&
+        compute_a_resp_count_ == kScenario.expected.compute_a_read_addresses.size() &&
+        compute_b_resp_count_ == kScenario.expected.compute_b_read_addresses.size();
     matched_ = early_pipeline_matched && preload_memory_complete && compute_memory_complete &&
                preload_memory_matched_ && first_resp_available_checked_ &&
                first_resp_available_matched_ && compute_memory_matched_ &&
-               compute_popped_ && mesher_req_count_ == 2 && mesher_req_matched_ &&
+               compute_popped_ && mesher_req_count_ == 3 && mesher_req_matched_ &&
                mesher_preload_row_count_ == smesh::kDim &&
-               mesher_compute_row_count_ == smesh::kDim && mesher_input_matched_ &&
+               mesher_compute_row_count_ == 2 * smesh::kDim && mesher_input_matched_ &&
+               mesher_resp_count_ == 3 * smesh::kDim && mesher_resp_matched_ &&
                !unexpected_accum_read_;
     done_ = matched_;
     ++cycle_;
@@ -619,6 +662,8 @@ class ExCtrlDriver : public Component {
     mesher_preload_row_count_ = 0;
     mesher_compute_row_count_ = 0;
     mesher_input_matched_ = true;
+    mesher_resp_count_ = 0;
+    mesher_resp_matched_ = true;
     first_resp_available_checked_ = false;
     first_resp_available_matched_ = false;
     unexpected_accum_read_ = false;
@@ -634,7 +679,8 @@ class ExCtrlDriver : public Component {
         "  early{seen=%u%u%u addr=%u pad=%u read=%u} "
         "pre{req=%zu resp=%zu seq=%u first_offer=%u} "
         "compute{a=%zu/%zu b=%zu/%zu seq=%u pop=%u} "
-        "mesh_req{%zu ok=%u} mesh_in{pre=%zu comp=%zu ok=%u} accum_read=%u\n",
+        "mesh_req{%zu ok=%u} mesh_in{pre=%zu comp=%zu ok=%u} "
+        "mesh_resp{%zu ok=%u} accum_read=%u\n",
         static_cast<unsigned>(seen_[0]), static_cast<unsigned>(seen_[1]),
         static_cast<unsigned>(seen_[2]), static_cast<unsigned>(rowaddr_matched_),
         static_cast<unsigned>(rowpad_matched_), static_cast<unsigned>(read_req_matched_),
@@ -648,13 +694,14 @@ class ExCtrlDriver : public Component {
         mesher_req_count_, static_cast<unsigned>(mesher_req_matched_),
         mesher_preload_row_count_, mesher_compute_row_count_,
         static_cast<unsigned>(mesher_input_matched_),
+        mesher_resp_count_, static_cast<unsigned>(mesher_resp_matched_),
         static_cast<unsigned>(unexpected_accum_read_));
   }
 
  private:
   int cycle_ = 0;
   std::size_t next_issue_ = 0;
-  std::array<bool, 3> seen_{};
+  std::array<bool, 4> seen_{};
   bool rowaddr_checked_ = false;
   bool rowaddr_matched_ = false;
   bool rowpad_checked_ = false;
@@ -676,6 +723,8 @@ class ExCtrlDriver : public Component {
   std::size_t mesher_preload_row_count_ = 0;
   std::size_t mesher_compute_row_count_ = 0;
   bool mesher_input_matched_ = true;
+  std::size_t mesher_resp_count_ = 0;
+  bool mesher_resp_matched_ = true;
   bool first_resp_available_checked_ = false;
   bool first_resp_available_matched_ = false;
   bool unexpected_accum_read_ = false;
@@ -700,6 +749,7 @@ ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
                            .reads(mesher_a_val, mesher_a_rdy, mesher_a_bits,
                                   mesher_b_val, mesher_b_rdy, mesher_b_bits)
                            .reads(mesher_d_val, mesher_d_rdy, mesher_d_bits)
+                           .reads(mesher_resp_val, mesher_resp_bits)
                            .reads(spad_read_req_val, spad_read_req_rdy, spad_read_req_bits,
                                   spad_read_resp_val, spad_read_resp_rdy, spad_read_resp_bits,
                                   accum_read_req_val, accum_read_req_rdy);
@@ -746,6 +796,8 @@ int main(int argc, char* argv[]) {
   driver.mesher_d_val << ctrl.mesher_d_val;
   driver.mesher_d_rdy << ctrl.mesher_d_rdy;
   driver.mesher_d_bits << ctrl.mesher_d_bits;
+  driver.mesher_resp_val << ctrl.mesher_resp_val;
+  driver.mesher_resp_bits << ctrl.mesher_resp_bits;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     spad.req_val[bank] << ctrl.spad_read_req_val[bank];
     spad.req_bits[bank] << ctrl.spad_read_req_bits[bank];
@@ -790,8 +842,7 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ok = driver.done() && driver.matched();
-  std::printf("[EX_CTRL] %s config_preload_compute_spad_request_response\n",
-              ok ? "PASS" : "FAIL");
+  std::printf("[EX_CTRL] %s %s\n", ok ? "PASS" : "FAIL", kScenario.name);
   if (!ok) {
     driver.reportFailure();
   }

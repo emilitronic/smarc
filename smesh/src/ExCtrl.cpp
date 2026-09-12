@@ -83,6 +83,8 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesher_d_val           << mesh_in_sel_pad_->mesh_d_val;
   mesher_d_rdy           << mesher_->d_rdy;
   mesher_d_bits          << mesh_in_sel_pad_->mesh_d;
+  mesher_resp_val        << mesher_->resp_val;
+  mesher_resp_bits       << mesher_->resp_bits;
   
   // get cmd queue head data into decoder and FSM, and pass some decoder o/p to FSM
   for (std::size_t i = 0; i < kExCtrlCmdWindow; ++i) {
