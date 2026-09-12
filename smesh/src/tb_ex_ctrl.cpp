@@ -64,6 +64,7 @@ Use smesh-cascade-testing skill
 
 TraceKey(ex_ctrl_view); // declare a named TraceKey (and enable it explicitly below)
 TraceKey(ex_ctrl_spad_mem_view);
+TraceKey(ex_ctrl_write_mem_view);
 
 namespace {
 
@@ -329,7 +330,11 @@ class ExCtrlDriver : public Component {
   OutputArray(bit, accum_read_resp_val, smesh::kAccBanks);
   OutputArray(smesh::ExCtrlAccumReadResp, accum_read_resp_bits, smesh::kAccBanks);
   OutputArray(bit, spad_write_rdy, smesh::kSpBanks);
+  InputArray(bit, spad_write_val, smesh::kSpBanks);
+  InputArray(smesh::SpadBankWriteReq, spad_write_bits, smesh::kSpBanks);
   OutputArray(bit, accum_write_rdy, smesh::kAccBanks);
+  InputArray(bit, accum_write_val, smesh::kAccBanks);
+  InputArray(smesh::AccumBankWriteReq, accum_write_bits, smesh::kAccBanks);
 
   void update_memory_ready() {
     for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
@@ -614,6 +619,50 @@ class ExCtrlDriver : public Component {
       ++mesher_resp_count_;
     }
 
+    for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
+      if (spad_write_val[bank] == 1 && spad_write_rdy[bank] == 1) {
+        unexpected_spad_write_ = true;
+        const auto write = *spad_write_bits[bank];
+        s_trace(ex_ctrl_write_mem_view,
+                "spad bank=%u row=%u mask=0x%x\n",
+                static_cast<unsigned>(bank),
+                static_cast<unsigned>(write.addr),
+                static_cast<unsigned>(write.mask));
+      }
+    }
+
+    for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
+      if (accum_write_val[bank] == 1 && accum_write_rdy[bank] == 1) {
+        const auto write = *accum_write_bits[bank];
+        if (accum_write_count_ < smesh::kDim) {
+          const auto expected_addr = smesh::makeAccAddr(8 + accum_write_count_);
+          const auto& expected_data =
+              kScenario.expected.compute_output_rows[accum_write_count_];
+          accum_write_matched_ &= bank == expected_addr.acc_bank();
+          accum_write_matched_ &= write.addr == expected_addr.acc_row();
+          accum_write_matched_ &= write.mask == 0xffffu;
+          accum_write_matched_ &= write.acc == 0;
+          for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+            accum_write_matched_ &= write.data[lane] == expected_data[lane];
+          }
+        } else {
+          accum_write_matched_ = false;
+        }
+        ++accum_write_count_;
+
+        s_trace(ex_ctrl_write_mem_view,
+                "acc  bank=%u row=%u data={%d,%d,%d,%d} mask=0x%x acc=%u\n",
+                static_cast<unsigned>(bank),
+                static_cast<unsigned>(write.addr),
+                static_cast<int>(write.data[0]),
+                static_cast<int>(write.data[1]),
+                static_cast<int>(write.data[2]),
+                static_cast<int>(write.data[3]),
+                static_cast<unsigned>(write.mask),
+                static_cast<unsigned>(write.acc));
+      }
+    }
+
     const bool early_pipeline_matched =
         seen_[0] && seen_[1] && seen_[2] &&
         rowaddr_checked_ && rowaddr_matched_ &&
@@ -633,7 +682,8 @@ class ExCtrlDriver : public Component {
                mesher_preload_row_count_ == smesh::kDim &&
                mesher_compute_row_count_ == 2 * smesh::kDim && mesher_input_matched_ &&
                mesher_resp_count_ == 3 * smesh::kDim && mesher_resp_matched_ &&
-               !unexpected_accum_read_;
+               accum_write_count_ == smesh::kDim && accum_write_matched_ &&
+               !unexpected_spad_write_ && !unexpected_accum_read_;
     done_ = matched_;
     ++cycle_;
   }
@@ -664,6 +714,9 @@ class ExCtrlDriver : public Component {
     mesher_input_matched_ = true;
     mesher_resp_count_ = 0;
     mesher_resp_matched_ = true;
+    accum_write_count_ = 0;
+    accum_write_matched_ = true;
+    unexpected_spad_write_ = false;
     first_resp_available_checked_ = false;
     first_resp_available_matched_ = false;
     unexpected_accum_read_ = false;
@@ -680,7 +733,7 @@ class ExCtrlDriver : public Component {
         "pre{req=%zu resp=%zu seq=%u first_offer=%u} "
         "compute{a=%zu/%zu b=%zu/%zu seq=%u pop=%u} "
         "mesh_req{%zu ok=%u} mesh_in{pre=%zu comp=%zu ok=%u} "
-        "mesh_resp{%zu ok=%u} accum_read=%u\n",
+        "mesh_resp{%zu ok=%u} acc_write{%zu ok=%u} spad_write=%u accum_read=%u\n",
         static_cast<unsigned>(seen_[0]), static_cast<unsigned>(seen_[1]),
         static_cast<unsigned>(seen_[2]), static_cast<unsigned>(rowaddr_matched_),
         static_cast<unsigned>(rowpad_matched_), static_cast<unsigned>(read_req_matched_),
@@ -695,6 +748,8 @@ class ExCtrlDriver : public Component {
         mesher_preload_row_count_, mesher_compute_row_count_,
         static_cast<unsigned>(mesher_input_matched_),
         mesher_resp_count_, static_cast<unsigned>(mesher_resp_matched_),
+        accum_write_count_, static_cast<unsigned>(accum_write_matched_),
+        static_cast<unsigned>(unexpected_spad_write_),
         static_cast<unsigned>(unexpected_accum_read_));
   }
 
@@ -725,6 +780,9 @@ class ExCtrlDriver : public Component {
   bool mesher_input_matched_ = true;
   std::size_t mesher_resp_count_ = 0;
   bool mesher_resp_matched_ = true;
+  std::size_t accum_write_count_ = 0;
+  bool accum_write_matched_ = true;
+  bool unexpected_spad_write_ = false;
   bool first_resp_available_checked_ = false;
   bool first_resp_available_matched_ = false;
   bool unexpected_accum_read_ = false;
@@ -750,6 +808,8 @@ ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
                                   mesher_b_val, mesher_b_rdy, mesher_b_bits)
                            .reads(mesher_d_val, mesher_d_rdy, mesher_d_bits)
                            .reads(mesher_resp_val, mesher_resp_bits)
+                           .reads(spad_write_val, spad_write_rdy, spad_write_bits)
+                           .reads(accum_write_val, accum_write_rdy, accum_write_bits)
                            .reads(spad_read_req_val, spad_read_req_rdy, spad_read_req_bits,
                                   spad_read_resp_val, spad_read_resp_rdy, spad_read_resp_bits,
                                   accum_read_req_val, accum_read_req_rdy);
@@ -813,6 +873,8 @@ int main(int argc, char* argv[]) {
     driver.spad_read_resp_rdy[bank] << ctrl.spad_read_resp_rdy[bank];
     driver.spad_read_resp_bits[bank] << spad.resp_bits[bank];
     ctrl.spad_write_rdy[bank] << driver.spad_write_rdy[bank];
+    driver.spad_write_val[bank] << ctrl.spad_write_val[bank];
+    driver.spad_write_bits[bank] << ctrl.spad_write_bits[bank];
   }
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
     ctrl.accum_read_req_rdy[bank] << driver.accum_read_req_rdy[bank];
@@ -820,6 +882,8 @@ int main(int argc, char* argv[]) {
     ctrl.accum_read_resp_val[bank] << driver.accum_read_resp_val[bank];
     ctrl.accum_read_resp_bits[bank] << driver.accum_read_resp_bits[bank];
     ctrl.accum_write_rdy[bank] << driver.accum_write_rdy[bank];
+    driver.accum_write_val[bank] << ctrl.accum_write_val[bank];
+    driver.accum_write_bits[bank] << ctrl.accum_write_bits[bank];
   }
   for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
     driver.head_val[i] << ctrl.cmd_queue_head_val[i];

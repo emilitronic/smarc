@@ -85,7 +85,7 @@ void ExCtrlWriteback::updateView() {
   const auto& response              = *mesh_resp_bits;
   const auto base_address           = response.tag.addr;
   const auto total_rows             = response.total_rows;
-  const auto output_counter        = static_cast<std::uint32_t>(*output_counter_q_);
+  const auto output_counter         = static_cast<std::uint32_t>(*output_counter_q_);
   const auto offset                 = output_counter * c_addr_stride;
   const auto output_offset          = current_dataflow == kExDataflowWS
                                       ? offset
