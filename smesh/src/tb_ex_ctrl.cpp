@@ -40,6 +40,9 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 
+- ExCtrl completion output
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completed_view
+
 - You can combine them:
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view';''*'/ex_ctrl_state_view
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_view';''*'/mq_
@@ -51,6 +54,7 @@ Use smesh-cascade-testing skill
 */
 // ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_view;*/row_feed_;*/ex_ctrl_spad_mem_view'
 // ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_view;*/row_feed_;*/ex_ctrl_spad_mem_view;*/mesher_req_;*/mesher_in_;*/mesher_resp_'
+// ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_completed_view'
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
@@ -65,6 +69,7 @@ Use smesh-cascade-testing skill
 TraceKey(ex_ctrl_view); // declare a named TraceKey (and enable it explicitly below)
 TraceKey(ex_ctrl_spad_mem_view);
 TraceKey(ex_ctrl_write_mem_view);
+TraceKey(ex_ctrl_completed_view);
 
 namespace {
 
@@ -283,7 +288,9 @@ class ExCtrlDriver : public Component {
 
   Clock(clk);
   FifoOutput(smesh::SmeshIssue, cmd_out);
-  // Test-only taps from ExCtrl; completion is intentionally not checked here.
+  Input(bit, completed_val);
+  Input(smesh::SmeshRsTag, completed_bits);
+  // Test-only taps from ExCtrl.
   Input(u8, control_state);
   Input(bit, config_val);
   Input(bit, config_rs_tag_val);
@@ -378,6 +385,26 @@ class ExCtrlDriver : public Component {
           seen_[j] = true;
         }
       }
+    }
+
+    if (completed_val == 1) {
+      constexpr std::array<smesh::SmeshRsTag, 4> expected_tags{7, 9, 10, 8};
+      if (completion_count_ < expected_tags.size()) {
+        completion_matched_ &= *completed_bits == expected_tags[completion_count_];
+      } else {
+        completion_matched_ = false;
+      }
+      if (*completed_bits == kScenario.program[1].rs_tag) {
+        mesh_completion_aligned_ = mesher_resp_val == 1 &&
+                                   mesher_resp_bits->last == 1 &&
+                                   mesher_resp_bits->tag.rs_tag_valid == 1 &&
+                                   mesher_resp_bits->tag.rs_tag == *completed_bits;
+      }
+      ++completion_count_;
+
+      s_trace(ex_ctrl_completed_view,
+              "tag=%u\n",
+              static_cast<unsigned>(*completed_bits));
     }
     if (!rowpad_checked_ &&
         *control_state == static_cast<std::uint8_t>(smesh::ExCtrlFsmState::Compute)) {
@@ -683,6 +710,8 @@ class ExCtrlDriver : public Component {
                mesher_compute_row_count_ == 2 * smesh::kDim && mesher_input_matched_ &&
                mesher_resp_count_ == 3 * smesh::kDim && mesher_resp_matched_ &&
                accum_write_count_ == smesh::kDim && accum_write_matched_ &&
+               completion_count_ == 4 && completion_matched_ &&
+               mesh_completion_aligned_ &&
                !unexpected_spad_write_ && !unexpected_accum_read_;
     done_ = matched_;
     ++cycle_;
@@ -717,6 +746,9 @@ class ExCtrlDriver : public Component {
     accum_write_count_ = 0;
     accum_write_matched_ = true;
     unexpected_spad_write_ = false;
+    completion_count_ = 0;
+    completion_matched_ = true;
+    mesh_completion_aligned_ = false;
     first_resp_available_checked_ = false;
     first_resp_available_matched_ = false;
     unexpected_accum_read_ = false;
@@ -733,7 +765,8 @@ class ExCtrlDriver : public Component {
         "pre{req=%zu resp=%zu seq=%u first_offer=%u} "
         "compute{a=%zu/%zu b=%zu/%zu seq=%u pop=%u} "
         "mesh_req{%zu ok=%u} mesh_in{pre=%zu comp=%zu ok=%u} "
-        "mesh_resp{%zu ok=%u} acc_write{%zu ok=%u} spad_write=%u accum_read=%u\n",
+        "mesh_resp{%zu ok=%u} acc_write{%zu ok=%u} completion{%zu ok=%u mesh=%u} "
+        "spad_write=%u accum_read=%u\n",
         static_cast<unsigned>(seen_[0]), static_cast<unsigned>(seen_[1]),
         static_cast<unsigned>(seen_[2]), static_cast<unsigned>(rowaddr_matched_),
         static_cast<unsigned>(rowpad_matched_), static_cast<unsigned>(read_req_matched_),
@@ -749,6 +782,8 @@ class ExCtrlDriver : public Component {
         static_cast<unsigned>(mesher_input_matched_),
         mesher_resp_count_, static_cast<unsigned>(mesher_resp_matched_),
         accum_write_count_, static_cast<unsigned>(accum_write_matched_),
+        completion_count_, static_cast<unsigned>(completion_matched_),
+        static_cast<unsigned>(mesh_completion_aligned_),
         static_cast<unsigned>(unexpected_spad_write_),
         static_cast<unsigned>(unexpected_accum_read_));
   }
@@ -783,6 +818,9 @@ class ExCtrlDriver : public Component {
   std::size_t accum_write_count_ = 0;
   bool accum_write_matched_ = true;
   bool unexpected_spad_write_ = false;
+  std::size_t completion_count_ = 0;
+  bool completion_matched_ = true;
+  bool mesh_completion_aligned_ = false;
   bool first_resp_available_checked_ = false;
   bool first_resp_available_matched_ = false;
   bool unexpected_accum_read_ = false;
@@ -796,7 +834,7 @@ ExCtrlDriver::ExCtrlDriver(std::string /*name*/, IMPL_CTOR) {
       .writes(accum_read_req_rdy, accum_read_resp_val, accum_read_resp_bits,
               spad_write_rdy, accum_write_rdy);
   UPDATE(update_completion).reads(control_state, config_val, config_rs_tag_val, config_rs_tag,
-                                  head_val, head_bits)
+                                  head_val, head_bits, completed_val, completed_bits)
                            .reads(rowaddr_a_address, rowaddr_b_address, rowaddr_d_address,
                                   rowaddr_a_bank, rowaddr_b_bank, rowaddr_d_bank)
                            .reads(rowaddr_a_garbage, rowaddr_b_garbage, rowaddr_d_garbage)
@@ -825,6 +863,8 @@ int main(int argc, char* argv[]) {
   ExCtrlSpadModel spad("SpadModel");
 
   ctrl.cmd_in << driver.cmd_out;
+  driver.completed_val << ctrl.completed_val;
+  driver.completed_bits << ctrl.completed_bits;
   driver.control_state << ctrl.control_state;
   driver.config_val << ctrl.config_val;
   driver.config_rs_tag_val << ctrl.config_rs_tag_val;
