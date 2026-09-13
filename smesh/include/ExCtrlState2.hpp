@@ -57,6 +57,7 @@ class ExCtrlState2 : public Component {
   Output(bit, performing_single_preload);
   Output(bit, performing_mul_pre);
   Output(bit, performing_single_mul);
+  Output(bit, prop);
 
   Output(u8,  control_state);
   Output(bit, computing);
@@ -82,10 +83,10 @@ class ExCtrlState2 : public Component {
   Output(bit, weight_triple_bank);
   Output(u8,  row_left);
   Output(u32, row_turn);
-  Output(bit, start_inputting_a); // current op requires A stream supplied to mesh
-  Output(bit, start_inputting_b);
-  Output(bit, start_inputting_d);
-  Output(bit, prop);
+  // main FSM o/p: current op requires math A/B/D (A*B+D) streams to be supplied mesh
+  Output(bit, start_inputting_a); // A stream
+  Output(bit, start_inputting_b); // math D stream (phys B)
+  Output(bit, start_inputting_d); // math B stream (phys D)
 
   void updateCmdAcceptanceAndOutputs();
   void updateState();

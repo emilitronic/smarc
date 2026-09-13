@@ -117,18 +117,18 @@ void ExCtrlState2::updateCmdAcceptanceAndOutputs() {
   // default start_inputting signals
   start_inputting_a = 0; start_inputting_b = 0; start_inputting_d = 0;
   // if cmd handling states are active now or being accepted this cycle
-  // set start_inputting signals to feed A/B/D into transposer
+  // set start_inputting signals to feed A/B/D into transposer (math: C=A*B+D)
   if (active_single_preload || accepting_single_preload) {
     start_inputting_a = a_should_be_fed_into_transposer;
     start_inputting_b = b_should_be_fed_into_transposer;
-    start_inputting_d = 1;
+    start_inputting_d = 1; // math B should loaded by single preload
   } else if (active_mul_pre || accepting_mul_pre) {
-    start_inputting_a = 1;
-    start_inputting_b = 1;
-    start_inputting_d = 1;
+    start_inputting_a = 1; // A should be loaded by compute
+    start_inputting_b = 1; // math D may be loaded by compute
+    start_inputting_d = 1; // math B may be loaded by preload
   } else if (active_single_mul || accepting_single_mul) {
-    start_inputting_a = bit(a_should_be_fed_into_transposer == 0);
-    start_inputting_b = bit(b_should_be_fed_into_transposer == 0);
+    start_inputting_a = bit(a_should_be_fed_into_transposer == 0); // A should be loaded by compute
+    start_inputting_b = bit(b_should_be_fed_into_transposer == 0); // math D may be loaded by compute
   }
 
   computing = bit(active_single_preload || accepting_single_preload ||

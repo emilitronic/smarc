@@ -42,23 +42,24 @@ class ExCtrlDecoder : public Component {
   Output(bit,      in_prop);                       // cmd(0) is COMPUTE_AND_FLIP
 
   Output(u8, preload_cmd_place); // which cmd slot has PRELOAD, 0 or 1
-
-  Output(SmeshLocalAddr, a_address_rs1);
-  Output(SmeshLocalAddr, b_address_rs2);
-  Output(SmeshLocalAddr, d_address_rs1);
-  Output(SmeshLocalAddr, c_address_rs2);
+  // C = A*B + D, these are the base addresses for the opnds
+  Output(SmeshLocalAddr, a_address_rs1); // COMPUTE.RS1 = A base local address
+  Output(SmeshLocalAddr, b_address_rs2); // COMPUTE.RS2 = math D base local address (physical B)
+  Output(SmeshLocalAddr, d_address_rs1); // PRELOAD.RS1 = math B base local address (physical D)
+  Output(SmeshLocalAddr, c_address_rs2); // PRELOAD.RS2 = C base local address
 
   Output(bit, multiply_garbage);
   Output(bit, accumulate_zeros);
   Output(bit, preload_zeros);
 
-  Output(u16, a_rows);
+  // matrix shapes to compute, helps determin zero-padding and row-feed control
+  Output(u16, a_rows); // shape of A stream
   Output(u16, a_cols);
-  Output(u16, b_rows);
+  Output(u16, b_rows); // shape of math D stream (phys B)
   Output(u16, b_cols);
-  Output(u16, d_rows);
+  Output(u16, d_rows); // shape of math B stream (phys D)
   Output(u16, d_cols);
-  Output(u16, c_rows);
+  Output(u16, c_rows); // shape of C stream
   Output(u16, c_cols);
 
   Output(bit, a_should_be_fed_into_transposer);
