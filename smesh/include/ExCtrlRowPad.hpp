@@ -9,7 +9,7 @@ Input:
 Decoder tells us how many rows and cols are in the current mesh request.
 Row feed state tells us which row/beat is currently being fed into the spatial array.
 Output:
-Read request logic told that this row/beat is not all zeros.
+Read request logic told that this row/beat is not all zeros (so a read req should be made).
 Mesh cntl packet told how many unpadded columns are in this row/beat.
 */
 
