@@ -12,7 +12,15 @@ Execute-controller completion bookkeeping.
 
 #include "SmeshPorts.hpp"
 
+#include <array>
+#include <cstddef>
+
 namespace smesh {
+
+struct ExCtrlPendingCompletionState {
+  std::array<bit, 2>        val{};
+  std::array<SmeshRsTag, 2> bits{};
+};
 
 class ExCtrlCompletion : public Component {
   DECLARE_COMPONENT(ExCtrlCompletion);
@@ -29,10 +37,10 @@ class ExCtrlCompletion : public Component {
   // Pending completions are RS completions for commands whose tags will not return through
   // Mesher/writeback and are waiting to be reported on ExCtrl's completion port.
   // It is pending only until completion gets an available cycle to report it.
-  // So we try to report copmletion on these commands after they issue (not after they complete).
+  // So we try to report completion on these commands after they issue (not after they complete).
   InputArray(bit,        pending_completed_set_val,  2); // FSM writes pending slot valid values
   InputArray(SmeshRsTag, pending_completed_set_bits, 2); // FSM writes pending slot tags
-  
+
   Input(bit,        mesh_completed_rs_tag_fire);         // writeback reports a mesh completion
   Input(SmeshRsTag, mesh_completed_bits);                // completed mesh operation tag
 
@@ -46,9 +54,8 @@ class ExCtrlCompletion : public Component {
   void reset();
 
  private:
-  bool       pending_completed_val_[2]  = {false, false};
-  SmeshRsTag pending_completed_bits_[2] = {0, 0};
-  std::uint16_t complete_bits_count_ = 0;
+  Output(ExCtrlPendingCompletionState,   pending_completed_Q_); // committed pending slots
+  Register(ExCtrlPendingCompletionState, pending_completed_D_); // pending slots for next cycle
 
   static constexpr std::size_t kPendingEntries = 2;
 };
