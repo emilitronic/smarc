@@ -208,22 +208,23 @@ void ExCtrlState2::updateState() {
     }
     // *** COMPUTE: SINGLE_PRELOAD, MUL_PRE, SINGLE_MUL
     case ExCtrlFsmState::Compute: {
-      // starting already set before entereing this state
-      // now check if we are about to finish single preload
+      // preload already started before entering this state
+      // now check if about to finish single preload issue (i.e., enq last cntl packet on MQ)
       if (perform_single_preload_Q_ == 1 && about_to_fire_all_rows == 1) {
         cmd_pop_count    = 1;
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
 
         const auto cmdq      = *head_bits[0];
         const bool c_garbage = c_address_rs2->is_garbage();
+        // if PRELOAD's rs2 is garbage, let completion know it's done after issue
         pending_completed_set_val[0]  = bit(cmdq.rs_tag_valid != 0 && c_garbage);
         pending_completed_set_bits[0] = cmdq.rs_tag;
 
         if (current_dataflow == kExDataflowOS) {
           in_prop_flush_D_ = bit(!c_garbage);
         }
-      // starting already set before entereing this state
-      // now check if we are about to finish overlapping mul & preload
+      // compute+preload already started before entering this state
+      // now check if about to finish comp+preload issue (i.e., enq last cntl packet on MQ)
       } else if (perform_mul_pre_Q_ == 1 && about_to_fire_all_rows == 1) {
         cmd_pop_count    = 2;
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
@@ -231,9 +232,10 @@ void ExCtrlState2::updateState() {
         const auto compute_cmd = *head_bits[0];
         const auto preload_cmd = *head_bits[1];
         const bool c_garbage   = c_address_rs2->is_garbage();
-
+        // COMPUTE's rs2 is garbage, let completion know it's done after issue
         pending_completed_set_val[0]  = compute_cmd.rs_tag_valid;
         pending_completed_set_bits[0] = compute_cmd.rs_tag;
+        // if PRELOAD's rs2 is garbage, let completion know it's done after issue
         pending_completed_set_val[1]  = bit(preload_cmd.rs_tag_valid != 0 && c_garbage);
         pending_completed_set_bits[1] = preload_cmd.rs_tag;
 
@@ -247,6 +249,7 @@ void ExCtrlState2::updateState() {
         control_state_D_ = static_cast<std::uint8_t>(ExCtrlFsmState::WaitingForCmd);
 
         const auto compute_cmd = *head_bits[0];
+        // COMPUTE's rs2 is garbage, let completion know it's done after issue
         pending_completed_set_val[0]  = compute_cmd.rs_tag_valid;
         pending_completed_set_bits[0] = compute_cmd.rs_tag;
       }

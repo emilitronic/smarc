@@ -65,15 +65,14 @@ void ExCtrlCompletion::updatePendingState() {
   const bool config_completion = config_val != 0;
   const bool mesh_completion   = mesh_completed_rs_tag_fire != 0;
   const bool pending_completion = !config_completion && !mesh_completion &&
-                                  (pending_completed_val_[0] ||
-                                   pending_completed_val_[1]);
+                                  (pending_completed_val_[0] || pending_completed_val_[1]);
 
   if (pending_completion) {
     if (pending_completed_val_[0]) {
-      pending_completed_val_[0] = false;
+      pending_completed_val_[0]  = false;
       pending_completed_bits_[0] = 0;
     } else {
-      pending_completed_val_[1] = false;
+      pending_completed_val_[1]  = false;
       pending_completed_bits_[1] = 0;
     }
   }
