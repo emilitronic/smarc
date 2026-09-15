@@ -26,6 +26,8 @@ void ExCtrlMeshCntlDeqCtrl::update() {
   // 1) every required A/B/D input has been accepted (mesh_a/b/d_fire)
   // or is not blocking (!cntl.a/b/d_fire or ! mesh_a/b/d_rdy)
   // 2) if this is the first entry of a request and Mesher is ready to accept it
+  // (if it's not the first entry, presumably Mesher has already accepted it so,
+  // we don't care about mesh_req_rdy).
   const auto next_mesh_cntl_deq_rdy = bit(
       (cntl.a_fire == 0 || mesh_a_fire != 0 || mesh_a_rdy == 0) &&
       (cntl.b_fire == 0 || mesh_b_fire != 0 || mesh_b_rdy == 0) &&

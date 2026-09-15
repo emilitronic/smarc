@@ -40,9 +40,9 @@ class ExCtrlReadReqLogic : public Component {
   Input(bit, a_row_is_not_all_zeros); // from row-padding logic
   Input(bit, b_row_is_not_all_zeros);
   Input(bit, d_row_is_not_all_zeros);
-  Input(bit, multiply_garbage); // A operand is garbage, don't read it
-  Input(bit, accumulate_zeros); // B/accum operand is garbage, use zeros instead of reading it
-  Input(bit, preload_zeros);    // PRELOAD src operand is garbage, use zeros instead of reading it (in WS, use 0's on preload stream)
+  Input(bit, multiply_garbage); // A is garbage, don't read it
+  Input(bit, accumulate_zeros); // math D/addend is garbage, use zeros instead of reading it
+  Input(bit, preload_zeros);    // math B/weight is garbage, use zeros instead of reading it (in WS, use 0's on preload stream)
   Input(bit, a_read_from_acc);
   Input(bit, b_read_from_acc);
   Input(bit, d_read_from_acc);
