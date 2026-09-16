@@ -61,6 +61,8 @@ Use smesh-cascade-testing skill
 // ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_view;*/row_feed_;*/ex_ctrl_spad_mem_view'
 // ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_view;*/row_feed_;*/ex_ctrl_spad_mem_view;*/mesher_req_;*/mesher_in_;*/mesher_resp_'
 // ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_completed_view'
+// handling COMPUTE + PRELOAD
+// ./build/smesh/tb_ex_ctrl_state_mul_pre -trace '*/mul_pre_state_'
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
