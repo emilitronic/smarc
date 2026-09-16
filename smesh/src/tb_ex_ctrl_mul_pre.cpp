@@ -107,6 +107,21 @@ bool equal(const smesh::MeshAccumRow& lhs, const smesh::MeshAccumRow& rhs) {
 
 TraceKey(mul_pre_view_);
 
+// Keep trace columns aligned while retaining Cascade's normal key filtering.
+class FixedWidthCascadeTracer : public descore::Tracer {
+ public:
+  void traceHeader(const std::string& context, const std::string& keyname) override {
+    appendTrace("[%02llu.%03llu] ",
+                static_cast<unsigned long long>(Sim::simTime / 1000),
+                static_cast<unsigned long long>(Sim::simTime % 1000));
+    descore::Tracer::traceHeader(context, keyname);
+  }
+
+  bool traceEnabled() const override {
+    return Sim::tracing;
+  }
+};
+
 struct MulPreSpadPipelineState {
   std::array<std::array<bit, smesh::kSpadReadDelay>, smesh::kSpBanks> valid{};
   std::array<std::array<smesh::SpadReadResp, smesh::kSpadReadDelay>, smesh::kSpBanks> bits{};
@@ -636,6 +651,8 @@ int main(int argc, char* argv[]) {
 
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
+  FixedWidthCascadeTracer fixed_width_tracer;
+  auto* previous_tracer = descore::setTracer(&fixed_width_tracer);
   Sim::reset();
   constexpr int kDrainCycles = 4;
   int drain_cycles = 0;
@@ -657,5 +674,6 @@ int main(int argc, char* argv[]) {
     driver.report();
   }
   descore::flushLog();
+  descore::setTracer(previous_tracer);
   return ok ? 0 : 1;
 }
