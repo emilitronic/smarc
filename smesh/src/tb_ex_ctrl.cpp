@@ -40,6 +40,9 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 - Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 
+- Focused completion test
+./build/smesh/tb_ex_ctrl_completion -trace '*'/completion_tb_
+
 - ExCtrl completion output
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completed_view
 

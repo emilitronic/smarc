@@ -368,6 +368,19 @@ target_link_libraries(tb_ex_ctrl_writeback
     -lpthread
 )
 
+add_executable(tb_ex_ctrl_completion
+  src/tb_ex_ctrl_completion.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_completion
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_rs_ld_issue
   src/tb_rs_ld_issue.cpp
 )
