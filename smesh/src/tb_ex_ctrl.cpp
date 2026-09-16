@@ -63,6 +63,9 @@ Use smesh-cascade-testing skill
 // ./build/smesh/tb_ex_ctrl -trace '*/ex_ctrl_completed_view'
 // handling COMPUTE + PRELOAD
 // ./build/smesh/tb_ex_ctrl_state_mul_pre -trace '*/mul_pre_state_'
+// handling COMPUTE + PRELOAD and overlap
+// ./build/smesh/tb_ex_ctrl_mul_pre
+// ./build/smesh/tb_ex_ctrl_mul_pre -trace '*'/mul_pre_view_
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
