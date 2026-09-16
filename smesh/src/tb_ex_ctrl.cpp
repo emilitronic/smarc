@@ -37,13 +37,16 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 - Mesher A/B/D input handshakes and row data
 ./build/smesh/tb_ex_ctrl -trace '*'/mesher_in_
 
-- Completion pending state
+- ExCtrlWriteback: Writeback to accumulator
+./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_write_mem_view
+
+- ExCtrlCompletion: Completion pending state
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completion_view
 
-- Focused completion test
+- ExCtrlCompletion: Focused completion test
 ./build/smesh/tb_ex_ctrl_completion -trace '*'/completion_tb_
 
-- ExCtrl completion output
+- ExCtrlCompletion: ExCtrl completion output
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_completed_view
 
 - You can combine them:

@@ -4,7 +4,6 @@
 // Sebastian Claudiusz Magierowski Jul 1 2026
 /*
 Structural shell for the smesh execute controller.
-
 */
 #pragma once
 

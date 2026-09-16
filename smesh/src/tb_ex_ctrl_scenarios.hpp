@@ -34,7 +34,7 @@ struct ExCtrlExpected {
   // Two standalone COMPUTEs feed A and B forward from their respective bases.
   std::array<std::uint32_t, 2 * kDim> compute_a_read_addresses{};
   std::array<std::uint32_t, 2 * kDim> compute_b_read_addresses{};
-  std::array<MeshAccumRow, 2 * kDim> compute_output_rows{};
+  std::array<MeshAccumRow,  2 * kDim> compute_output_rows{};
 };
 
 // One test program plus the observations expected from that program.
@@ -71,21 +71,21 @@ inline ExCtrlScenario makeConfigPreloadComputeScenario() {
   //   4. STAY:      reuse the weights with A at row 8 and addends at row 0.
   // Each command has a distinct RS tag so queue movement is easy to inspect.
   scenario.program = {
-      makeScenarioIssue(7, SmeshFunct::Config,      packConfigExRs1(1),                 packConfigExRs2(1)),
-      makeScenarioIssue(8, SmeshFunct::Preload,     packLocal(makeSpAddr(4),  {kDim, kDim}), packLocal(makeAccAddr(8), {kDim, kDim})),
-      makeScenarioIssue(9, SmeshFunct::ComputeFlip, packLocal(makeSpAddr(12), {kDim, kDim}), packLocal(makeSpAddr(4),  {kDim, kDim})),
-      makeScenarioIssue(10, SmeshFunct::ComputeStay, packLocal(makeSpAddr(8), {kDim, kDim}), packLocal(makeSpAddr(0),  {kDim, kDim})),
+      makeScenarioIssue( 7, SmeshFunct::Config,      packConfigExRs1(1), packConfigExRs2(1)),
+      makeScenarioIssue( 8, SmeshFunct::Preload,     packLocal(makeSpAddr( 4), {kDim, kDim}), packLocal(makeAccAddr(8), {kDim, kDim})),
+      makeScenarioIssue( 9, SmeshFunct::ComputeFlip, packLocal(makeSpAddr(12), {kDim, kDim}), packLocal(makeSpAddr(4),  {kDim, kDim})),
+      makeScenarioIssue(10, SmeshFunct::ComputeStay, packLocal(makeSpAddr( 8), {kDim, kDim}), packLocal(makeSpAddr(0),  {kDim, kDim})),
   };
 
   // The first row-address view is taken from the COMPUTE command. D is fed in
   // reverse row order, so its first address is row 4 + (DIM - 1) = 7.
   scenario.expected.rowaddr_a_address = 12;
-  scenario.expected.rowaddr_b_address = 4;
-  scenario.expected.rowaddr_d_address = 7;
+  scenario.expected.rowaddr_b_address =  4;
+  scenario.expected.rowaddr_d_address =  7;
 
   // The first real read request is the bank-local SPAD row selected for D.
-  scenario.expected.first_read_address = 7;
-  scenario.expected.preload_read_addresses = {7, 6, 5, 4};
+  scenario.expected.first_read_address       = 7;
+  scenario.expected.preload_read_addresses   = {7, 6, 5, 4};
   scenario.expected.compute_a_read_addresses = {12, 13, 14, 15, 8, 9, 10, 11};
   scenario.expected.compute_b_read_addresses = {4, 5, 6, 7, 0, 1, 2, 3};
 

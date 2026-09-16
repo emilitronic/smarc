@@ -22,16 +22,16 @@ class ArbReadSpad : public Component {
 
   Clock(clk);
 
-  Input(bit, exread_val);
+  Input(bit,         exread_val);
   Input(SpadReadReq, exread_bits);
-  Output(bit, exread_rdy);
+  Output(bit,        exread_rdy);
 
-  Input(bit, dmawrite_val);
+  Input(bit,         dmawrite_val);
   Input(SpadReadReq, dmawrite_bits);
-  Output(bit, dmawrite_rdy);
+  Output(bit,        dmawrite_rdy);
 
-  Output(bit, read_req_val);
-  Input(bit, read_req_rdy);
+  Output(bit,         read_req_val);
+  Input(bit,          read_req_rdy);
   Output(SpadReadReq, read_req_bits);
 
   void update();
