@@ -274,6 +274,7 @@ class MulPreDriver : public Component {
   void updateMonitor();
   void reset();
 
+  bool activityComplete() const;
   bool passed() const;
   void report() const;
 
@@ -534,7 +535,7 @@ void MulPreDriver::reset() {
   }
 }
 
-bool MulPreDriver::passed() const {
+bool MulPreDriver::activityComplete() const {
   bool counts_ok = next_issue_ == kProgram.size() && mesh_req_count_ == 3 &&
                    mesh_input_count_ == 3 * smesh::kDim &&
                    mesh_resp_count_ == 3 * smesh::kDim && write_count_ == 2 * smesh::kDim;
@@ -545,7 +546,12 @@ bool MulPreDriver::passed() const {
   for (const auto count : completion_count_) {
     counts_ok &= count == 1;
   }
-  return counts_ok && request_ok_ && response_ok_ && mesh_req_ok_ && mesh_input_ok_ &&
+  return counts_ok;
+}
+
+bool MulPreDriver::passed() const {
+  return activityComplete() &&
+         request_ok_ && response_ok_ && mesh_req_ok_ && mesh_input_ok_ &&
          mesh_resp_ok_ && write_ok_ && completion_ok_ &&
          !unexpected_accum_read_ && !unexpected_spad_write_;
 }
@@ -631,8 +637,18 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
+  constexpr int kDrainCycles = 4;
+  int drain_cycles = 0;
   for (int cycle = 0; cycle < 96; ++cycle) {
     Sim::run();
+    if (driver.activityComplete()) {
+      ++drain_cycles;
+      if (drain_cycles == kDrainCycles) {
+        break;
+      }
+    } else {
+      drain_cycles = 0;
+    }
   }
 
   const bool ok = driver.passed();
