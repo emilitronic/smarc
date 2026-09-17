@@ -407,6 +407,21 @@ target_link_libraries(tb_ex_ctrl_mul_pre
     -lpthread
 )
 
+add_executable(tb_ex_ctrl_suite
+  src/tb_ex_ctrl_suite.cpp
+  src/tb_ex_ctrl_harness.cpp
+  src/tb_ex_ctrl_test_cases.cpp
+)
+
+target_link_libraries(tb_ex_ctrl_suite
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 add_executable(tb_rs_ld_issue
   src/tb_rs_ld_issue.cpp
 )

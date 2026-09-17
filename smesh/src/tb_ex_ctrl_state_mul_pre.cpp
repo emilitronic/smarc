@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 16 2026
 /*
-Focused ExCtrlState2 COMPUTE + PRELOAD branch test.
+Focused ExCtrlState2 COMPUTE + PRELOAD branch test.  A focused FSM test.
 
 cmake --build build --target tb_ex_ctrl_state_mul_pre -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl_state_mul_pre -trace '*'/mul_pre_state_
