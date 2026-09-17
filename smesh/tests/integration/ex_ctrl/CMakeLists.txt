@@ -30,5 +30,7 @@ add_test(
 set_tests_properties(
   smesh_ex_ctrl_basic
   smesh_ex_ctrl_mul_pre
-  PROPERTIES TIMEOUT 10
+  PROPERTIES
+    LABELS "integration;ex_ctrl"
+    TIMEOUT 10
 )

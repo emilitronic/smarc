@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/tests/ex_ctrl/tb_ex_ctrl_dsl.hpp
+// smesh/tests/integration/ex_ctrl/tb_ex_ctrl_dsl.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 17 2026
 /*
@@ -181,7 +181,7 @@ struct ExCtrlExpectedProgress {
 struct ExCtrlTestCase {
   int id = 0; // test ID for CL selection
   std::string name; // unique test name for selection & reporting
-  std::string description; // human-readable summary printed by, e.g., -list_tests=1
+  std::string description; // human-readable summary printed by, e.g., -list_tests
   std::vector<SmeshIssue> program; // ordered RS command stream
   std::vector<SpadMatrixData> spad; // initial spad contents
   std::array<std::vector<std::uint32_t>, kSpBanks> expected_spad_reads{}; // expected sequence of full spad row addrs requested from ea. physical bank

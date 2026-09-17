@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/tests/ex_ctrl/tb_ex_ctrl_suite.cpp
+// smesh/tests/integration/ex_ctrl/tb_ex_ctrl_suite.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 17 2026
 /*
@@ -42,14 +42,16 @@ Run one case directly (useful when tracing):
   ./build/smesh/tb_ex_ctrl_suite -test=mul_pre -trace '*'/ex_ctrl_suite_
 
 Run cases through CTest (each case gets a fresh process):
-  # Uses CTest config insice smarc/build, lists registered tests, but does not run them
+  # List all registered tests without running them.
   ctest --test-dir build -N
-  # Run test with registered name smesh_ex_ctrl_basic, print output on failure
-  # ^: start of name, $: end of name
+  # Run one exact test.
   ctest --test-dir build -R '^smesh_ex_ctrl_basic$' --output-on-failure
+  # Run a selected subset.
   ctest --test-dir build -R '^smesh_ex_ctrl_(basic|mul_pre)$' --output-on-failure
-  # Run all tests who's name begins with smesh_ex_ctrl_, using 2 parallel jobs, print output on failure
-  ctest --test-dir build -R '^smesh_ex_ctrl_' -j 2 --output-on-failure
+  # Run all ExCtrl tests, using up to two parallel processes.
+  ctest --test-dir build -L ex_ctrl -j 2 --output-on-failure
+  # Run all integration tests.
+  ctest --test-dir build -L integration --output-on-failure
 */
 
 #include <cascade/Cascade.hpp>
@@ -129,7 +131,7 @@ int main(int argc, char* argv[]) {
   const auto* selected = selectTest(tests, std::string(test));
   if (selected == nullptr) {
     std::fprintf(stderr, "Unknown ExCtrl test '%s'.\n", std::string(test).c_str());
-    std::fprintf(stderr, "Use -list_tests=1 to see available tests.\n");
+    std::fprintf(stderr, "Use -list_tests to see available tests.\n");
     return 2;
   }
 

@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/tests/ex_ctrl/tb_ex_ctrl_harness.hpp
+// smesh/tests/integration/ex_ctrl/tb_ex_ctrl_harness.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 17 2026
 /*
