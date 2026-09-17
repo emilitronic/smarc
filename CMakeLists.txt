@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(smarc LANGUAGES CXX)
 
+include(CTest)
+
 # Reduce CMake/Ninja rule chatter: hide "Building CXX object..." lines.
 set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "suppress per-rule build messages" FORCE)
 

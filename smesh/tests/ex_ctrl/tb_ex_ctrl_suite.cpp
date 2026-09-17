@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_suite.cpp
+// smesh/tests/ex_ctrl/tb_ex_ctrl_suite.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 17 2026
 /*
@@ -9,7 +9,7 @@ instances, clocks the simulation, and reports PASS/FAIL.
 tb_ex_ctrl_suite.cpp
 |
 | selects tests (ExCtrlTestCase from tb_ex_ctrl_test_cases.cpp)
-| runs one test directly, or launches one fresh process per selected test
+| runs one selected test in a fresh process
 |
 |--> ExCtrlHarnessInstance (tb_ex_ctrl_harness.hpp)
 |    |
@@ -33,14 +33,23 @@ tb_ex_ctrl_suite.cpp
 |
 +---- result checking
 
-cmake --build build --target tb_ex_ctrl_suite -j >/dev/null 2>&1
-./build/smesh/tb_ex_ctrl_suite -list_tests=1
-./build/smesh/tb_ex_ctrl_suite -test=basic
-./build/smesh/tb_ex_ctrl_suite -test=mul_pre
-./build/smesh/tb_ex_ctrl_suite -test=1,2
-./build/smesh/tb_ex_ctrl_suite -test=2,1
-./build/smesh/tb_ex_ctrl_suite -test=all
-./build/smesh/tb_ex_ctrl_suite -test=mul_pre -trace '*'/ex_ctrl_suite_
+Build this test runner (from smarc root):
+  cmake --build build --target tb_ex_ctrl_suite -j >/dev/null 2>&1
+
+Run one case directly (useful when tracing):
+  ./build/smesh/tb_ex_ctrl_suite -list_tests
+  ./build/smesh/tb_ex_ctrl_suite -test=basic
+  ./build/smesh/tb_ex_ctrl_suite -test=mul_pre -trace '*'/ex_ctrl_suite_
+
+Run cases through CTest (each case gets a fresh process):
+  # Uses CTest config insice smarc/build, lists registered tests, but does not run them
+  ctest --test-dir build -N
+  # Run test with registered name smesh_ex_ctrl_basic, print output on failure
+  # ^: start of name, $: end of name
+  ctest --test-dir build -R '^smesh_ex_ctrl_basic$' --output-on-failure
+  ctest --test-dir build -R '^smesh_ex_ctrl_(basic|mul_pre)$' --output-on-failure
+  # Run all tests who's name begins with smesh_ex_ctrl_, using 2 parallel jobs, print output on failure
+  ctest --test-dir build -R '^smesh_ex_ctrl_' -j 2 --output-on-failure
 */
 
 #include <cascade/Cascade.hpp>
@@ -52,14 +61,10 @@ cmake --build build --target tb_ex_ctrl_suite -j >/dev/null 2>&1
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <cstdlib>
-#include <sstream>
 #include <string>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <vector>
 
-StringParameter(test, "all", "ExCtrl test name/id, comma-separated list, or all");
+StringParameter(test, "basic", "One ExCtrl test name or id");
 BoolParameter(list_tests, false, "List ExCtrl end-to-end tests and exit");
 
 namespace {
@@ -89,99 +94,23 @@ std::string componentPrefix(const std::string& name) {
   prefix.push_back('_');
   return prefix;
 }
-// Select a subset of tests based on the command-line selection string.
-std::vector<const smesh::tb::ExCtrlTestCase*> selectTests(
+// Find one test by its command-line name or number.
+const smesh::tb::ExCtrlTestCase* selectTest(
     const std::vector<smesh::tb::ExCtrlTestCase>& tests,
     const std::string& selection) {
-  if (selection == "all") {
-    std::vector<const smesh::tb::ExCtrlTestCase*> selected;
-    for (const auto& item : tests) {
-      selected.push_back(&item);
-    }
-    return selected;
+  const auto found = std::find_if(
+      tests.begin(), tests.end(), [&selection](const auto& item) {
+        return item.name == selection || std::to_string(item.id) == selection;
+      });
+  if (found == tests.end()) {
+    return nullptr;
   }
-
-  std::vector<const smesh::tb::ExCtrlTestCase*> selected;
-  std::stringstream stream(selection);
-  std::string token;
-  while (std::getline(stream, token, ',')) {
-    const auto found = std::find_if(
-        tests.begin(), tests.end(), [&token](const auto& item) {
-          return item.name == token || std::to_string(item.id) == token;
-        });
-    if (found == tests.end()) {
-      std::fprintf(stderr, "Unknown ExCtrl test '%s'\n", token.c_str());
-      return {};
-    }
-    selected.push_back(&*found);
-  }
-  return selected;
-}
-
-// Run one selected test in a fresh copy of this executable.
-int runTestProcess(const std::vector<std::string>& command_line,
-                   const std::string& test_name) {
-  std::vector<std::string> arguments;
-  arguments.push_back(command_line.front());
-  for (std::size_t i = 1; i < command_line.size(); ++i) {
-    const auto& argument = command_line[i];
-    if (argument == "-test") {
-      ++i;
-      continue;
-    }
-    if (argument.rfind("-test=", 0) == 0) {
-      continue;
-    }
-    arguments.push_back(argument);
-  }
-  arguments.push_back("-test=" + test_name);
-
-  std::vector<char*> child_argv;
-  for (auto& argument : arguments) {
-    child_argv.push_back(&argument[0]);
-  }
-  child_argv.push_back(nullptr);
-
-  const pid_t pid = fork();
-  if (pid == 0) {
-    execvp(child_argv[0], child_argv.data());
-    std::perror("execvp");
-    _exit(127);
-  }
-  if (pid < 0) {
-    std::perror("fork");
-    return 1;
-  }
-
-  int status = 0;
-  if (waitpid(pid, &status, 0) < 0) {
-    std::perror("waitpid");
-    return 1;
-  }
-  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
-}
-
-// Run multiple selected tests one at a time, each with fresh Cascade state.
-int runTestProcesses(const std::vector<std::string>& command_line,
-                     const std::vector<const smesh::tb::ExCtrlTestCase*>& selected) {
-  bool all_passed = true;
-  for (const auto* item : selected) {
-    std::printf("[EX_CTRL_SUITE] RUN  %s\n", item->name.c_str());
-    std::fflush(stdout);
-    all_passed &= runTestProcess(command_line, item->name) == 0;
-  }
-  return all_passed ? 0 : 1;
+  return &*found;
 }
 
 } // namespace
 
 int main(int argc, char* argv[]) {
-  // Preserve options because Cascade's parsers may modify argc/argv.
-  std::vector<std::string> command_line;
-  for (int i = 0; i < argc; ++i) {
-    command_line.emplace_back(argv[i]);
-  }
-
   // Read command-line trace, test-selection, and waveform options.
   descore::parseTraces(argc, argv);
   Parameter::parseCommandLine(argc, argv);
@@ -196,20 +125,16 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  // Choose which tests to run from the command-line setting.
-  const auto selected = selectTests(tests, std::string(test));
-  if (selected.empty()) {
+  // Choose the one test requested on the command line.
+  const auto* selected = selectTest(tests, std::string(test));
+  if (selected == nullptr) {
+    std::fprintf(stderr, "Unknown ExCtrl test '%s'.\n", std::string(test).c_str());
     std::fprintf(stderr, "Use -list_tests=1 to see available tests.\n");
     return 2;
   }
 
-  // Multiple tests run as separate processes so each gets fresh Cascade state.
-  if (selected.size() > 1) {
-    return runTestProcesses(command_line, selected);
-  }
-
   // Create one ExCtrl, driver/checker, and SPAD model for the selected test.
-  const auto& selected_test = *selected.front();
+  const auto& selected_test = *selected;
   Clock clk;
   smesh::tb::ExCtrlHarnessInstance harness(selected_test, componentPrefix(selected_test.name), clk);
   clk.generateClock();
