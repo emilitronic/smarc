@@ -10,6 +10,40 @@ End-to-end ExCtrl COMPUTE + PRELOAD overlap test.
   COMPUTE_FLIP0(A0, D0) + PRELOAD1(B1, C1)
   COMPUTE_FLIP1(A1, D1)
 
+  Trace is cumulative progress summary for end-to-end overlap scenario
+
+  - req={b0,b1,b2,b3}: accepted SPAD read requests per physical bank.
+      - Bank 0: 8 A rows, four each for A0 and A1.
+      - Bank 1: 8 math-D rows, four each for D0 and D1.
+      - Bank 2: 4 new-weight rows for B1.
+      - Bank 3: 4 initial-weight rows for B0.
+
+  - mesh.req=3: Mesher accepted three operation requests:
+      1. Initial PRELOAD0
+      2. Overlapped COMPUTE0 + PRELOAD1
+      3. Final COMPUTE1
+
+  - mesh.in=12: twelve complete row-beats entered Mesher:
+      - 4 final compute rows
+
+    This increments only when A, B, and D complete together. Earlier benign A/B filler handshakes
+    are not counted as completed rows.
+
+  - mesh.out=12: twelve rows emerged:
+      - 4 non-result preload/drain rows
+      - 4 rows of C0 = A0*B0+D0
+      - 4 rows of C1 = A1*B1+D1
+
+  - write=8: eight result rows were written to the accumulator:
+      - 4 C0 rows
+      - 4 C1 rows
+
+  - completion={1,1,1,1,1}: each expected RS tag appeared exactly once, in this array order:
+
+    CONFIG, PRELOAD0, COMPUTE0, PRELOAD1, COMPUTE1
+    tags 7, 8, 9, 10, 11
+
+
 cmake --build build --target tb_ex_ctrl_mul_pre -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl_mul_pre
 ./build/smesh/tb_ex_ctrl_mul_pre -trace '*'/mul_pre_view_
@@ -514,7 +548,7 @@ void MulPreDriver::updateMonitor() {
   }
 
   s_trace(mul_pre_view_,
-          "req={%zu,%zu,%zu,%zu} mesh{req=%zu in=%zu out=%zu} write=%zu completion={%zu,%zu,%zu,%zu,%zu}\n",
+          "req={%zu,%zu,%zu,%zu} mesh{req=%zu in=%02zu out=%02zu} write=%zu completion={%zu,%zu,%zu,%zu,%zu}\n",
           req_count_[0], req_count_[1], req_count_[2], req_count_[3],
           mesh_req_count_, mesh_input_count_, mesh_resp_count_, write_count_,
           completion_count_[0], completion_count_[1], completion_count_[2],
