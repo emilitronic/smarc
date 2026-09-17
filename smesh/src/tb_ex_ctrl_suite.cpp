@@ -9,7 +9,7 @@ instances, clocks the simulation, and reports PASS/FAIL.
 tb_ex_ctrl_suite.cpp
 |
 | selects tests (ExCtrlTestCase from tb_ex_ctrl_test_cases.cpp)
-| creates one ExCtrlHarnessInstance for each selected test case
+| runs one test directly, or launches one fresh process per selected test
 |
 |--> ExCtrlHarnessInstance (tb_ex_ctrl_harness.hpp)
 |    |
@@ -38,6 +38,7 @@ cmake --build build --target tb_ex_ctrl_suite -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl_suite -test=basic
 ./build/smesh/tb_ex_ctrl_suite -test=mul_pre
 ./build/smesh/tb_ex_ctrl_suite -test=1,2
+./build/smesh/tb_ex_ctrl_suite -test=2,1
 ./build/smesh/tb_ex_ctrl_suite -test=all
 ./build/smesh/tb_ex_ctrl_suite -test=mul_pre -trace '*'/ex_ctrl_suite_
 */
@@ -52,9 +53,10 @@ cmake --build build --target tb_ex_ctrl_suite -j >/dev/null 2>&1
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
-#include <memory>
 #include <sstream>
 #include <string>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 StringParameter(test, "all", "ExCtrl test name/id, comma-separated list, or all");
@@ -116,9 +118,70 @@ std::vector<const smesh::tb::ExCtrlTestCase*> selectTests(
   return selected;
 }
 
+// Run one selected test in a fresh copy of this executable.
+int runTestProcess(const std::vector<std::string>& command_line,
+                   const std::string& test_name) {
+  std::vector<std::string> arguments;
+  arguments.push_back(command_line.front());
+  for (std::size_t i = 1; i < command_line.size(); ++i) {
+    const auto& argument = command_line[i];
+    if (argument == "-test") {
+      ++i;
+      continue;
+    }
+    if (argument.rfind("-test=", 0) == 0) {
+      continue;
+    }
+    arguments.push_back(argument);
+  }
+  arguments.push_back("-test=" + test_name);
+
+  std::vector<char*> child_argv;
+  for (auto& argument : arguments) {
+    child_argv.push_back(&argument[0]);
+  }
+  child_argv.push_back(nullptr);
+
+  const pid_t pid = fork();
+  if (pid == 0) {
+    execvp(child_argv[0], child_argv.data());
+    std::perror("execvp");
+    _exit(127);
+  }
+  if (pid < 0) {
+    std::perror("fork");
+    return 1;
+  }
+
+  int status = 0;
+  if (waitpid(pid, &status, 0) < 0) {
+    std::perror("waitpid");
+    return 1;
+  }
+  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+}
+
+// Run multiple selected tests one at a time, each with fresh Cascade state.
+int runTestProcesses(const std::vector<std::string>& command_line,
+                     const std::vector<const smesh::tb::ExCtrlTestCase*>& selected) {
+  bool all_passed = true;
+  for (const auto* item : selected) {
+    std::printf("[EX_CTRL_SUITE] RUN  %s\n", item->name.c_str());
+    std::fflush(stdout);
+    all_passed &= runTestProcess(command_line, item->name) == 0;
+  }
+  return all_passed ? 0 : 1;
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
+  // Preserve options because Cascade's parsers may modify argc/argv.
+  std::vector<std::string> command_line;
+  for (int i = 0; i < argc; ++i) {
+    command_line.emplace_back(argv[i]);
+  }
+
   // Read command-line trace, test-selection, and waveform options.
   descore::parseTraces(argc, argv);
   Parameter::parseCommandLine(argc, argv);
@@ -140,23 +203,16 @@ int main(int argc, char* argv[]) {
     return 2;
   }
 
-  // Give each selected case its own ExCtrl, driver/checker, and SPAD model.
-  Clock clk;
-  // create list of test harnesses, one for each selected test case
-  std::vector<std::unique_ptr<smesh::tb::ExCtrlHarnessInstance>> harnesses;
-  // visit every selected test case and create a harness for it
-  for (const auto* item : selected) {
-    // harness contructor receives: completed test description, name prefix, shared simulaiton clock
-    harnesses.emplace_back(new smesh::tb::ExCtrlHarnessInstance(*item, componentPrefix(item->name), clk));
+  // Multiple tests run as separate processes so each gets fresh Cascade state.
+  if (selected.size() > 1) {
+    return runTestProcesses(command_line, selected);
   }
-  clk.generateClock();
 
-  // Selected tests currently run as independent harnesses in one Cascade
-  // simulation. This avoids assuming that Cascade can discard all global
-  // simulation state and safely call Sim::init() again in the same process.
-  // TODO: determine whether each test can instead run in a fresh simulation.
-  // Separate processes would also allow suites to run sequentially or, when
-  // useful, in parallel without sharing Cascade simulation state.
+  // Create one ExCtrl, driver/checker, and SPAD model for the selected test.
+  const auto& selected_test = *selected.front();
+  Clock clk;
+  smesh::tb::ExCtrlHarnessInstance harness(selected_test, componentPrefix(selected_test.name), clk);
+  clk.generateClock();
 
   // Initialize and reset the complete Cascade simulation.
   Cascade::params.MaxResetIterations = 1;
@@ -165,42 +221,30 @@ int main(int argc, char* argv[]) {
   auto* previous_tracer = descore::setTracer(&fixed_width_tracer);
   Sim::reset();
 
-  // Run until every case has completed and remained quiet while draining.
-  int max_cycles = 0;
-  for (const auto* item : selected) {
-    max_cycles = std::max(max_cycles, item->max_cycles); // find largest permitted runtime amont selected test cases
-  }
-  std::vector<int> drain_count(selected.size(), 0); // one drain counter per test (records how many consecutive cycles a test has appered complete)
-  for (int cycle = 0; cycle < max_cycles; ++cycle) {
+  // Run until the test has completed and remained quiet while draining.
+  int drain_count = 0;
+  for (int cycle = 0; cycle < selected_test.max_cycles; ++cycle) {
     Sim::run();
-    bool all_drained = true;
-    for (std::size_t i = 0; i < harnesses.size(); ++i) {
-      if (harnesses[i]->activityComplete()) {
-        ++drain_count[i];
-      } else {
-        drain_count[i] = 0;
-      }
-      all_drained &= drain_count[i] >= selected[i]->drain_cycles;
+    if (harness.activityComplete()) {
+      ++drain_count;
+    } else {
+      drain_count = 0;
     }
-    if (all_drained) {
+    if (drain_count >= selected_test.drain_cycles) {
       break;
     }
   }
 
-  // Report each selected case and return failure if any case failed.
-  bool all_passed = true;
-  for (std::size_t i = 0; i < harnesses.size(); ++i) {
-    const bool passed = harnesses[i]->passed();
-    std::printf("[EX_CTRL_SUITE] %s %s\n",
-                passed ? "PASS" : "FAIL", selected[i]->name.c_str());
-    if (!passed) {
-      harnesses[i]->report();
-    }
-    all_passed &= passed;
+  // Report the selected test.
+  const bool passed = harness.passed();
+  std::printf("[EX_CTRL_SUITE] %s %s\n",
+              passed ? "PASS" : "FAIL", selected_test.name.c_str());
+  if (!passed) {
+    harness.report();
   }
 
   // Flush buffered traces and restore the process's previous tracer.
   descore::flushLog();
   descore::setTracer(previous_tracer);
-  return all_passed ? 0 : 1;
+  return passed ? 0 : 1;
 }
