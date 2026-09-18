@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_row_pad.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_row_pad.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 15 2026
 // Focused ExCtrlRowPad row-padding validity test.

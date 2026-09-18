@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_feed_signals.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_feed_signals.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 29 2026
 // Focused ExCtrlFeedSignals derived-signal test.

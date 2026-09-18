@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_operand_pack.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_operand_pack.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 28 2026
 // Focused ExCtrlOperandPack packaging test.
