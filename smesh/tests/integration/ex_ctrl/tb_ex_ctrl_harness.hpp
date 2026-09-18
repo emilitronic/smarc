@@ -75,6 +75,11 @@ class ExCtrlSuiteDriver : public Component {
   Input(bit, completed_val);
   Input(SmeshRsTag, completed_bits);
 
+  // Test-only ExCtrl taps used by the command-window trace.
+  Input(u8, control_state);
+  InputArray(bit, cmd_queue_head_val, kExCtrlCmdWindow);
+  InputArray(SmeshIssue, cmd_queue_head_bits, kExCtrlCmdWindow);
+
   Input(bit, mesher_req_val);
   Input(bit, mesher_req_rdy);
   Input(ExCtrlMeshReq, mesher_req_bits);
@@ -100,6 +105,7 @@ class ExCtrlSuiteDriver : public Component {
 
   OutputArray(bit, spad_write_rdy, kSpBanks);
   InputArray(bit, spad_write_val, kSpBanks);
+  InputArray(SpadBankWriteReq, spad_write_bits, kSpBanks);
   OutputArray(bit, accum_write_rdy, kAccBanks);
   InputArray(bit, accum_write_val, kAccBanks);
   InputArray(AccumBankWriteReq, accum_write_bits, kAccBanks);
@@ -127,6 +133,7 @@ class ExCtrlSuiteDriver : public Component {
   std::size_t mesh_resp_count_ = 0;
   std::size_t write_count_ = 0;
   std::vector<std::size_t> completion_count_;
+  std::size_t next_completion_ = 0;
 
   bool request_ok_ = true;
   bool response_ok_ = true;

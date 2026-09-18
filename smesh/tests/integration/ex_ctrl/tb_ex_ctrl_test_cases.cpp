@@ -103,7 +103,7 @@ ExCtrlTestCase makeBasicFlipStayTest() {
   test.expected_results = {
       matmulResult("C0", c0, a0, b0, d0),
   };
-  test.expected_completions = {7, 8, 9, 10};
+  test.expected_completions = {7, 9, 10, 8};
   test.expected_progress = {3, 3 * kDim, 3 * kDim};
   return test;
 }
@@ -159,7 +159,7 @@ ExCtrlTestCase makeComputePreloadOverlapTest() {
       matmulResult("C0", c0, a0, b0, d0),
       matmulResult("C1", c1, a1, b1, d1),
   };
-  test.expected_completions = {7, 8, 9, 10, 11};
+  test.expected_completions = {7, 9, 11, 8, 10};
   test.expected_progress = {3, 3 * kDim, 3 * kDim};
   return test;
 }

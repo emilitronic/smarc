@@ -10,13 +10,50 @@
 #include <cstdio>
 #include <utility>
 
+// Harness-owned trace views; production-component trace keys remain available too.
 TraceKey(ex_ctrl_suite_);
+TraceKey(ex_ctrl_view);
+TraceKey(ex_ctrl_spad_mem_view);
+TraceKey(ex_ctrl_write_mem_view);
+TraceKey(ex_ctrl_completed_view);
 
 namespace smesh {
 namespace tb {
 
 namespace {
 
+// Convert encoded commands and FSM states into compact trace labels.
+const char* functName(std::uint32_t funct) {
+  switch (static_cast<SmeshFunct>(funct)) {
+    case SmeshFunct::Config:      return "CFG";
+    case SmeshFunct::Mvin2:       return "M2";
+    case SmeshFunct::Mvin:        return "MVI";
+    case SmeshFunct::Mvout:       return "MVO";
+    case SmeshFunct::ComputeFlip: return "CMPF";
+    case SmeshFunct::ComputeStay: return "CMPS";
+    case SmeshFunct::Preload:     return "PRE";
+    case SmeshFunct::Flush:       return "FLU";
+    case SmeshFunct::Mvin3:       return "M3";
+    case SmeshFunct::StoreSpad:   return "SSP";
+  }
+  return "---";
+}
+
+const char* commandName(bool valid, std::uint32_t funct) {
+  return valid ? functName(funct) : "---";
+}
+
+const char* stateName(std::uint8_t state) {
+  switch (static_cast<ExCtrlFsmState>(state)) {
+    case ExCtrlFsmState::WaitingForCmd: return "WAIT";
+    case ExCtrlFsmState::Compute:       return "COMP";
+    case ExCtrlFsmState::Flush:         return "FLSH";
+    case ExCtrlFsmState::Flushing:      return "FLSG";
+  }
+  return "?";
+}
+
+// Expand the scenario's named matrices into the scratchpad image used by the model.
 void buildSpadImage(const ExCtrlTestCase& test,
                     std::array<MeshInputRow, kSpRows>& image,
                     std::array<bool, kSpRows>& initialized) {
@@ -47,6 +84,7 @@ void buildSpadImage(const ExCtrlTestCase& test,
   }
 }
 
+// Calculate one golden accumulator row for C=A*B+D directly from test data.
 MeshAccumRow calculateMatmulRow(
     const ExCtrlTestCase& test,
     const ExpectedMatmul& expected,
@@ -88,6 +126,7 @@ MeshAccumRow calculateMatmulRow(
   return result;
 }
 
+// Convert all expected matrices into the ordered accumulator writes ExCtrl should emit.
 std::vector<ExpectedAccumWrite> buildExpectedWrites(
     const ExCtrlTestCase& test,
     const std::array<MeshInputRow, kSpRows>& image,
@@ -111,6 +150,7 @@ std::vector<ExpectedAccumWrite> buildExpectedWrites(
 
 } // namespace
 
+// Build a banked, fixed-latency scratchpad model with explicitly registered pipeline state.
 ExCtrlSuiteSpad::ExCtrlSuiteSpad(const ExCtrlTestCase& test,
                                  std::string /*name*/, IMPL_CTOR)
     : test_(test) {
@@ -125,15 +165,28 @@ ExCtrlSuiteSpad::ExCtrlSuiteSpad(const ExCtrlTestCase& test,
       .writes(active_D_, pipeline_D_);
 }
 
+// Present the last pipeline stage as the current scratchpad response.
 void ExCtrlSuiteSpad::updateRespView() {
   const auto current = *pipeline_Q_;
   const auto last = kSpadReadDelay - 1;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     resp_val[bank] = current.valid[bank][last];
     resp_bits[bank] = current.bits[bank][last];
+    if (current.valid[bank][last] == 1) {
+      const auto& response = current.bits[bank][last];
+      trace(ex_ctrl_spad_mem_view,
+            "offer bank=%u row=%u data={%d,%d,%d,%d}\n",
+            static_cast<unsigned>(bank),
+            static_cast<unsigned>(response.laddr.full_sp_addr()),
+            static_cast<int>(response.data[0]),
+            static_cast<int>(response.data[1]),
+            static_cast<int>(response.data[2]),
+            static_cast<int>(response.data[3]));
+    }
   }
 }
 
+// Backpressure propagates from the response port toward the request port.
 void ExCtrlSuiteSpad::updateReady() {
   const auto current = *pipeline_Q_;
   const auto last = kSpadReadDelay - 1;
@@ -147,8 +200,10 @@ void ExCtrlSuiteSpad::updateReady() {
   }
 }
 
+// Advance accepted requests through the elastic response pipeline for the next cycle.
 void ExCtrlSuiteSpad::updateNextState() {
   active_D_ = 1;
+  // Reset traffic is not real traffic, so begin with an empty response pipeline.
   if (Sim::state == Sim::SimResetting || active_Q_ == 0) {
     pipeline_D_ = ExCtrlSuiteSpadPipeline{};
     return;
@@ -164,6 +219,7 @@ void ExCtrlSuiteSpad::updateNextState() {
       stage_rdy[stage] = current.valid[bank][stage] == 0 || stage_rdy[stage + 1];
     }
 
+    // Move each occupied stage only when the following stage can accept it.
     for (std::size_t stage = kSpadReadDelay; stage-- > 1;) {
       if (stage_rdy[stage]) {
         next.valid[bank][stage] = current.valid[bank][stage - 1];
@@ -171,6 +227,7 @@ void ExCtrlSuiteSpad::updateNextState() {
       }
     }
 
+    // Turn each accepted bank-local request into a full-address response row.
     if (stage_rdy[0]) {
       const bool fire = req_val[bank] == 1 && req_rdy[bank] == 1;
       next.valid[bank][0] = bit(fire);
@@ -192,12 +249,33 @@ void ExCtrlSuiteSpad::updateNextState() {
         response.len = kDim;
         response.from_dma = req_bits[bank]->from_dma;
         next.bits[bank][0] = response;
+        trace(ex_ctrl_spad_mem_view,
+              "req  bank=%u row=%u data={%d,%d,%d,%d}\n",
+              static_cast<unsigned>(bank),
+              static_cast<unsigned>(response.laddr.full_sp_addr()),
+              static_cast<int>(response.data[0]),
+              static_cast<int>(response.data[1]),
+              static_cast<int>(response.data[2]),
+              static_cast<int>(response.data[3]));
       }
+    }
+
+    if (current.valid[bank][last] == 1 && resp_rdy[bank] == 1) {
+      const auto& response = current.bits[bank][last];
+      trace(ex_ctrl_spad_mem_view,
+            "take  bank=%u row=%u data={%d,%d,%d,%d}\n",
+            static_cast<unsigned>(bank),
+            static_cast<unsigned>(response.laddr.full_sp_addr()),
+            static_cast<int>(response.data[0]),
+            static_cast<int>(response.data[1]),
+            static_cast<int>(response.data[2]),
+            static_cast<int>(response.data[3]));
     }
   }
   pipeline_D_ = next;
 }
 
+// Initialize all registered state and externally visible memory ports.
 void ExCtrlSuiteSpad::reset() {
   active_D_.reset(0);
   pipeline_D_.reset(ExCtrlSuiteSpadPipeline{});
@@ -208,6 +286,7 @@ void ExCtrlSuiteSpad::reset() {
   }
 }
 
+// Build the command source, passive monitor, and expected-result checker.
 ExCtrlSuiteDriver::ExCtrlSuiteDriver(const ExCtrlTestCase& test,
                                      std::string /*name*/, IMPL_CTOR)
     : test_(test), completion_count_(test.expected_completions.size(), 0) {
@@ -220,15 +299,17 @@ ExCtrlSuiteDriver::ExCtrlSuiteDriver(const ExCtrlTestCase& test,
               spad_write_rdy, accum_write_rdy);
   UPDATE(updateMonitor)
       .reads(completed_val, completed_bits)
+      .reads(control_state, cmd_queue_head_val, cmd_queue_head_bits)
       .reads(mesher_req_val, mesher_req_rdy, mesher_req_bits)
       .reads(mesher_a_val, mesher_a_rdy, mesher_b_val, mesher_b_rdy,
              mesher_d_val, mesher_d_rdy, mesher_resp_val)
       .reads(spad_read_req_val, spad_read_req_rdy, spad_read_req_bits)
       .reads(spad_read_resp_val, spad_read_resp_rdy, spad_read_resp_bits)
-      .reads(accum_read_req_val, spad_write_val)
+      .reads(accum_read_req_val, spad_write_val, spad_write_bits)
       .reads(accum_write_val, accum_write_rdy, accum_write_bits);
 }
 
+// Feed the scenario's commands into ExCtrl in program order whenever its FIFO has room.
 void ExCtrlSuiteDriver::updateIssue() {
   if (Sim::state == Sim::SimResetting ||
       next_issue_ >= test_.program.size() || cmd_out.full()) {
@@ -237,6 +318,7 @@ void ExCtrlSuiteDriver::updateIssue() {
   cmd_out.push(test_.program[next_issue_++]);
 }
 
+// Model always-ready write ports and an unused accumulator-read response path.
 void ExCtrlSuiteDriver::updateMemoryReady() {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_req_rdy[bank] = 1;
@@ -249,11 +331,31 @@ void ExCtrlSuiteDriver::updateMemoryReady() {
   }
 }
 
+// Observe each external ExCtrl transaction and compare it with the scenario expectations.
 void ExCtrlSuiteDriver::updateMonitor() {
   if (Sim::state == Sim::SimResetting) {
     return;
   }
 
+  // Show the FSM state and the three command-queue entries visible to ExCtrl.
+  trace(ex_ctrl_view,
+        "state=%4s h0{v=%u t=%03u c=%4s} h1{v=%u t=%03u c=%4s} "
+        "h2{v=%u t=%03u c=%4s}\n",
+        stateName(static_cast<std::uint8_t>(*control_state)),
+        static_cast<unsigned>(cmd_queue_head_val[0]),
+        static_cast<unsigned>(cmd_queue_head_bits[0]->rs_tag),
+        commandName(cmd_queue_head_val[0] == 1,
+                    cmd_queue_head_bits[0]->cmd.funct),
+        static_cast<unsigned>(cmd_queue_head_val[1]),
+        static_cast<unsigned>(cmd_queue_head_bits[1]->rs_tag),
+        commandName(cmd_queue_head_val[1] == 1,
+                    cmd_queue_head_bits[1]->cmd.funct),
+        static_cast<unsigned>(cmd_queue_head_val[2]),
+        static_cast<unsigned>(cmd_queue_head_bits[2]->rs_tag),
+        commandName(cmd_queue_head_val[2] == 1,
+                    cmd_queue_head_bits[2]->cmd.funct));
+
+  // Check scratchpad request/response ordering and reject unexpected scratchpad writes.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     if (spad_read_req_val[bank] == 1 && spad_read_req_rdy[bank] == 1) {
       const auto index = req_count_[bank]++;
@@ -273,13 +375,21 @@ void ExCtrlSuiteDriver::updateMonitor() {
                       row < kSpRows && spad_initialized_[row] &&
                       response.data == spad_image_[row] && response.from_dma == 0;
     }
-    unexpected_spad_write_ |= spad_write_val[bank] == 1;
+    if (spad_write_val[bank] == 1 && spad_write_rdy[bank] == 1) {
+      unexpected_spad_write_ = true;
+      const auto& write = *spad_write_bits[bank];
+      trace(ex_ctrl_write_mem_view, "spad bank=%u row=%u mask=0x%x\n",
+            static_cast<unsigned>(bank), static_cast<unsigned>(write.addr),
+            static_cast<unsigned>(write.mask));
+    }
   }
 
+  // These scenarios source operands from scratchpad, so accumulator reads are unexpected.
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     unexpected_accum_read_ |= accum_read_req_val[bank] == 1;
   }
 
+  // Count accepted Mesher requests and verify their common WS control fields.
   if (mesher_req_val == 1 && mesher_req_rdy == 1) {
     const auto& request = *mesher_req_bits;
     mesh_ok_ &= request.pe_control.dataflow == kExDataflowWS &&
@@ -287,6 +397,7 @@ void ExCtrlSuiteDriver::updateMonitor() {
     ++mesh_req_count_;
   }
 
+  // A complete mesh row-beat enters only when all three physical inputs fire together.
   const bool a_fire = mesher_a_val == 1 && mesher_a_rdy == 1;
   const bool b_fire = mesher_b_val == 1 && mesher_b_rdy == 1;
   const bool d_fire = mesher_d_val == 1 && mesher_d_rdy == 1;
@@ -297,6 +408,7 @@ void ExCtrlSuiteDriver::updateMonitor() {
     ++mesh_resp_count_;
   }
 
+  // Compare each accepted accumulator write with the next golden output row.
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     if (accum_write_val[bank] == 1 && accum_write_rdy[bank] == 1) {
       const auto index = write_count_++;
@@ -310,11 +422,27 @@ void ExCtrlSuiteDriver::updateMonitor() {
       write_ok_ &= bank == address.acc_bank() &&
                    write.addr == address.acc_row() &&
                    write.data == expected.data && write.acc == 0;
+      trace(ex_ctrl_write_mem_view,
+            "acc  bank=%u row=%u data={%d,%d,%d,%d} mask=0x%x acc=%u\n",
+            static_cast<unsigned>(bank), static_cast<unsigned>(write.addr),
+            static_cast<int>(write.data[0]), static_cast<int>(write.data[1]),
+            static_cast<int>(write.data[2]), static_cast<int>(write.data[3]),
+            static_cast<unsigned>(write.mask),
+            static_cast<unsigned>(write.acc));
     }
   }
 
+  // Require completion tags to appear exactly once and in the declared sequence.
   if (completed_val == 1) {
     const auto tag = static_cast<SmeshRsTag>(*completed_bits);
+    trace(ex_ctrl_completed_view, "tag=%u\n", static_cast<unsigned>(tag));
+
+    if (next_completion_ >= test_.expected_completions.size() ||
+        tag != test_.expected_completions[next_completion_]) {
+      completion_ok_ = false;
+    }
+    ++next_completion_;
+
     const auto found = std::find(test_.expected_completions.begin(),
                                  test_.expected_completions.end(), tag);
     if (found == test_.expected_completions.end()) {
@@ -326,6 +454,7 @@ void ExCtrlSuiteDriver::updateMonitor() {
     }
   }
 
+  // Emit a compact cumulative progress line for cycle-by-cycle debugging.
   std::size_t completion_total = 0;
   for (const auto count : completion_count_) {
     completion_total += count;
@@ -339,6 +468,7 @@ void ExCtrlSuiteDriver::updateMonitor() {
         completion_total, completion_count_.size());
 }
 
+// Restore all software-side counters and checker status before simulation starts.
 void ExCtrlSuiteDriver::reset() {
   next_issue_ = 0;
   req_count_ = {};
@@ -348,6 +478,7 @@ void ExCtrlSuiteDriver::reset() {
   mesh_resp_count_ = 0;
   write_count_ = 0;
   completion_count_.assign(test_.expected_completions.size(), 0);
+  next_completion_ = 0;
   request_ok_ = true;
   response_ok_ = true;
   mesh_ok_ = true;
@@ -366,12 +497,14 @@ void ExCtrlSuiteDriver::reset() {
   }
 }
 
+// End the run only after every expected transaction has been observed.
 bool ExCtrlSuiteDriver::activityComplete() const {
   bool complete = next_issue_ == test_.program.size() &&
                   mesh_req_count_ == test_.expected_progress.mesh_requests &&
                   mesh_input_count_ == test_.expected_progress.mesh_input_rows &&
                   mesh_resp_count_ == test_.expected_progress.mesh_output_rows &&
-                  write_count_ == expected_writes_.size();
+                  write_count_ == expected_writes_.size() &&
+                  next_completion_ == test_.expected_completions.size();
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     complete &= req_count_[bank] == test_.expected_spad_reads[bank].size() &&
                 resp_count_[bank] == test_.expected_spad_reads[bank].size();
@@ -382,12 +515,14 @@ bool ExCtrlSuiteDriver::activityComplete() const {
   return complete;
 }
 
+// A scenario passes only if it completed and every protocol/data check remained true.
 bool ExCtrlSuiteDriver::passed() const {
   return activityComplete() && request_ok_ && response_ok_ && mesh_ok_ &&
          write_ok_ && completion_ok_ && !unexpected_accum_read_ &&
          !unexpected_spad_write_;
 }
 
+// Print a concise diagnosis when a scenario does not pass.
 void ExCtrlSuiteDriver::report() const {
   std::size_t completion_total = 0;
   for (const auto count : completion_count_) {
@@ -410,6 +545,7 @@ void ExCtrlSuiteDriver::report() const {
       static_cast<unsigned>(unexpected_spad_write_));
 }
 
+// Instantiate one independent ExCtrl test environment and connect all three components.
 ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
                                              const std::string& prefix,
                                              Clock& clk) {
@@ -417,9 +553,17 @@ ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
   driver_.reset(new ExCtrlSuiteDriver(test, prefix + "Driver"));
   spad_.reset(new ExCtrlSuiteSpad(test, prefix + "Spad"));
 
+  // Connect command input, completion output, and test-only observability taps.
   ctrl_->cmd_in << driver_->cmd_out;
   driver_->completed_val << ctrl_->completed_val;
   driver_->completed_bits << ctrl_->completed_bits;
+  driver_->control_state << ctrl_->control_state;
+  for (std::size_t slot = 0; slot < kExCtrlCmdWindow; ++slot) {
+    driver_->cmd_queue_head_val[slot] << ctrl_->cmd_queue_head_val[slot];
+    driver_->cmd_queue_head_bits[slot] << ctrl_->cmd_queue_head_bits[slot];
+  }
+
+  // Observe Mesher request, input-row, and response activity exposed by ExCtrl.
   driver_->mesher_req_val << ctrl_->mesher_req_val;
   driver_->mesher_req_rdy << ctrl_->mesher_req_rdy;
   driver_->mesher_req_bits << ctrl_->mesher_req_bits;
@@ -431,6 +575,7 @@ ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
   driver_->mesher_d_rdy << ctrl_->mesher_d_rdy;
   driver_->mesher_resp_val << ctrl_->mesher_resp_val;
 
+  // Put the scratchpad model on ExCtrl's read ports and mirror traffic into the checker.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_->req_val[bank] << ctrl_->spad_read_req_val[bank];
     spad_->req_bits[bank] << ctrl_->spad_read_req_bits[bank];
@@ -448,8 +593,10 @@ ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
 
     ctrl_->spad_write_rdy[bank] << driver_->spad_write_rdy[bank];
     driver_->spad_write_val[bank] << ctrl_->spad_write_val[bank];
+    driver_->spad_write_bits[bank] << ctrl_->spad_write_bits[bank];
   }
 
+  // Keep accumulator reads empty while accepting and checking accumulator writes.
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     ctrl_->accum_read_req_rdy[bank] << driver_->accum_read_req_rdy[bank];
     driver_->accum_read_req_val[bank] << ctrl_->accum_read_req_val[bank];
@@ -460,6 +607,7 @@ ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
     driver_->accum_write_bits[bank] << ctrl_->accum_write_bits[bank];
   }
 
+  // RS commands have one cycle of transport delay; all components share one clock.
   ctrl_->cmd_in.setDelay(1);
   ctrl_->clk << clk;
   driver_->clk << clk;

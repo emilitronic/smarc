@@ -186,7 +186,7 @@ struct ExCtrlTestCase {
   std::vector<SpadMatrixData> spad; // initial spad contents
   std::array<std::vector<std::uint32_t>, kSpBanks> expected_spad_reads{}; // expected sequence of full spad row addrs requested from ea. physical bank
   std::vector<ExpectedMatmul> expected_results; // matrix results expected to be written into accum
-  std::vector<SmeshRsTag> expected_completions; // RS tags that must be reported as completed (ea. list tag is expected exactly once), completion order not checked
+  std::vector<SmeshRsTag> expected_completions; // exact sequence of RS tags that must be reported as completed
   ExCtrlExpectedProgress expected_progress{}; // expected high-level Mesher activity; checks how many op reqs and row-beats pass through Mesher
   int max_cycles = 96; // maximum number of cycles to run the test
   int drain_cycles = 4; // number of additional cycles to run after all expected activity has appeared
