@@ -80,19 +80,6 @@ target_link_libraries(tb_smesh_m1
     smesh_model
 )
 
-add_executable(tb_ex_ctrl
-  src/tb_ex_ctrl.cpp
-)
-
-target_link_libraries(tb_ex_ctrl
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
 add_executable(tb_ex_ctrl_arch
   src/tb_ex_ctrl_arch.cpp
 )

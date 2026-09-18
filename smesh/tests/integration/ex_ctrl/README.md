@@ -89,14 +89,10 @@ These tests predate the reusable suite and are not registered with CTest.
 
 | Test | Relationship to the suite | Current status |
 |---|---|---|
-| `tb_ex_ctrl.cpp` | Predecessor of `basic`; its useful traces and end-to-end checks have been migrated into the reusable harness. | Superseded; retained only until explicitly removed. |
 | `tb_ex_ctrl_mul_pre.cpp` | Predecessor of `mul_pre`; contains its own command driver, SPAD model, and cumulative progress trace. | Passes, but substantially overlaps `mul_pre`. |
 | `tb_ex_ctrl_arch.cpp` | Small RS-like command/completion test using CONFIG, helper PRELOAD, CONFIG. | Currently fails and should not be treated as an active regression. |
 
-`smesh/src/tb_ex_ctrl_scenarios.hpp` supplies the scenario used by the older
-`tb_ex_ctrl.cpp`; it is not a separate executable test.
-
-The reusable suite now provides the established `tb_ex_ctrl.cpp` diagnostic
-traces and checks exact Mesher requests, A/B/D row-beats, response rows,
-writeback, and completion order. New scenarios and checks should be added to
-the maintained suite instead of the duplicated standalone harnesses.
+The reusable suite provides the established ExCtrl diagnostic traces and
+checks exact Mesher requests, A/B/D row-beats, response rows, writeback, and
+completion order. New scenarios and checks should be added to the maintained
+suite instead of the duplicated standalone harnesses.
