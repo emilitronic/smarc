@@ -456,7 +456,14 @@ void ExCtrlSuiteDriver::updateMonitor() {
   const bool a_fire = mesher_a_val == 1 && mesher_a_rdy == 1;
   const bool b_fire = mesher_b_val == 1 && mesher_b_rdy == 1;
   const bool d_fire = mesher_d_val == 1 && mesher_d_rdy == 1;
-  if (a_fire && b_fire && d_fire) {
+  const bool complete_input_row = a_fire && b_fire && d_fire;
+  if ((a_fire || b_fire || d_fire) && !complete_input_row) {
+    // Before the first memory response, only benign A/B fillers may arrive early.
+    mesh_ok_ &= mesh_input_count_ == 0 && a_fire && b_fire && !d_fire &&
+                mesher_a_bits->data == MeshInputRow{} &&
+                mesher_b_bits->data == MeshInputRow{};
+  }
+  if (complete_input_row) {
     const auto index = mesh_input_count_;
     mesh_ok_ &= index < test_.expected_mesh_inputs.size();
     if (index < test_.expected_mesh_inputs.size()) {

@@ -89,7 +89,7 @@ These tests predate the reusable suite and are not registered with CTest.
 
 | Test | Relationship to the suite | Current status |
 |---|---|---|
-| `tb_ex_ctrl_mul_pre.cpp` | Predecessor of `mul_pre`; contains its own command driver, SPAD model, and cumulative progress trace. | Passes, but substantially overlaps `mul_pre`. |
+| `tb_ex_ctrl_mul_pre.cpp` | Predecessor of `mul_pre`; its overlap checks are now represented by the shared scenario and harness. | Superseded; retained only until explicitly removed. |
 | `tb_ex_ctrl_arch.cpp` | Small RS-like command/completion test using CONFIG, helper PRELOAD, CONFIG. | Currently fails and should not be treated as an active regression. |
 
 The reusable suite provides the established ExCtrl diagnostic traces and
