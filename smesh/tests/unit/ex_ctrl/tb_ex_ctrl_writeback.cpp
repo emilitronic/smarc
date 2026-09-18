@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_writeback.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_writeback.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 30 2026
 // Focused ExCtrlWriteback structural-boundary test.

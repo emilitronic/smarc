@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_cmd_queue.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_cmd_queue.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 28 2026
 /*

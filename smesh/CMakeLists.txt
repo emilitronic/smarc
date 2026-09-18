@@ -102,50 +102,11 @@ target_link_libraries(tb_ex_ctrl
     -lpthread
 )
 
-add_executable(tb_ex_ctrl_cmd_queue
-  src/tb_ex_ctrl_cmd_queue.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_cmd_queue
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
 add_executable(tb_ex_ctrl_arch
   src/tb_ex_ctrl_arch.cpp
 )
 
 target_link_libraries(tb_ex_ctrl_arch
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_row_feed_state
-  src/tb_ex_ctrl_row_feed_state.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_row_feed_state
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_mesh_cntl_queue
-  src/tb_ex_ctrl_mesh_cntl_queue.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_mesh_cntl_queue
   PRIVATE
     smesh_model
     cascade
@@ -210,32 +171,6 @@ add_executable(tb_mesh_hull_matmul_preload
 target_link_libraries(tb_mesh_hull_matmul_preload
   PRIVATE
     smesh_model
-)
-
-add_executable(tb_ex_ctrl_writeback
-  src/tb_ex_ctrl_writeback.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_writeback
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_state_mul_pre
-  src/tb_ex_ctrl_state_mul_pre.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_state_mul_pre
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
 )
 
 add_executable(tb_ex_ctrl_mul_pre

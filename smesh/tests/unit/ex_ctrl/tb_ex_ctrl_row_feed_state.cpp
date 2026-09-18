@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_row_feed_state.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_row_feed_state.cpp
 // **********************************************************************
 /*
 Focused row-feed counter/state test.
