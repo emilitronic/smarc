@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_mesh_tag_select.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_mesh_tag_select.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 16 2026
 // Focused ExCtrlMeshTagSelect RS-tag selection test.

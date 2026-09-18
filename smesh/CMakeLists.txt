@@ -154,58 +154,6 @@ target_link_libraries(tb_ex_ctrl_mesh_cntl_queue
     -lpthread
 )
 
-add_executable(tb_ex_ctrl_mesh_cntl_deq_ctrl
-  src/tb_ex_ctrl_mesh_cntl_deq_ctrl.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_mesh_cntl_deq_ctrl
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_mesh_cntl_pack
-  src/tb_ex_ctrl_mesh_cntl_pack.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_mesh_cntl_pack
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_mesh_tag_select
-  src/tb_ex_ctrl_mesh_tag_select.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_mesh_tag_select
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_mesh_in_sel_pad
-  src/tb_ex_ctrl_mesh_in_sel_pad.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_mesh_in_sel_pad
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
 add_executable(tb_mesher
   src/tb_mesher.cpp
 )

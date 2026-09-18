@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_mesh_cntl_deq_ctrl.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_mesh_cntl_deq_ctrl.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 30 2026
 // Focused ExCtrlMeshCntlDeqCtrl dequeue-ready test.

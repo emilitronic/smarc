@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_mesh_cntl_pack.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_mesh_cntl_pack.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 29 2026
 // Focused ExCtrlMeshCntlPack field-packaging test.
