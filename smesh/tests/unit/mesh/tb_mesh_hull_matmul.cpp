@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_mesh_hull_matmul.cpp
+// smesh/tests/unit/mesh/tb_mesh_hull_matmul.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 03 2026
 // Focused MeshHull/MeshCore 4x4 WS matrix-matrix multiply smoke test.

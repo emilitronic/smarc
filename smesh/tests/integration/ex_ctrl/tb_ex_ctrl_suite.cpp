@@ -56,6 +56,9 @@ Run cases through CTest (each case gets a fresh process):
   ctest --test-dir build -L unit
   # All ExCtrl tests, both unit and integration
   ctest --test-dir build -L ex_ctrl
+  
+  ctest --test-dir build -L mesh --output-on-failure
+  ctest --test-dir build -L unit --output-on-failure
 */
 
 #include <cascade/Cascade.hpp>

@@ -128,51 +128,6 @@ target_link_libraries(tb_mesher
     -lpthread
 )
 
-add_executable(tb_mesh_core
-  src/tb_mesh_core.cpp
-)
-
-target_link_libraries(tb_mesh_core
-  PRIVATE
-    smesh_model
-)
-
-add_executable(tb_mesh_hull
-  src/tb_mesh_hull.cpp
-)
-
-target_link_libraries(tb_mesh_hull
-  PRIVATE
-    smesh_model
-)
-
-add_executable(tb_mesh_hull_math
-  src/tb_mesh_hull_math.cpp
-)
-
-target_link_libraries(tb_mesh_hull_math
-  PRIVATE
-    smesh_model
-)
-
-add_executable(tb_mesh_hull_matmul
-  src/tb_mesh_hull_matmul.cpp
-)
-
-target_link_libraries(tb_mesh_hull_matmul
-  PRIVATE
-    smesh_model
-)
-
-add_executable(tb_mesh_hull_matmul_preload
-  src/tb_mesh_hull_matmul_preload.cpp
-)
-
-target_link_libraries(tb_mesh_hull_matmul_preload
-  PRIVATE
-    smesh_model
-)
-
 add_executable(tb_ex_ctrl_mul_pre
   src/tb_ex_ctrl_mul_pre.cpp
 )

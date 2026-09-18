@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_mesh_hull_matmul_preload.cpp
+// smesh/tests/unit/mesh/tb_mesh_hull_matmul_preload.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 03 2026
 // MeshHull/MeshCore 4x4 WS matmul test with B preloaded through the D path.

@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_mesh_hull_math.cpp
+// smesh/tests/unit/mesh/tb_mesh_hull_math.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 03 2026
 // Focused MeshHull/MeshCore math smoke test for WS matrix-vector behavior.

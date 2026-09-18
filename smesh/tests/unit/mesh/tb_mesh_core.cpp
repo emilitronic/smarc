@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_mesh_core.cpp
+// smesh/tests/unit/mesh/tb_mesh_core.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 01 2026
 // Focused plain-C++ MeshCore movement test.

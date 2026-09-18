@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_mesh_hull.cpp
+// smesh/tests/unit/mesh/tb_mesh_hull.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 02 2026
 // Focused plain-C++ MeshHull boundary-to-core test.
