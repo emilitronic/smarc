@@ -6,6 +6,12 @@ Focused row-feed counter/state test.
 
 cmake --build build --target tb_ex_ctrl_row_feed_state -j >/dev/null 2>&1
 ./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/ex_ctrl_row_feed_view
+
+- ExCtrlRowFeedState: Execute row-feed logic
+./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/row_feed_
+
+- ExCtrlMeshCntlQueue: Examine the mesh control packet queue
+./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/mq_
 */
 
 #include <cascade/Cascade.hpp>

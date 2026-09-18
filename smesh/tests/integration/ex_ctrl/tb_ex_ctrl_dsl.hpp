@@ -177,6 +177,36 @@ struct ExCtrlExpectedProgress {
   std::size_t mesh_output_rows = 0;
 };
 
+// One Mesher request handshake expected from ExCtrl.
+struct ExpectedMesherRequest {
+  bit propagate = 0;
+  bit rs_tag_valid = 0;
+  SmeshRsTag rs_tag = 0;
+  bool destination_garbage = true;
+  SmeshLocalAddr destination{};
+  std::uint32_t rows = 0;
+  std::uint32_t cols = 0;
+};
+
+// One complete A/B/D row-beat expected to enter Mesher.
+struct ExpectedMesherInput {
+  MeshInputRow a{};
+  MeshInputRow b{};
+  MeshInputRow d{};
+};
+
+// One valid response row expected from Mesher.
+struct ExpectedMesherResponse {
+  MeshAccumRow data{};
+  bit rs_tag_valid = 0;
+  SmeshRsTag rs_tag = 0;
+  bool destination_garbage = true;
+  SmeshLocalAddr destination{};
+  std::uint32_t rows = 0;
+  std::uint32_t cols = 0;
+  bit last = 0;
+};
+
 // Complete declarative description of one independent ExCtrl test.
 struct ExCtrlTestCase {
   int id = 0; // test ID for CL selection
@@ -187,6 +217,10 @@ struct ExCtrlTestCase {
   std::array<std::vector<std::uint32_t>, kSpBanks> expected_spad_reads{}; // expected sequence of full spad row addrs requested from ea. physical bank
   std::vector<ExpectedMatmul> expected_results; // matrix results expected to be written into accum
   std::vector<SmeshRsTag> expected_completions; // exact sequence of RS tags that must be reported as completed
+  std::vector<ExpectedMesherRequest> expected_mesh_requests; // exact Mesher request sequence
+  std::vector<ExpectedMesherInput> expected_mesh_inputs; // exact complete A/B/D row-beat sequence
+  std::vector<ExpectedMesherResponse> expected_mesh_responses; // exact Mesher response sequence
+  std::vector<SmeshRsTag> expected_mesh_completions; // completions that must coincide with a final tagged mesh response
   ExCtrlExpectedProgress expected_progress{}; // expected high-level Mesher activity; checks how many op reqs and row-beats pass through Mesher
   int max_cycles = 96; // maximum number of cycles to run the test
   int drain_cycles = 4; // number of additional cycles to run after all expected activity has appeared

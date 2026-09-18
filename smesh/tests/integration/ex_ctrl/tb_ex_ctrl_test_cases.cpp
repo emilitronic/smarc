@@ -50,6 +50,86 @@ SpadMatrixData rows12To15(std::string name, const MatrixRef& location) {
   });
 }
 
+MeshAccumRow expectedMatmulRow(const SpadMatrixData& input,
+                               const SpadMatrixData& weights,
+                               const SpadMatrixData& addend,
+                               std::size_t row) {
+  MeshAccumRow result{};
+  for (std::size_t col = 0; col < kDim; ++col) {
+    Acc value = static_cast<Acc>(addend.rows[row][col]);
+    for (std::size_t k = 0; k < kDim; ++k) {
+      value += static_cast<Acc>(input.rows[row][k]) *
+               static_cast<Acc>(weights.rows[k][col]);
+    }
+    result[col] = value;
+  }
+  return result;
+}
+
+ExpectedMesherRequest taggedRequest(bit propagate, SmeshRsTag tag,
+                                    const MatrixRef& destination) {
+  return ExpectedMesherRequest{propagate, 1, tag, false,
+                               localAddress(destination),
+                               static_cast<std::uint32_t>(destination.shape.rows),
+                               static_cast<std::uint32_t>(destination.shape.cols)};
+}
+
+ExpectedMesherRequest garbageRequest(bit propagate) {
+  return ExpectedMesherRequest{propagate};
+}
+
+void appendPreloadInputs(ExCtrlTestCase& test,
+                         const SpadMatrixData& weights) {
+  const MeshInputRow zeros{};
+  for (std::size_t row = 0; row < kDim; ++row) {
+    test.expected_mesh_inputs.push_back(
+        ExpectedMesherInput{zeros, zeros, weights.rows[kDim - 1 - row]});
+  }
+}
+
+void appendComputeInputs(ExCtrlTestCase& test,
+                         const SpadMatrixData& input,
+                         const SpadMatrixData& addend,
+                         const SpadMatrixData* overlapping_weights = nullptr) {
+  const MeshInputRow zeros{};
+  for (std::size_t row = 0; row < kDim; ++row) {
+    const auto& d = overlapping_weights == nullptr
+        ? zeros
+        : overlapping_weights->rows[kDim - 1 - row];
+    test.expected_mesh_inputs.push_back(
+        ExpectedMesherInput{input.rows[row], addend.rows[row], d});
+  }
+}
+
+void appendPreloadResponses(ExCtrlTestCase& test) {
+  for (std::size_t row = 0; row < kDim; ++row) {
+    ExpectedMesherResponse response{};
+    response.last = bit(row == kDim - 1);
+    test.expected_mesh_responses.push_back(response);
+  }
+}
+
+void appendComputeResponses(ExCtrlTestCase& test,
+                            const SpadMatrixData& input,
+                            const SpadMatrixData& weights,
+                            const SpadMatrixData& addend,
+                            bit tag_valid,
+                            SmeshRsTag tag,
+                            const MatrixRef& destination) {
+  for (std::size_t row = 0; row < kDim; ++row) {
+    ExpectedMesherResponse response{};
+    response.data = expectedMatmulRow(input, weights, addend, row);
+    response.rs_tag_valid = tag_valid;
+    response.rs_tag = tag;
+    response.destination_garbage = tag_valid == 0;
+    response.destination = localAddress(destination);
+    response.rows = static_cast<std::uint32_t>(destination.shape.rows);
+    response.cols = static_cast<std::uint32_t>(destination.shape.cols);
+    response.last = bit(row == kDim - 1);
+    test.expected_mesh_responses.push_back(response);
+  }
+}
+
 } // namespace
 
 // ********************* TEST CASES *********************
@@ -63,6 +143,10 @@ ExCtrlTestCase makeBasicFlipStayTest() {
   const auto a1 = spadMatrix(8);
   const auto a0 = spadMatrix(12);
   const auto c0 = accumMatrix(8);
+  const auto d1_data = rows0To3("D1", d1);
+  const auto b0_data = rows4To7("B0 and D0", b0);
+  const auto a1_data = rows8To11("A1", a1);
+  const auto a0_data = rows12To15("A0", a0);
 
   ExCtrlTestCase test{};
   test.id = 1;
@@ -77,10 +161,10 @@ ExCtrlTestCase makeBasicFlipStayTest() {
   };
 
   test.spad = {
-      rows0To3("D1", d1),
-      rows4To7("B0 and D0", b0),
-      rows8To11("A1", a1),
-      rows12To15("A0", a0),
+      d1_data,
+      b0_data,
+      a1_data,
+      a0_data,
   };
 
   /*
@@ -104,6 +188,18 @@ ExCtrlTestCase makeBasicFlipStayTest() {
       matmulResult("C0", c0, a0, b0, d0),
   };
   test.expected_completions = {7, 9, 10, 8};
+  test.expected_mesh_requests = {
+      taggedRequest(0, 8, c0),
+      garbageRequest(1),
+      garbageRequest(0),
+  };
+  appendPreloadInputs(test, b0_data);
+  appendComputeInputs(test, a0_data, b0_data);
+  appendComputeInputs(test, a1_data, d1_data);
+  appendPreloadResponses(test);
+  appendComputeResponses(test, a0_data, b0_data, b0_data, 1, 8, c0);
+  appendComputeResponses(test, a1_data, b0_data, d1_data, 0, 0, c0);
+  test.expected_mesh_completions = {8};
   test.expected_progress = {3, 3 * kDim, 3 * kDim};
   return test;
 }
@@ -119,6 +215,10 @@ ExCtrlTestCase makeComputePreloadOverlapTest() {
   const auto d1 = d0;
   const auto c0 = accumMatrix(0);
   const auto c1 = accumMatrix(8);
+  const auto a0_data = rows0To3("A0 and A1", a0);
+  const auto d0_data = rows4To7("D0 and D1", d0);
+  const auto b1_data = rows8To11("B1", b1);
+  const auto b0_data = rows12To15("B0", b0);
 
   ExCtrlTestCase test{};
   test.id = 2;
@@ -134,10 +234,10 @@ ExCtrlTestCase makeComputePreloadOverlapTest() {
   };
 
   test.spad = {
-      rows0To3("A0 and A1", a0),
-      rows4To7("D0 and D1", d0),
-      rows8To11("B1", b1),
-      rows12To15("B0", b0),
+      a0_data,
+      d0_data,
+      b1_data,
+      b0_data,
   };
 
   /*
@@ -160,6 +260,18 @@ ExCtrlTestCase makeComputePreloadOverlapTest() {
       matmulResult("C1", c1, a1, b1, d1),
   };
   test.expected_completions = {7, 9, 11, 8, 10};
+  test.expected_mesh_requests = {
+      taggedRequest(0, 8, c0),
+      taggedRequest(1, 10, c1),
+      garbageRequest(1),
+  };
+  appendPreloadInputs(test, b0_data);
+  appendComputeInputs(test, a0_data, d0_data, &b1_data);
+  appendComputeInputs(test, a0_data, d0_data);
+  appendPreloadResponses(test);
+  appendComputeResponses(test, a0_data, b0_data, d0_data, 1, 8, c0);
+  appendComputeResponses(test, a0_data, b1_data, d0_data, 1, 10, c1);
+  test.expected_mesh_completions = {8, 10};
   test.expected_progress = {3, 3 * kDim, 3 * kDim};
   return test;
 }

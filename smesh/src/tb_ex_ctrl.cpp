@@ -25,12 +25,6 @@ cmake --build build --target tb_ex_ctrl -j >/dev/null 2>&1
 - Test SPAD model: accepted requests and fixed-latency responses
 ./build/smesh/tb_ex_ctrl -trace '*'/ex_ctrl_spad_mem_view
 
-- ExCtrlRowFeedState: Execute row-feed logic
-./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/row_feed_
-
-- ExCtrlMeshCntlQueue: Examine the mesh control packet queue
-./build/smesh/tb_ex_ctrl_row_feed_state -trace '*'/mq_
-
 - Mesher request handshake
 ./build/smesh/tb_ex_ctrl -trace '*'/mesher_req_
 

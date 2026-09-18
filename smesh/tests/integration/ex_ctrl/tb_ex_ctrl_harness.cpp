@@ -11,11 +11,15 @@
 #include <utility>
 
 // Harness-owned trace views; production-component trace keys remain available too.
-TraceKey(ex_ctrl_suite_);
-TraceKey(ex_ctrl_view);
-TraceKey(ex_ctrl_spad_mem_view);
-TraceKey(ex_ctrl_write_mem_view);
-TraceKey(ex_ctrl_completed_view);
+// Harness traces: observe interfaces around ExCtrl; emitted by test driver or memory model.
+TraceKey(ex_ctrl_suite_);         // Cumulative test progress: read counts, Mesher countes, writes, completions (printed every monitored cyc)
+TraceKey(ex_ctrl_view);           // ExCtrlSuiteDriver: test-only taps from ExCtrl: FSM state and cmd queue (printed every monitored cyc)
+TraceKey(ex_ctrl_spad_mem_view);  // ExCtrlSuiteSpad: req/resp activity insite test SPAD model (printed when req/resp activity occurs)
+TraceKey(ex_ctrl_write_mem_view); // ExCtrlSuiteDriver: ExCtrl's observed spad/accum write ports (printed when write activity occurs)
+TraceKey(ex_ctrl_completed_view); // ExCtrlSuiteDriver: ExCtrl's observed completion output (printed when completed_val asserted)
+// Production traces: observe behavoiur inside ExCtrl's components; emitted directly by Meshter, MQ, RowFeet, etc.
+// Enter these at the command-line, e.g.,
+// ./build/smesh/tb_ex_ctrl_suite -test=basic -trace '*/ex_ctrl_view;*/ex_ctrl_spad_mem_view;*/ex_ctrl_write_mem_view;*/ex_ctrl_completed_view;*/mesher_resp_'
 
 namespace smesh {
 namespace tb {
@@ -51,6 +55,35 @@ const char* stateName(std::uint8_t state) {
     case ExCtrlFsmState::Flushing:      return "FLSG";
   }
   return "?";
+}
+
+// Compare a request with the control and destination metadata declared by the scenario.
+bool matchesMesherRequest(const ExCtrlMeshReq& actual,
+                          const ExpectedMesherRequest& expected) {
+  const bool destination_matches = expected.destination_garbage
+      ? actual.tag.addr.is_garbage()
+      : actual.tag.addr.raw == expected.destination.raw &&
+            actual.tag.rows == expected.rows && actual.tag.cols == expected.cols;
+  return actual.pe_control.dataflow == kExDataflowWS &&
+         actual.pe_control.propagate == expected.propagate &&
+         actual.pe_control.shift == 0 && actual.a_transpose == 0 &&
+         actual.bd_transpose == 0 && actual.total_rows == kDim &&
+         actual.tag.rs_tag_valid == expected.rs_tag_valid &&
+         (!expected.rs_tag_valid || actual.tag.rs_tag == expected.rs_tag) &&
+         destination_matches && actual.flush == 0;
+}
+
+// Compare a mesh output row, including the metadata that will drive writeback.
+bool matchesMesherResponse(const MesherResp& actual,
+                           const ExpectedMesherResponse& expected) {
+  const bool destination_matches = expected.destination_garbage
+      ? actual.tag.addr.is_garbage()
+      : actual.tag.addr.raw == expected.destination.raw &&
+            actual.tag.rows == expected.rows && actual.tag.cols == expected.cols;
+  return actual.data == expected.data && actual.total_rows == kDim &&
+         actual.tag.rs_tag_valid == expected.rs_tag_valid &&
+         (!expected.rs_tag_valid || actual.tag.rs_tag == expected.rs_tag) &&
+         destination_matches && actual.last == expected.last;
 }
 
 // Expand the scenario's named matrices into the scratchpad image used by the model.
@@ -150,6 +183,9 @@ std::vector<ExpectedAccumWrite> buildExpectedWrites(
 
 } // namespace
 
+// ************************
+// ********* SPAD *********
+// Elastic fixed-latency SPAD pipeline model used only by this testbench.
 // Build a banked, fixed-latency scratchpad model with explicitly registered pipeline state.
 ExCtrlSuiteSpad::ExCtrlSuiteSpad(const ExCtrlTestCase& test,
                                  std::string /*name*/, IMPL_CTOR)
@@ -285,6 +321,8 @@ void ExCtrlSuiteSpad::reset() {
     resp_bits[bank].reset(SpadReadResp{});
   }
 }
+// ********* SPAD *********
+// ************************
 
 // Build the command source, passive monitor, and expected-result checker.
 ExCtrlSuiteDriver::ExCtrlSuiteDriver(const ExCtrlTestCase& test,
@@ -292,6 +330,18 @@ ExCtrlSuiteDriver::ExCtrlSuiteDriver(const ExCtrlTestCase& test,
     : test_(test), completion_count_(test.expected_completions.size(), 0) {
   buildSpadImage(test_, spad_image_, spad_initialized_);
   expected_writes_ = buildExpectedWrites(test_, spad_image_, spad_initialized_);
+  assert_always(test_.expected_mesh_requests.size() ==
+                    test_.expected_progress.mesh_requests,
+                "%s: mesh request expectations disagree with progress count",
+                test_.name.c_str());
+  assert_always(test_.expected_mesh_inputs.size() ==
+                    test_.expected_progress.mesh_input_rows,
+                "%s: mesh input expectations disagree with progress count",
+                test_.name.c_str());
+  assert_always(test_.expected_mesh_responses.size() ==
+                    test_.expected_progress.mesh_output_rows,
+                "%s: mesh response expectations disagree with progress count",
+                test_.name.c_str());
 
   UPDATE(updateIssue).writes(cmd_out);
   UPDATE(updateMemoryReady)
@@ -301,8 +351,10 @@ ExCtrlSuiteDriver::ExCtrlSuiteDriver(const ExCtrlTestCase& test,
       .reads(completed_val, completed_bits)
       .reads(control_state, cmd_queue_head_val, cmd_queue_head_bits)
       .reads(mesher_req_val, mesher_req_rdy, mesher_req_bits)
-      .reads(mesher_a_val, mesher_a_rdy, mesher_b_val, mesher_b_rdy,
-             mesher_d_val, mesher_d_rdy, mesher_resp_val)
+      .reads(mesher_a_val, mesher_a_rdy, mesher_a_bits,
+             mesher_b_val, mesher_b_rdy, mesher_b_bits,
+             mesher_d_val, mesher_d_rdy)
+      .reads(mesher_d_bits, mesher_resp_val, mesher_resp_bits)
       .reads(spad_read_req_val, spad_read_req_rdy, spad_read_req_bits)
       .reads(spad_read_resp_val, spad_read_resp_rdy, spad_read_resp_bits)
       .reads(accum_read_req_val, spad_write_val, spad_write_bits)
@@ -391,9 +443,12 @@ void ExCtrlSuiteDriver::updateMonitor() {
 
   // Count accepted Mesher requests and verify their common WS control fields.
   if (mesher_req_val == 1 && mesher_req_rdy == 1) {
-    const auto& request = *mesher_req_bits;
-    mesh_ok_ &= request.pe_control.dataflow == kExDataflowWS &&
-                request.total_rows == kDim && request.flush == 0;
+    const auto index = mesh_req_count_;
+    mesh_ok_ &= index < test_.expected_mesh_requests.size();
+    if (index < test_.expected_mesh_requests.size()) {
+      mesh_ok_ &= matchesMesherRequest(*mesher_req_bits,
+                                       test_.expected_mesh_requests[index]);
+    }
     ++mesh_req_count_;
   }
 
@@ -402,9 +457,23 @@ void ExCtrlSuiteDriver::updateMonitor() {
   const bool b_fire = mesher_b_val == 1 && mesher_b_rdy == 1;
   const bool d_fire = mesher_d_val == 1 && mesher_d_rdy == 1;
   if (a_fire && b_fire && d_fire) {
+    const auto index = mesh_input_count_;
+    mesh_ok_ &= index < test_.expected_mesh_inputs.size();
+    if (index < test_.expected_mesh_inputs.size()) {
+      const auto& expected = test_.expected_mesh_inputs[index];
+      mesh_ok_ &= mesher_a_bits->data == expected.a &&
+                  mesher_b_bits->data == expected.b &&
+                  mesher_d_bits->data == expected.d;
+    }
     ++mesh_input_count_;
   }
   if (mesher_resp_val == 1) {
+    const auto index = mesh_resp_count_;
+    mesh_ok_ &= index < test_.expected_mesh_responses.size();
+    if (index < test_.expected_mesh_responses.size()) {
+      mesh_ok_ &= matchesMesherResponse(*mesher_resp_bits,
+                                        test_.expected_mesh_responses[index]);
+    }
     ++mesh_resp_count_;
   }
 
@@ -421,7 +490,8 @@ void ExCtrlSuiteDriver::updateMonitor() {
       const auto& write = *accum_write_bits[bank];
       write_ok_ &= bank == address.acc_bank() &&
                    write.addr == address.acc_row() &&
-                   write.data == expected.data && write.acc == 0;
+                   write.data == expected.data && write.acc == 0 &&
+                   write.mask == lowBitMask(kDim * sizeof(Acc));
       trace(ex_ctrl_write_mem_view,
             "acc  bank=%u row=%u data={%d,%d,%d,%d} mask=0x%x acc=%u\n",
             static_cast<unsigned>(bank), static_cast<unsigned>(write.addr),
@@ -442,6 +512,14 @@ void ExCtrlSuiteDriver::updateMonitor() {
       completion_ok_ = false;
     }
     ++next_completion_;
+
+    if (std::find(test_.expected_mesh_completions.begin(),
+                  test_.expected_mesh_completions.end(), tag) !=
+        test_.expected_mesh_completions.end()) {
+      completion_ok_ &= mesher_resp_val == 1 && mesher_resp_bits->last == 1 &&
+                        mesher_resp_bits->tag.rs_tag_valid == 1 &&
+                        mesher_resp_bits->tag.rs_tag == tag;
+    }
 
     const auto found = std::find(test_.expected_completions.begin(),
                                  test_.expected_completions.end(), tag);
@@ -569,11 +647,15 @@ ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
   driver_->mesher_req_bits << ctrl_->mesher_req_bits;
   driver_->mesher_a_val << ctrl_->mesher_a_val;
   driver_->mesher_a_rdy << ctrl_->mesher_a_rdy;
+  driver_->mesher_a_bits << ctrl_->mesher_a_bits;
   driver_->mesher_b_val << ctrl_->mesher_b_val;
   driver_->mesher_b_rdy << ctrl_->mesher_b_rdy;
+  driver_->mesher_b_bits << ctrl_->mesher_b_bits;
   driver_->mesher_d_val << ctrl_->mesher_d_val;
   driver_->mesher_d_rdy << ctrl_->mesher_d_rdy;
+  driver_->mesher_d_bits << ctrl_->mesher_d_bits;
   driver_->mesher_resp_val << ctrl_->mesher_resp_val;
+  driver_->mesher_resp_bits << ctrl_->mesher_resp_bits;
 
   // Put the scratchpad model on ExCtrl's read ports and mirror traffic into the checker.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {

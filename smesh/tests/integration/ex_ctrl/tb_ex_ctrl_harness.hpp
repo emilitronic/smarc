@@ -28,6 +28,7 @@ struct ExCtrlSuiteSpadPipeline {
   std::array<std::array<SpadReadResp, kSpadReadDelay>, kSpBanks> bits{};
 };
 
+// Owns and models a single SPAD memory instance for the ExCtrl test harness.
 class ExCtrlSuiteSpad : public Component {
   DECLARE_COMPONENT(ExCtrlSuiteSpad, SpadModel);
 
@@ -64,6 +65,11 @@ struct ExpectedAccumWrite {
   MeshAccumRow data{};
 };
 
+// ***********************
+// ExCtrl Suite Driver
+// 1) Sends commands into ExCtrl
+// 2) Models surrounding memory environment (SPAD and Accum)
+// 3) Monitors and validates ExCtrl
 class ExCtrlSuiteDriver : public Component {
   DECLARE_COMPONENT(ExCtrlSuiteDriver, Driver);
 
@@ -85,11 +91,15 @@ class ExCtrlSuiteDriver : public Component {
   Input(ExCtrlMeshReq, mesher_req_bits);
   Input(bit, mesher_a_val);
   Input(bit, mesher_a_rdy);
+  Input(ExCtrlMeshIn, mesher_a_bits);
   Input(bit, mesher_b_val);
   Input(bit, mesher_b_rdy);
+  Input(ExCtrlMeshIn, mesher_b_bits);
   Input(bit, mesher_d_val);
   Input(bit, mesher_d_rdy);
+  Input(ExCtrlMeshIn, mesher_d_bits);
   Input(bit, mesher_resp_val);
+  Input(MesherResp, mesher_resp_bits);
 
   InputArray(bit, spad_read_req_val, kSpBanks);
   InputArray(bit, spad_read_req_rdy, kSpBanks);
@@ -143,13 +153,15 @@ class ExCtrlSuiteDriver : public Component {
   bool unexpected_accum_read_ = false;
   bool unexpected_spad_write_ = false;
 };
+// ExCtrl Suite Driver
+// ***********************
+
 
 // Owns and wires one independent ExCtrl simulation instance.
 // Each ExCtrlHarnessInstance contains its own ExCtrl, command driver/checker, and SPAD model.
 class ExCtrlHarnessInstance {
  public:
-  ExCtrlHarnessInstance(const ExCtrlTestCase& test, const std::string& prefix,
-                        Clock& clk);
+  ExCtrlHarnessInstance(const ExCtrlTestCase& test, const std::string& prefix, Clock& clk);
 
   bool activityComplete() const;
   bool passed() const;
