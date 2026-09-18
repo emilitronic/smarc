@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_smesh_rs.cpp
+// smesh/tests/unit/rs/tb_smesh_rs.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jun 27 2026
 /*
