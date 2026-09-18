@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_read_req_logic.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_read_req_logic.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 28 2026
 // Focused ExCtrlReadReqLogic request generation and backpressure test.

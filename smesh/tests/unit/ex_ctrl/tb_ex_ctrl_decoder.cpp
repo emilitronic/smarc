@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_decoder.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_decoder.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 26 2026
 // Focused ExCtrlDecoder command-window decode test.
