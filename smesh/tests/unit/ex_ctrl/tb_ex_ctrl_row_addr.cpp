@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_row_addr.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_row_addr.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 28 2026
 // Focused ExCtrlRowAddr address-equation test.

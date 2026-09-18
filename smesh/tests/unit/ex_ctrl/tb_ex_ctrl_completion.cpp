@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_ex_ctrl_completion.cpp
+// smesh/tests/unit/ex_ctrl/tb_ex_ctrl_completion.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 15 2026
 /*

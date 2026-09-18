@@ -141,19 +141,6 @@ target_link_libraries(tb_ex_ctrl_decoder
     -lpthread
 )
 
-add_executable(tb_ex_ctrl_row_addr
-  src/tb_ex_ctrl_row_addr.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_row_addr
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
 add_executable(tb_ex_ctrl_row_pad
   src/tb_ex_ctrl_row_pad.cpp
 )
@@ -185,19 +172,6 @@ add_executable(tb_ex_ctrl_operand_pack
 )
 
 target_link_libraries(tb_ex_ctrl_operand_pack
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_read_priority
-  src/tb_ex_ctrl_read_priority.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_read_priority
   PRIVATE
     smesh_model
     cascade
@@ -360,19 +334,6 @@ add_executable(tb_ex_ctrl_writeback
 )
 
 target_link_libraries(tb_ex_ctrl_writeback
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_ex_ctrl_completion
-  src/tb_ex_ctrl_completion.cpp
-)
-
-target_link_libraries(tb_ex_ctrl_completion
   PRIVATE
     smesh_model
     cascade

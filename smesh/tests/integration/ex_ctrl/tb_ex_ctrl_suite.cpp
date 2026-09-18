@@ -48,10 +48,14 @@ Run cases through CTest (each case gets a fresh process):
   ctest --test-dir build -R '^smesh_ex_ctrl_basic$' --output-on-failure
   # Run a selected subset.
   ctest --test-dir build -R '^smesh_ex_ctrl_(basic|mul_pre)$' --output-on-failure
-  # Run all ExCtrl tests, using up to two parallel processes.
+  # Run all ExCtrl tests, using up to two parallel processes (in unit + ex_ctrl).
   ctest --test-dir build -L ex_ctrl -j 2 --output-on-failure
   # Run all integration tests.
   ctest --test-dir build -L integration --output-on-failure
+  # All unit tests
+  ctest --test-dir build -L unit
+  # All ExCtrl tests, both unit and integration
+  ctest --test-dir build -L ex_ctrl
 */
 
 #include <cascade/Cascade.hpp>
