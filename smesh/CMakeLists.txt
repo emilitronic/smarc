@@ -115,19 +115,6 @@ target_link_libraries(tb_ex_ctrl_arch
     -lpthread
 )
 
-add_executable(tb_mesher
-  src/tb_mesher.cpp
-)
-
-target_link_libraries(tb_mesher
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
 add_executable(tb_ex_ctrl_mul_pre
   src/tb_ex_ctrl_mul_pre.cpp
 )

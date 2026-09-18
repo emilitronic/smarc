@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/tb_mesher.cpp
+// smesh/tests/unit/mesh/tb_mesher.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 29 2026
 // Focused Mesher structural-boundary test.
