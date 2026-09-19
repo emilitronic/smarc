@@ -60,6 +60,11 @@ int main(int argc, char* argv[]) {
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
+    if (cycle >= 18 && cycle <= 30) {
+      char label[16];
+      std::snprintf(label, sizeof(label), "cycle=%d", cycle);
+      harness.debugDumpResponse(label, 1);  // TEMPORARY diagnostic
+    }
     drain_count = harness.activityComplete() ? drain_count + 1 : 0;
     if (drain_count >= tc.drain_cycles) {
       break;
