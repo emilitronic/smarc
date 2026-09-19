@@ -168,6 +168,7 @@ class RsMemHarnessInstance {
   bool activityComplete() const;
   bool passed() const;
   void report() const;
+  void debugDump(const char* label) const;  // TEMPORARY diagnostic
 
  private:
   const RsMemTestCase& test_;
