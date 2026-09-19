@@ -77,7 +77,8 @@ class ExCtrlReadReqLogic : public Component {
   OutputArray(u32, accum_read_req_iexp_qln2_inv, kAccBanks);
   OutputArray(bit, accum_read_req_from_dma, kAccBanks);
 
-  void update();
+  void updateRequests();
+  void updateOperandReady();
 };
 
 } // namespace smesh

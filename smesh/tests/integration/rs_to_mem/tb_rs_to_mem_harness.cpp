@@ -5,7 +5,6 @@
 
 #include "tb_rs_to_mem_harness.hpp"
 
-#include <algorithm>
 #include <cstdio>
 
 namespace smesh {
@@ -392,25 +391,6 @@ void RsMemHarnessInstance::report() const {
                   static_cast<int>(actual[2]), static_cast<int>(actual[3]));
     }
   }
-}
-
-// TEMPORARY diagnostic: dump the read-request signal at four points along
-// the chain -- ExCtrl's own output port (as close to ExCtrlReadReqLogic's
-// raw output as we can observe without touching ExCtrl itself), the
-// adapter's translated output, the arbiter's output, and what Spad itself
-// actually receives -- to find exactly where a garbage value first
-// appears and where it clears.
-void RsMemHarnessInstance::debugDump(const char* label) const {
-  std::printf("DEBUG[%s] ex_ctrl.val=%u ex_ctrl.addr=%u | adapter.row=%u | "
-              "arb.val=%u arb.row=%u | spad.val=%u spad.row=%u\n",
-              label,
-              static_cast<unsigned>(*ex_ctrl_->spad_read_req_val[0]),
-              static_cast<unsigned>((*ex_ctrl_->spad_read_req_bits[0]).addr),
-              static_cast<unsigned>((*mem_adapter_->spad_read_req_legacy_bits[0]).laddr.sp_row()),
-              static_cast<unsigned>(*arb_read_spad_[0]->read_req_val),
-              static_cast<unsigned>((*arb_read_spad_[0]->read_req_bits).laddr.sp_row()),
-              static_cast<unsigned>(*spad_->read_req_val_bnk[0]),
-              static_cast<unsigned>((*spad_->read_req_bits_bnk[0]).laddr.sp_row()));
 }
 
 } // namespace tb

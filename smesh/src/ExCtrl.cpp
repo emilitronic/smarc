@@ -365,10 +365,24 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
     accum_write_bits[bank]            << writeback_->accum_write_bits[bank];
   }
 
-  UPDATE(updateReadPorts).writes(spad_read_req_val,
-                                 spad_read_req_bits,
-                                 accum_read_req_val,
-                                 accum_read_req_bits);
+  UPDATE(updateReadPorts)
+      .reads(rd_req_->spad_read_req_val,
+             rd_req_->spad_read_req_addr,
+             rd_req_->spad_read_req_from_dma)
+      .reads(rd_req_->accum_read_req_val,
+             rd_req_->accum_read_req_addr,
+             rd_req_->accum_read_req_scale,
+             rd_req_->accum_read_req_full,
+             rd_req_->accum_read_req_act)
+      .reads(rd_req_->accum_read_req_igelu_qb,
+             rd_req_->accum_read_req_igelu_qc,
+             rd_req_->accum_read_req_iexp_qln2,
+             rd_req_->accum_read_req_iexp_qln2_inv,
+             rd_req_->accum_read_req_from_dma)
+      .writes(spad_read_req_val,
+              spad_read_req_bits,
+              accum_read_req_val,
+              accum_read_req_bits);
   UPDATE(updateDecoderInputs).writes(decoder_ex_read_from_acc_,
                                      decoder_ex_write_to_spad_,
                                      writeback_ex_write_to_acc_,

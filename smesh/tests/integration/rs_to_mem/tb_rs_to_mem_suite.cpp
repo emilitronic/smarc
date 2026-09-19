@@ -56,16 +56,10 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  harness.debugDump("post-reset");  // TEMPORARY diagnostic
 
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
-    if (cycle < 3) {
-      char label[16];
-      std::snprintf(label, sizeof(label), "cycle=%d", cycle);
-      harness.debugDump(label);  // TEMPORARY diagnostic
-    }
     drain_count = harness.activityComplete() ? drain_count + 1 : 0;
     if (drain_count >= tc.drain_cycles) {
       break;
