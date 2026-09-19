@@ -72,6 +72,6 @@ Two small pieces of glue exist only in this test target, not in `smesh/src`:
 Programs tested: `basic` and `mul_pre`, the same two scenarios `ex_ctrl`'s
 suite already validates in isolation — here issued as real `SmeshCmd`s
 through the real queue+RS path instead of hand-injected `SmeshIssue`s, and
-checked by (a) the exact RS-assigned completion-tag order observed on
+checked by (a) every expected RS-assigned completion tag appearing exactly once (order-independent), observed on
 `ExCtrl.completed_val`/`completed_bits`, and (b) the final matmul result
 values read back from the real `Accum`.

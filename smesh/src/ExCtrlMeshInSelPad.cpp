@@ -9,6 +9,8 @@
 
 namespace smesh {
 
+TraceKey(ex_ctrl_mesh_in_sel_pad_view);
+
 namespace {
 // check that a bank index is in range, and convert to std::size_t
 std::size_t checkedBankIndex(std::uint32_t index, std::size_t size) {
@@ -108,6 +110,25 @@ void ExCtrlMeshInSelPad::updateReadRespReady() {
       }
     }
   }
+
+  const bool d_resp_val = cntl.d_read_from_acc != 0
+      ? accum_read_resp_val[d_acc_index] != 0
+      : spad_read_resp_val[d_spad_index] != 0;
+  const bool d_resp_rdy = cntl.d_read_from_acc != 0
+      ? accum_read_resp_rdy[d_acc_index] != 0
+      : spad_read_resp_rdy[d_spad_index] != 0;
+  if (cntl_val != 0 || d_resp_val) {
+    trace(ex_ctrl_mesh_in_sel_pad_view,
+          "ready cntl=%u deq=%u d_fire=%u d_garbage=%u d_cols=%u src_val=%u mesh_d_fire=%u src_rdy=%u\n",
+          static_cast<unsigned>(cntl_val != 0),
+          static_cast<unsigned>(mesh_cntl_deq_fire != 0),
+          static_cast<unsigned>(cntl.d_fire != 0),
+          static_cast<unsigned>(cntl.d_garbage != 0),
+          static_cast<unsigned>(cntl.d_unpadded_cols),
+          static_cast<unsigned>(d_resp_val),
+          static_cast<unsigned>(mesh_d_fire != 0),
+          static_cast<unsigned>(d_resp_rdy));
+  }
 }
 
 void ExCtrlMeshInSelPad::update() {
@@ -164,6 +185,23 @@ void ExCtrlMeshInSelPad::update() {
   mesh_a_fire = bit(static_cast<bool>(next_mesh_a_val) && mesh_a_rdy != 0);
   mesh_b_fire = bit(static_cast<bool>(next_mesh_b_val) && mesh_b_rdy != 0);
   mesh_d_fire = bit(static_cast<bool>(next_mesh_d_val) && mesh_d_rdy != 0);
+
+  const bool d_resp_valid = cntl.d_read_from_acc != 0
+      ? accum_read_resp_val[d_acc_index] != 0
+      : spad_read_resp_val[d_spad_index] != 0;
+  if (cntl_val != 0 || d_resp_valid) {
+    trace(ex_ctrl_mesh_in_sel_pad_view,
+          "input cntl=%u d_fire=%u d_garbage=%u d_cols=%u src_val=%u data_valid=%u mesh_d{v=%u r=%u f=%u}\n",
+          static_cast<unsigned>(cntl_val != 0),
+          static_cast<unsigned>(cntl.d_fire != 0),
+          static_cast<unsigned>(cntl.d_garbage != 0),
+          static_cast<unsigned>(cntl.d_unpadded_cols),
+          static_cast<unsigned>(d_resp_valid),
+          static_cast<unsigned>(dataD_valid),
+          static_cast<unsigned>(mesh_d_val != 0),
+          static_cast<unsigned>(mesh_d_rdy != 0),
+          static_cast<unsigned>(mesh_d_fire != 0));
+  }
 
 }
 

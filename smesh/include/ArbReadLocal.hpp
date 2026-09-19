@@ -34,7 +34,8 @@ class ArbReadSpad : public Component {
   Input(bit,          read_req_rdy);
   Output(SpadReadReq, read_req_bits);
 
-  void update();
+  void updateRequest();
+  void updateClientReady();
 };
 
 class ArbReadAccum : public Component {

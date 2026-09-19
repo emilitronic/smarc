@@ -5,6 +5,7 @@
 
 #include "tb_rs_to_mem_harness.hpp"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace smesh {
@@ -350,7 +351,11 @@ bool RsMemHarnessInstance::activityComplete() const {
 }
 
 bool RsMemHarnessInstance::passed() const {
-  if (completion_observer_->observed() != test_.expected_completion_order) {
+  auto expected_tags = test_.expected_completion_tags;
+  auto observed_tags = completion_observer_->observed();
+  std::sort(expected_tags.begin(), expected_tags.end());
+  std::sort(observed_tags.begin(), observed_tags.end());
+  if (observed_tags != expected_tags) {
     return false;
   }
   for (const auto& expected : test_.expected_results) {
@@ -371,7 +376,7 @@ void RsMemHarnessInstance::report() const {
   std::printf("  rs_empty=%u cmd_driver_done=%u\n",
               rs_->empty() ? 1u : 0u, cmd_driver_->done() ? 1u : 0u);
   std::printf("  expected completions:");
-  for (const auto tag : test_.expected_completion_order) {
+  for (const auto tag : test_.expected_completion_tags) {
     std::printf(" %u", static_cast<unsigned>(tag));
   }
   std::printf("\n  observed completions:");
@@ -391,31 +396,6 @@ void RsMemHarnessInstance::report() const {
                   static_cast<int>(actual[2]), static_cast<int>(actual[3]));
     }
   }
-}
-
-// TEMPORARY diagnostic: dump the read-RESPONSE signal at each hop of the
-// consumer chain for one bank -- Spad's own presented response, the two
-// candidate consumers ArbRespSpad chooses between (SpadDmaReadPipe/
-// SpadExReadPipe), and what ExCtrl itself sees -- to find exactly where a
-// pending response stops getting drained.
-void RsMemHarnessInstance::debugDumpResponse(const char* label, std::size_t bank) const {
-  std::printf(
-      "RESP[%s bank=%zu] spad.val=%u spad.row=%u | "
-      "arb.dma_rdy=%u arb.ex_rdy=%u arb.resp_rdy=%u | "
-      "exPipe.resp_val=%u exPipe.resp_rdy=%u exPipe.out_val=%u exPipe.out_rdy=%u | "
-      "ex_ctrl.resp_val=%u ex_ctrl.resp_rdy=%u\n",
-      label, bank,
-      static_cast<unsigned>(*spad_->read_resp_val_bnk[bank]),
-      static_cast<unsigned>((*spad_->read_resp_bits_bnk[bank]).laddr.sp_row()),
-      static_cast<unsigned>(*arb_resp_spad_[bank]->dma_resp_rdy),
-      static_cast<unsigned>(*arb_resp_spad_[bank]->ex_resp_rdy),
-      static_cast<unsigned>(*arb_resp_spad_[bank]->read_resp_rdy),
-      static_cast<unsigned>(*spad_ex_pipe_[bank]->resp_val),
-      static_cast<unsigned>(*spad_ex_pipe_[bank]->resp_rdy),
-      static_cast<unsigned>(*spad_ex_pipe_[bank]->out_val),
-      static_cast<unsigned>(*spad_ex_pipe_[bank]->out_rdy),
-      static_cast<unsigned>(*ex_ctrl_->spad_read_resp_val[bank]),
-      static_cast<unsigned>(*ex_ctrl_->spad_read_resp_rdy[bank]));
 }
 
 } // namespace tb

@@ -11,18 +11,25 @@ Local-memory read arbiter implementations.  Helps connect Ld/St/ExCtrl to local 
 namespace smesh {
 
 ArbReadSpad::ArbReadSpad(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
-      .reads(exread_val, exread_bits, dmawrite_val, dmawrite_bits, read_req_rdy)
-      .writes(exread_rdy, dmawrite_rdy, read_req_val, read_req_bits);
+  UPDATE(updateRequest)
+      .reads(exread_val, exread_bits, dmawrite_val, dmawrite_bits)
+      .writes(read_req_val, read_req_bits);
+  UPDATE(updateClientReady)
+      .reads(exread_val, dmawrite_val, read_req_rdy)
+      .writes(exread_rdy, dmawrite_rdy);
 }
 
-void ArbReadSpad::update() {
+void ArbReadSpad::updateRequest() {
   const bool exread   = exread_val   != 0; // ExCtrl is asking to read spad this cycle
   const bool dmawrite = dmawrite_val != 0; // store path asking to read spad this cycle
 
   read_req_val  = bit(exread || dmawrite); // if either Ex or St path wants to read spad, send valid
   read_req_bits = exread ? *exread_bits : *dmawrite_bits; // choose request payload to put in spad
+}
 
+void ArbReadSpad::updateClientReady() {
+  const bool exread   = exread_val != 0;
+  const bool dmawrite = dmawrite_val != 0;
   exread_rdy   = bit(exread && read_req_rdy != 0);
   dmawrite_rdy = bit(!exread && dmawrite && read_req_rdy != 0);
 }

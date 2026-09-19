@@ -137,20 +137,18 @@ void ExCtrlReadReqLogic::updateRequests() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     if (spad_read_req_val[bank] != 0) {
       trace(ex_ctrl_read_req_view,
-            "  spad[%u] row=%u ready=%u from_dma=%u\n",
+            "  spad[%u] row=%u from_dma=%u\n",
             static_cast<unsigned>(bank),
             static_cast<unsigned>(*spad_read_req_addr[bank]),
-            static_cast<unsigned>(spad_read_req_rdy[bank] != 0),
             static_cast<unsigned>(spad_read_req_from_dma[bank] != 0));
     }
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     if (accum_read_req_val[bank] != 0) {
       trace(ex_ctrl_read_req_view,
-            "  accum[%u] row=%u ready=%u scale=0x%x act=%u from_dma=%u\n",
+            "  accum[%u] row=%u scale=0x%x act=%u from_dma=%u\n",
             static_cast<unsigned>(bank),
             static_cast<unsigned>(*accum_read_req_addr[bank]),
-            static_cast<unsigned>(accum_read_req_rdy[bank] != 0),
             static_cast<unsigned>(*accum_read_req_scale[bank]),
             static_cast<unsigned>(*accum_read_req_act[bank]),
             static_cast<unsigned>(accum_read_req_from_dma[bank] != 0));
@@ -163,6 +161,8 @@ void ExCtrlReadReqLogic::updateOperandReady() {
   bool next_a_ready = true;
   bool next_b_ready = true;
   bool next_d_ready = true;
+  bool d_request_candidate = false;
+  bool d_request_ready = true;
 
   // A/B/D are ready unless a real selected memory read is backpressured.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
@@ -177,7 +177,11 @@ void ExCtrlReadReqLogic::updateOperandReady() {
                         d_row_is_not_all_zeros != 0;
     if (read_a && spad_read_req_rdy[bank] == 0) { next_a_ready = false; }
     if (read_b && spad_read_req_rdy[bank] == 0) { next_b_ready = false; }
-    if (read_d && spad_read_req_rdy[bank] == 0) { next_d_ready = false; }
+    if (read_d) {
+      d_request_candidate = true;
+      d_request_ready = spad_read_req_rdy[bank] != 0;
+      if (!d_request_ready) { next_d_ready = false; }
+    }
   }
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
@@ -192,17 +196,23 @@ void ExCtrlReadReqLogic::updateOperandReady() {
                         d_row_is_not_all_zeros != 0;
     if (read_a && accum_read_req_rdy[bank] == 0) { next_a_ready = false; }
     if (read_b && accum_read_req_rdy[bank] == 0) { next_b_ready = false; }
-    if (read_d && accum_read_req_rdy[bank] == 0) { next_d_ready = false; }
+    if (read_d) {
+      d_request_candidate = true;
+      d_request_ready = accum_read_req_rdy[bank] != 0;
+      if (!d_request_ready) { next_d_ready = false; }
+    }
   }
 
   a_ready = bit(next_a_ready);
   b_ready = bit(next_b_ready);
   d_ready = bit(next_d_ready);
   trace(ex_ctrl_read_req_view,
-        "operand_ready{%u%u%u}\n",
+        "operand_ready{%u%u%u} d_req{candidate=%u ready=%u}\n",
         static_cast<unsigned>(next_a_ready),
         static_cast<unsigned>(next_b_ready),
-        static_cast<unsigned>(next_d_ready));
+        static_cast<unsigned>(next_d_ready),
+        static_cast<unsigned>(d_request_candidate),
+        static_cast<unsigned>(d_request_ready));
 }
 
 } // namespace smesh

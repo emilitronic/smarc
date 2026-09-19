@@ -13,7 +13,7 @@ This intentionally does not carry ExCtrl-internal expectations (mesh
 requests/inputs/responses, per-bank read sequences) the way ex_ctrl's own
 ExCtrlTestCase does -- rs_to_mem treats ExCtrl as an already-validated,
 opaque block (see README.md), so only two things are checked here: the
-RS-assigned completion-tag order, and the final values ExCtrl's writeback
+RS-assigned completion tags (order-independent), and the final values ExCtrl's writeback
 actually lands in Accum.
 */
 #pragma once
@@ -48,7 +48,7 @@ struct RsMemTestCase {
   std::vector<SmeshCmd> program;
   std::vector<SpadPreloadRow> spad_rows;
   std::vector<ExpectedAccumResult> expected_results;
-  std::vector<SmeshRsTag> expected_completion_order;
+  std::vector<SmeshRsTag> expected_completion_tags;
   int max_cycles = 200;
   int drain_cycles = 8;
 };

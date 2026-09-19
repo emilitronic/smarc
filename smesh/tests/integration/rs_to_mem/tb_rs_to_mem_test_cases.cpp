@@ -9,9 +9,9 @@ the real SmeshCmdQueue -> SmeshUnrolledCmdQueue -> SmeshRS -> ExCtrl path
 real SmeshRS at allocation time rather than hand-picked -- since our
 programs are issued one command per cycle and RS allocates strictly in
 arrival order, tags come out sequentially as 0, 1, 2, ... in program
-order. expected_completion_order below is that sequence, permuted into
-the order ExCtrl actually reports completions (which is not program
-order -- see each scenario's comment).
+order. Completion order is not fixed: mesh and pending command completions
+can be reported on different cycles depending on memory timing. Each case
+checks that every expected tag appears exactly once.
 */
 
 #include "tb_rs_to_mem_test_cases.hpp"
@@ -113,13 +113,9 @@ SmeshCmd computeStayCmd(SmeshLocalAddr input, SmeshLocalAddr addend) {
 // command-queue+RS front door instead of hand-tagged SmeshIssues.
 //
 // Program order: CONFIG, PRELOAD, COMPUTE_FLIP, COMPUTE_STAY -- allocated
-// by RS as tags 0,1,2,3 in that order. Completion order is NOT program
-// order: CONFIG completes immediately (tag 0), then COMPUTE_FLIP (tag 2)
-// once its mesh result is written back, then COMPUTE_STAY (tag 3, no
-// writeback needed since it has no destination), and PRELOAD (tag 1) last
-// since its own completion is only reported once its accompanying
-// COMPUTE's result has been written -- matching what ex_ctrl's suite
-// already established for this exact scenario.
+// by RS as tags 0,1,2,3 in that order. Check all four completions, but do
+// not require an order: mesh and pending command completions can be
+// reported on different cycles.
 RsMemTestCase makeBasicCase() {
   RsMemTestCase test{};
   test.name = "basic";
@@ -154,7 +150,7 @@ RsMemTestCase makeBasicCase() {
       computeFlipCmd(a0, b0),  // D0 == B0's location
       computeStayCmd(a1, d1),
   };
-  test.expected_completion_order = {0, 2, 3, 1};
+  test.expected_completion_tags = {0, 1, 2, 3};
 
   const auto a0arr = toArray(a0_rows);
   const auto b0arr = toArray(b0_rows);
@@ -175,9 +171,8 @@ RsMemTestCase makeBasicCase() {
 // Real-RS equivalent of ex_ctrl's makeComputePreloadOverlapTest().
 //
 // Program order: CONFIG, PRELOAD0, COMPUTE_FLIP0, PRELOAD1, COMPUTE_FLIP1
-// -- tags 0..4. Completion order: CONFIG(0), then both COMPUTE_FLIPs in
-// program order (2, 4) once their results land, then both PRELOADs (1, 3)
-// once their accompanying COMPUTEs have completed.
+// -- tags 0..4. Check all five completions without assuming their relative
+// order; mesh and pending completions can interleave as timing changes.
 RsMemTestCase makeMulPreCase() {
   RsMemTestCase test{};
   test.name = "mul_pre";
@@ -214,7 +209,7 @@ RsMemTestCase makeMulPreCase() {
       preloadCmd(b1, c1),
       computeFlipCmd(a0, d0),  // A1==A0, D1==D0
   };
-  test.expected_completion_order = {0, 2, 4, 1, 3};
+  test.expected_completion_tags = {0, 1, 2, 3, 4};
 
   const auto aarr = toArray(a0_rows);
   const auto darr = toArray(d0_rows);

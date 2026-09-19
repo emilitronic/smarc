@@ -168,7 +168,6 @@ class RsMemHarnessInstance {
   bool activityComplete() const;
   bool passed() const;
   void report() const;
-  void debugDumpResponse(const char* label, std::size_t bank) const;  // TEMPORARY diagnostic
 
  private:
   const RsMemTestCase& test_;

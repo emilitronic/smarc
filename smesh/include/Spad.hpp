@@ -33,10 +33,7 @@ class Spad : public Component {
   OutputArray(bit, write_rdy_bnk, kSpBanks);
   InputArray(DmaReadResp, write_bits_bnk, kSpBanks);
 
-  // Banked read request ports. For now Spad accepts at most one read per cycle.
-  // TODO: ready is currently advertised on every bank even though updateRead()
-  // consumes only the first valid request. Use per-bank response state, or make
-  // ready one-hot, so concurrent handshakes cannot be silently dropped.
+  // Banked read request ports. Spad accepts one selected bank request at a time.
   InputArray(bit, read_req_val_bnk, kSpBanks);
   OutputArray(bit, read_req_rdy_bnk, kSpBanks);
   InputArray(SpadReadReq, read_req_bits_bnk, kSpBanks);
@@ -49,7 +46,6 @@ class Spad : public Component {
   void updateWrite();
   void updateReadReady();
   void updateReadRespView();
-  void updateReadRespPop();
   void updateRead();
   void reset();
 
@@ -59,8 +55,10 @@ class Spad : public Component {
  private:
   std::array<std::array<Row, kSpBankRows>, kSpBanks> banks_{};
   bool write_accepted_ = false;
-  bool read_resp_valid_ = false;   // reg holds response valid while waiting for read pipe to pop it
-  SpadReadResp read_resp_entry_{}; // reg holds response while waiting for read pipe to pop it
+  Output(bit, read_resp_valid_Q_);          // response held for consumers this cycle
+  Output(SpadReadResp, read_resp_entry_Q_);
+  Register(bit, read_resp_valid_D_);        // response slot state for next cycle
+  Register(SpadReadResp, read_resp_entry_D_);
 };
 
 } // namespace smesh

@@ -11,13 +11,21 @@ Standalone smesh scratchpad memory implementation.
 namespace smesh {
 
 Spad::Spad(std::string /*name*/, IMPL_CTOR) {
+  read_resp_valid_Q_ <= read_resp_valid_D_;
+  read_resp_entry_Q_ <= read_resp_entry_D_;
+
   UPDATE(updateWriteReady).writes(write_rdy_bnk);
   UPDATE(updateWrite).reads(write_val_bnk, write_bits_bnk).writes(dma_resp);
-  UPDATE(updateReadReady).writes(read_req_rdy_bnk);
-  UPDATE(updateReadRespView).writes(read_resp_val_bnk,
-                                    read_resp_bits_bnk);
-  UPDATE(updateReadRespPop).reads(read_resp_rdy_bnk);
-  UPDATE(updateRead).reads(read_req_val_bnk, read_req_bits_bnk);
+  UPDATE(updateReadReady)
+      .reads(read_req_val_bnk, read_resp_valid_Q_)
+      .writes(read_req_rdy_bnk);
+  UPDATE(updateReadRespView)
+      .reads(read_resp_valid_Q_, read_resp_entry_Q_)
+      .writes(read_resp_val_bnk, read_resp_bits_bnk);
+  UPDATE(updateRead)
+      .reads(read_req_val_bnk, read_req_bits_bnk, read_req_rdy_bnk,
+             read_resp_valid_Q_, read_resp_entry_Q_, read_resp_rdy_bnk)
+      .writes(read_resp_valid_D_, read_resp_entry_D_);
 }
 
 void Spad::updateWriteReady() {
@@ -77,11 +85,20 @@ void Spad::updateWrite() {
 }
 // provide read req ready signal to StReadCtrl so it can inspect it
 void Spad::updateReadReady() {
-  // TODO: updateRead() accepts only the first valid bank, so asserting ready
-  // on every bank can falsely acknowledge additional simultaneous requests.
-  // Replace the shared response slot with per-bank state, or select one ready bank.
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    read_req_rdy_bnk[bank] = bit(!read_resp_valid_);
+    read_req_rdy_bnk[bank] = 0;
+  }
+
+  if (*read_resp_valid_Q_ == 1) {
+    return;
+  }
+
+  // Spad has one read port, so only the first valid bank can handshake.
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    if (read_req_val_bnk[bank] == 1) {
+      read_req_rdy_bnk[bank] = 1;
+      break;
+    }
   }
 }
 // expose current held spad read response onto o/p ports
@@ -91,77 +108,77 @@ void Spad::updateReadRespView() {
     read_resp_bits_bnk[bank] = SpadReadResp{};
   }
 
-  if (read_resp_valid_) {
-    const auto bank = read_resp_entry_.laddr.sp_bank();
+  if (*read_resp_valid_Q_ == 1) {
+    const auto resp = *read_resp_entry_Q_;
+    const auto bank = resp.laddr.sp_bank();
     read_resp_val_bnk[bank] = 1;
-    read_resp_bits_bnk[bank] = read_resp_entry_;
-  }
-}
-
-void Spad::updateReadRespPop() {
-  if (!read_resp_valid_) {
-    return;
-  }
-
-  const auto bank = read_resp_entry_.laddr.sp_bank();
-  if (read_resp_rdy_bnk[bank] != 0) {
-    read_resp_valid_ = false;
-    read_resp_entry_ = SpadReadResp{};
+    read_resp_bits_bnk[bank] = resp;
   }
 }
 
 void Spad::updateRead() {
-  const bool exread = false; // TODO: execute read wins once ExCtrl has a local-memory read port
-  bool has_request = false;
-  SpadReadReq req{};
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    if (read_req_val_bnk[bank] != 0) {
-      req = *read_req_bits_bnk[bank];
-      has_request = true;
-      break;
+  auto next_valid = *read_resp_valid_Q_;
+  auto next_entry = *read_resp_entry_Q_;
+
+  // Consume the held response. A new request may be accepted next cycle.
+  if (*read_resp_valid_Q_ == 1) {
+    const auto response_bank = read_resp_entry_Q_->laddr.sp_bank();
+    if (read_resp_rdy_bnk[response_bank] == 1) {
+      next_valid = 0;
+      next_entry = SpadReadResp{};
     }
   }
 
-  if (!exread && !has_request) {
-    return;
-  }
-  if (exread) {
-    return;
-  }
-  if (read_resp_valid_) {
-    return;
+  // Accept exactly one request, and only when its ready/valid handshake occurs.
+  if (*read_resp_valid_Q_ == 0) {
+    bool has_request = false;
+    SpadReadReq req{};
+    for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+      if (read_req_val_bnk[bank] == 1 && read_req_rdy_bnk[bank] == 1) {
+        req = *read_req_bits_bnk[bank];
+        has_request = true;
+        break;
+      }
+    }
+
+    if (has_request) {
+      assert_always(!req.laddr.is_acc_addr(),
+                    "Spad read received an accumulator address");
+
+      const auto& source = banks_[req.laddr.sp_bank()][req.laddr.sp_row()];
+      SpadReadResp resp{};
+      resp.laddr = req.laddr;
+      resp.len = req.len;
+      resp.cmd_id = req.cmd_id;
+      resp.from_dma = req.from_dma;
+      resp.data = source;
+      for (std::size_t lane = 0; lane < kDim; ++lane) {
+        resp.mask |= static_cast<u8>(u8{1} << lane);
+      }
+      next_entry = resp;
+      next_valid = 1;
+      trace("spad: read bank=%u row=%u mask=0x%x cmd_id=%u",
+            static_cast<unsigned>(req.laddr.sp_bank()),
+            static_cast<unsigned>(req.laddr.sp_row()),
+            static_cast<unsigned>(resp.mask),
+            static_cast<unsigned>(req.cmd_id));
+    }
   }
 
-  assert_always(!req.laddr.is_acc_addr(),
-                "Spad read received an accumulator address");
-
-  const auto& source = banks_[req.laddr.sp_bank()][req.laddr.sp_row()];
-  SpadReadResp resp{};
-  resp.laddr = req.laddr;
-  resp.len = req.len;
-  resp.cmd_id = req.cmd_id;
-  resp.from_dma = req.from_dma;
-  resp.data = source;
-  for (std::size_t lane = 0; lane < kDim; ++lane) {
-    resp.mask |= static_cast<u8>(u8{1} << lane);
-  }
-  read_resp_entry_ = resp;
-  read_resp_valid_ = true;
-  trace("spad: dma read bank=%u row=%u mask=0x%x cmd_id=%u",
-        static_cast<unsigned>(req.laddr.sp_bank()),
-        static_cast<unsigned>(req.laddr.sp_row()),
-        static_cast<unsigned>(resp.mask),
-        static_cast<unsigned>(req.cmd_id));
+  read_resp_valid_D_ = next_valid;
+  read_resp_entry_D_ = next_entry;
 }
 
 void Spad::reset() {
   banks_ = {};
   write_accepted_ = false;
-  read_resp_valid_ = false;
-  read_resp_entry_ = SpadReadResp{};
+  read_resp_valid_Q_.reset(0);
+  read_resp_entry_Q_.reset(SpadReadResp{});
+  read_resp_valid_D_.reset(0);
+  read_resp_entry_D_.reset(SpadReadResp{});
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     write_rdy_bnk[bank].reset(1);
-    read_req_rdy_bnk[bank].reset(1);
+    read_req_rdy_bnk[bank].reset(0);
     read_resp_val_bnk[bank].reset(0);
     read_resp_bits_bnk[bank].reset(SpadReadResp{});
   }
