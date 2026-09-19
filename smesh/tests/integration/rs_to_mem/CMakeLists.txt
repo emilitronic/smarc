@@ -1,5 +1,7 @@
 add_executable(tb_rs_to_mem_suite
   tb_rs_to_mem_suite.cpp
+  tb_rs_to_mem_harness.cpp
+  tb_rs_to_mem_test_cases.cpp
 )
 
 target_link_libraries(tb_rs_to_mem_suite
