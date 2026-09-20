@@ -64,12 +64,15 @@ void ArbRespSpad::update() {
 }
 // send respones back to ExCtrl (for ex to accum read reqs)
 AccumExResp::AccumExResp(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
+  UPDATE(updateRespView)
+      .reads(acc_val, acc_bits)
+      .writes(ex_resp_val, ex_resp_bits);
+  UPDATE(updateRespReady)
       .reads(acc_val, acc_bits, ex_resp_rdy)
-      .writes(acc_rdy_exresp, ex_resp_val, ex_resp_bits);
+      .writes(acc_rdy_exresp);
 }
 
-void AccumExResp::update() {
+void AccumExResp::updateRespView() {
   const auto acc = *acc_bits;
   const bool is_ex_resp = acc_val != 0 && acc.from_dma == 0;
   const auto bank = static_cast<std::size_t>(acc.acc_bank_id);
@@ -83,7 +86,12 @@ void AccumExResp::update() {
     resp.from_dma = false;
     ex_resp_bits[i] = resp;
   }
+}
 
+void AccumExResp::updateRespReady() {
+  const auto acc = *acc_bits;
+  const bool is_ex_resp = acc_val != 0 && acc.from_dma == 0;
+  const auto bank = static_cast<std::size_t>(acc.acc_bank_id);
   acc_rdy_exresp = bit(is_ex_resp && bank < kAccBanks && ex_resp_rdy[bank] != 0);
 }
 

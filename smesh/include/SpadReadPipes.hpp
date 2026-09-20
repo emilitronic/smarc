@@ -29,10 +29,8 @@ class SpadDmaReadPipe : public Component {
   Output(SpadReadResp, out_bits);
   Input(bit, out_rdy);
 
-  void updateRespReady();
   void updateOutView();
-  void updateOutPop();
-  void updateAccept();
+  void updateBuffer();
   void reset();
   // inspection accessors for testbench to check pipe state
   bool hasAcceptedResponse() const { return accepted_response_; }
@@ -41,8 +39,10 @@ class SpadDmaReadPipe : public Component {
  private:
   bool accepted_response_ = false; // did spad DMA read pipe accept SpadReadResp since reset
   SpadReadResp last_response_{};   // stores copy of most recent resp pipe accepted
-  bool out_valid_ = false;
-  SpadReadResp out_entry_{};
+  Output(bit, out_valid_Q_);                    // response held for downstream this cycle
+  Output(SpadReadResp, out_entry_Q_);
+  Register(bit, out_valid_D_);                  // response slot state for next cycle
+  Register(SpadReadResp, out_entry_D_);
 };
 
 class SpadExReadPipe : public Component {

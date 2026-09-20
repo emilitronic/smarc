@@ -95,7 +95,8 @@ class AccumExResp : public Component {
   OutputArray(ExCtrlAccumReadResp, ex_resp_bits, kAccBanks);
   InputArray(bit, ex_resp_rdy, kAccBanks);
 
-  void update();
+  void updateRespView();
+  void updateRespReady();
 };
 
 } // namespace smesh
