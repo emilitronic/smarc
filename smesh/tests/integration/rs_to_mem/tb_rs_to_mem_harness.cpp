@@ -111,6 +111,26 @@ void CompletionObserver::update() {
 void CompletionObserver::reset() { observed_.clear(); }
 
 // ********************************************************
+// SpadBankConcurrencyMonitor
+// ********************************************************
+
+SpadBankConcurrencyMonitor::SpadBankConcurrencyMonitor(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).reads(read_req_val_bnk, read_req_rdy_bnk);
+}
+
+void SpadBankConcurrencyMonitor::update() {
+  std::size_t fired = 0;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    if (read_req_val_bnk[bank] != 0 && read_req_rdy_bnk[bank] != 0) {
+      ++fired;
+    }
+  }
+  max_concurrent_ = std::max(max_concurrent_, fired);
+}
+
+void SpadBankConcurrencyMonitor::reset() { max_concurrent_ = 0; }
+
+// ********************************************************
 // ExCtrlMemAdapter
 // ********************************************************
 
@@ -207,6 +227,7 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
   ex_ctrl_ = std::make_unique<ExCtrl>(prefix + "ExCtrl");
   arb_complete_ = std::make_unique<ArbExLdStComplete>(prefix + "ArbComplete");
   completion_observer_ = std::make_unique<CompletionObserver>(prefix + "CompletionObserver");
+  bank_monitor_ = std::make_unique<SpadBankConcurrencyMonitor>(prefix + "SpadBankConcurrencyMonitor");
   mem_adapter_ = std::make_unique<ExCtrlMemAdapter>(prefix + "MemAdapter");
   tie_ = std::make_unique<TieOff>(prefix + "TieOff");
   spad_ = std::make_unique<Spad>(prefix + "Spad");
@@ -280,6 +301,9 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
     arb_resp_spad_[bank]->dma_resp_rdy << spad_dma_pipe_[bank]->resp_rdy;
     arb_resp_spad_[bank]->ex_resp_rdy << spad_ex_pipe_[bank]->resp_rdy;
     spad_->read_resp_rdy_bnk[bank] << arb_resp_spad_[bank]->read_resp_rdy;
+
+    bank_monitor_->read_req_val_bnk[bank] << arb_read_spad_[bank]->read_req_val;
+    bank_monitor_->read_req_rdy_bnk[bank] << spad_->read_req_rdy_bnk[bank];
   }
 
   // ----- Wire: spad write path (preload channel + real ExCtrl writeback) -----
@@ -334,6 +358,7 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
   ex_ctrl_->clk << clk;
   arb_complete_->clk << clk;
   completion_observer_->clk << clk;
+  bank_monitor_->clk << clk;
   mem_adapter_->clk << clk;
   tie_->clk << clk;
   spad_->clk << clk;
@@ -364,6 +389,15 @@ bool RsMemHarnessInstance::passed() const {
   if (observed_tags != expected_tags) {
     return false;
   }
+  const auto observed_concurrency = bank_monitor_->maxConcurrentBanks();
+  if (test_.min_concurrent_spad_banks > 0 &&
+      observed_concurrency < test_.min_concurrent_spad_banks) {
+    return false;
+  }
+  if (test_.max_concurrent_spad_banks > 0 &&
+      observed_concurrency > test_.max_concurrent_spad_banks) {
+    return false;
+  }
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);
@@ -390,6 +424,9 @@ void RsMemHarnessInstance::report() const {
     std::printf(" %u", static_cast<unsigned>(tag));
   }
   std::printf("\n");
+  std::printf("  max_concurrent_spad_banks observed=%zu expected_min=%zu expected_max=%zu\n",
+              bank_monitor_->maxConcurrentBanks(), test_.min_concurrent_spad_banks,
+              test_.max_concurrent_spad_banks);
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);

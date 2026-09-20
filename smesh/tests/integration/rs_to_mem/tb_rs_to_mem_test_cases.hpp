@@ -51,10 +51,18 @@ struct RsMemTestCase {
   std::vector<SmeshRsTag> expected_completion_tags;
   int max_cycles = 200;
   int drain_cycles = 8;
+
+  // Spad-bank-concurrency assertions, checked against the real per-bank
+  // read accept (val && rdy) signal observed across the whole run. 0 means
+  // "not checked" for either field -- most test cases leave these alone.
+  std::size_t min_concurrent_spad_banks = 0; // require some cycle to fire at least this many banks at once
+  std::size_t max_concurrent_spad_banks = 0; // require no cycle to ever fire more than this many banks at once
 };
 
 RsMemTestCase makeBasicCase();
 RsMemTestCase makeMulPreCase();
+RsMemTestCase makeConcurrentBanksCase();
+RsMemTestCase makeSameBankSerializesCase();
 std::vector<RsMemTestCase> rsMemTestCases();
 
 } // namespace tb

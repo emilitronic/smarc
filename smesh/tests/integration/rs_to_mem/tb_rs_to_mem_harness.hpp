@@ -105,6 +105,31 @@ class CompletionObserver : public Component {
   std::vector<SmeshRsTag> observed_;
 };
 
+// Watches Spad's real per-bank read-accept signal (val && rdy) every cycle
+// and records the largest number of distinct banks ever seen firing in the
+// same cycle across the whole run. Exists so "multiple Spad banks were read
+// concurrently" can be a machine-checked assertion (see
+// RsMemTestCase::min/max_concurrent_spad_banks) instead of something only
+// visible by eyeballing a trace after the fact.
+class SpadBankConcurrencyMonitor : public Component {
+  DECLARE_COMPONENT(SpadBankConcurrencyMonitor);
+
+ public:
+  SpadBankConcurrencyMonitor(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+  InputArray(bit, read_req_val_bnk, kSpBanks);
+  InputArray(bit, read_req_rdy_bnk, kSpBanks);
+
+  std::size_t maxConcurrentBanks() const { return max_concurrent_; }
+
+  void update();
+  void reset();
+
+ private:
+  std::size_t max_concurrent_ = 0;
+};
+
 // Converts ExCtrl's bank-local write ports to the legacy write payloads
 // still consumed by the local memories. SmeshTop currently
 // ties ExCtrl's write ports to a permanent-zero stub instead of wiring
@@ -167,6 +192,7 @@ class RsMemHarnessInstance {
   bool activityComplete() const;
   bool passed() const;
   void report() const;
+  std::size_t maxConcurrentSpadBanks() const { return bank_monitor_->maxConcurrentBanks(); }
 
  private:
   const RsMemTestCase& test_;
@@ -179,6 +205,7 @@ class RsMemHarnessInstance {
   std::unique_ptr<ExCtrl> ex_ctrl_;
   std::unique_ptr<ArbExLdStComplete> arb_complete_;
   std::unique_ptr<CompletionObserver> completion_observer_;
+  std::unique_ptr<SpadBankConcurrencyMonitor> bank_monitor_;
   std::unique_ptr<ExCtrlMemAdapter> mem_adapter_;
   std::unique_ptr<TieOff> tie_;
   std::unique_ptr<Spad> spad_;

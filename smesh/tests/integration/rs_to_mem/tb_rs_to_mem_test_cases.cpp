@@ -226,8 +226,86 @@ RsMemTestCase makeMulPreCase() {
   return test;
 }
 
+// "concurrent_banks": identical program to "mul_pre" above -- its A/D-as-B/
+// preload-weight-as-D addresses already land in three distinct Spad banks,
+// which produces real 3-bank-concurrent reads, but "mul_pre" never asserts
+// on that (it only checks completion tags and final Accum values, and was
+// laid out that way to test command *pairing*, not concurrency). Reusing
+// the same program and adding min_concurrent_spad_banks turns an
+// incidentally-observed behavior into a machine-checked one: if a future
+// change to address layout, arbitration, or Spad itself silently regressed
+// real cross-bank concurrency back to one-bank-at-a-time, this is the test
+// that would actually catch it.
+RsMemTestCase makeConcurrentBanksCase() {
+  RsMemTestCase test = makeMulPreCase();
+  test.name = "concurrent_banks";
+  test.description = "Same program as mul_pre, but asserts the 3-bank-concurrent Spad reads it produces";
+  test.min_concurrent_spad_banks = 3;
+  return test;
+}
+
+// "same_bank_serializes": the negative counterpart to concurrent_banks.
+// The compute's input and addend deliberately alias the exact same Spad
+// address (so they always share a bank), while the overlapping preload's
+// weight sits in a separate bank. ExCtrlReadPriority's same-bank wait rule
+// should force the aliased pair to serialize across two cycles instead of
+// firing together, so no cycle should ever see more than 2 banks active at
+// once (the preload's weight bank plus whichever of the pair currently has
+// priority) -- confirms same-bank conflicts still correctly serialize now
+// that cross-bank reads are genuinely concurrent, rather than assuming the
+// old single-bank-at-a-time Spad was quietly doing that job for free.
+RsMemTestCase makeSameBankSerializesCase() {
+  RsMemTestCase test{};
+  test.name = "same_bank_serializes";
+  test.description = "Compute's A and addend alias one Spad bank -- checks read-priority conflicts still serialize";
+
+  const auto a0 = makeSpAddr(0);  // bank 0 -- shared by the compute's A and its addend
+  const auto b1 = makeSpAddr(4);  // bank 1 -- overlapping preload's weight
+  const auto b0 = makeSpAddr(8);  // bank 2 -- first preload's weight
+  const auto c0 = makeAccAddr(0);
+  const auto c1 = makeAccAddr(8);
+
+  const std::vector<MeshInputRow> a0_rows = {
+      row({0, 1, 2, 3}), row({4, 5, 6, 7}), row({8, 9, 10, 11}), row({12, 13, 14, 15})};
+  const std::vector<MeshInputRow> b1_rows = {
+      row({16, 17, 18, 19}), row({20, 21, 22, 23}), row({24, 25, 26, 27}), row({28, 29, 30, 31})};
+  const std::vector<MeshInputRow> b0_rows = {
+      row({32, 33, 34, 35}), row({36, 37, 38, 39}), row({40, 41, 42, 43}), row({44, 45, 46, 47})};
+
+  test.spad_rows = spadRows(0, {a0_rows[0], a0_rows[1], a0_rows[2], a0_rows[3]});
+  const auto b1v = spadRows(4, {b1_rows[0], b1_rows[1], b1_rows[2], b1_rows[3]});
+  const auto b0v = spadRows(8, {b0_rows[0], b0_rows[1], b0_rows[2], b0_rows[3]});
+  test.spad_rows.insert(test.spad_rows.end(), b1v.begin(), b1v.end());
+  test.spad_rows.insert(test.spad_rows.end(), b0v.begin(), b0v.end());
+
+  test.program = {
+      configExCmd(),
+      preloadCmd(b0, c0),
+      computeFlipCmd(a0, a0),  // addend aliases the input address -- forces a same-bank conflict
+      preloadCmd(b1, c1),
+      computeFlipCmd(a0, a0),
+  };
+  test.expected_completion_tags = {0, 1, 2, 3, 4};
+  test.min_concurrent_spad_banks = 2;  // preload's weight bank should still overlap with the winning half of the pair
+  test.max_concurrent_spad_banks = 2;  // the aliased pair must never both fire the same cycle
+
+  const auto aarr = toArray(a0_rows);
+  const auto b0arr = toArray(b0_rows);
+  const auto b1arr = toArray(b1_rows);
+  std::vector<MeshAccumRow> c0_rows;
+  std::vector<MeshAccumRow> c1_rows;
+  for (std::size_t r = 0; r < kDim; ++r) {
+    c0_rows.push_back(matmulRow(aarr, b0arr, aarr, r));  // D operand is A's own data
+    c1_rows.push_back(matmulRow(aarr, b1arr, aarr, r));
+  }
+  test.expected_results = {ExpectedAccumResult{c0, c0_rows},
+                           ExpectedAccumResult{c1, c1_rows}};
+  return test;
+}
+
 std::vector<RsMemTestCase> rsMemTestCases() {
-  return {makeBasicCase(), makeMulPreCase()};
+  return {makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
+          makeSameBankSerializesCase()};
 }
 
 } // namespace tb
