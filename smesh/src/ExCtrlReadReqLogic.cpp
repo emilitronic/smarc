@@ -62,6 +62,10 @@ ExCtrlReadReqLogic::ExCtrlReadReqLogic(std::string /*name*/, IMPL_CTOR) {
       .writes(a_ready, b_ready, d_ready);
 }
 
+// Separate updates so request generation can be independent of ready calculation. 
+//This prevents a request-valid/ready cycle, which would be a combinational loop.
+
+// Generates banked memory request valid and addr signals
 void ExCtrlReadReqLogic::updateRequests() {
   const auto a_addr = *a_address;
   const auto b_addr = *b_address;
@@ -156,6 +160,7 @@ void ExCtrlReadReqLogic::updateRequests() {
   }
 }
 
+// Decides whether A/B/D may advance, deasserting opnd's ready when its selected mem req is backpressured
 void ExCtrlReadReqLogic::updateOperandReady() {
   const bool a_uses_im2col = im2col_wire != 0 && im2col_en != 0;
   bool next_a_ready = true;
