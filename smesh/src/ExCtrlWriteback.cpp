@@ -67,8 +67,6 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
              ex_write_to_spad,
              ex_write_to_acc)
       .reads(output_counter_q_)
-      .reads(spad_write_rdy,
-             accum_write_rdy)
       .writes(spad_write_val,
              spad_write_bits,
              accum_write_val,
@@ -76,6 +74,8 @@ ExCtrlWriteback::ExCtrlWriteback(std::string /*name*/, IMPL_CTOR) {
       .writes(mesh_completed_rs_tag_fire,
               completed_val,
               completed_bits);
+  UPDATE(updateWriteReadyCheck)
+      .reads(accum_write_val, accum_write_rdy);
   UPDATE(updateNextState)
       .reads(mesh_resp_val, mesh_resp_bits, output_counter_q_)
       .writes(output_counter_d_);
@@ -133,14 +133,19 @@ void ExCtrlWriteback::updateView() {
       accum_write_bits[bank] = write;
     }
 
-    assert_always(!(accum_write_val[bank] != 0 && accum_write_rdy[bank] == 0),
-                  "Execute controller write to accumulator was skipped");
   }
 
   const bool mesh_completed = response_is_tracked && response.last;
   mesh_completed_rs_tag_fire = bit(mesh_completed);
   completed_val              = bit(mesh_completed);
   completed_bits             = response.tag.rs_tag;
+}
+
+void ExCtrlWriteback::updateWriteReadyCheck() {
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    assert_always(!(accum_write_val[bank] != 0 && accum_write_rdy[bank] == 0),
+                  "Execute controller write to accumulator was skipped");
+  }
 }
 
 void ExCtrlWriteback::updateNextState() {

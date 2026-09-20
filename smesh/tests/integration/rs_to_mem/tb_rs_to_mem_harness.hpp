@@ -57,8 +57,8 @@ class RsMemCmdDriver : public Component {
 
 // Sequentially writes the test's initial spad image into the real Spad,
 // one row (one bank) per cycle, via the same dmaread-shaped write channel
-// WriteCtrl would normally drive. Deliberately one write at a time so
-// preload itself never exercises Spad's known single-bank-per-cycle limit.
+// WriteCtrl would normally drive. This driver deliberately preloads one
+// row at a time; focused Spad tests cover concurrent bank operations.
 // For when you don't want to rely on LdCtrl to actually do the preload.
 class SpadPreloadDriver : public Component {
   DECLARE_COMPONENT(SpadPreloadDriver);
@@ -72,12 +72,14 @@ class SpadPreloadDriver : public Component {
   InputArray(bit, dmaread_rdy, kSpBanks);
   Output(bit, done);
 
-  void update();
+  void updateView();
+  void updateNextState();
   void reset();
 
  private:
   const std::vector<SpadPreloadRow>& rows_;
-  std::size_t next_ = 0;
+  Output(u32, next_q_);
+  Register(u32, next_d_);
 };
 
 // Passively records the sequence of ExCtrl completion tags for the
@@ -103,10 +105,8 @@ class CompletionObserver : public Component {
   std::vector<SmeshRsTag> observed_;
 };
 
-// Converts between ExCtrl's bank-local scratchpad/accumulator ports and
-// the legacy full-address structs the shared arbiters still expect.
-// Read-side mirrors SmeshTop::updateExCtrlReadReqAdapters() (private
-// there); the write-side has no counterpart anywhere -- SmeshTop currently
+// Converts ExCtrl's bank-local write ports to the legacy write payloads
+// still consumed by the local memories. SmeshTop currently
 // ties ExCtrl's write ports to a permanent-zero stub instead of wiring
 // them to the arbiters at all, so this is the first place ExCtrl's
 // writeback path is connected end-to-end to real Spad/Accum. Both sides
@@ -120,9 +120,6 @@ class ExCtrlMemAdapter : public Component {
 
   Clock(clk);
 
-  InputArray(SpadBankReadReq, spad_read_req_bits, kSpBanks);
-  OutputArray(SpadReadReq, spad_read_req_legacy_bits, kSpBanks);
-
   InputArray(bit, spad_write_val, kSpBanks);
   InputArray(SpadBankWriteReq, spad_write_bits, kSpBanks);
   OutputArray(bit, spad_exwrite_val, kSpBanks);
@@ -133,7 +130,6 @@ class ExCtrlMemAdapter : public Component {
   OutputArray(bit, accum_exwrite_val, kAccBanks);
   OutputArray(DmaReadResp, accum_exwrite_bits, kAccBanks);
 
-  void updateReadAdapter();
   void updateWriteAdapter();
 };
 
@@ -149,12 +145,14 @@ class TieOff : public Component {
   Clock(clk);
   Output(bit, zero_bit);
   Output(bit, one_bit);
-  Output(SpadReadReq, spad_read_req_zero);
+  Output(SpadBankReadReq, spad_read_req_zero);
   Output(DmaReadResp, dma_read_resp_zero);
   Output(ExCtrlAccumReadResp, accum_read_resp_zero);
   Output(AccumReadReq, accum_read_req_zero);
+  FifoInput(DmaReadCompletion, spad_completion);
 
-  void update();
+  void updateConstants();
+  void updateCompletionDrain();
 };
 
 // Owns and wires one independent rs_to_mem (ExCtrl slice) simulation:

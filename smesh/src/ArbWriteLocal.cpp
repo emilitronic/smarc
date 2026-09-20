@@ -12,7 +12,7 @@ namespace smesh {
 
 ArbWriteSpad::ArbWriteSpad(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady)
-      .reads(write_rdy)
+      .reads(exwrite_val, dmaread_val, write_rdy)
       .writes(exwrite_rdy, dmaread_rdy, zerowrite_rdy);
   UPDATE(updateWrite)
       .reads(exwrite_val,
@@ -25,11 +25,9 @@ ArbWriteSpad::ArbWriteSpad(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ArbWriteSpad::updateReady() {
-  // TODO: once multiple write sources can be active, refine source-ready
-  // backpressure to account for priority without creating valid/ready loops.
   exwrite_rdy   = bit(write_rdy != 0);
-  dmaread_rdy   = bit(write_rdy != 0);
-  zerowrite_rdy = bit(write_rdy != 0);
+  dmaread_rdy   = bit(exwrite_val == 0 && write_rdy != 0);
+  zerowrite_rdy = bit(exwrite_val == 0 && dmaread_val == 0 && write_rdy != 0);
 }
 
 void ArbWriteSpad::updateWrite() {

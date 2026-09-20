@@ -28,15 +28,15 @@ class Spad : public Component {
   Clock(clk);
 
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last spad write is done
-  // Banked write ports. For now Spad accepts at most one write per cycle.
+  // Each bank accepts writes independently; same-bank reads may be excluded.
   InputArray(bit, write_val_bnk, kSpBanks);
   OutputArray(bit, write_rdy_bnk, kSpBanks);
   InputArray(DmaReadResp, write_bits_bnk, kSpBanks);
 
-  // Banked read request ports. Spad accepts one selected bank request at a time.
+  // Every bank has an independent read request and one-entry response slot.
   InputArray(bit, read_req_val_bnk, kSpBanks);
   OutputArray(bit, read_req_rdy_bnk, kSpBanks);
-  InputArray(SpadReadReq, read_req_bits_bnk, kSpBanks);
+  InputArray(SpadBankReadReq, read_req_bits_bnk, kSpBanks);
 
   OutputArray(bit, read_resp_val_bnk, kSpBanks);
   OutputArray(SpadReadResp, read_resp_bits_bnk, kSpBanks);
@@ -55,10 +55,10 @@ class Spad : public Component {
  private:
   std::array<std::array<Row, kSpBankRows>, kSpBanks> banks_{};
   bool write_accepted_ = false;
-  Output(bit, read_resp_valid_Q_);          // response held for consumers this cycle
-  Output(SpadReadResp, read_resp_entry_Q_);
-  Register(bit, read_resp_valid_D_);        // response slot state for next cycle
-  Register(SpadReadResp, read_resp_entry_D_);
+  OutputArray(bit, read_resp_valid_Q_, kSpBanks); // response held per bank this cycle
+  OutputArray(SpadReadResp, read_resp_entry_Q_, kSpBanks);
+  RegisterArray(bit, read_resp_valid_D_, kSpBanks); // response state for next cycle
+  RegisterArray(SpadReadResp, read_resp_entry_D_, kSpBanks);
 };
 
 } // namespace smesh

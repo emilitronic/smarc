@@ -47,7 +47,8 @@ class WriteCtrl : public Component {
   OutputArray(bit, arb_accum_dmaread_full_val, kAccBanks);
   OutputArray(DmaReadResp, arb_accum_dmaread_full_bits, kAccBanks);
 
-  void update();
+  void updateRequests();
+  void updateReady();
   void reset();
 };
 

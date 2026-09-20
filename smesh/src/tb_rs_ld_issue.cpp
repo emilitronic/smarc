@@ -53,7 +53,7 @@ class ZeroSpadReadDriver : public Component {
   Output(bit, zero_bit);
   Output(bit, one_bit);
   Output(smesh::DmaReadResp, dma_read_resp);
-  Output(smesh::SpadReadReq, read_req);
+  Output(smesh::SpadBankReadReq, read_req);
 
   void update();
 };
@@ -94,7 +94,7 @@ void ZeroSpadReadDriver::update() {
   zero_bit = 0;
   one_bit = 1;
   dma_read_resp = smesh::DmaReadResp{};
-  read_req = smesh::SpadReadReq{};
+  read_req = smesh::SpadBankReadReq{};
 }
 
 int main(int argc, char* argv[]) {

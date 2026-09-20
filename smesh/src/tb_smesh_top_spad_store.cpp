@@ -49,7 +49,7 @@ class StorePathMonitor : public Component {
   Clock(clk);
   Input(bit, spad_req_val);
   Input(bit, spad_req_rdy);
-  Input(smesh::SpadReadReq, spad_req_bits);
+  Input(smesh::SpadBankReadReq, spad_req_bits);
   Input(bit, norm_enq_val);
   Input(bit, norm_enq_rdy);
   Input(smesh::DmaWriteReq, norm_enq_bits);
@@ -139,8 +139,8 @@ void StorePathMonitor::update() {
 
     const auto spad_req = *spad_req_bits;
     const auto norm_req = *norm_enq_bits;
-    assert_always(spad_req.laddr.raw == norm_req.laddr.raw,
-                  "store monitor saw mismatched local addresses");
+    assert_always(spad_req.addr == norm_req.laddr.sp_row(),
+                  "store monitor saw mismatched bank-local row addresses");
     assert_always(spad_req.len == norm_req.len,
                   "store monitor saw mismatched lengths");
     assert_always(spad_req.cmd_id == norm_req.cmd_id,
@@ -148,8 +148,8 @@ void StorePathMonitor::update() {
 
     saw_aligned_transfer_ = true;
     ++aligned_transfer_count_;
-    trace("store_path_monitor: aligned spad/norm laddr=0x%x len=%u cmd_id=%u",
-          static_cast<unsigned>(spad_req.laddr.raw),
+    trace("store_path_monitor: aligned spad/norm row=%u len=%u cmd_id=%u",
+          static_cast<unsigned>(spad_req.addr),
           static_cast<unsigned>(spad_req.len),
           static_cast<unsigned>(spad_req.cmd_id));
   }

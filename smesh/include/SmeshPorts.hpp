@@ -135,16 +135,9 @@ struct DmaWriteResp {
 // containing array port identifies the bank, so addr is only the row in it.
 struct SpadBankReadReq {
   u32 addr = 0;
-  bit from_dma = false;
-};
-// Legacy scratchpad request carrying a complete logical local address.
-// TODO: retire this after the store path, read arbiters, and memories migrate
-// to the bank-local request interface.
-struct SpadReadReq {
-  SmeshLocalAddr laddr{};
   u16 len = 0; // number of row elements being read from spad (not bytes)
   u16 cmd_id = 0;
-  bit from_dma = true;
+  bit from_dma = false;
 };
 // ifc from scratchpad memory to read pipes
 struct SpadReadResp {

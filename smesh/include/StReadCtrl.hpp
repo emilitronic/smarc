@@ -30,7 +30,7 @@ class StReadCtrl : public Component {
   InputArray(bit, accum_read_req_rdy, kAccBanks); // accum read req ready, one per bank
   OutputArray(bit, dmawrite_spad, kSpBanks);
   OutputArray(bit, dmawrite_accum, kAccBanks);
-  OutputArray(SpadReadReq, spad_req_bits, kSpBanks); // spad read req payload, one per bank
+  OutputArray(SpadBankReadReq, spad_req_bits, kSpBanks); // bank-local spad read request
   OutputArray(AccumReadReq, accum_req_bits, kAccBanks); // accum read req payload, one per bank
   Output(bit, read_req_fire);
   FifoOutput(DmaWriteResp, dma_resp); // response to StCtrl when dispatch entry is accepted by store-read path

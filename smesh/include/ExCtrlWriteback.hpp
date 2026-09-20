@@ -49,6 +49,7 @@ class ExCtrlWriteback : public Component {
   Output(SmeshRsTag, completed_bits);             // execute completion tag
 
   void updateView();
+  void updateWriteReadyCheck();
   void updateNextState();
   void reset();
 

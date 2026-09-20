@@ -38,9 +38,9 @@ void StReadCtrl::updateReadReq() {
   const auto spad_bank = laddr.sp_bank();
   const auto acc_bank = laddr.acc_bank();
 
-  // tap off dispatch_bits for spat read req payload
-  SpadReadReq spad_req{};
-  spad_req.laddr = laddr;
+  // Build the bank-local scratchpad request payload.
+  SpadBankReadReq spad_req{};
+  spad_req.addr = laddr.sp_row();
   spad_req.len = req.len;
   spad_req.cmd_id = req.cmd_id;
   spad_req.from_dma = true;

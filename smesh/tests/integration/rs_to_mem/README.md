@@ -55,13 +55,8 @@ used (the test programs are entirely `CONFIG_EX`/`PRELOAD`/`COMPUTE_*`, all
 classified `Execute`), and are tied off. No `LdCtrl`/`StCtrl`/DMA/Mvin path
 is present.
 
-Two small pieces of glue exist only in this test target, not in `smesh/src`:
+One small piece of glue exists only in this test target, not in `smesh/src`:
 
-- A read-side legacy-address adapter (`ExCtrl`'s bank-local
-  `SpadBankReadReq`/`AccumBankReadReq` → the full-address
-  `SpadReadReq`/`AccumReadReq` the arbiters still expect) — this mirrors
-  `SmeshTop::updateExCtrlReadReqAdapters()`, which exists for exactly this
-  reason but is private to `SmeshTop`.
 - A write-side legacy-struct adapter (`SpadBankWriteReq`/`AccumBankWriteReq`
   → `DmaReadResp`) — this has **no existing counterpart anywhere**, because
   `SmeshTop.cpp` currently ties `ExCtrl`'s write ports to a permanent-zero

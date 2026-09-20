@@ -44,21 +44,24 @@ void RsMemCmdDriver::reset() { next_ = 0; }
 
 SpadPreloadDriver::SpadPreloadDriver(const std::vector<SpadPreloadRow>& rows, std::string /*name*/, IMPL_CTOR)
     : rows_(rows) {
-  UPDATE(update).reads(dmaread_rdy).writes(dmaread_val, dmaread_bits, done);
+  next_q_ <= next_d_;
+  UPDATE(updateView).reads(next_q_).writes(dmaread_val, dmaread_bits, done);
+  UPDATE(updateNextState).reads(next_q_, dmaread_val, dmaread_rdy).writes(next_d_);
 }
 
-void SpadPreloadDriver::update() {
+void SpadPreloadDriver::updateView() {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     dmaread_val[bank] = 0;
     dmaread_bits[bank] = DmaReadResp{};
   }
-  if (next_ >= rows_.size()) {
+  const auto next = static_cast<std::size_t>(*next_q_);
+  if (next >= rows_.size()) {
     done = 1;
     return;
   }
   done = 0;
 
-  const auto& entry = rows_[next_];
+  const auto& entry = rows_[next];
   const auto bank = entry.laddr.sp_bank();
   DmaReadResp resp{};
   resp.laddr = entry.laddr;
@@ -69,13 +72,21 @@ void SpadPreloadDriver::update() {
   resp.last = false;
   dmaread_val[bank] = 1;
   dmaread_bits[bank] = resp;
-  if (dmaread_rdy[bank] != 0) {
-    ++next_;
+}
+
+void SpadPreloadDriver::updateNextState() {
+  auto next = static_cast<std::uint32_t>(*next_q_);
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    if (dmaread_val[bank] != 0 && dmaread_rdy[bank] != 0) {
+      ++next;
+      break;
+    }
   }
+  next_d_ = next;
 }
 
 void SpadPreloadDriver::reset() {
-  next_ = 0;
+  next_d_.reset(0);
   done.reset(0);
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     dmaread_val[bank].reset(0);
@@ -104,23 +115,9 @@ void CompletionObserver::reset() { observed_.clear(); }
 // ********************************************************
 
 ExCtrlMemAdapter::ExCtrlMemAdapter(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReadAdapter)
-      .reads(spad_read_req_bits)
-      .writes(spad_read_req_legacy_bits);
   UPDATE(updateWriteAdapter)
       .reads(spad_write_val, spad_write_bits, accum_write_val, accum_write_bits)
       .writes(spad_exwrite_val, spad_exwrite_bits, accum_exwrite_val, accum_exwrite_bits);
-}
-
-void ExCtrlMemAdapter::updateReadAdapter() {
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    const auto req = *spad_read_req_bits[bank];
-    SpadReadReq legacy{};
-    legacy.laddr = makeSpAddr(static_cast<std::uint32_t>(bank * kSpBankRows) +
-                              (static_cast<std::uint32_t>(req.addr) & kSpBankRowMask));
-    legacy.from_dma = req.from_dma;
-    spad_read_req_legacy_bits[bank] = legacy;
-  }
 }
 
 void ExCtrlMemAdapter::updateWriteAdapter() {
@@ -172,17 +169,25 @@ void ExCtrlMemAdapter::updateWriteAdapter() {
 // ********************************************************
 
 TieOff::TieOff(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(zero_bit, one_bit, spad_read_req_zero, dma_read_resp_zero,
-                        accum_read_resp_zero, accum_read_req_zero);
+  UPDATE(updateConstants)
+      .writes(zero_bit, one_bit, spad_read_req_zero, dma_read_resp_zero,
+              accum_read_resp_zero, accum_read_req_zero);
+  UPDATE(updateCompletionDrain).reads(spad_completion);
 }
 
-void TieOff::update() {
+void TieOff::updateConstants() {
   zero_bit = 0;
   one_bit = 1;
-  spad_read_req_zero = SpadReadReq{};
+  spad_read_req_zero = SpadBankReadReq{};
   dma_read_resp_zero = DmaReadResp{};
   accum_read_resp_zero = ExCtrlAccumReadResp{};
   accum_read_req_zero = AccumReadReq{};
+}
+
+void TieOff::updateCompletionDrain() {
+  if (!spad_completion.empty()) {
+    spad_completion.pop();
+  }
 }
 
 // ********************************************************
@@ -250,10 +255,8 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
 
   // ----- Wire: ExCtrl spad read path -----
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    mem_adapter_->spad_read_req_bits[bank] << ex_ctrl_->spad_read_req_bits[bank];
-
     arb_read_spad_[bank]->exread_val << ex_ctrl_->spad_read_req_val[bank];
-    arb_read_spad_[bank]->exread_bits << mem_adapter_->spad_read_req_legacy_bits[bank];
+    arb_read_spad_[bank]->exread_bits << ex_ctrl_->spad_read_req_bits[bank];
     ex_ctrl_->spad_read_req_rdy[bank] << arb_read_spad_[bank]->exread_rdy;
     arb_read_spad_[bank]->dmawrite_val << tie_->zero_bit;
     arb_read_spad_[bank]->dmawrite_bits << tie_->spad_read_req_zero;
@@ -293,7 +296,7 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
     spad_->write_val_bnk[bank] << arb_write_spad_[bank]->write_val;
     spad_->write_bits_bnk[bank] << arb_write_spad_[bank]->write_bits;
   }
-  spad_->dma_resp.sendToBitBucket();
+  tie_->spad_completion << spad_->dma_resp;
 
   // ----- Wire: accum write path (real ExCtrl writeback only) -----
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {

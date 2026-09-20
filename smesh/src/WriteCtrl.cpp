@@ -11,32 +11,30 @@ Load-return local-memory write control implementation.
 namespace smesh {
 
 WriteCtrl::WriteCtrl(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
+  UPDATE(updateRequests)
       .reads(dmaread_spad_val,
              dmaread_spad_bits,
              dmaread_accum_val,
              dmaread_accum_bits,
              dmaread_accum_full_val,
-             dmaread_accum_full_bits,
-             arb_spad_dmaread_rdy,
-             arb_accum_dmaread_rdy)
-      .reads(arb_accum_dmaread_full_rdy)
-      .writes(dmaread_spad_rdy,
-              dmaread_accum_rdy,
-              dmaread_accum_full_rdy,
-              arb_spad_dmaread_val,
+             dmaread_accum_full_bits)
+      .writes(arb_spad_dmaread_val,
               arb_spad_dmaread_bits,
               arb_accum_dmaread_val,
               arb_accum_dmaread_bits)
       .writes(arb_accum_dmaread_full_val,
               arb_accum_dmaread_full_bits);
+  UPDATE(updateReady)
+      .reads(dmaread_spad_val, dmaread_spad_bits,
+             dmaread_accum_val, dmaread_accum_bits,
+             dmaread_accum_full_val, dmaread_accum_full_bits)
+      .reads(arb_spad_dmaread_rdy, arb_accum_dmaread_rdy,
+             arb_accum_dmaread_full_rdy)
+      .writes(dmaread_spad_rdy, dmaread_accum_rdy,
+              dmaread_accum_full_rdy);
 }
 
-void WriteCtrl::update() {
-  dmaread_spad_rdy = 0;
-  dmaread_accum_rdy = 0;
-  dmaread_accum_full_rdy = 0;
-
+void WriteCtrl::updateRequests() {
   const auto spad_payload = *dmaread_spad_bits;
   const auto accum_payload = *dmaread_accum_bits;
   const auto accum_full_payload = *dmaread_accum_full_bits;
@@ -49,27 +47,29 @@ void WriteCtrl::update() {
     arb_spad_dmaread_val[bank] = bit(selected);
     arb_spad_dmaread_bits[bank] = spad_payload;
   }
-  if (dmaread_spad_val != 0) {
-    dmaread_spad_rdy = arb_spad_dmaread_rdy[spad_bank];
-  }
-
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     const bool selected = dmaread_accum_val != 0 && bank == accum_bank;
     arb_accum_dmaread_val[bank] = bit(selected);
     arb_accum_dmaread_bits[bank] = accum_payload;
   }
-  if (dmaread_accum_val != 0) {
-    dmaread_accum_rdy = arb_accum_dmaread_rdy[accum_bank];
-  }
-
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     const bool selected = dmaread_accum_full_val != 0 && bank == accum_full_bank;
     arb_accum_dmaread_full_val[bank] = bit(selected);
     arb_accum_dmaread_full_bits[bank] = accum_full_payload;
   }
-  if (dmaread_accum_full_val != 0) {
-    dmaread_accum_full_rdy = arb_accum_dmaread_full_rdy[accum_full_bank];
-  }
+}
+
+void WriteCtrl::updateReady() {
+  const auto spad_bank = dmaread_spad_bits->laddr.sp_bank();
+  const auto accum_bank = dmaread_accum_bits->laddr.acc_bank();
+  const auto accum_full_bank = dmaread_accum_full_bits->laddr.acc_bank();
+
+  dmaread_spad_rdy = bit(dmaread_spad_val == 1 &&
+                          arb_spad_dmaread_rdy[spad_bank] == 1);
+  dmaread_accum_rdy = bit(dmaread_accum_val == 1 &&
+                           arb_accum_dmaread_rdy[accum_bank] == 1);
+  dmaread_accum_full_rdy = bit(dmaread_accum_full_val == 1 &&
+                                arb_accum_dmaread_full_rdy[accum_full_bank] == 1);
 }
 
 void WriteCtrl::reset() {
