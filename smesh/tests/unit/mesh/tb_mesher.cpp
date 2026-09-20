@@ -45,7 +45,7 @@ class MesherMonitor : public Component {
   Input(bit, d_rdy);
   Input(bit, resp_val);
   Input(smesh::MesherResp, resp_bits);
-  InputArray(smesh::MesherTag, tags_in_progress, smesh::kRsExecuteEntries);
+  InputArray(smesh::MesherTag, tags_in_progress, smesh::kMesherTagQueueEntries);
 
   void update();
   void reset();
@@ -105,7 +105,7 @@ void MesherMonitor::update() {
   }
 
   bool no_tags = true;
-  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < smesh::kMesherTagQueueEntries; ++i) {
     no_tags = no_tags && tags_in_progress[i]->rs_tag_valid == 0;
   }
 
@@ -152,7 +152,7 @@ int main(int argc, char* argv[]) {
   monitor.d_rdy << mesher.d_rdy;
   monitor.resp_val << mesher.resp_val;
   monitor.resp_bits << mesher.resp_bits;
-  for (std::size_t i = 0; i < smesh::kRsExecuteEntries; ++i) {
+  for (std::size_t i = 0; i < smesh::kMesherTagQueueEntries; ++i) {
     monitor.tags_in_progress[i] << mesher.tags_in_progress[i];
   }
 
