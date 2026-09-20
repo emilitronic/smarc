@@ -11,6 +11,12 @@ Run:
   cmake --build build --target tb_rs_to_mem_suite -j
   ./build/smesh/tb_rs_to_mem_suite -test=basic
   ./build/smesh/tb_rs_to_mem_suite -test=mul_pre
+  ./build/smesh/tb_rs_to_mem_suite -test=concurrent_banks
+  ./build/smesh/tb_rs_to_mem_suite -test=same_bank_serializes
+  ./build/smesh/tb_rs_to_mem_suite -list_tests   # confirms all 4 registered names: basic, mul_pre, concurrent_banks, same_bank_serializes
+
+  ctest --test-dir build -R "smesh_rs_to_mem_concurrent_banks|smesh_rs_to_mem_same_bank_serializes" --output-on-failure
+  ctest --test-dir build -L rs_to_mem --output-on-failure
 */
 
 #include <cascade/Cascade.hpp>
