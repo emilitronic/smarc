@@ -1,28 +1,21 @@
 // **********************************************************************
 // smesh/tests/integration/rs_to_mem/tb_rs_to_mem_harness.hpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Sep 19 2026
+// Sebastian Claudiusz Magierowski Sep 20 2026
 /*
-Reusable rs_to_mem (ExCtrl slice) simulation environment: the test-only
-glue components and the RsMemHarnessInstance that owns and wires the real
-composition around them. See README.md for what's real vs. test-only here.
+Full-Smesh integration harness for raw RS commands and the real top-level
+composition. Test setup seeds the behavioral Spad image before the first
+simulated cycle; these scenarios do not issue load commands.
 */
 #pragma once
 
 #include <cascade/Cascade.hpp>
 
-#include "Accum.hpp"
-#include "ArbComplete.hpp"
-#include "ArbReadLocal.hpp"
-#include "ArbWriteLocal.hpp"
-#include "ExCtrl.hpp"
-#include "SmeshCmdQueues.hpp"
-#include "SmeshRS.hpp"
-#include "Spad.hpp"
-#include "SpadReadPipes.hpp"
+#include "Smesh.hpp"
+#include "smem/Dram.hpp"
+#include "smem/MemCtrl.hpp"
 #include "tb_rs_to_mem_test_cases.hpp"
 
-#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -30,9 +23,7 @@ composition around them. See README.md for what's real vs. test-only here.
 namespace smesh {
 namespace tb {
 
-// Issues one raw SmeshCmd per cycle into cmd_valid/cmd_bits, holding until
-// cmd_ready. Waits for spad preload to finish first so ExCtrl never reads
-// stale/uninitialized scratchpad data.
+// Sends the test's raw command sequence into Smesh and holds each until accepted.
 class RsMemCmdDriver : public Component {
   DECLARE_COMPONENT(RsMemCmdDriver);
 
@@ -43,7 +34,6 @@ class RsMemCmdDriver : public Component {
   Output(bit, cmd_valid);
   Output(SmeshCmd, cmd_bits);
   Input(bit, cmd_ready);
-  Input(bit, preload_done);
 
   bool done() const { return next_ >= program_.size(); }
 
@@ -55,37 +45,7 @@ class RsMemCmdDriver : public Component {
   std::size_t next_ = 0;
 };
 
-// Sequentially writes the test's initial spad image into the real Spad,
-// one row (one bank) per cycle, via the same dmaread-shaped write channel
-// WriteCtrl would normally drive. This driver deliberately preloads one
-// row at a time; focused Spad tests cover concurrent bank operations.
-// For when you don't want to rely on LdCtrl to actually do the preload.
-class SpadPreloadDriver : public Component {
-  DECLARE_COMPONENT(SpadPreloadDriver);
-
- public:
-  SpadPreloadDriver(const std::vector<SpadPreloadRow>& rows, std::string name, COMPONENT_CTOR);
-
-  Clock(clk);
-  OutputArray(bit, dmaread_val, kSpBanks);
-  OutputArray(DmaReadResp, dmaread_bits, kSpBanks);
-  InputArray(bit, dmaread_rdy, kSpBanks);
-  Output(bit, done);
-
-  void updateView();
-  void updateNextState();
-  void reset();
-
- private:
-  const std::vector<SpadPreloadRow>& rows_;
-  Output(u32, next_q_);
-  Register(u32, next_d_);
-};
-
-// Passively records the sequence of ExCtrl completion tags for the
-// checker. Real forwarding into SmeshRS.completed is done by the real
-// ArbExLdStComplete -- this component does not drive anything, it only
-// taps the same ex_ctrl.completed_val/bits that feeds it.
+// Records completed RS tags for the integration test's checker.
 class CompletionObserver : public Component {
   DECLARE_COMPONENT(CompletionObserver);
 
@@ -105,85 +65,7 @@ class CompletionObserver : public Component {
   std::vector<SmeshRsTag> observed_;
 };
 
-// Watches Spad's real per-bank read-accept signal (val && rdy) every cycle
-// and records the largest number of distinct banks ever seen firing in the
-// same cycle across the whole run. Exists so "multiple Spad banks were read
-// concurrently" can be a machine-checked assertion (see
-// RsMemTestCase::min/max_concurrent_spad_banks) instead of something only
-// visible by eyeballing a trace after the fact.
-class SpadBankConcurrencyMonitor : public Component {
-  DECLARE_COMPONENT(SpadBankConcurrencyMonitor);
-
- public:
-  SpadBankConcurrencyMonitor(std::string name, COMPONENT_CTOR);
-
-  Clock(clk);
-  InputArray(bit, read_req_val_bnk, kSpBanks);
-  InputArray(bit, read_req_rdy_bnk, kSpBanks);
-
-  std::size_t maxConcurrentBanks() const { return max_concurrent_; }
-
-  void update();
-  void reset();
-
- private:
-  std::size_t max_concurrent_ = 0;
-};
-
-// Converts ExCtrl's bank-local write ports to the legacy write payloads
-// still consumed by the local memories. SmeshTop currently
-// ties ExCtrl's write ports to a permanent-zero stub instead of wiring
-// them to the arbiters at all, so this is the first place ExCtrl's
-// writeback path is connected end-to-end to real Spad/Accum. Both sides
-// bridge two conventions that already coexist in the real codebase; see
-// README.md.
-class ExCtrlMemAdapter : public Component {
-  DECLARE_COMPONENT(ExCtrlMemAdapter);
-
- public:
-  ExCtrlMemAdapter(std::string name, COMPONENT_CTOR);
-
-  Clock(clk);
-
-  InputArray(bit, spad_write_val, kSpBanks);
-  InputArray(SpadBankWriteReq, spad_write_bits, kSpBanks);
-  OutputArray(bit, spad_exwrite_val, kSpBanks);
-  OutputArray(DmaReadResp, spad_exwrite_bits, kSpBanks);
-
-  InputArray(bit, accum_write_val, kAccBanks);
-  InputArray(AccumBankWriteReq, accum_write_bits, kAccBanks);
-  OutputArray(bit, accum_exwrite_val, kAccBanks);
-  OutputArray(DmaReadResp, accum_exwrite_bits, kAccBanks);
-
-  void updateWriteAdapter();
-};
-
-// Constant-signal source for ports this test permanently ties off (the
-// store-path read side, the zero-fill/full-width write sources, and
-// ExCtrl's accumulator read side, none of which basic/mul_pre exercise).
-class TieOff : public Component {
-  DECLARE_COMPONENT(TieOff);
-
- public:
-  TieOff(std::string name, COMPONENT_CTOR);
-
-  Clock(clk);
-  Output(bit, zero_bit);
-  Output(bit, one_bit);
-  Output(SpadBankReadReq, spad_read_req_zero);
-  Output(DmaReadResp, dma_read_resp_zero);
-  Output(ExCtrlAccumReadResp, accum_read_resp_zero);
-  Output(AccumBankReadReq, accum_read_req_zero);
-  FifoInput(DmaReadCompletion, spad_completion);
-  FifoInput(DmaReadCompletion, accum_completion);
-
-  void updateConstants();
-  void updateCompletionDrain();
-};
-
-// Owns and wires one independent rs_to_mem (ExCtrl slice) simulation:
-// the real command-queue front end, real SmeshRS, ExCtrl (treated as
-// opaque), real Spad/Accum and their arbiters, and the small glue above.
+// Owns and wires one full-Smesh simulation for a single scenario.
 class RsMemHarnessInstance {
  public:
   RsMemHarnessInstance(const RsMemTestCase& test, const std::string& prefix, Clock& clk);
@@ -192,31 +74,23 @@ class RsMemHarnessInstance {
   bool activityComplete() const;
   bool passed() const;
   void report() const;
-  std::size_t maxConcurrentSpadBanks() const { return bank_monitor_->maxConcurrentBanks(); }
+  void initializeSpadImage();
+
+  // Call once per cycle, after Sim::run(), from the runner loop -- Smesh's
+  // Spad is private, so bank concurrency is sampled from outside via
+  // Smesh's own read-only taps rather than a wired monitor component.
+  void sampleBankConcurrency();
 
  private:
   const RsMemTestCase& test_;
 
   std::unique_ptr<RsMemCmdDriver> cmd_driver_;
-  std::unique_ptr<SpadPreloadDriver> spad_preload_;
-  std::unique_ptr<SmeshCmdQueue> cmd_queue_;
-  std::unique_ptr<SmeshUnrolledCmdQueue> unrolled_queue_;
-  std::unique_ptr<SmeshRS> rs_;
-  std::unique_ptr<ExCtrl> ex_ctrl_;
-  std::unique_ptr<ArbExLdStComplete> arb_complete_;
   std::unique_ptr<CompletionObserver> completion_observer_;
-  std::unique_ptr<SpadBankConcurrencyMonitor> bank_monitor_;
-  std::unique_ptr<ExCtrlMemAdapter> mem_adapter_;
-  std::unique_ptr<TieOff> tie_;
-  std::unique_ptr<Spad> spad_;
-  std::unique_ptr<Accum> accum_;
+  std::unique_ptr<Smesh> top_;
+  std::unique_ptr<smem::MemCtrl> mem_;
+  std::unique_ptr<smem::Dram> dram_;
 
-  std::array<std::unique_ptr<ArbReadSpad>, kSpBanks> arb_read_spad_;
-  std::array<std::unique_ptr<ArbWriteSpad>, kSpBanks> arb_write_spad_;
-  std::array<std::unique_ptr<ArbRespSpad>, kSpBanks> arb_resp_spad_;
-  std::array<std::unique_ptr<SpadDmaReadPipe>, kSpBanks> spad_dma_pipe_;
-  std::array<std::unique_ptr<SpadExReadPipe>, kSpBanks> spad_ex_pipe_;
-  std::array<std::unique_ptr<ArbWriteAccum>, kAccBanks> arb_write_accum_;
+  std::size_t max_concurrent_spad_banks_ = 0;
 };
 
 } // namespace tb

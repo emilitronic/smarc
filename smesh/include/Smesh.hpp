@@ -13,7 +13,7 @@ permanently stubbed to zero (forward) and left entirely unconnected
 (return path) -- see doc/claude_smesh_notes.md for how that was found.
 This file exists as a non-destructive parallel version so SmeshTop and its
 existing tb_smesh_top_* tests are untouched; see
-smesh/tests/integration/rs_to_mem2/ for the test harness built on this.
+smesh/tests/integration/rs_to_mem/ for the integration harness built on this.
 */
 
 #pragma once
@@ -102,10 +102,8 @@ class Smesh : public Component {
   void reset();
 
  private:
-  // Converts ExCtrl's bank-local SpadBankWriteReq/AccumBankWriteReq into the
-  // legacy DmaReadResp the write arbiters/memories still expect -- same
-  // conversion rs_to_mem's test-only ExCtrlMemAdapter performs, ported here
-  // because it's load-bearing for the real write path, not test-only glue.
+  // Converts ExCtrl's bank-local write requests into the legacy payloads
+  // still expected by the local-memory write arbiters.
   OutputArray(bit, ex_spad_write_val_, kSpBanks);
   OutputArray(DmaReadResp, ex_spad_write_bits_, kSpBanks);
   OutputArray(bit, ex_accum_write_val_, kAccBanks);

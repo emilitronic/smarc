@@ -1,11 +1,10 @@
 // **********************************************************************
 // smesh/tests/integration/rs_to_mem/tb_rs_to_mem_suite.cpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Sep 19 2026
+// Sebastian Claudiusz Magierowski Sep 20 2026
 /*
-rs_to_mem (ExCtrl slice) scenario runner. Selects a scenario, builds one
-RsMemHarnessInstance, clocks the simulation, and reports PASS/FAIL. See
-README.md for scope and tb_rs_to_mem_harness.hpp for what's being wired.
+rs_to_mem scenario runner. Runs the shared command/memory scenarios through
+the real top-level Smesh composition. See README.md for scope.
 
 Run:
   cmake --build build --target tb_rs_to_mem_suite -j
@@ -13,10 +12,7 @@ Run:
   ./build/smesh/tb_rs_to_mem_suite -test=mul_pre
   ./build/smesh/tb_rs_to_mem_suite -test=concurrent_banks
   ./build/smesh/tb_rs_to_mem_suite -test=same_bank_serializes
-  ./build/smesh/tb_rs_to_mem_suite -list_tests   # confirms all 4 registered names: basic, mul_pre, concurrent_banks, same_bank_serializes
-
-  ctest --test-dir build -R "smesh_rs_to_mem_concurrent_banks|smesh_rs_to_mem_same_bank_serializes" --output-on-failure
-  ctest --test-dir build -L rs_to_mem --output-on-failure
+  ./build/smesh/tb_rs_to_mem_suite -list_tests
 */
 
 #include <cascade/Cascade.hpp>
@@ -62,10 +58,12 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
+  harness.initializeSpadImage();
 
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
+    harness.sampleBankConcurrency();
     drain_count = harness.activityComplete() ? drain_count + 1 : 0;
     if (drain_count >= tc.drain_cycles) {
       break;

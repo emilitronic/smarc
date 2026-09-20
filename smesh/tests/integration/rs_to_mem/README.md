@@ -1,69 +1,50 @@
 # RS-to-memory integration tests
 
-This directory holds integration tests for the domain between the
-reservation station's command input and the internal-memory boundary
-(scratchpad/accumulator) — i.e. everything `LdCtrl`/`ExCtrl`/`StCtrl` sit
-between. The name `rs_to_mem` is meant to generalize: this is one slice of
-that domain (the `ExCtrl` slice), with room for `ld_ctrl`/`st_ctrl`-focused
-suites later without renaming anything.
+This suite sends raw `SmeshCmd` instructions through the real top-level
+`Smesh` composition. It covers the path from command acceptance through the
+RS and ExCtrl to the real Spad/Accum blocks, including the production
+arbitration and memory wiring.
 
-## Why this is a different kind of integration test than `ex_ctrl`'s
+## Scope
 
-`smesh`'s tests fall into three tiers, and it's worth being explicit about
-which is which since two of them both live under `integration/`:
+The `ex_ctrl` integration suite focuses on ExCtrl itself, with its neighbors
+modeled by the harness. This suite instead instantiates `Smesh`, so it checks
+the composition and handshakes between the real blocks around ExCtrl.
+That makes it complementary to the unit tests and the ExCtrl suite: it catches
+integration issues such as bank arbitration and backpressure that an isolated
+ExCtrl simulation cannot expose.
 
-- **`unit/`** — one standalone block. Neighbors are emulated or absent
-  (or, for a block like `SmeshRS` that is mostly plain C++ logic rather
-  than a graph of Cascade sub-components, no simulation is run at all —
-  see `unit/rs/tb_smesh_rs.cpp`).
-- **`integration/ex_ctrl/`** — `ExCtrl`'s real internals (it is itself a
-  compound sub-system of many Cascade components) wired together as a
-  whole, with the *outside world* emulated (a synthetic RS-like command
-  injector, a fixed-latency scratchpad stand-in). This is warranted because
-  `ExCtrl` alone has enough internal complexity and latency-sensitivity to
-  be a system in its own right.
-- **`integration/rs_to_mem/`** (here) — the inverse. `ExCtrl` is treated as
-  an already-validated, opaque block — nothing here re-checks its
-  internals, it trusts what `ex_ctrl`'s suite already proved. What's real
-  instead is everything *around* it: `SmeshCmdQueue`, `SmeshUnrolledCmdQueue`,
-  the real `SmeshRS`, and the real `Spad`/`Accum` and their arbiters.
+The current scenarios issue `CONFIG_EX`, `PRELOAD`, and `COMPUTE_*` commands.
+They read operands from Spad and write results to Accum, but do not issue load
+or store commands. The test harness therefore initializes the behavioral
+Spad image directly before the first simulated cycle. The external memory
+boundary is connected to MemCtrl/Dram because Smesh requires it, but that
+path remains idle in these cases. Accum results and RS completion tags are
+checked after each run.
 
-Concretely, this category of test exists to catch cross-component timing,
-backpressure, and arbitration issues that neither of the other two tiers
-can see — problems that only appear when real components actually contend
-for a shared resource at the same time. Two known, real examples from this
-project motivated writing these tests at all. They are now covered by the
-banked memory implementations and focused unit tests:
+The suite currently covers:
 
-- Each bank's write arbiter advertises ready according to its local source
-  priority, so a lower-priority source is not falsely told it was accepted.
-- `Spad` and `Accum` service independent bank reads and writes concurrently,
-  with one registered read-response slot per bank.
+- `basic`: PRELOAD followed by COMPUTE_FLIP and COMPUTE_STAY.
+- `mul_pre`: two operations using the overlapping COMPUTE+PRELOAD path.
+- `concurrent_banks`: checks that Spad reads can fire on three banks at once.
+- `same_bank_serializes`: checks that aliased A/addend reads serialize.
 
-Neither of these is reachable from `ex_ctrl`'s own suite, since it never
-instantiates the real `Spad`/`Accum` or arbiters at all.
+The focused memory unit tests cover bank-local arbitration and simultaneous
+operations independently. This suite also checks Spad read concurrency and
+same-bank serialization through the full command-to-memory composition.
 
-## Scope of what's tested here
+## Run
 
-Composition: `cmd_valid`/`cmd_bits` → `SmeshCmdQueue` → `SmeshUnrolledCmdQueue`
-→ `SmeshRS` → `ExCtrl` → (real `Spad`/`Accum` read/write arbiters) →
-`Spad`/`Accum`. `SmeshRS`'s load/store issue ports are enabled but never
-used (the test programs are entirely `CONFIG_EX`/`PRELOAD`/`COMPUTE_*`, all
-classified `Execute`), and are tied off. No `LdCtrl`/`StCtrl`/DMA/Mvin path
-is present.
+From the repository root:
 
-One small piece of glue exists only in this test target, not in `smesh/src`:
+```bash
+cmake --build build --target tb_rs_to_mem_suite -j
+./build/smesh/tb_rs_to_mem_suite -list_tests
+./build/smesh/tb_rs_to_mem_suite -test=basic
+./build/smesh/tb_rs_to_mem_suite -test=mul_pre
+ctest --test-dir build -L rs_to_mem --output-on-failure
+```
 
-- A write-side legacy-struct adapter (`SpadBankWriteReq`/`AccumBankWriteReq`
-  → `DmaReadResp`) — this has **no existing counterpart anywhere**, because
-  `SmeshTop.cpp` currently ties `ExCtrl`'s write ports to a permanent-zero
-  stub rather than wiring them to the arbiters at all. This test is the
-  first place `ExCtrl`'s writeback path has ever been connected end-to-end
-  to real `Spad`/`Accum`.
-
-Programs tested: `basic` and `mul_pre`, the same two scenarios `ex_ctrl`'s
-suite already validates in isolation — here issued as real `SmeshCmd`s
-through the real queue+RS path instead of hand-injected `SmeshIssue`s, and
-checked by (a) every expected RS-assigned completion tag appearing exactly once (order-independent), observed on
-`ExCtrl.completed_val`/`completed_bits`, and (b) the final matmul result
-values read back from the real `Accum`.
+Use `-trace` with the suite executable to inspect production component traces.
+The harness also checks expected completion tags, final Accum values, and
+configured Spad bank-concurrency bounds.
