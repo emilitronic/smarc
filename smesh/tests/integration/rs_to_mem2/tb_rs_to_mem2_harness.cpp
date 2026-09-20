@@ -11,6 +11,14 @@
 namespace smesh {
 namespace tb {
 
+RsMem2StartSignal::RsMem2StartSignal(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).writes(ready);
+}
+
+void RsMem2StartSignal::update() { ready = 1; }
+
+void RsMem2StartSignal::reset() { ready.reset(1); }
+
 RsMem2HarnessInstance::RsMem2HarnessInstance(const RsMemTestCase& test, const std::string& prefix, Clock& clk)
     : test_(test) {
   top_ = std::make_unique<Smesh>(prefix + "Smesh");
@@ -18,19 +26,13 @@ RsMem2HarnessInstance::RsMem2HarnessInstance(const RsMemTestCase& test, const st
   dram_ = std::make_unique<smem::Dram>(prefix + "Dram", 0);
 
   cmd_driver_ = std::make_unique<RsMemCmdDriver>(test_.program, prefix + "CmdDriver");
-  spad_preload_ = std::make_unique<SpadPreloadDriver>(test_.spad_rows, prefix + "SpadPreload");
+  start_signal_ = std::make_unique<RsMem2StartSignal>(prefix + "StartSignal");
   completion_observer_ = std::make_unique<CompletionObserver>(prefix + "CompletionObserver");
 
   top_->cmd_valid << cmd_driver_->cmd_valid;
   top_->cmd_bits  << cmd_driver_->cmd_bits;
   cmd_driver_->cmd_ready << top_->cmd_ready;
-  cmd_driver_->preload_done << spad_preload_->done;
-
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    top_->spad_preload_val[bank]  << spad_preload_->dmaread_val[bank];
-    top_->spad_preload_bits[bank] << spad_preload_->dmaread_bits[bank];
-    spad_preload_->dmaread_rdy[bank] << top_->spad_preload_rdy[bank];
-  }
+  cmd_driver_->preload_done << start_signal_->ready;
 
   // Smesh's Load domain expects a real memory boundary to exist even
   // though no test here issues an Mvin through it -- left idle.
@@ -43,8 +45,8 @@ RsMem2HarnessInstance::RsMem2HarnessInstance(const RsMemTestCase& test, const st
   completion_observer_->completed_val  << top_->exCtrlCompletedVal();
   completion_observer_->completed_bits << top_->exCtrlCompletedBits();
 
+  start_signal_->clk << clk;
   cmd_driver_->clk << clk;
-  spad_preload_->clk << clk;
   completion_observer_->clk << clk;
   top_->clk << clk;
   mem_->clk << clk;
@@ -53,10 +55,17 @@ RsMem2HarnessInstance::RsMem2HarnessInstance(const RsMemTestCase& test, const st
 
 RsMem2HarnessInstance::~RsMem2HarnessInstance() = default;
 
+void RsMem2HarnessInstance::initializeSpadImage() {
+  for (const auto& row : test_.spad_rows) {
+    top_->initializeSpadRow(row.laddr, row.data);
+  }
+}
+
 void RsMem2HarnessInstance::sampleBankConcurrency() {
   std::size_t fired = 0;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    if (top_->spadReadReqVal(bank) != 0 && top_->spadReadReqRdy(bank) != 0) {
+    if (top_->spad().read_req_val_bnk[bank] != 0 &&
+        top_->spad().read_req_rdy_bnk[bank] != 0) {
       ++fired;
     }
   }

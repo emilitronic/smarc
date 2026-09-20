@@ -165,4 +165,9 @@ const Spad::Row& Spad::row(SmeshLocalAddr addr) const {
   return banks_[addr.sp_bank()][addr.sp_row()];
 }
 
+void Spad::initializeRow(SmeshLocalAddr addr, const Row& data) {
+  assert_always(!addr.is_acc_addr(), "Spad initialization received an accumulator address");
+  banks_[addr.sp_bank()][addr.sp_row()] = data;
+}
+
 } // namespace smesh

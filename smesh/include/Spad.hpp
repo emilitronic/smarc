@@ -51,6 +51,7 @@ class Spad : public Component {
 
   bool hasAcceptedWrite() const { return write_accepted_; }
   const Row& row(SmeshLocalAddr addr) const;
+  void initializeRow(SmeshLocalAddr addr, const Row& data);
 
  private:
   std::array<std::array<Row, kSpBankRows>, kSpBanks> banks_{};

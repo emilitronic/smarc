@@ -217,9 +217,8 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
     arb_write_spad_[bank]->dmaread_val    << write_ctrl_->arb_spad_dmaread_val[bank];
     arb_write_spad_[bank]->dmaread_bits   << write_ctrl_->arb_spad_dmaread_bits[bank];
     write_ctrl_->arb_spad_dmaread_rdy[bank] << arb_write_spad_[bank]->dmaread_rdy;
-    arb_write_spad_[bank]->zerowrite_val  << spad_preload_val[bank];
-    arb_write_spad_[bank]->zerowrite_bits << spad_preload_bits[bank];
-    spad_preload_rdy[bank]                << arb_write_spad_[bank]->zerowrite_rdy;
+    arb_write_spad_[bank]->zerowrite_val  << write_arb_zero_val_;
+    arb_write_spad_[bank]->zerowrite_bits << write_arb_zero_bits_;
     arb_write_spad_[bank]->write_rdy      << spad_->write_rdy_bnk[bank];
     spad_->write_val_bnk[bank]            << arb_write_spad_[bank]->write_val;
     spad_->write_bits_bnk[bank]           << arb_write_spad_[bank]->write_bits;

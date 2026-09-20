@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
+  harness.initializeSpadImage();
 
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {

@@ -4,16 +4,10 @@
 // Sebastian Claudiusz Magierowski Sep 20 2026
 /*
 rs_to_mem2: the same test scenarios as rs_to_mem (reuses its
-RsMemTestCase/rsMemTestCases() *and* its RsMemCmdDriver/SpadPreloadDriver/
-CompletionObserver test-only glue directly, see
-../rs_to_mem/tb_rs_to_mem_harness.hpp), run through the real top-level
-Smesh composition instead of a hand-wired subset of components. Preload
-uses the same direct-bypass approach rs_to_mem already uses (via Smesh's
-spad_preload_* ports, which claim ArbWriteSpad's otherwise-unused
-zerowrite slot) rather than the real Load domain (LdCtrl/DmaReader) --
-that path is separately known to hang after 4 sequential real Mvins, an
-unrelated, not-yet-understood issue logged in doc/claude_smesh_notes.md,
-deliberately not exercised here.
+RsMemTestCase/rsMemTestCases() directly. The cases run through the real
+top-level Smesh composition. The harness seeds the behavioral Spad memory
+image before the first simulated cycle; this is setup, not a write
+transaction. The real Load domain remains idle in these scenarios.
 */
 #pragma once
 
@@ -31,11 +25,18 @@ deliberately not exercised here.
 namespace smesh {
 namespace tb {
 
-// Owns and wires one independent rs_to_mem2 simulation: a real Smesh (its
-// memReq/memResp tied to a real, but otherwise unused, Dram+MemCtrl pair
-// since Smesh's Load domain expects a memory boundary to exist even when
-// not exercised), plus the same command driver/preload/completion glue
-// rs_to_mem already uses.
+class RsMem2StartSignal : public Component {
+  DECLARE_COMPONENT(RsMem2StartSignal);
+
+ public:
+  RsMem2StartSignal(std::string name, COMPONENT_CTOR);
+  Clock(clk);
+  Output(bit, ready);
+  void update();
+  void reset();
+};
+
+// Owns and wires one independent rs_to_mem2 simulation.
 class RsMem2HarnessInstance {
  public:
   RsMem2HarnessInstance(const RsMemTestCase& test, const std::string& prefix, Clock& clk);
@@ -44,6 +45,7 @@ class RsMem2HarnessInstance {
   bool activityComplete() const;
   bool passed() const;
   void report() const;
+  void initializeSpadImage();
 
   // Call once per cycle, after Sim::run(), from the runner loop -- Smesh's
   // Spad is private, so bank concurrency is sampled from outside via
@@ -54,7 +56,7 @@ class RsMem2HarnessInstance {
   const RsMemTestCase& test_;
 
   std::unique_ptr<RsMemCmdDriver> cmd_driver_;
-  std::unique_ptr<SpadPreloadDriver> spad_preload_;
+  std::unique_ptr<RsMem2StartSignal> start_signal_;
   std::unique_ptr<CompletionObserver> completion_observer_;
   std::unique_ptr<Smesh> top_;
   std::unique_ptr<smem::MemCtrl> mem_;

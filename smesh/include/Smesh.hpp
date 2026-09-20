@@ -77,29 +77,14 @@ class Smesh : public Component {
   const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_[0]; }
   const Accum&   accum()  const { return *accum_; }
 
-  // Execute-domain completion tap -- SmeshTop doesn't expose this since it
-  // never needed to observe ExCtrl completions directly from outside; this
-  // harness does (see CompletionObserver in rs_to_mem2's harness).
+  // Seed the behavioral Spad memory image before the first simulated cycle.
+  void initializeSpadRow(SmeshLocalAddr addr, const Spad::Row& data) {
+    spad_->initializeRow(addr, data);
+  }
+
+  // Narrow completion taps for integration-test observation.
   auto& exCtrlCompletedVal()  { return ex_ctrl_->completed_val; }
   auto& exCtrlCompletedBits() { return ex_ctrl_->completed_bits; }
-
-  // Per-bank Spad read-accept taps, for a testbench to observe multi-bank
-  // concurrency the same way rs_to_mem's own SpadBankConcurrencyMonitor does.
-  auto& spadReadReqVal(std::size_t bank) { return spad_->read_req_val_bnk[bank]; }
-  auto& spadReadReqRdy(std::size_t bank) { return spad_->read_req_rdy_bnk[bank]; }
-
-  // Test-only Spad preload bypass, same purpose as rs_to_mem's
-  // SpadPreloadDriver: writes initial memory contents directly instead of
-  // routing through the real Load domain (LdCtrl/DmaReader), which is
-  // separately-unproven territory for multiple sequential requests -- see
-  // doc/claude_smesh_notes.md. Claims ArbWriteSpad's zerowrite slot, the
-  // one write-arbiter input a full Smesh doesn't otherwise need for any
-  // current rs_to_mem2 scenario (real zero-fill writes aren't exercised
-  // either). A non-test build should tie these to zero, same as SmeshTop
-  // does internally.
-  InputArray(bit, spad_preload_val, kSpBanks);
-  InputArray(DmaReadResp, spad_preload_bits, kSpBanks);
-  OutputArray(bit, spad_preload_rdy, kSpBanks);
 
   // Store-path monitor taps for testbench-only checkers.
   auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad[0]; }
