@@ -45,8 +45,8 @@ void StReadCtrl::updateReadReq() {
   spad_req.cmd_id = req.cmd_id;
   spad_req.from_dma = true;
   // tap off dispatch_bits for accum read req payload
-  AccumReadReq accum_req{};
-  accum_req.laddr = laddr;
+  AccumBankReadReq accum_req{};
+  accum_req.addr = laddr.acc_row();
   accum_req.len = req.len;
   accum_req.act = req.acc_act;
   accum_req.scale = req.acc_scale;

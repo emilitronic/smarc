@@ -32,16 +32,13 @@ Concretely, this category of test exists to catch cross-component timing,
 backpressure, and arbitration issues that neither of the other two tiers
 can see — problems that only appear when real components actually contend
 for a shared resource at the same time. Two known, real examples from this
-project motivated writing these tests at all:
+project motivated writing these tests at all. They are now covered by the
+banked memory implementations and focused unit tests:
 
-- `ArbWriteSpad`/`ArbWriteAccum` advertise "ready" on every write source
-  unconditionally, even though only one is actually serviced per cycle —
-  a concurrent second producer is told its write was accepted and then
-  silently dropped. A unit test of the arbiter alone (single producer at a
-  time) would never see this.
-- `Spad`/`Accum` themselves can only service one bank's read (or write)
-  per cycle, globally, despite exposing a fully banked interface — the
-  same class of problem, one layer down.
+- Each bank's write arbiter advertises ready according to its local source
+  priority, so a lower-priority source is not falsely told it was accepted.
+- `Spad` and `Accum` service independent bank reads and writes concurrently,
+  with one registered read-response slot per bank.
 
 Neither of these is reachable from `ex_ctrl`'s own suite, since it never
 instantiates the real `Spad`/`Accum` or arbiters at all.

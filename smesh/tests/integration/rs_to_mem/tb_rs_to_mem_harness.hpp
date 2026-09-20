@@ -148,8 +148,9 @@ class TieOff : public Component {
   Output(SpadBankReadReq, spad_read_req_zero);
   Output(DmaReadResp, dma_read_resp_zero);
   Output(ExCtrlAccumReadResp, accum_read_resp_zero);
-  Output(AccumReadReq, accum_read_req_zero);
+  Output(AccumBankReadReq, accum_read_req_zero);
   FifoInput(DmaReadCompletion, spad_completion);
+  FifoInput(DmaReadCompletion, accum_completion);
 
   void updateConstants();
   void updateCompletionDrain();

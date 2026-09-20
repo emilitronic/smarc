@@ -47,18 +47,19 @@ class ArbReadAccum : public Component {
   Clock(clk);
 
   Input(bit, exread_val);
-  Input(AccumReadReq, exread_bits);
+  Input(AccumBankReadReq, exread_bits);
   Output(bit, exread_rdy);
 
   Input(bit, dmawrite_val);
-  Input(AccumReadReq, dmawrite_bits);
+  Input(AccumBankReadReq, dmawrite_bits);
   Output(bit, dmawrite_rdy);
 
   Output(bit, read_req_val);
   Input(bit, read_req_rdy);
-  Output(AccumReadReq, read_req_bits);
+  Output(AccumBankReadReq, read_req_bits);
 
-  void update();
+  void updateRequest();
+  void updateClientReady();
 };
 
 class ArbRespSpad : public Component {

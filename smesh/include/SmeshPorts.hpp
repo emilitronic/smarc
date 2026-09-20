@@ -151,20 +151,6 @@ struct SpadReadResp {
 // Bank-local accumulator read request used at a physical bank interface.
 struct AccumBankReadReq {
   u32 addr = 0;
-  u8 act = 0;
-  u32 scale = 0;
-  u32 igelu_qb = 0;
-  u32 igelu_qc = 0;
-  u32 iexp_qln2 = 0;
-  u32 iexp_qln2_inv = 0;
-  bit full = false;
-  bit from_dma = false;
-};
-// Legacy accumulator request carrying a complete logical local address.
-// TODO: retire this after the store path, read arbiters, and memories migrate
-// to the bank-local request interface.
-struct AccumReadReq {
-  SmeshLocalAddr laddr{};
   u16 len = 0; // number of row elements being read from accum (not bytes)
   u8 act = 0;
   u32 scale = 0;
@@ -174,7 +160,7 @@ struct AccumReadReq {
   u32 iexp_qln2_inv = 0;
   bit full = false;
   u16 cmd_id = 0;
-  bit from_dma = true;
+  bit from_dma = false;
 };
 // ifc from accumulator memory to read pipes to normalizer
 struct AccumReadResp {

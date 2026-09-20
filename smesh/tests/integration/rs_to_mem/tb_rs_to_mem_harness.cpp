@@ -172,7 +172,7 @@ TieOff::TieOff(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateConstants)
       .writes(zero_bit, one_bit, spad_read_req_zero, dma_read_resp_zero,
               accum_read_resp_zero, accum_read_req_zero);
-  UPDATE(updateCompletionDrain).reads(spad_completion);
+  UPDATE(updateCompletionDrain).reads(spad_completion, accum_completion);
 }
 
 void TieOff::updateConstants() {
@@ -181,12 +181,15 @@ void TieOff::updateConstants() {
   spad_read_req_zero = SpadBankReadReq{};
   dma_read_resp_zero = DmaReadResp{};
   accum_read_resp_zero = ExCtrlAccumReadResp{};
-  accum_read_req_zero = AccumReadReq{};
+  accum_read_req_zero = AccumBankReadReq{};
 }
 
 void TieOff::updateCompletionDrain() {
   if (!spad_completion.empty()) {
     spad_completion.pop();
+  }
+  if (!accum_completion.empty()) {
+    accum_completion.pop();
   }
 }
 
@@ -320,7 +323,7 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
     accum_->read_req_bits_bnk[bank] << tie_->accum_read_req_zero;
     accum_->read_resp_rdy_bnk[bank] << tie_->one_bit;
   }
-  accum_->dma_resp.sendToBitBucket();
+  tie_->accum_completion << accum_->dma_resp;
 
   // ----- Clock -----
   cmd_driver_->clk << clk;

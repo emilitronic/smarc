@@ -28,18 +28,15 @@ class Accum : public Component {
   Clock(clk);
 
   FifoOutput(DmaReadCompletion, dma_resp); // completion FIFO: let LdCtrl know last accum write is done
-  // Banked write ports. For now Accum accepts at most one write per cycle.
+  // Each bank accepts writes independently; same-bank reads may be excluded.
   InputArray(bit, write_val_bnk, kAccBanks);
   OutputArray(bit, write_rdy_bnk, kAccBanks);
   InputArray(DmaReadResp, write_bits_bnk, kAccBanks);
 
-  // Banked read request ports. For now Accum accepts at most one read per cycle.
-  // TODO: ready is currently advertised on every bank even though updateRead()
-  // consumes only the first valid request. Use per-bank response state, or make
-  // ready one-hot, so concurrent handshakes cannot be silently dropped.
+  // Every bank has an independent read request and one-entry response slot.
   InputArray(bit, read_req_val_bnk, kAccBanks);
   OutputArray(bit, read_req_rdy_bnk, kAccBanks);
-  InputArray(AccumReadReq, read_req_bits_bnk, kAccBanks);
+  InputArray(AccumBankReadReq, read_req_bits_bnk, kAccBanks);
 
   OutputArray(bit, read_resp_val_bnk, kAccBanks);
   OutputArray(AccumReadResp, read_resp_bits_bnk, kAccBanks);
@@ -49,7 +46,6 @@ class Accum : public Component {
   void updateWrite();
   void updateReadReady();
   void updateReadRespView();
-  void updateReadRespPop();
   void updateRead();
   void reset();
 
@@ -58,9 +54,11 @@ class Accum : public Component {
 
  private:
   std::array<std::array<Row, kAccBankRows>, kAccBanks> banks_{};
-  bool write_accepted_  = false;
-  bool read_resp_valid_ = false;
-  AccumReadResp read_resp_entry_{}; // reg holds response while waiting for StNormCtrl to pop it
+  bool write_accepted_ = false;
+  OutputArray(bit, read_resp_valid_Q_, kAccBanks);
+  OutputArray(AccumReadResp, read_resp_entry_Q_, kAccBanks);
+  RegisterArray(bit, read_resp_valid_D_, kAccBanks);
+  RegisterArray(AccumReadResp, read_resp_entry_D_, kAccBanks);
 };
 
 } // namespace smesh

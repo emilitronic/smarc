@@ -83,7 +83,6 @@ class SmeshTop : public Component {
   auto& storeDmaWriterReqBits() { return dma_writer_->req_bits; }
 
   void update();
-  void updateExCtrlAccumReadReqAdapter();
   void reset();
 
  private:
@@ -99,8 +98,6 @@ class SmeshTop : public Component {
   StReadCtrl*              st_read_ctrl_ = nullptr;
   std::array<ArbReadSpad*, kSpBanks> arb_read_spad_{};
   std::array<ArbReadAccum*, kAccBanks> arb_read_accum_{};
-  // Accumulator read components still carry complete logical addresses.
-  OutputArray(AccumReadReq, ex_accum_read_req_legacy_bits_, kAccBanks);
   std::array<ArbWriteSpad*, kSpBanks> arb_write_spad_{};
   std::array<ArbWriteAccum*, kAccBanks> arb_write_accum_{};
   Output(bit, write_arb_zero_val_);

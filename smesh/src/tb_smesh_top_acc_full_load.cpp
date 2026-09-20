@@ -42,9 +42,11 @@ class FullAccumLoadTieOff : public Component {
   Output(bit, zero_bit);
   Output(bit, one_bit);
   Output(smesh::DmaReadResp, dma_read_resp);
-  Output(smesh::AccumReadReq, accum_read_req);
+  Output(smesh::AccumBankReadReq, accum_read_req);
+  FifoInput(smesh::DmaReadCompletion, accum_completion);
 
-  void update();
+  void updateConstants();
+  void updateCompletionDrain();
 };
 
 namespace {
@@ -92,14 +94,21 @@ void FullAccumLoadSource::reset() {
 }
 
 FullAccumLoadTieOff::FullAccumLoadTieOff(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(zero_bit, one_bit, dma_read_resp, accum_read_req);
+  UPDATE(updateConstants).writes(zero_bit, one_bit, dma_read_resp, accum_read_req);
+  UPDATE(updateCompletionDrain).reads(accum_completion);
 }
 
-void FullAccumLoadTieOff::update() {
+void FullAccumLoadTieOff::updateConstants() {
   zero_bit = 0;
   one_bit = 1;
   dma_read_resp = smesh::DmaReadResp{};
-  accum_read_req = smesh::AccumReadReq{};
+  accum_read_req = smesh::AccumBankReadReq{};
+}
+
+void FullAccumLoadTieOff::updateCompletionDrain() {
+  if (!accum_completion.empty()) {
+    accum_completion.pop();
+  }
 }
 
 int main(int argc, char* argv[]) {
@@ -149,7 +158,7 @@ int main(int argc, char* argv[]) {
     accum.write_val_bnk[bank] << arb_accum[bank]->write_val;
     accum.write_bits_bnk[bank] << arb_accum[bank]->write_bits;
   }
-  accum.dma_resp.sendToBitBucket();
+  tie_off.accum_completion << accum.dma_resp;
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {
     accum.read_req_val_bnk[bank] << tie_off.zero_bit;
     accum.read_req_bits_bnk[bank] << tie_off.accum_read_req;

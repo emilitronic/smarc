@@ -35,20 +35,27 @@ void ArbReadSpad::updateClientReady() {
 }
 
 ArbReadAccum::ArbReadAccum(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
-      .reads(exread_val, exread_bits, dmawrite_val, dmawrite_bits, read_req_rdy)
-      .writes(exread_rdy, dmawrite_rdy, read_req_val, read_req_bits);
+  UPDATE(updateRequest)
+      .reads(exread_val, exread_bits, dmawrite_val, dmawrite_bits)
+      .writes(read_req_val, read_req_bits);
+  UPDATE(updateClientReady)
+      .reads(exread_val, dmawrite_val, read_req_rdy)
+      .writes(exread_rdy, dmawrite_rdy);
 }
 
-void ArbReadAccum::update() {
-  const bool exread   = exread_val   != 0;
-  const bool dmawrite = dmawrite_val != 0;
+void ArbReadAccum::updateRequest() {
+  const bool exread   = exread_val == 1;
+  const bool dmawrite = dmawrite_val == 1;
 
   read_req_val  = bit(exread || dmawrite);
   read_req_bits = exread ? *exread_bits : *dmawrite_bits;
+}
 
-  exread_rdy  = bit(exread && read_req_rdy != 0);
-  dmawrite_rdy = bit(!exread && dmawrite && read_req_rdy != 0);
+void ArbReadAccum::updateClientReady() {
+  const bool exread   = exread_val == 1;
+  const bool dmawrite = dmawrite_val == 1;
+  exread_rdy   = bit(exread && read_req_rdy == 1);
+  dmawrite_rdy = bit(!exread && dmawrite && read_req_rdy == 1);
 }
 
 ArbRespSpad::ArbRespSpad(std::string /*name*/, IMPL_CTOR) {

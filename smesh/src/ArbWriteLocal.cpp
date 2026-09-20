@@ -56,7 +56,7 @@ void ArbWriteSpad::reset() {
 
 ArbWriteAccum::ArbWriteAccum(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateReady)
-      .reads(write_rdy)
+      .reads(exwrite_val, dmaread_full_val, dmaread_val, write_rdy)
       .writes(exwrite_rdy, dmaread_full_rdy, dmaread_rdy, zerowrite_rdy);
   UPDATE(updateWrite)
       .reads(exwrite_val,
@@ -71,12 +71,12 @@ ArbWriteAccum::ArbWriteAccum(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ArbWriteAccum::updateReady() {
-  // TODO: once multiple write sources can be active, refine source-ready
-  // backpressure to account for priority without creating valid/ready loops.
-  exwrite_rdy = bit(write_rdy != 0);
-  dmaread_full_rdy = bit(write_rdy != 0);
-  dmaread_rdy = bit(write_rdy != 0);
-  zerowrite_rdy = bit(write_rdy != 0);
+  exwrite_rdy      = bit(write_rdy == 1);
+  dmaread_full_rdy = bit(exwrite_val == 0 && write_rdy == 1);
+  dmaread_rdy      = bit(exwrite_val == 0 && dmaread_full_val == 0 &&
+                         write_rdy == 1);
+  zerowrite_rdy    = bit(exwrite_val == 0 && dmaread_full_val == 0 &&
+                         dmaread_val == 0 && write_rdy == 1);
 }
 
 void ArbWriteAccum::updateWrite() {

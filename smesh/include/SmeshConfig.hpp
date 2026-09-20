@@ -25,6 +25,7 @@ struct SmeshConfig {
 
   std::size_t acc_banks     =  2;
   std::size_t acc_bank_rows =  8;
+  bool acc_singleported = true; // same-bank writes take priority over reads
 
   std::size_t load_states   =  3;
 
