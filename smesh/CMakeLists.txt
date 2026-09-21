@@ -39,7 +39,6 @@ add_library(smesh_model
   src/SmeshDevice.cpp
   src/SmeshRS.cpp
   src/Smesh.cpp
-  src/SmeshTop.cpp
   src/Spad.cpp
   src/SpadReadPipes.cpp
   src/SpadWriter.cpp

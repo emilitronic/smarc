@@ -2,10 +2,7 @@
 // smesh/src/Smesh.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 20 2026
-/*
-Top-level smesh composition point -- a corrected copy of SmeshTop.
-See Smesh.hpp for what's different and why.
-*/
+/* Top-level Smesh composition. */
 
 #include "Smesh.hpp"
 
@@ -209,8 +206,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   write_ctrl_->dmaread_accum_full_val  << mvin_scale_acc_->data_val;
   write_ctrl_->dmaread_accum_full_bits << mvin_scale_acc_->data_bits;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    // Corrected vs. SmeshTop: ExCtrl's own write feeds this arbiter slot in
-    // both directions, instead of a permanent-zero stub with no return path.
+    // Route ExCtrl writeback through this bank's normal write arbiter.
     arb_write_spad_[bank]->exwrite_val    << ex_spad_write_val_[bank];
     arb_write_spad_[bank]->exwrite_bits   << ex_spad_write_bits_[bank];
     ex_ctrl_->spad_write_rdy[bank]        << arb_write_spad_[bank]->exwrite_rdy;
@@ -224,7 +220,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
     spad_->write_bits_bnk[bank]           << arb_write_spad_[bank]->write_bits;
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    // Corrected vs. SmeshTop: same fix as the spad loop above.
+    // Route ExCtrl accumulator writeback through this bank's write arbiter.
     arb_write_accum_[bank]->exwrite_val       << ex_accum_write_val_[bank];
     arb_write_accum_[bank]->exwrite_bits      << ex_accum_write_bits_[bank];
     ex_ctrl_->accum_write_rdy[bank]           << arb_write_accum_[bank]->exwrite_rdy;
@@ -296,10 +292,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   ld_ctrl_->dma_resp        << completion_mux_->dma_resp;
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
-  // Corrected vs. SmeshTop: SmeshTop never enables this at all -- harmless
-  // there since none of its own tests ever issue a real Execute-domain
-  // command, but load-bearing here, and for any future SmeshTop test that
-  // does.
+  // Enable Execute commands from the reservation station.
   rs_->setExecuteIssuePortEnabled(true);
 
   UPDATE(update).writes(write_arb_zero_val_,

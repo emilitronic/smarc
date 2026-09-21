@@ -1,6 +1,6 @@
 # Pre-Cascade milestone testbenches (M0-M3) for the old plain-C++ SmeshDevice
 # behavioral model. These predate the Cascade hardware model (ExCtrl/Spad/
-# Accum/SmeshTop) covered by unit/ and integration/, and do not exercise it
+# Accum/Smesh) covered by unit/ and integration/, and do not exercise it
 # at all. Kept for historical reference, not part of the active regression
 # suite -- none of these are registered as ctest targets.
 
