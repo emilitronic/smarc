@@ -1,29 +1,29 @@
 // **********************************************************************
-// smesh/src/tb_smesh_top_load.cpp
+// smesh/tests/integration/top/tb_smesh_top_acc_load.cpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Jul 8 2026
-// Focused SmeshTop load-path test with external MemCtrl/Dram.
+// Sebastian Claudiusz Magierowski Jul 9 2026
+// Focused Smesh load-path test from external memory into accumulator.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
 
 #include "SmeshCommand.hpp"
-#include "SmeshTop.hpp"
+#include "Smesh.hpp"
 #include "smem/Dram.hpp"
 #include "smem/MemCtrl.hpp"
 
 #include <array>
 #include <cstdio>
 
-constexpr std::uint64_t kDramBase = 0x80002000;
+constexpr std::uint64_t kDramBase = 0x80004000;
 constexpr std::uint32_t kDramRowStride = 9;
 constexpr std::uint32_t kLoadBlockStride = 5;
 
-class TopLoadDriver : public Component {
-  DECLARE_COMPONENT(TopLoadDriver);
+class TopAccLoadDriver : public Component {
+  DECLARE_COMPONENT(TopAccLoadDriver);
 
  public:
-  TopLoadDriver(std::string name, COMPONENT_CTOR);
+  TopAccLoadDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
   Output(bit, cmd_valid);
@@ -37,11 +37,11 @@ class TopLoadDriver : public Component {
   std::uint32_t next_command_ = 0;
 };
 
-TopLoadDriver::TopLoadDriver(std::string /*name*/, IMPL_CTOR) {
+TopAccLoadDriver::TopAccLoadDriver(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).reads(cmd_ready).writes(cmd_valid, cmd_bits);
 }
 
-void TopLoadDriver::update() {
+void TopAccLoadDriver::update() {
   cmd_valid = 0;
   cmd_bits = smesh::SmeshCmd{};
   if (Sim::state == Sim::SimResetting) {
@@ -60,18 +60,18 @@ void TopLoadDriver::update() {
   } else {
     cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin));
     cmd.rs1 = u64(kDramBase);
-    cmd.rs2 = u64(smesh::packLocal(smesh::makeSpAddr(0), shape));
+    cmd.rs2 = u64(smesh::packLocal(smesh::makeAccAddr(0), shape));
   }
 
   cmd_bits = cmd;
   cmd_valid = 1;
   if (cmd_ready != 0) {
-    trace("top_load_driver: pushed funct=%u", static_cast<unsigned>(cmd.funct));
+    trace("top_acc_load_driver: pushed funct=%u", static_cast<unsigned>(cmd.funct));
     ++next_command_;
   }
 }
 
-void TopLoadDriver::reset() {
+void TopAccLoadDriver::reset() {
   next_command_ = 0;
 }
 
@@ -80,8 +80,8 @@ int main(int argc, char* argv[]) {
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
 
-  TopLoadDriver driver("Driver");
-  smesh::SmeshTop top("SmeshTop");
+  TopAccLoadDriver driver("Driver");
+  smesh::Smesh top("Smesh");
   smem::MemCtrl mem("MemCtrl");
   smem::Dram dram("Dram", 0);
 
@@ -121,12 +121,12 @@ int main(int argc, char* argv[]) {
     Sim::run();
   }
 
-  bool spad_ok = top.spad().hasAcceptedWrite();
+  bool accum_ok = top.accum().hasAcceptedWrite();
   for (std::size_t r = 0; r < smesh::kDim; ++r) {
-    const auto& spad_row = top.spad().row(smesh::makeSpAddr(static_cast<std::uint32_t>(r)));
+    const auto& acc_row = top.accum().row(smesh::makeAccAddr(static_cast<std::uint32_t>(r)));
     for (std::size_t c = 0; c < smesh::kDim; ++c) {
-      spad_ok = spad_ok &&
-                spad_row[c] == static_cast<smesh::Elem>(rows[r * smesh::kDim + c]);
+      accum_ok = accum_ok &&
+                 acc_row[c] == static_cast<smesh::Acc>(rows[r * smesh::kDim + c]);
     }
   }
 
@@ -135,12 +135,12 @@ int main(int argc, char* argv[]) {
                              top.ldCtrl().returnedBytes() == smesh::kDim * smesh::kDim &&
                              top.ldCtrl().responseRsTag() == 1 &&
                              top.rs().empty();
-  const bool ok = spad_ok && completion_ok;
+  const bool ok = accum_ok && completion_ok;
   if (!ok) {
     const auto& load0 = top.rs().loadEntry(0);
-    std::printf("  spad_ok=%u accepted_write=%u\n",
-                spad_ok ? 1u : 0u,
-                top.spad().hasAcceptedWrite() ? 1u : 0u);
+    std::printf("  accum_ok=%u accepted_write=%u\n",
+                accum_ok ? 1u : 0u,
+                top.accum().hasAcceptedWrite() ? 1u : 0u);
     std::printf("  load0 valid=%u issued=%u ready=%u funct=%u tag=%u deps_ld=0x%x\n",
                 load0.valid ? 1u : 0u,
                 load0.issued ? 1u : 0u,
@@ -156,6 +156,6 @@ int main(int argc, char* argv[]) {
                 static_cast<unsigned>(top.ldCtrl().responseRsTag()),
                 top.rs().empty() ? 1u : 0u);
   }
-  std::printf("[SMESH_TOP_LOAD] %s top_level_mvin_to_spad\n", ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_ACC_LOAD] %s top_level_mvin_to_accum\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
 }

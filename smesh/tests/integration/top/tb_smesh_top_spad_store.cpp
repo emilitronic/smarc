@@ -1,14 +1,14 @@
 // **********************************************************************
-// smesh/src/tb_smesh_top_spad_store.cpp
+// smesh/tests/integration/top/tb_smesh_top_spad_store.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 13 2026
-// Focused SmeshTop store-path test from scratchpad into the store data path.
+// Focused Smesh store-path test from scratchpad into the store data path.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
 
 #include "SmeshCommand.hpp"
-#include "SmeshTop.hpp"
+#include "Smesh.hpp"
 #include "smem/Dram.hpp"
 #include "smem/MemCtrl.hpp"
 
@@ -188,7 +188,7 @@ int main(int argc, char* argv[]) {
 
   TopSpadStoreDriver driver("Driver");
   StorePathMonitor monitor("StorePathMonitor");
-  smesh::SmeshTop top("SmeshTop");
+  smesh::Smesh top("Smesh");
   smem::MemCtrl mem("MemCtrl");
   smem::Dram dram("Dram", 0);
 
@@ -265,6 +265,6 @@ int main(int argc, char* argv[]) {
                 store0.deps_st);
   }
 
-  std::printf("[SMESH_TOP_SPAD_STORE] %s spad_store_read_path\n", ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_SPAD_STORE] %s spad_store_read_path\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
 }

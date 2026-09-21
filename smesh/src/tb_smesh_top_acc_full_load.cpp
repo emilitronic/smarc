@@ -3,6 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 24 2026
 // Focused full-width accumulator load-return path test.
+// Full-width Accum-load/scaling path.  Builds that path from individual blocks rather than instantiating SemshTop.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>

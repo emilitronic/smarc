@@ -90,34 +90,6 @@ target_link_libraries(tb_rs_ld_issue
     -lpthread
 )
 
-add_executable(tb_smesh_top_load
-  src/tb_smesh_top_load.cpp
-)
-
-target_link_libraries(tb_smesh_top_load
-  PRIVATE
-    smesh_model
-    smem_memory
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_smesh_top_acc_load
-  src/tb_smesh_top_acc_load.cpp
-)
-
-target_link_libraries(tb_smesh_top_acc_load
-  PRIVATE
-    smesh_model
-    smem_memory
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
 add_executable(tb_smesh_top_acc_full_load
   src/tb_smesh_top_acc_full_load.cpp
 )
@@ -125,20 +97,6 @@ add_executable(tb_smesh_top_acc_full_load
 target_link_libraries(tb_smesh_top_acc_full_load
   PRIVATE
     smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-add_executable(tb_smesh_top_spad_store
-  src/tb_smesh_top_spad_store.cpp
-)
-
-target_link_libraries(tb_smesh_top_spad_store
-  PRIVATE
-    smesh_model
-    smem_memory
     cascade
     -lz
     -ltermcap

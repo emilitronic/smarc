@@ -3,17 +3,9 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 20 2026
 /*
-Top-level smesh composition point -- a corrected copy of SmeshTop.
-
-Identical to SmeshTop except: ExCtrl's write ports (spad_write_ and
-accum_write_, both directions) are wired to the real write arbiters,
-matching what smesh/tests/integration/rs_to_mem's test harness has been
-doing independently since 2026-09-19. In SmeshTop, these are still
-permanently stubbed to zero (forward) and left entirely unconnected
-(return path) -- see doc/claude_smesh_notes.md for how that was found.
-This file exists as a non-destructive parallel version so SmeshTop and its
-existing tb_smesh_top_* tests are untouched; see
-smesh/tests/integration/rs_to_mem/ for the integration harness built on this.
+Top-level smesh composition used by the integration suites. ExCtrl's Spad
+and Accum write ports are connected to the real bank arbiters; see
+smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 */
 
 #pragma once
