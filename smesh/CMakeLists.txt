@@ -44,6 +44,7 @@ add_library(smesh_model
   src/SpadWriter.cpp
   src/StCtrl.cpp
   src/StCtrlCmdDec.cpp
+  src/StCtrlCmdTracker.cpp
   src/StCtrlDmaReq.cpp
   src/StCtrlGeom.cpp
   src/StCtrlQueues.cpp

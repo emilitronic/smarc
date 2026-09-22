@@ -34,6 +34,7 @@ struct SmeshConfig {
   std::size_t dma_max_bytes = 64;
 
   bool has_max_pool = true; // StoreController includes max-pooling geometry
+  std::size_t store_cmd_tracker_entries = 2; // concurrent StoreController commands
 
   std::size_t rs_load_entries    = 2; // typ: 8
   std::size_t rs_execute_entries = 8; // typ: 4 -- experiment: testing mul_pre-through-RS timing
