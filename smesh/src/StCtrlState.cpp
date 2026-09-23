@@ -119,37 +119,38 @@ void StCtrlState::updateRequest() {
 // - changes FSM state when req fires or cmd finishes
 // - asserts heady_rdy when queue cmd can be popped
 void StCtrlState::updateTransition() {
-  const auto q = *regs_Q_;
-  auto next = q;
-  const auto state = static_cast<StCtrlFsmState>(q.state);
-  const bool req_fire = dma_req_val == 1 && dma_req_rdy == 1;
-  const bool pooling = pooling_is_enabled == 1;
+  const auto q = *regs_Q_; // current state
+  auto next = q;           // next state to be computed
+  const auto state      = static_cast<StCtrlFsmState>(q.state);
+  const bool req_fire   = dma_req_val == 1 && dma_req_rdy == 1;
+  const bool pooling    = pooling_is_enabled == 1;
   const bool moveout_1d = mvout_1d_enabled == 1;
-  const auto nblocks = static_cast<std::uint32_t>(*blocks);
-  const auto nrows = static_cast<std::uint32_t>(*rows);
-  const auto n1drows = static_cast<std::uint32_t>(*mvout_1d_rows);
+  const auto nblocks    = static_cast<std::uint32_t>(*blocks);
+  const auto nrows      = static_cast<std::uint32_t>(*rows);
+  const auto n1drows    = static_cast<std::uint32_t>(*mvout_1d_rows);
   head_rdy = 0;
-
+  // State transition logic
   if (state == StCtrlFsmState::WaitingForCommand && head_val == 1) {
-    if (do_config == 1) {
-      next.stride = *config_stride;
-      next.activation = *config_activation;
-      if (*config_acc_scale != 0xffffffffu) {
-        next.acc_scale = *config_acc_scale;
+    // TODO: Confirm whether CONFIG commands must report completion to the RS.
+    if (do_config == 1) { // CONFIG_STORE branch, copy decoded settings into next
+      next.stride         = *config_stride;
+      next.activation     = *config_activation;
+      if (*config_acc_scale != 0xffffffffu) { // all 1's means keep current scale
+        next.acc_scale    = *config_acc_scale;
       }
-      next.pool_size = *config_pool_size;
-      next.pool_stride = *config_pool_stride;
+      next.pool_size      = *config_pool_size;
+      next.pool_stride    = *config_pool_stride;
       if (config_pool_stride != 0) {
         next.pool_out_dim = *config_pool_out_dim;
-        next.pool_porows = *config_porows;
-        next.pool_pocols = *config_pocols;
-        next.pool_orows = *config_orows;
-        next.pool_ocols = *config_ocols;
-        next.pool_upad = *config_upad;
-        next.pool_lpad = *config_lpad;
+        next.pool_porows  = *config_porows;
+        next.pool_pocols  = *config_pocols;
+        next.pool_orows   = *config_orows;
+        next.pool_ocols   = *config_ocols;
+        next.pool_upad    = *config_upad;
+        next.pool_lpad    = *config_lpad;
       } else if (config_pool_size != 0) {
-        next.pool_orows = *config_orows;
-        next.pool_ocols = *config_ocols;
+        next.pool_orows   = *config_orows;
+        next.pool_ocols   = *config_ocols;
         next.pool_out_dim = *config_pool_out_dim;
       }
       head_rdy = 1;
@@ -157,7 +158,8 @@ void StCtrlState::updateTransition() {
             static_cast<unsigned>(next.stride),
             static_cast<unsigned>(next.pool_stride),
             static_cast<unsigned>(next.pool_size));
-    } else if (do_config_norm == 1) {
+    } else if (do_config_norm == 1) { // CONFIG_NORM branch
+      // update just stats ID or update norm settings too
       if (config_set_stats_id_only == 0) {
         next.igelu_qb = *config_igelu_qb;
         next.igelu_qc = *config_igelu_qc;
@@ -169,16 +171,18 @@ void StCtrlState::updateTransition() {
         next.activation = static_cast<std::uint8_t>(
             ((config_activation_msb == 1 ? 1u : 0u) << 2) | (q.activation & 0x3u));
       }
-      next.norm_stats_id = *config_stats_id;
+      next.norm_stats_id = *config_stats_id; // which norm stat context to use
       head_rdy = 1;
       trace(st_ctrl_state_, "config_norm stats=%u msb=%u only=%u act=%u\n",
             static_cast<unsigned>(next.norm_stats_id),
             static_cast<unsigned>(config_activation_msb == 1),
             static_cast<unsigned>(config_set_stats_id_only == 1),
             static_cast<unsigned>(next.activation));
-    } else if (do_store == 1 && tracker_alloc_rdy == 1) {
-      next.cmd_id = *tracker_alloc_cmd_id;
-      next.state = static_cast<std::uint8_t>(
+    } else if (do_store == 1 && tracker_alloc_rdy == 1) { // STORE branch (also needs free tracker entry)
+      next.cmd_id = *tracker_alloc_cmd_id; // record allocated tracker ID so later DMA resp can be matched to this cmd
+      // first DMA req may be accepted in same cyc as tracker alloc, if so it enters pooling or sending rows right away
+      // otherwise it waits
+      next.state  = static_cast<std::uint8_t>(
           req_fire ? (pooling ? StCtrlFsmState::Pooling : StCtrlFsmState::SendingRows)
                    : StCtrlFsmState::WaitingForDmaReqReady);
       trace(st_ctrl_state_, "start id=%u first_fire=%u state=%u\n",
@@ -194,11 +198,11 @@ void StCtrlState::updateTransition() {
             static_cast<unsigned>(q.cmd_id), static_cast<unsigned>(next.state));
     }
   } else if (state == StCtrlFsmState::SendingRows) {
-    const bool last_block = nblocks != 0 && q.block_counter == nblocks - 1;
+    const bool last_block     = nblocks != 0 && q.block_counter == nblocks - 1;
     const auto effective_rows = moveout_1d ? n1drows : nrows;
-    const bool last_row = effective_rows != 0 && q.row_counter == effective_rows - 1;
-    const bool only_one_req = q.block_counter == 0 && q.row_counter == 0;
-    if ((last_block && last_row && req_fire) || only_one_req) {
+    const bool last_row       = effective_rows != 0 && q.row_counter == effective_rows - 1;
+    const bool only_one_req   = q.block_counter == 0 && q.row_counter == 0;
+    if ((last_block && last_row && req_fire) || only_one_req) { // last row accepted?
       next.state = static_cast<std::uint8_t>(StCtrlFsmState::WaitingForCommand);
       head_rdy = 1;
       trace(st_ctrl_state_, "finish_rows id=%u\n", static_cast<unsigned>(q.cmd_id));
