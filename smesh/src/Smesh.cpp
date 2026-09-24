@@ -122,7 +122,9 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   completion_arb_->ld_completed << ld_ctrl_->completed;
   completion_arb_->ex_completed_val << ex_ctrl_->completed_val;
   completion_arb_->ex_completed_bits << ex_ctrl_->completed_bits;
-  completion_arb_->st_completed.wireToZero();
+  completion_arb_->st_completed_val << st_ctrl_->completed_val;
+  completion_arb_->st_completed_bits << st_ctrl_->completed_bits;
+  st_ctrl_->completed_rdy << completion_arb_->st_completed_rdy;
   rs_->completed   << completion_arb_->rs_completed;
   read_issue_queue_->req_in << ld_ctrl_->dma_req;
   dma_reader_->req_in       << read_issue_queue_->req_out;
@@ -146,8 +148,6 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   st_ctrl_->dma_resp_val << st_read_ctrl_->dma_resp_val;
   st_ctrl_->dma_resp_bits << st_read_ctrl_->dma_resp_bits;
   st_read_ctrl_->dma_resp_rdy << st_ctrl_->dma_resp_rdy;
-  // TODO: Hand Store completions to the arbiter; hold the tracker entry until then.
-  st_ctrl_->completed_rdy << st_completed_hold_;
   st_norm_ctrl_->norm_deq_val  << write_norm_queue_->deq_val;
   st_norm_ctrl_->norm_deq_bits << write_norm_queue_->deq_bits;
   st_norm_ctrl_->normalizer_cmd_rdy << normalizer_->req_rdy;
@@ -301,8 +301,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   // Enable Execute commands from the reservation station.
   rs_->setExecuteIssuePortEnabled(true);
 
-  UPDATE(update).writes(write_arb_zero_val_,
-                        write_arb_zero_bits_, st_completed_hold_);
+  UPDATE(update).writes(write_arb_zero_val_, write_arb_zero_bits_);
   UPDATE(updateExWriteAdapter)
       .reads(ex_ctrl_->spad_write_val, ex_ctrl_->spad_write_bits,
              ex_ctrl_->accum_write_val, ex_ctrl_->accum_write_bits)
@@ -372,7 +371,6 @@ void Smesh::update() {
   rs_->setExecuteIssuePortEnabled(true);
   write_arb_zero_val_ = 0;
   write_arb_zero_bits_ = DmaReadResp{};
-  st_completed_hold_ = 0;
 }
 
 void Smesh::updateExWriteAdapter() {
@@ -425,7 +423,6 @@ void Smesh::reset() {
   rs_->setExecuteIssuePortEnabled(true);
   write_arb_zero_val_.reset(0);
   write_arb_zero_bits_.reset(DmaReadResp{});
-  st_completed_hold_.reset(0);
   trace("smesh: reset");
 }
 

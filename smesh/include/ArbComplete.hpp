@@ -22,14 +22,17 @@ class ArbExLdStComplete : public Component {
 
   Clock(clk);
 
-  Input(bit, ex_completed_val);
+  Input(bit,        ex_completed_val);
   Input(SmeshRsTag, ex_completed_bits);
   FifoInput(SmeshRsTag, ld_completed);
-  FifoInput(SmeshRsTag, st_completed);
+  Input(bit,        st_completed_val);
+  Input(SmeshRsTag, st_completed_bits);
+  Output(bit,       st_completed_rdy);
 
   FifoOutput(SmeshRsTag, rs_completed);
 
   void update();
+  void reset();
 };
 
 } // namespace smesh
