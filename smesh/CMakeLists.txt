@@ -29,6 +29,7 @@ add_library(smesh_model
   src/ExCtrlWriteback.cpp
   src/LdCtrl.cpp
   src/LdCtrlCmdDec.cpp
+  src/LdCtrlGeom.cpp
   src/LdCtrlQueues.cpp
   src/LdCtrlState.cpp
   src/MvinLocalRouter.cpp

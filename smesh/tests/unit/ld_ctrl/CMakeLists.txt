@@ -1,6 +1,7 @@
 set(LD_CTRL_UNIT_TESTS
   tb_ld_ctrl_cmd_queue
   tb_ld_ctrl_cmd_dec
+  tb_ld_ctrl_geom
   tb_ld_ctrl_state
 )
 
@@ -13,6 +14,8 @@ endforeach()
 
 add_test(NAME smesh_unit_ld_ctrl_cmd_queue COMMAND tb_ld_ctrl_cmd_queue)
 add_test(NAME smesh_unit_ld_ctrl_cmd_dec COMMAND tb_ld_ctrl_cmd_dec)
+add_test(NAME smesh_unit_ld_ctrl_geom COMMAND tb_ld_ctrl_geom)
 add_test(NAME smesh_unit_ld_ctrl_state COMMAND tb_ld_ctrl_state)
-set_tests_properties(smesh_unit_ld_ctrl_cmd_queue smesh_unit_ld_ctrl_cmd_dec smesh_unit_ld_ctrl_state
+set_tests_properties(smesh_unit_ld_ctrl_cmd_queue smesh_unit_ld_ctrl_cmd_dec
+  smesh_unit_ld_ctrl_geom smesh_unit_ld_ctrl_state
   PROPERTIES LABELS "unit;ld_ctrl" TIMEOUT 10)
