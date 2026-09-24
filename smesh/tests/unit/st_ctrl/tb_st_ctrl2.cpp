@@ -72,7 +72,9 @@ class StoreDriver : public Component {
   StoreDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(smesh::SmeshIssue, cmd_out);
+  Output(bit, cmd_val);
+  Input(bit, cmd_rdy);
+  Output(smesh::SmeshIssue, cmd_bits);
   Input(bit, dma_req_val);
   Input(smesh::DmaWriteReq, dma_req_bits);
   Output(bit, dma_req_rdy);
@@ -85,6 +87,7 @@ class StoreDriver : public Component {
   Input(u8, control_state);
 
   void update();
+  void updateCommand();
   void reset();
   bool done() const { return done_; }
   bool passed() const { return passed_; }
@@ -131,10 +134,26 @@ class StoreDriver : public Component {
 };
 
 StoreDriver::StoreDriver(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateCommand).reads(cmd_rdy).writes(cmd_val, cmd_bits);
   UPDATE(update)
-      .reads(cmd_out, dma_req_val, dma_req_bits, dma_resp_rdy,
+      .reads(dma_req_val, dma_req_bits, dma_resp_rdy,
              completed_val, completed_bits, control_state)
-      .writes(cmd_out, dma_req_rdy, dma_resp_val, dma_resp_bits, completed_rdy);
+      .writes(dma_req_rdy, dma_resp_val, dma_resp_bits, completed_rdy);
+}
+
+void StoreDriver::updateCommand() {
+  if (Sim::state == Sim::SimResetting || done_) {
+    cmd_val = 0;
+    cmd_bits = smesh::SmeshIssue{};
+    return;
+  }
+
+  const bool command_offer = program_pos_ < program_.size();
+  cmd_val = bit(command_offer);
+  cmd_bits = command_offer ? program_[program_pos_] : smesh::SmeshIssue{};
+  if (command_offer && cmd_rdy == 1) {
+    ++program_pos_;
+  }
 }
 
 void StoreDriver::update() {
@@ -144,10 +163,6 @@ void StoreDriver::update() {
     dma_resp_bits = smesh::DmaWriteResp{};
     completed_rdy = 0;
     return;
-  }
-
-  if (program_pos_ < program_.size() && !cmd_out.full()) {
-    cmd_out.push(program_[program_pos_++]);
   }
 
   const bool response_offer = !pending_.empty() && pending_.front().due_cycle <= cycle_;
@@ -220,6 +235,8 @@ void StoreDriver::reset() {
   cycle_ = 0;
   done_ = false;
   passed_ = true;
+  cmd_val.reset(0);
+  cmd_bits.reset(smesh::SmeshIssue{});
   dma_req_rdy.reset(0);
   dma_resp_val.reset(0);
   dma_resp_bits.reset(smesh::DmaWriteResp{});
@@ -235,7 +252,9 @@ int main(int argc, char* argv[]) {
 
   StoreDriver driver("Driver");
   smesh::StCtrl2 controller("StCtrl2");
-  controller.cmd_in << driver.cmd_out;
+  controller.cmd_val << driver.cmd_val;
+  controller.cmd_bits << driver.cmd_bits;
+  driver.cmd_rdy << controller.cmd_rdy;
   controller.dma_req_rdy << driver.dma_req_rdy;
   controller.dma_resp_val << driver.dma_resp_val;
   controller.dma_resp_bits << driver.dma_resp_bits;

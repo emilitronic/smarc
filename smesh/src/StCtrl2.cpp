@@ -29,7 +29,9 @@ StCtrl2::StCtrl2(std::string /*name*/, IMPL_CTOR) {
   tracker_->clk   << clk;
   state_->clk     << clk;
 
-  cmd_queue_->cmd_in   << cmd_in;
+  cmd_queue_->cmd_val  << cmd_val;
+  cmd_queue_->cmd_bits << cmd_bits;
+  cmd_rdy << cmd_queue_->cmd_rdy;
   cmd_queue_->head_rdy << state_->head_rdy;
 
   decoder_->head_val   << cmd_queue_->head_val;

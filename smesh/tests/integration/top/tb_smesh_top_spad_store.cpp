@@ -64,11 +64,13 @@ class StorePathMonitor : public Component {
   bool sawAlignedTransfer() const { return saw_aligned_transfer_; }
   bool sawDmaWriterTransfer() const { return saw_dma_writer_transfer_; }
   std::uint32_t alignedTransferCount() const { return aligned_transfer_count_; }
+  std::uint32_t writerTransferCount() const { return writer_transfer_count_; }
 
  private:
   bool saw_aligned_transfer_ = false;
   bool saw_dma_writer_transfer_ = false;
   std::uint32_t aligned_transfer_count_ = 0;
+  std::uint32_t writer_transfer_count_ = 0;
 };
 
 TopSpadStoreDriver::TopSpadStoreDriver(std::string /*name*/, IMPL_CTOR) {
@@ -161,6 +163,8 @@ void StorePathMonitor::updateWriter() {
     return;
   }
   const auto writer_req = *dma_writer_req_bits;
+  assert_always(writer_transfer_count_ < smesh::kDim,
+                "store monitor saw extra DMA writer transfer");
   assert_always(writer_req.issue.vaddr == kStoreDramBase,
                 "store monitor saw wrong DMA writer address");
   assert_always(writer_req.issue.dest == 0,
@@ -168,17 +172,20 @@ void StorePathMonitor::updateWriter() {
   assert_always(writer_req.len_bytes == smesh::kDim * sizeof(smesh::Elem),
                 "store monitor saw wrong DMA writer byte count");
   for (std::size_t i = 0; i < smesh::kDim; ++i) {
-    assert_always(writer_req.data[i] == static_cast<std::uint8_t>(0x01 + i),
+    const auto expected = static_cast<std::uint8_t>(0x01 + 0x10 * writer_transfer_count_ + i);
+    assert_always(writer_req.data[i] == expected,
                   "store monitor saw wrong DMA writer data byte");
   }
 
   saw_dma_writer_transfer_ = true;
+  ++writer_transfer_count_;
 }
 
 void StorePathMonitor::reset() {
   saw_aligned_transfer_ = false;
   saw_dma_writer_transfer_ = false;
   aligned_transfer_count_ = 0;
+  writer_transfer_count_ = 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -234,7 +241,7 @@ int main(int argc, char* argv[]) {
                smesh::kDim);
   }
 
-  for (int i = 0; i < 192 && !monitor.sawDmaWriterTransfer(); ++i) {
+  for (int i = 0; i < 192 && monitor.writerTransferCount() < smesh::kDim; ++i) {
     Sim::run();
   }
 
@@ -246,7 +253,8 @@ int main(int argc, char* argv[]) {
 
   const bool monitor_ok = monitor.sawAlignedTransfer() &&
                           monitor.sawDmaWriterTransfer() &&
-                          monitor.alignedTransferCount() == 1;
+                          monitor.alignedTransferCount() == smesh::kDim &&
+                          monitor.writerTransferCount() == smesh::kDim;
   const bool ok = spad_ok && monitor_ok;
   if (!ok) {
     const auto& store0 = top.rs().storeEntry(0);

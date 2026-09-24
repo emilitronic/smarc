@@ -29,19 +29,27 @@ class StCtrlCmdQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshIssue, cmd_in);
+  Input(bit, cmd_val);
+  Output(bit, cmd_rdy);
+  Input(SmeshIssue, cmd_bits);
 
   Output(bit, head_val);          // the front command is valid
   Output(SmeshIssue, head_bits);  // the front command, when valid
   Input(bit, head_rdy);           // the FSM can consume the front command
 
   void updateHeadView();
+  void updateReady();
   void updateStorage();
   void reset();
 
  private:
-  std::array<SmeshIssue, kStCtrlCmdQueueLength> entries_{};
-  std::size_t count_ = 0;
+  struct State {
+    std::array<SmeshIssue, kStCtrlCmdQueueLength> entries{};
+    u8 count = 0;
+  };
+
+  Output(State, state_Q_);
+  Register(State, state_D_);
 };
 
 } // namespace smesh

@@ -22,9 +22,9 @@ SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
   rs_->alloc_in << rs_alloc_out; // allocation interface from shell to RS
   rs_->issue_ld.sendToBitBucket();
   rs_->issue_ex.sendToBitBucket();
-  rs_->issue_st.sendToBitBucket();
+  rs_->issue_st_rdy << store_issue_not_ready_;
   rs_->completed.wireToZero();
-  UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req, rs_alloc_out); // native memory master interface
+  UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req, rs_alloc_out, store_issue_not_ready_); // native memory master interface
 }
 
 SmeshShell::~SmeshShell() {
@@ -32,6 +32,7 @@ SmeshShell::~SmeshShell() {
 }
 
 void SmeshShell::update() {
+  store_issue_not_ready_ = 0;
   // handle external memory operations already in progress
   switch (state_) {
     case State::MvinIssue:
@@ -133,6 +134,7 @@ void SmeshShell::update() {
 }
 
 void SmeshShell::reset() {
+  store_issue_not_ready_.reset(0);
   device_.reset();
   state_ = State::Idle;
   active_ = {};

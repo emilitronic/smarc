@@ -90,7 +90,7 @@ struct SmeshRsEntry {
   SmeshRSOp opb{};
 
   bool issued = false;
-  bool complete_on_issue = false; // TODO: free load/store CONFIG entries when controllers accept them
+  bool complete_on_issue = false; // Store CONFIG retires on issue; Load CONFIG still needs this handling
 
   SmeshCmd cmd{};
   SmeshRsTag rs_tag = 0; // smesh v0 command-completion tag
@@ -154,7 +154,9 @@ public:
   FifoInput(SmeshCmd, alloc_in); // RS allocation input from command front end
   FifoOutput(SmeshIssue, issue_ld);  // RS load issue output to load controller
   FifoOutput(SmeshIssue, issue_ex);  // RS execute issue output to execute controller
-  FifoOutput(SmeshIssue, issue_st);  // RS store issue output to store controller
+  Output(bit,        issue_st_val);  // store issue handshake into StCtrl's command queue
+  Input(bit,         issue_st_rdy);
+  Output(SmeshIssue, issue_st_bits);
   FifoInput(SmeshRsTag, completed);  // RS completion input from load/execute/store controllers
 
   // ********** RS STATUS **********

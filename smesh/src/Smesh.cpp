@@ -129,7 +129,9 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   read_issue_queue_->req_in << ld_ctrl_->dma_req;
   dma_reader_->req_in       << read_issue_queue_->req_out;
   ex_ctrl_->cmd_in << rs_->issue_ex;
-  st_ctrl_->cmd_in << rs_->issue_st;
+  st_ctrl_->cmd_val << rs_->issue_st_val;
+  st_ctrl_->cmd_bits << rs_->issue_st_bits;
+  rs_->issue_st_rdy << st_ctrl_->cmd_rdy;
   write_dispatch_queue_->req_val << st_ctrl_->dma_req_val;
   write_dispatch_queue_->req_bits << st_ctrl_->dma_req_bits;
   st_ctrl_->dma_req_rdy << write_dispatch_queue_->req_rdy;

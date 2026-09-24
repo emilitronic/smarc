@@ -18,8 +18,7 @@ ArbExLdStComplete::ArbExLdStComplete(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ArbExLdStComplete::update() {
-  st_completed_rdy = bit(!rs_completed.full() && ex_completed_val == 0 &&
-                         ld_completed.empty());
+  st_completed_rdy = bit(!rs_completed.full() && ex_completed_val == 0 && ld_completed.empty());
   if (rs_completed.full()) {
     return;
   }

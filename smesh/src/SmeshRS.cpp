@@ -261,7 +261,7 @@ SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
   UPDATE(updateIssueLoad).writes(issue_ld);
   UPDATE(updateIssueExecute).writes(issue_ex);
-  UPDATE(updateIssueStore).writes(issue_st);
+  UPDATE(updateIssueStore).reads(issue_st_rdy).writes(issue_st_val, issue_st_bits);
   UPDATE(updateComplete).reads(completed);
 }
 
@@ -523,13 +523,11 @@ void SmeshRS::updateIssueExecute() {
   markIssued(entry->rs_tag);
 }
 
-// runs each cycle ("update"): send oldest ready store command to StCtrl and mark its RS entry issued
+// Present the oldest ready Store command; retire CONFIG or mark STORE issued on acceptance.
 void SmeshRS::updateIssueStore() {
-  if (!store_issue_port_enabled_ || issue_st.full()) {
-    return;
-  }
-
-  const auto* entry = issueStore(); // scan load RS entries & pick oldest that's valid, not issued, ready (no deps)
+  const auto* entry = store_issue_port_enabled_ ? issueStore() : nullptr;
+  issue_st_val = bit(entry != nullptr);
+  issue_st_bits = SmeshIssue{};
   if (entry == nullptr) {
     return;
   }
@@ -538,11 +536,16 @@ void SmeshRS::updateIssueStore() {
   issue.cmd = entry->cmd;
   issue.rs_tag_valid = true;
   issue.rs_tag = entry->rs_tag;
-  issue_st.push(issue);
-  markIssued(entry->rs_tag);
+  issue_st_bits = issue;
+  if (issue_st_rdy == 1) {
+    if (entry->complete_on_issue) {
+      assert_always(complete(entry->rs_tag), "SmeshRS could not retire issued Store CONFIG");
+    } else {
+      markIssued(entry->rs_tag);
+    }
+  }
 }
-// mark RS entry found by issue (based on rs_tag) as issued once controller accepts it
-// (note this is purely conceptual, SmeshShell just runs markIssued() after issue() for now)
+// Mark a normal issued command as waiting for its completion.
 bool SmeshRS::markIssued(SmeshRsTag rs_tag) {
   for (auto& entry : entries_ld_) {
     if (entry.valid && entry.rs_tag == rs_tag) {

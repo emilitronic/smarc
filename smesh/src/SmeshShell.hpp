@@ -88,6 +88,7 @@ class SmeshShell : public Component {
 
   SmeshDevice  device_;       // compute, spad, and accum
   SmeshRS*     rs_ = nullptr;
+  Output(bit, store_issue_not_ready_);
   ActiveMemCmd active_{};     // cmd data being processed
   State state_ = State::Idle; // control phase state
 

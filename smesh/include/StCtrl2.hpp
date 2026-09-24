@@ -27,15 +27,17 @@ class StCtrl2 : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshIssue, cmd_in);
-  Output(bit, dma_req_val);
-  Input(bit, dma_req_rdy);
+  Input(bit,        cmd_val);
+  Output(bit,       cmd_rdy);
+  Input(SmeshIssue, cmd_bits);
+  Output(bit,         dma_req_val);
+  Input(bit,          dma_req_rdy);
   Output(DmaWriteReq, dma_req_bits);
-  Input(bit, dma_resp_val);
-  Output(bit, dma_resp_rdy);
+  Input(bit,          dma_resp_val);
+  Output(bit,         dma_resp_rdy);
   Input(DmaWriteResp, dma_resp_bits);
-  Output(bit, completed_val);
-  Input(bit, completed_rdy);
+  Output(bit,        completed_val);
+  Input(bit,         completed_rdy);
   Output(SmeshRsTag, completed_bits);
   Output(u8, control_state);
 
