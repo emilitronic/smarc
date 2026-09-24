@@ -119,7 +119,9 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out;
   rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;
   ld_ctrl_->cmd_in << rs_->issue_ld;
-  completion_arb_->ld_completed << ld_ctrl_->completed;
+  completion_arb_->ld_completed_val  << ld_ctrl_->completed_val;
+  completion_arb_->ld_completed_bits << ld_ctrl_->completed_bits;
+  ld_ctrl_->completed_rdy << completion_arb_->ld_completed_rdy;
   completion_arb_->ex_completed_val << ex_ctrl_->completed_val;
   completion_arb_->ex_completed_bits << ex_ctrl_->completed_bits;
   completion_arb_->st_completed_val << st_ctrl_->completed_val;

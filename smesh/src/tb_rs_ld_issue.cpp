@@ -8,6 +8,7 @@
 #include <descore/Parameter.hpp>
 
 #include "ArbWriteLocal.hpp"
+#include "ArbComplete.hpp"
 #include "DmaReader.hpp"
 #include "LdCtrl.hpp"
 #include "MvinLocalRouter.hpp"
@@ -52,6 +53,7 @@ class ZeroSpadReadDriver : public Component {
   Clock(clk);
   Output(bit, zero_bit);
   Output(bit, one_bit);
+  Output(smesh::SmeshRsTag, zero_tag);
   Output(smesh::DmaReadResp, dma_read_resp);
   Output(smesh::SpadBankReadReq, read_req);
 
@@ -87,12 +89,13 @@ void RsAllocDriver::reset() {
 }
 
 ZeroSpadReadDriver::ZeroSpadReadDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(zero_bit, one_bit, dma_read_resp, read_req);
+  UPDATE(update).writes(zero_bit, one_bit, zero_tag, dma_read_resp, read_req);
 }
 
 void ZeroSpadReadDriver::update() {
   zero_bit = 0;
   one_bit = 1;
+  zero_tag = 0;
   dma_read_resp = smesh::DmaReadResp{};
   read_req = smesh::SpadBankReadReq{};
 }
@@ -105,6 +108,7 @@ int main(int argc, char* argv[]) {
   RsAllocDriver driver("Driver");
   smesh::SmeshRS rs("RS");
   smesh::LdCtrl ld_ctrl("LdCtrl");
+  smesh::ArbExLdStComplete completion_arb("CompletionArb");
   smesh::DmaReader dma_reader("DmaReader");
   smesh::MvinScale mvin_scale("MvinScale");
   smesh::MvinPixelRepeater pixel_repeater("MvinPixelRepeater");
@@ -123,7 +127,14 @@ int main(int argc, char* argv[]) {
   ld_ctrl.cmd_in << rs.issue_ld;
   rs.issue_ex.sendToBitBucket();
   rs.issue_st_rdy << zero_spad_read.zero_bit;
-  rs.completed << ld_ctrl.completed;
+  completion_arb.ex_completed_val << zero_spad_read.zero_bit;
+  completion_arb.ex_completed_bits << zero_spad_read.zero_tag;
+  completion_arb.ld_completed_val << ld_ctrl.completed_val;
+  completion_arb.ld_completed_bits << ld_ctrl.completed_bits;
+  ld_ctrl.completed_rdy << completion_arb.ld_completed_rdy;
+  completion_arb.st_completed_val << zero_spad_read.zero_bit;
+  completion_arb.st_completed_bits << zero_spad_read.zero_tag;
+  rs.completed << completion_arb.rs_completed;
   dma_reader.req_in << ld_ctrl.dma_req;
   mem.in_core_req << dma_reader.mem_req;
   dma_reader.mem_resp << mem.out_core_resp;
@@ -169,6 +180,7 @@ int main(int argc, char* argv[]) {
   driver.clk << clk;
   rs.clk << clk;
   ld_ctrl.clk << clk;
+  completion_arb.clk << clk;
   dma_reader.clk << clk;
   mvin_scale.clk << clk;
   pixel_repeater.clk << clk;
@@ -198,7 +210,8 @@ int main(int argc, char* argv[]) {
                smesh::kDim);
   }
   rs.setLoadIssuePortEnabled(true);
-  for (int i = 0; i < 96 && !(ld_ctrl.hasDmaResponse() && rs.empty()); ++i) {
+  for (int i = 0; i < 96 && !(ld_ctrl.hasDmaResponse() &&
+                              !ld_ctrl.hasActiveCommand() && rs.empty()); ++i) {
     Sim::run();
   }
 
@@ -228,6 +241,13 @@ int main(int argc, char* argv[]) {
                              ld_ctrl.responseRsTag() == 1 &&
                              rs.empty();
   const bool ok = command_ok && request_ok && spad_ok && completion_ok;
+  if (!ok) {
+    std::printf("  command=%u request=%u spad=%u completion=%u active=%u dma_resp=%u expected=%u returned=%u rs_empty=%u\n",
+                unsigned(command_ok), unsigned(request_ok), unsigned(spad_ok),
+                unsigned(completion_ok), unsigned(ld_ctrl.hasActiveCommand()),
+                unsigned(ld_ctrl.hasDmaResponse()), unsigned(ld_ctrl.expectedBytes()),
+                unsigned(ld_ctrl.returnedBytes()), unsigned(rs.empty()));
+  }
   for (auto* arb : arb_spad) {
     delete arb;
   }
