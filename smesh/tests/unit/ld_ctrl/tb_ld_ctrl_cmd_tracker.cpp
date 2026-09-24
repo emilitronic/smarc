@@ -2,6 +2,7 @@
 // smesh/tests/unit/ld_ctrl/tb_ld_ctrl_cmd_tracker.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
+// The focused trace covers a full tracker, out-of-order returns, completion backpressure, and slot reuse.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>

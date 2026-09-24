@@ -29,7 +29,7 @@ struct SmeshConfig {
 
   std::size_t load_states   =  3;
   bool has_first_layer_optimizations = false;
-  std::size_t max_in_flight_mem_reqs = 16;
+  std::size_t max_in_flight_mem_reqs = 16; // default up to 16 in-flight mem reqs for load
 
   std::size_t elem_bits     =  8;
   std::size_t acc_bits      = 32;

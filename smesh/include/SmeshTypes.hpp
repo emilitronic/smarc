@@ -24,8 +24,7 @@ constexpr std::size_t kAccBanks         = kDefaultConfig.acc_banks;
 constexpr std::size_t kAccBankRows      = kDefaultConfig.acc_bank_rows;
 constexpr std::size_t kAccRows          = kAccBanks * kAccBankRows;          // total rows in accumulator
 constexpr std::size_t kLoadStates       = kDefaultConfig.load_states;        // mvin/mvin2/mvin3 stride states
-constexpr std::size_t kLoadCmdTrackerEntries =
-    kDefaultConfig.max_in_flight_mem_reqs / kDim + 1;
+constexpr std::size_t kLoadCmdTrackerEntries = kDefaultConfig.max_in_flight_mem_reqs / kDim + 1; // e.g., if 16 in-flight mem req, and a 4x4 systolic, then use 16/4+1=5 entries in the load command tracker
 constexpr std::size_t kRsLoadEntries    = kDefaultConfig.rs_load_entries;    // M4v0 RS load slots
 constexpr std::size_t kRsExecuteEntries = kDefaultConfig.rs_execute_entries; // M4v0 RS execute slots
 constexpr std::size_t kRsStoreEntries   = kDefaultConfig.rs_store_entries;   // M4v0 RS store slots

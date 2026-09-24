@@ -2,6 +2,10 @@
 // smesh/include/LdCtrlCmdTracker.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
+/*
+The tracker accepts a computed byte count, accountsfor returned bytes by 
+command ID, and retains a completion until it is accepted.
+*/
 
 #pragma once
 

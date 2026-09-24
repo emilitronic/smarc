@@ -22,14 +22,14 @@ LdCtrlCmdTracker::LdCtrlCmdTracker(std::string /*name*/, IMPL_CTOR) {
 }
 
 void LdCtrlCmdTracker::updateView() {
-  const auto q = *tracker_Q_;
-  bool found_free = false;
+  const auto q        = *tracker_Q_;
+  bool found_free     = false;
   bool found_complete = false;
-  bool any_valid = false;
+  bool any_valid      = false;
   std::size_t free_id = 0;
   std::size_t complete_id = 0;
 
-  for (std::size_t i = 0; i < kLoadCmdTrackerEntries; ++i) {
+  for (std::size_t i = 0; i < kLoadCmdTrackerEntries; ++i) { // 5 entries for 16 in-flight mem reqs and 4x4 systolic
     const auto& entry = q.entries[i];
     any_valid |= entry.valid == 1;
     if (!found_free && entry.valid == 0) {
@@ -68,10 +68,8 @@ void LdCtrlCmdTracker::updateState() {
                   "Load command tracker response ID is out of range");
     if (id < kLoadCmdTrackerEntries) {
       const auto& entry = q.entries[id];
-      assert_always(entry.valid == 1,
-                    "Load command tracker response targets a free entry");
-      assert_always(bytes <= entry.bytes_left,
-                    "Load command tracker response exceeds remaining bytes");
+      assert_always(entry.valid == 1, "Load command tracker response targets a free entry");
+      assert_always(bytes <= entry.bytes_left, "Load command tracker response exceeds remaining bytes");
       if (entry.valid == 1 && bytes <= entry.bytes_left) {
         next.entries[id].bytes_left = entry.bytes_left - bytes;
         trace(ld_ctrl_tracker_, "return id=%u bytes=%u left=%u\n",
