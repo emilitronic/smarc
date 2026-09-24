@@ -30,6 +30,7 @@ add_library(smesh_model
   src/LdCtrl.cpp
   src/LdCtrlCmdDec.cpp
   src/LdCtrlQueues.cpp
+  src/LdCtrlState.cpp
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
