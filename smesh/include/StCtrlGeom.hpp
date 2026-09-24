@@ -11,7 +11,7 @@ Store-controller pooling and moveout geometry.
   - pooling coordinates and negative-padding flags;
   - garbage local addresses for padded pooling elements;
   - pool_vaddr, pool_total_rows, and mvout_1d_rows.
-  
+
 This block is purely combinational. Configuration registers and runtime
 counters are owned by the store-controller state block and supplied here.
 */
@@ -56,10 +56,10 @@ class StCtrlGeom : public Component {
 
   Output(bit, pooling_is_enabled);
   Output(bit, mvout_1d_enabled);
-  Output(u32, orow);
-  Output(u32, ocol);
-  Output(bit, orow_is_negative);
-  Output(bit, ocol_is_negative);
+  Output(u32, orow); // currently only for observation
+  Output(u32, ocol); // currently only for observation
+  Output(bit, orow_is_negative); // currently only for observation
+  Output(bit, ocol_is_negative); // currently only for observation
   Output(u32, pool_total_rows);
   Output(u32, mvout_1d_rows);
 

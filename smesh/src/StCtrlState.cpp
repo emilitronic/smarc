@@ -131,7 +131,7 @@ void StCtrlState::updateTransition() {
   head_rdy = 0;
   // State transition logic
   if (state == StCtrlFsmState::WaitingForCommand && head_val == 1) {
-    // TODO: Confirm whether CONFIG commands must report completion to the RS.
+    // Store CONFIG commands need RS issue completion, not a DMA tracker completion.
     if (do_config == 1) { // CONFIG_STORE branch, copy decoded settings into next
       next.stride         = *config_stride;
       next.activation     = *config_activation;

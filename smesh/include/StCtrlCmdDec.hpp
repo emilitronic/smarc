@@ -40,7 +40,7 @@ class StCtrlCmdDec : public Component {
   Output(u32, cols);
   Output(u32, blocks);
 
-  Output(u8, config_cmd_type);
+  Output(u8, config_cmd_type); // for observation only
   Output(u32, config_stride);
   Output(u8, config_activation);
   Output(u32, config_acc_scale);

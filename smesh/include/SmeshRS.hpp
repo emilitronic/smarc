@@ -90,7 +90,7 @@ struct SmeshRsEntry {
   SmeshRSOp opb{};
 
   bool issued = false;
-  bool complete_on_issue = false; // TODO: use this when issue/free timing is modeled
+  bool complete_on_issue = false; // TODO: free load/store CONFIG entries when controllers accept them
 
   SmeshCmd cmd{};
   SmeshRsTag rs_tag = 0; // smesh v0 command-completion tag
