@@ -30,6 +30,7 @@ add_library(smesh_model
   src/LdCtrl.cpp
   src/LdCtrlCmdDec.cpp
   src/LdCtrlCmdTracker.cpp
+  src/LdCtrlDmaReq.cpp
   src/LdCtrlGeom.cpp
   src/LdCtrlQueues.cpp
   src/LdCtrlState.cpp
