@@ -16,7 +16,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   ld_ctrl_              = new LdCtrl("LdCtrl");
   read_issue_queue_     = new DmaReadIssueQueue("DmaReadIssueQueue");
   ex_ctrl_              = new ExCtrl("ExCtrl");
-  st_ctrl_              = new StCtrl2("StCtrl2");
+  st_ctrl_              = new StCtrl("StCtrl");
   write_dispatch_queue_ = new DmaWriteDispatchQueue("DmaWriteDispatchQueue");
   st_read_ctrl_         = new StReadCtrl("StReadCtrl");
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {

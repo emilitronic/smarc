@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/tests/unit/st_ctrl/tb_st_ctrl2.cpp
+// smesh/tests/unit/st_ctrl/tb_st_ctrl.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 22 2026
 // Exercises store command retention, request timing, geometry, and completion.
@@ -8,7 +8,7 @@
 #include <descore/Parameter.hpp>
 
 #include "SmeshCommand.hpp"
-#include "StCtrl2.hpp"
+#include "StCtrl.hpp"
 #include "StCtrlState.hpp"
 
 #include <array>
@@ -251,7 +251,7 @@ int main(int argc, char* argv[]) {
   Sim::parseDumps(argc, argv);
 
   StoreDriver driver("Driver");
-  smesh::StCtrl2 controller("StCtrl2");
+  smesh::StCtrl controller("StCtrl");
   controller.cmd_val << driver.cmd_val;
   controller.cmd_bits << driver.cmd_bits;
   driver.cmd_rdy << controller.cmd_rdy;

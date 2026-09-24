@@ -43,7 +43,6 @@ add_library(smesh_model
   src/SpadReadPipes.cpp
   src/SpadWriter.cpp
   src/StCtrl.cpp
-  src/StCtrl2.cpp
   src/StCtrlCmdDec.cpp
   src/StCtrlCmdTracker.cpp
   src/StCtrlDmaReq.cpp

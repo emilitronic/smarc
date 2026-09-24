@@ -3,7 +3,7 @@ set(ST_CTRL_UNIT_TESTS
   tb_st_ctrl_cmd_tracker
   tb_st_ctrl_dma_req
   tb_st_ctrl_geom
-  tb_st_ctrl2
+  tb_st_ctrl
 )
 
 foreach(test_target IN LISTS ST_CTRL_UNIT_TESTS)
@@ -29,14 +29,14 @@ add_test(NAME smesh_unit_st_ctrl_cmd_dec COMMAND tb_st_ctrl_cmd_dec)
 add_test(NAME smesh_unit_st_ctrl_cmd_tracker COMMAND tb_st_ctrl_cmd_tracker)
 add_test(NAME smesh_unit_st_ctrl_dma_req COMMAND tb_st_ctrl_dma_req)
 add_test(NAME smesh_unit_st_ctrl_geom COMMAND tb_st_ctrl_geom)
-add_test(NAME smesh_unit_st_ctrl2 COMMAND tb_st_ctrl2)
+add_test(NAME smesh_unit_st_ctrl COMMAND tb_st_ctrl)
 
 set_tests_properties(
   smesh_unit_st_ctrl_cmd_dec
   smesh_unit_st_ctrl_cmd_tracker
   smesh_unit_st_ctrl_dma_req
   smesh_unit_st_ctrl_geom
-  smesh_unit_st_ctrl2
+  smesh_unit_st_ctrl
   PROPERTIES
     LABELS "unit;st_ctrl"
     TIMEOUT 10
