@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
 /*
-The tracker accepts a computed byte count, accountsfor returned bytes by 
+The tracker accepts a computed byte count, accounts for returned bytes by 
 command ID, and retains a completion until it is accepted.
 */
 
