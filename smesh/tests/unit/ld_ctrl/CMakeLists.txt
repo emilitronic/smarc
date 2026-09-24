@@ -5,6 +5,7 @@ set(LD_CTRL_UNIT_TESTS
   tb_ld_ctrl_dma_req
   tb_ld_ctrl_geom
   tb_ld_ctrl_state
+  tb_ld_ctrl_state_fsm
 )
 
 foreach(test_target IN LISTS LD_CTRL_UNIT_TESTS)
@@ -20,8 +21,9 @@ add_test(NAME smesh_unit_ld_ctrl_cmd_tracker COMMAND tb_ld_ctrl_cmd_tracker)
 add_test(NAME smesh_unit_ld_ctrl_dma_req COMMAND tb_ld_ctrl_dma_req)
 add_test(NAME smesh_unit_ld_ctrl_geom COMMAND tb_ld_ctrl_geom)
 add_test(NAME smesh_unit_ld_ctrl_state COMMAND tb_ld_ctrl_state)
+add_test(NAME smesh_unit_ld_ctrl_state_fsm COMMAND tb_ld_ctrl_state_fsm)
 set_tests_properties(smesh_unit_ld_ctrl_cmd_queue smesh_unit_ld_ctrl_cmd_dec
   smesh_unit_ld_ctrl_cmd_tracker
   smesh_unit_ld_ctrl_dma_req
-  smesh_unit_ld_ctrl_geom smesh_unit_ld_ctrl_state
+  smesh_unit_ld_ctrl_geom smesh_unit_ld_ctrl_state smesh_unit_ld_ctrl_state_fsm
   PROPERTIES LABELS "unit;ld_ctrl" TIMEOUT 10)

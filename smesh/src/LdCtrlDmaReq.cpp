@@ -21,7 +21,7 @@ LdCtrlDmaReq::LdCtrlDmaReq(std::string /*name*/, IMPL_CTOR) {
 }
 
 void LdCtrlDmaReq::updateWidthAndCount() {
-  const bool full_width = current_localaddr->is_acc_addr() && shrink == 0;
+  const bool full_width    = current_localaddr->is_acc_addr() && shrink == 0;
   const auto element_bytes = full_width ? sizeof(Acc) : sizeof(Elem);
   const auto bytes = static_cast<std::uint64_t>(*cols) *
                      static_cast<std::uint64_t>(*actual_rows_read) * element_bytes;
