@@ -30,28 +30,52 @@ void DmaReadIssueQueue::update() {
 }
 
 DmaWriteDispatchQueue::DmaWriteDispatchQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateDeqView).reads(req_in).writes(deq_val, deq_bits);
-  UPDATE(updateDeqPop).reads(deq_rdy);
+  entry_Q_ <= entry_D_;
+  UPDATE(updateDeqView).reads(entry_Q_).writes(deq_val, deq_bits);
+  UPDATE(updateEnqReady).reads(entry_Q_, deq_rdy).writes(req_rdy);
+  UPDATE(updateStorage)
+      .reads(entry_Q_, req_val, req_rdy, req_bits, deq_rdy)
+      .writes(entry_D_);
 }
 // expose head of queue to outside logic
 void DmaWriteDispatchQueue::updateDeqView() {
-  deq_val = bit(!req_in.empty());  // if there's a command at head of queue, assert deq_val
-  deq_bits = req_in.empty() ? DmaWriteReq{} : req_in.peek(); // if queue is empty, drive blank request, else expose head of queue w/o consuming it
+  const auto entry = *entry_Q_;
+  deq_val = entry.valid;
+  deq_bits = entry.valid == 1 ? entry.bits : DmaWriteReq{};
 }
-// pop head of queue if outside logic says it's ok to advance
-void DmaWriteDispatchQueue::updateDeqPop() {
-  if (req_in.empty() || deq_rdy == 0) {  // don't consume command unless outside logic says this entry fires
-    return;
+void DmaWriteDispatchQueue::updateEnqReady() {
+  const auto entry = *entry_Q_;
+  req_rdy = bit(entry.valid == 0 || deq_rdy == 1);
+}
+// A dequeue frees the slot for another request in the same cycle.
+void DmaWriteDispatchQueue::updateStorage() {
+  const auto current = *entry_Q_;
+  auto next = current;
+  const bool pop = current.valid == 1 && deq_rdy == 1;
+  const bool push = req_val == 1 && req_rdy == 1;
+
+  if (pop) {
+    const auto& req = current.bits;
+    trace("dma_write_dispatch_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
+          static_cast<unsigned long long>(req.vaddr),
+          static_cast<unsigned>(req.laddr.raw),
+          static_cast<unsigned>(req.len),
+          static_cast<unsigned>(req.block),
+          static_cast<unsigned>(req.cmd_id));
+    next = Entry{};
   }
+  if (push) {
+    next.valid = 1;
+    next.bits = *req_bits;
+  }
+  entry_D_ = next;
+}
 
-  const auto req = req_in.pop();
-
-  trace("dma_write_dispatch_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
-        static_cast<unsigned long long>(req.vaddr),
-        static_cast<unsigned>(req.laddr.raw),
-        static_cast<unsigned>(req.len),
-        static_cast<unsigned>(req.block),
-        static_cast<unsigned>(req.cmd_id));
+void DmaWriteDispatchQueue::reset() {
+  entry_D_.reset(Entry{});
+  req_rdy.reset(0);
+  deq_val.reset(0);
+  deq_bits.reset(DmaWriteReq{});
 }
 
 DmaWriteNormQueue::DmaWriteNormQueue(std::string /*name*/, IMPL_CTOR) {

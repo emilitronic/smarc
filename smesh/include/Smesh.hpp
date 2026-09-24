@@ -34,7 +34,7 @@ smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 #include "Spad.hpp"
 #include "SpadReadPipes.hpp"
 #include "SpadWriter.hpp"
-#include "StCtrl.hpp"
+#include "StCtrl2.hpp"
 #include "StIssueCtrl.hpp"
 #include "StIssueMux.hpp"
 #include "StNormCtrl.hpp"
@@ -108,7 +108,7 @@ class Smesh : public Component {
   LdCtrl*                  ld_ctrl_ = nullptr;
   DmaReadIssueQueue*       read_issue_queue_ = nullptr;
   ExCtrl*                  ex_ctrl_ = nullptr;
-  StCtrl*                  st_ctrl_ = nullptr;
+  StCtrl2*                 st_ctrl_ = nullptr;
   DmaWriteDispatchQueue*   write_dispatch_queue_ = nullptr;
   StReadCtrl*              st_read_ctrl_ = nullptr;
   std::array<ArbReadSpad*, kSpBanks> arb_read_spad_{};
@@ -117,6 +117,7 @@ class Smesh : public Component {
   std::array<ArbWriteAccum*, kAccBanks> arb_write_accum_{};
   Output(bit, write_arb_zero_val_);
   Output(DmaReadResp, write_arb_zero_bits_);
+  Output(bit, st_completed_hold_);
   WriteCtrl*               write_ctrl_ = nullptr;
   std::array<ArbRespSpad*, kSpBanks> arb_resp_spad_{};
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
