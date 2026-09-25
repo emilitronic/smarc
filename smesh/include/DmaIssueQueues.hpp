@@ -22,10 +22,14 @@ class DmaReadIssueQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaReadReq, req_in);
+  Input(bit, req_val);
+  Output(bit, req_rdy);
+  Input(DmaReadReq, req_bits);
   FifoOutput(DmaReadReq, req_out);
 
+  void updateReady();
   void update();
+  void reset();
 };
 
 class DmaWriteDispatchQueue : public Component {

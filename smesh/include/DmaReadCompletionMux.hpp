@@ -24,9 +24,11 @@ class DmaReadCompletionMux : public Component {
 
   FifoInput(DmaReadCompletion, spad_in);
   FifoInput(DmaReadCompletion, accum_in);
-  FifoOutput(DmaReadCompletion, dma_resp);
+  Output(bit, dma_resp_val);
+  Output(DmaReadCompletion, dma_resp_bits);
 
   void update();
+  void reset();
 };
 
 } // namespace smesh

@@ -152,7 +152,9 @@ public:
 
   Clock(clk);
   FifoInput(SmeshCmd, alloc_in); // RS allocation input from command front end
-  FifoOutput(SmeshIssue, issue_ld);  // RS load issue output to load controller
+  Output(bit,        issue_ld_val);
+  Input(bit,         issue_ld_rdy);
+  Output(SmeshIssue, issue_ld_bits);
   FifoOutput(SmeshIssue, issue_ex);  // RS execute issue output to execute controller
   Output(bit,        issue_st_val);  // store issue handshake into StCtrl's command queue
   Input(bit,         issue_st_rdy);

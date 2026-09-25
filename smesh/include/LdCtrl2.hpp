@@ -34,8 +34,8 @@ class LdCtrl2 : public Component {
   Output(bit,        dma_req_val);
   Input(bit,         dma_req_rdy);
   Output(DmaReadReq, dma_req_bits);
-  Input(bit,               dma_resp_val);
-  Input(DmaReadCompletion, dma_resp_bits);
+  Input(bit,               dma_resp_val);  // no rdy backpressure, just update tracker
+  Input(DmaReadCompletion, dma_resp_bits); // just cmd_id and bytesRead
 
   Output(bit,        completed_val);
   Input(bit,         completed_rdy);

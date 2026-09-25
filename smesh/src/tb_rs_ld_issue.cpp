@@ -9,8 +9,10 @@
 
 #include "ArbWriteLocal.hpp"
 #include "ArbComplete.hpp"
+#include "DmaIssueQueues.hpp"
+#include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
-#include "LdCtrl.hpp"
+#include "LdCtrl2.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
@@ -107,7 +109,9 @@ int main(int argc, char* argv[]) {
 
   RsAllocDriver driver("Driver");
   smesh::SmeshRS rs("RS");
-  smesh::LdCtrl ld_ctrl("LdCtrl");
+  smesh::LdCtrl2 ld_ctrl("LdCtrl");
+  smesh::DmaReadIssueQueue read_issue_queue("ReadIssueQueue");
+  smesh::DmaReadCompletionMux completion_mux("CompletionMux");
   smesh::ArbExLdStComplete completion_arb("CompletionArb");
   smesh::DmaReader dma_reader("DmaReader");
   smesh::MvinScale mvin_scale("MvinScale");
@@ -124,7 +128,9 @@ int main(int argc, char* argv[]) {
   smem::Dram dram("Dram", 0);
 
   rs.alloc_in << driver.alloc_out;
-  ld_ctrl.cmd_in << rs.issue_ld;
+  ld_ctrl.cmd_val << rs.issue_ld_val;
+  ld_ctrl.cmd_bits << rs.issue_ld_bits;
+  rs.issue_ld_rdy << ld_ctrl.cmd_rdy;
   rs.issue_ex.sendToBitBucket();
   rs.issue_st_rdy << zero_spad_read.zero_bit;
   completion_arb.ex_completed_val << zero_spad_read.zero_bit;
@@ -135,7 +141,10 @@ int main(int argc, char* argv[]) {
   completion_arb.st_completed_val << zero_spad_read.zero_bit;
   completion_arb.st_completed_bits << zero_spad_read.zero_tag;
   rs.completed << completion_arb.rs_completed;
-  dma_reader.req_in << ld_ctrl.dma_req;
+  read_issue_queue.req_val << ld_ctrl.dma_req_val;
+  read_issue_queue.req_bits << ld_ctrl.dma_req_bits;
+  ld_ctrl.dma_req_rdy << read_issue_queue.req_rdy;
+  dma_reader.req_in << read_issue_queue.req_out;
   mem.in_core_req << dma_reader.mem_req;
   dma_reader.mem_resp << mem.out_core_resp;
   mvin_scale.data_in << dma_reader.resp_out;
@@ -170,7 +179,10 @@ int main(int argc, char* argv[]) {
     write_ctrl.arb_accum_dmaread_rdy[bank] << zero_spad_read.zero_bit;
     write_ctrl.arb_accum_dmaread_full_rdy[bank] << zero_spad_read.zero_bit;
   }
-  ld_ctrl.dma_resp << spad.dma_resp;
+  completion_mux.spad_in << spad.dma_resp;
+  completion_mux.accum_in.wireToZero();
+  ld_ctrl.dma_resp_val << completion_mux.dma_resp_val;
+  ld_ctrl.dma_resp_bits << completion_mux.dma_resp_bits;
   mem.in_core_req.setDelay(1);
   dram.s_req << mem.s_req;
   mem.s_resp << dram.s_resp;
@@ -179,6 +191,8 @@ int main(int argc, char* argv[]) {
   Clock clk;
   driver.clk << clk;
   rs.clk << clk;
+  read_issue_queue.clk << clk;
+  completion_mux.clk << clk;
   ld_ctrl.clk << clk;
   completion_arb.clk << clk;
   dma_reader.clk << clk;
@@ -210,23 +224,22 @@ int main(int argc, char* argv[]) {
                smesh::kDim);
   }
   rs.setLoadIssuePortEnabled(true);
-  for (int i = 0; i < 96 && !(ld_ctrl.hasDmaResponse() &&
-                              !ld_ctrl.hasActiveCommand() && rs.empty()); ++i) {
+  bool saw_load_completion = false;
+  for (int i = 0; i < 96 && !(saw_load_completion && rs.empty() && ld_ctrl.busy == 0); ++i) {
     Sim::run();
+    if (ld_ctrl.completed_val == 1 && ld_ctrl.completed_bits == 1) {
+      saw_load_completion = true;
+    }
   }
 
-  const auto& issue = ld_ctrl.activeCommand();
   const auto& req = dma_reader.activeRequest();
-  const bool command_ok = !ld_ctrl.hasActiveCommand() &&
-                          issue.rs_tag == 1 &&
-                          static_cast<std::uint32_t>(issue.cmd.funct) ==
-                              static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin);
+  const bool command_ok = ld_ctrl.busy == 0 && rs.empty();
   const bool request_ok = static_cast<std::uint64_t>(req.vaddr) ==
                               kDramBase + (smesh::kDim - 1) * kDramRowStride &&
                           req.laddr.raw == smesh::makeSpAddr(3).raw &&
                           static_cast<std::uint16_t>(req.cols) == smesh::kDim &&
                           static_cast<std::uint16_t>(req.block_stride) == kLoadBlockStride &&
-                          static_cast<std::uint16_t>(req.cmd_id) == 1;
+                          static_cast<std::uint16_t>(req.cmd_id) == 0;
   bool spad_ok = spad.hasAcceptedWrite();
   for (std::size_t r = 0; r < smesh::kDim; ++r) {
     const auto& spad_row = spad.row(smesh::makeSpAddr(static_cast<std::uint32_t>(r)));
@@ -235,18 +248,13 @@ int main(int argc, char* argv[]) {
                 spad_row[c] == static_cast<smesh::Elem>(rows[r * smesh::kDim + c]);
     }
   }
-  const bool completion_ok = ld_ctrl.hasDmaResponse() &&
-                             ld_ctrl.expectedBytes() == smesh::kDim * smesh::kDim &&
-                             ld_ctrl.returnedBytes() == smesh::kDim * smesh::kDim &&
-                             ld_ctrl.responseRsTag() == 1 &&
-                             rs.empty();
+  const bool completion_ok = saw_load_completion && rs.empty();
   const bool ok = command_ok && request_ok && spad_ok && completion_ok;
   if (!ok) {
-    std::printf("  command=%u request=%u spad=%u completion=%u active=%u dma_resp=%u expected=%u returned=%u rs_empty=%u\n",
+    std::printf("  command=%u request=%u spad=%u completion=%u busy=%u saw_load_completion=%u rs_empty=%u\n",
                 unsigned(command_ok), unsigned(request_ok), unsigned(spad_ok),
-                unsigned(completion_ok), unsigned(ld_ctrl.hasActiveCommand()),
-                unsigned(ld_ctrl.hasDmaResponse()), unsigned(ld_ctrl.expectedBytes()),
-                unsigned(ld_ctrl.returnedBytes()), unsigned(rs.empty()));
+                unsigned(completion_ok), unsigned(ld_ctrl.busy == 1),
+                unsigned(saw_load_completion), unsigned(rs.empty()));
   }
   for (auto* arb : arb_spad) {
     delete arb;

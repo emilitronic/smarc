@@ -20,7 +20,7 @@ SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
   // CONNECTIONS
   rs_->clk << clk;
   rs_->alloc_in << rs_alloc_out; // allocation interface from shell to RS
-  rs_->issue_ld.sendToBitBucket();
+  rs_->issue_ld_rdy << store_issue_not_ready_;
   rs_->issue_ex.sendToBitBucket();
   rs_->issue_st_rdy << store_issue_not_ready_;
   rs_->completed.wireToZero();

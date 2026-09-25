@@ -13,7 +13,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   unrolled_cmd_queue_   = new SmeshUnrolledCmdQueue("UnrolledCmdQueue");
   rs_                   = new SmeshRS("RS");
   completion_arb_       = new ArbExLdStComplete("ArbExLdStComplete");
-  ld_ctrl_              = new LdCtrl("LdCtrl");
+  ld_ctrl_              = new LdCtrl2("LdCtrl");
   read_issue_queue_     = new DmaReadIssueQueue("DmaReadIssueQueue");
   ex_ctrl_              = new ExCtrl("ExCtrl");
   st_ctrl_              = new StCtrl("StCtrl");
@@ -118,7 +118,9 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   cmd_ready             << cmd_queue_->cmd_ready;
   unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out;
   rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;
-  ld_ctrl_->cmd_in << rs_->issue_ld;
+  ld_ctrl_->cmd_val << rs_->issue_ld_val;
+  ld_ctrl_->cmd_bits << rs_->issue_ld_bits;
+  rs_->issue_ld_rdy << ld_ctrl_->cmd_rdy;
   completion_arb_->ld_completed_val  << ld_ctrl_->completed_val;
   completion_arb_->ld_completed_bits << ld_ctrl_->completed_bits;
   ld_ctrl_->completed_rdy << completion_arb_->ld_completed_rdy;
@@ -128,7 +130,9 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   completion_arb_->st_completed_bits << st_ctrl_->completed_bits;
   st_ctrl_->completed_rdy << completion_arb_->st_completed_rdy;
   rs_->completed   << completion_arb_->rs_completed;
-  read_issue_queue_->req_in << ld_ctrl_->dma_req;
+  read_issue_queue_->req_val << ld_ctrl_->dma_req_val;
+  read_issue_queue_->req_bits << ld_ctrl_->dma_req_bits;
+  ld_ctrl_->dma_req_rdy << read_issue_queue_->req_rdy;
   dma_reader_->req_in       << read_issue_queue_->req_out;
   ex_ctrl_->cmd_in << rs_->issue_ex;
   st_ctrl_->cmd_val << rs_->issue_st_val;
@@ -299,7 +303,8 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   }
   completion_mux_->spad_in  << spad_->dma_resp;
   completion_mux_->accum_in << accum_->dma_resp;
-  ld_ctrl_->dma_resp        << completion_mux_->dma_resp;
+  ld_ctrl_->dma_resp_val << completion_mux_->dma_resp_val;
+  ld_ctrl_->dma_resp_bits << completion_mux_->dma_resp_bits;
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
   // Enable Execute commands from the reservation station.

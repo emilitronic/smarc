@@ -61,7 +61,7 @@ int main() {
   queue.head_rdy << consumer.head_rdy;
   rs.alloc_in.wireToZero();
   rs.completed.wireToZero();
-  rs.issue_ld.sendToBitBucket();
+  rs.issue_ld_rdy << consumer.head_rdy;
   rs.issue_ex.sendToBitBucket();
   clk.generateClock();
 

@@ -11,15 +11,20 @@ DMA issue queue implementations.
 namespace smesh {
 
 DmaReadIssueQueue::DmaReadIssueQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(req_in).writes(req_out);
+  UPDATE(updateReady).reads(req_out).writes(req_rdy);
+  UPDATE(update).reads(req_val, req_rdy, req_bits).writes(req_out);
+}
+
+void DmaReadIssueQueue::updateReady() {
+  req_rdy = bit(!req_out.full());
 }
 
 void DmaReadIssueQueue::update() {
-  if (req_in.empty() || req_out.full()) {
+  if (req_val == 0 || req_rdy == 0) {
     return;
   }
 
-  const auto req = req_in.pop();
+  const auto req = *req_bits;
   req_out.push(req);
 
   trace("dma_read_issue_queue: accepted vaddr=0x%llx laddr=0x%x cols=%u cmd_id=%u",
@@ -27,6 +32,10 @@ void DmaReadIssueQueue::update() {
         static_cast<unsigned>(req.laddr.raw),
         static_cast<unsigned>(req.cols),
         static_cast<unsigned>(req.cmd_id));
+}
+
+void DmaReadIssueQueue::reset() {
+  req_rdy.reset(0);
 }
 
 DmaWriteDispatchQueue::DmaWriteDispatchQueue(std::string /*name*/, IMPL_CTOR) {

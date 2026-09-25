@@ -259,7 +259,7 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 
 SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
-  UPDATE(updateIssueLoad).writes(issue_ld);
+  UPDATE(updateIssueLoad).reads(issue_ld_rdy).writes(issue_ld_val, issue_ld_bits);
   UPDATE(updateIssueExecute).writes(issue_ex);
   UPDATE(updateIssueStore).reads(issue_st_rdy).writes(issue_st_val, issue_st_bits);
   UPDATE(updateComplete).reads(completed);
@@ -487,11 +487,9 @@ const SmeshRsEntry* SmeshRS::issueStore() const {
 
 // runs each cycle ("update"): send oldest ready load command to LdCtrl and mark its RS entry issued
 void SmeshRS::updateIssueLoad() {
-  if (!load_issue_port_enabled_ || issue_ld.full()) {
-    return;
-  }
-
-  const auto* entry = issueLoad(); // scan load RS entries & pick oldest that's valid, not issued, ready (no deps)
+  const auto* entry = load_issue_port_enabled_ ? issueLoad() : nullptr;
+  issue_ld_val = bit(entry != nullptr);
+  issue_ld_bits = SmeshIssue{};
   if (entry == nullptr) {
     return;
   }
@@ -500,8 +498,14 @@ void SmeshRS::updateIssueLoad() {
   issue.cmd = entry->cmd;       // pack in cmd
   issue.rs_tag_valid = true;
   issue.rs_tag = entry->rs_tag; // pack in rs_tag
-  issue_ld.push(issue);         // push the packet through issue_ld output port
-  markIssued(entry->rs_tag);    // mark entry as issued
+  issue_ld_bits = issue;
+  if (issue_ld_rdy == 1) {
+    if (entry->complete_on_issue) {
+      assert_always(complete(entry->rs_tag), "SmeshRS could not retire issued Load CONFIG");
+    } else {
+      markIssued(entry->rs_tag);
+    }
+  }
 }
 
 // runs each cycle ("update"): send oldest ready execute command to ExCtrl and mark its RS entry issued
