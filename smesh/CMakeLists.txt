@@ -8,25 +8,25 @@ add_library(smesh_model
   src/DmaReadCompletionMux.cpp
   src/DmaReader.cpp
   src/DmaWriter.cpp
-  src/ExCtrl.cpp
-  src/ExCtrlCompletion.cpp
-  src/ExCtrlDecoder.cpp
-  src/ExCtrlFeedSignals.cpp
-  src/ExCtrlMeshCntlPack.cpp
-  src/ExCtrlMeshCntlDeqCtrl.cpp
-  src/ExCtrlMeshCntlQueue.cpp
-  src/ExCtrlMeshInSelPad.cpp
-  src/ExCtrlMeshTagSelect.cpp
-  src/ExCtrlOperandPack.cpp
-  src/ExCtrlQueues.cpp
-  src/ExCtrlReadPriority.cpp
-  src/ExCtrlReadReqLogic.cpp
-  src/ExCtrlRowFeedState.cpp
-  src/ExCtrlRowAddr.cpp
-  src/ExCtrlRowPad.cpp
-  src/ExCtrlState.cpp
-  src/ExCtrlState2.cpp
-  src/ExCtrlWriteback.cpp
+  src/controllers/ex/ExCtrl.cpp
+  src/controllers/ex/ExCtrlCompletion.cpp
+  src/controllers/ex/ExCtrlDecoder.cpp
+  src/controllers/ex/ExCtrlFeedSignals.cpp
+  src/controllers/ex/ExCtrlMeshCntlPack.cpp
+  src/controllers/ex/ExCtrlMeshCntlDeqCtrl.cpp
+  src/controllers/ex/ExCtrlMeshCntlQueue.cpp
+  src/controllers/ex/ExCtrlMeshInSelPad.cpp
+  src/controllers/ex/ExCtrlMeshTagSelect.cpp
+  src/controllers/ex/ExCtrlOperandPack.cpp
+  src/controllers/ex/ExCtrlQueues.cpp
+  src/controllers/ex/ExCtrlReadPriority.cpp
+  src/controllers/ex/ExCtrlReadReqLogic.cpp
+  src/controllers/ex/ExCtrlRowFeedState.cpp
+  src/controllers/ex/ExCtrlRowAddr.cpp
+  src/controllers/ex/ExCtrlRowPad.cpp
+  src/controllers/ex/ExCtrlState.cpp
+  src/controllers/ex/ExCtrlState2.cpp
+  src/controllers/ex/ExCtrlWriteback.cpp
   src/LdCtrl.cpp
   src/LdCtrlCmdDec.cpp
   src/LdCtrlCmdTracker.cpp
@@ -67,6 +67,7 @@ target_include_directories(smesh_model
   PUBLIC
     include
     include/memory
+    include/controllers/ex
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )
 

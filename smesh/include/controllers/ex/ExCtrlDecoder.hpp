@@ -1,0 +1,79 @@
+// **********************************************************************
+// smesh/include/controllers/ex/ExCtrlDecoder.hpp
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Jul 26 2026
+/*
+Combinational execute-controller command decoder.
+*/
+
+#pragma once
+
+#include <cascade/Cascade.hpp>
+
+#include <cstdint>
+
+#include "ExCtrlQueues.hpp"
+#include "SmeshLocalAddr.hpp"
+#include "SmeshPorts.hpp"
+
+namespace smesh {
+
+class ExCtrlDecoder : public Component {
+  DECLARE_COMPONENT(ExCtrlDecoder);
+
+ public:
+  ExCtrlDecoder(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+
+  InputArray(bit,        head_val,  kExCtrlCmdWindow);
+  InputArray(SmeshIssue, head_bits, kExCtrlCmdWindow);
+
+  Input(u8,  current_dataflow); // from ExCtrlState FSM
+  Input(bit, a_transpose);      // from ExCtrlState FSM
+  Input(bit, bd_transpose);     // from ExCtrlState FSM
+  Input(bit, ex_read_from_acc); // HW config permits ExC reads from accumulator
+  Input(bit, ex_write_to_spad); // HW config permits ExC writes to spad
+  InputArray(MesherTag, tags_in_progress, kMesherTagQueueEntries);
+
+  Output(bit,      do_config);                     // cmd(0) is CONFIG
+  OutputArray(bit, do_computes, kExCtrlCmdWindow); // cmd(0/1/2) is COMPUTE
+  OutputArray(bit, do_preloads, kExCtrlCmdWindow); // cmd(0/1/2) is PRELOAD
+  Output(bit,      in_prop);                       // cmd(0) is COMPUTE_AND_FLIP
+
+  Output(u8, preload_cmd_place); // which cmd slot has PRELOAD, 0 or 1
+  // C = A*B + D, these are the base addresses for the opnds
+  Output(SmeshLocalAddr, a_address_rs1); // COMPUTE.RS1 = A base local address
+  Output(SmeshLocalAddr, b_address_rs2); // COMPUTE.RS2 = math D base local address (physical B)
+  Output(SmeshLocalAddr, d_address_rs1); // PRELOAD.RS1 = math B base local address (physical D)
+  Output(SmeshLocalAddr, c_address_rs2); // PRELOAD.RS2 = C base local address
+
+  Output(bit, multiply_garbage);
+  Output(bit, accumulate_zeros);
+  Output(bit, preload_zeros);
+
+  // matrix shapes to compute, helps determin zero-padding and row-feed control
+  Output(u16, a_rows); // shape of A stream
+  Output(u16, a_cols);
+  Output(u16, b_rows); // shape of math D stream (phys B)
+  Output(u16, b_cols);
+  Output(u16, d_rows); // shape of math B stream (phys D)
+  Output(u16, d_cols);
+  Output(u16, c_rows); // shape of C stream
+  Output(u16, c_cols);
+
+  Output(bit, a_should_be_fed_into_transposer);
+  Output(bit, b_should_be_fed_into_transposer);
+  Output(bit, d_should_be_fed_into_transposer);
+  Output(bit, ws_no_transpose);
+
+  Output(bit, raw_hazards_are_impossible);
+  Output(bit, raw_hazard_pre);
+  Output(bit, raw_hazard_mulpre);
+  Output(bit, third_instruction_needed);
+  Output(bit, matmul_in_progress);
+
+  void update();
+};
+
+} // namespace smesh
