@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/StCtrlCmdDec.cpp
+// smesh/src/controllers/st/StCtrlCmdDec.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 22 2026
 /*

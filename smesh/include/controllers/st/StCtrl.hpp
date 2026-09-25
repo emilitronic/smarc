@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/StCtrl.hpp
+// smesh/include/controllers/st/StCtrl.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 22 2026
 // StoreController composition with command decode, FSM, DMA requests, and tracking.

@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/StCtrlDmaReq.hpp
+// smesh/include/controllers/st/StCtrlDmaReq.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 22 2026
 /*

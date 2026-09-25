@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/StCtrlGeom.cpp
+// smesh/src/controllers/st/StCtrlGeom.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 22 2026
 

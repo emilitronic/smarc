@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/StCtrlState.hpp
+// smesh/include/controllers/st/StCtrlState.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 22 2026
 // Store command FSM, configuration registers, and request-position counters.

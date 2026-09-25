@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/StCtrlQueues.hpp
+// smesh/include/controllers/st/StCtrlQueues.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 22 2026
 /*

@@ -48,13 +48,13 @@ add_library(smesh_model
   src/memory/Spad.cpp
   src/memory/SpadReadPipes.cpp
   src/memory/SpadWriter.cpp
-  src/StCtrl.cpp
-  src/StCtrlCmdDec.cpp
-  src/StCtrlCmdTracker.cpp
-  src/StCtrlDmaReq.cpp
-  src/StCtrlGeom.cpp
-  src/StCtrlQueues.cpp
-  src/StCtrlState.cpp
+  src/controllers/st/StCtrl.cpp
+  src/controllers/st/StCtrlCmdDec.cpp
+  src/controllers/st/StCtrlCmdTracker.cpp
+  src/controllers/st/StCtrlDmaReq.cpp
+  src/controllers/st/StCtrlGeom.cpp
+  src/controllers/st/StCtrlQueues.cpp
+  src/controllers/st/StCtrlState.cpp
   src/StIssueCtrl.cpp
   src/StIssueMux.cpp
   src/StNormCtrl.cpp
@@ -69,6 +69,7 @@ target_include_directories(smesh_model
     include/memory
     include/controllers/ex
     include/controllers/ld
+    include/controllers/st
     include/mesh
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )
