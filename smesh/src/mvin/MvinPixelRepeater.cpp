@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/MvinPixelRepeater.cpp
+// smesh/src/mvin/MvinPixelRepeater.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*

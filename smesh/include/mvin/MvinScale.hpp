@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/MvinScale.hpp
+// smesh/include/mvin/MvinScale.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*

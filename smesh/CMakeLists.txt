@@ -34,9 +34,9 @@ add_library(smesh_model
   src/controllers/ld/LdCtrlGeom.cpp
   src/controllers/ld/LdCtrlQueues.cpp
   src/controllers/ld/LdCtrlState.cpp
-  src/MvinLocalRouter.cpp
-  src/MvinPixelRepeater.cpp
-  src/MvinScale.cpp
+  src/mvin/MvinLocalRouter.cpp
+  src/mvin/MvinPixelRepeater.cpp
+  src/mvin/MvinScale.cpp
   src/mesh/MeshCore.cpp
   src/mesh/MeshHull.cpp
   src/mesh/Mesher.cpp
@@ -60,7 +60,7 @@ add_library(smesh_model
   src/StNormCtrl.cpp
   src/StReadCtrl.cpp
   src/StScaleCtrl.cpp
-  src/WriteCtrl.cpp
+  src/mvin/WriteCtrl.cpp
 )
 
 target_include_directories(smesh_model
@@ -71,6 +71,7 @@ target_include_directories(smesh_model
     include/controllers/ld
     include/controllers/st
     include/mesh
+    include/mvin
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )
 
