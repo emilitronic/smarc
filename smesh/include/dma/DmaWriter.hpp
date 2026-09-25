@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/DmaWriter.hpp
+// smesh/include/dma/DmaWriter.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 13 2026
 /*

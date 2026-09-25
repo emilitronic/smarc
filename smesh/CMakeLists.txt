@@ -6,8 +6,8 @@ add_library(smesh_model
   src/memory/ArbWriteLocal.cpp
   src/DmaIssueQueues.cpp
   src/DmaReadCompletionMux.cpp
-  src/DmaReader.cpp
-  src/DmaWriter.cpp
+  src/dma/DmaReader.cpp
+  src/dma/DmaWriter.cpp
   src/controllers/ex/ExCtrl.cpp
   src/controllers/ex/ExCtrlCompletion.cpp
   src/controllers/ex/ExCtrlDecoder.cpp
@@ -72,6 +72,7 @@ target_include_directories(smesh_model
     include/controllers/st
     include/mesh
     include/mvin
+    include/dma
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )
 
