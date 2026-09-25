@@ -13,7 +13,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   unrolled_cmd_queue_   = new SmeshUnrolledCmdQueue("UnrolledCmdQueue");
   rs_                   = new SmeshRS("RS");
   completion_arb_       = new ArbExLdStComplete("ArbExLdStComplete");
-  ld_ctrl_              = new LdCtrl2("LdCtrl");
+  ld_ctrl_              = new LdCtrl("LdCtrl");
   read_issue_queue_     = new DmaReadIssueQueue("DmaReadIssueQueue");
   ex_ctrl_              = new ExCtrl("ExCtrl");
   st_ctrl_              = new StCtrl("StCtrl");

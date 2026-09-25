@@ -1,150 +1,146 @@
 // **********************************************************************
 // smesh/src/LdCtrl.cpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Jul 1 2026
-/*
-Load controller implementation.
-*/
+// Sebastian Claudiusz Magierowski Sep 24 2026
 
 #include "LdCtrl.hpp"
 
-#include "SmeshCommand.hpp"
+#include "LdCtrlCmdDec.hpp"
+#include "LdCtrlCmdTracker.hpp"
+#include "LdCtrlDmaReq.hpp"
+#include "LdCtrlGeom.hpp"
+#include "LdCtrlQueues.hpp"
+#include "LdCtrlState.hpp"
+
+#include <cassert>
 
 namespace smesh {
 
-namespace {
-
-std::size_t loadStateId(SmeshFunct funct) {
-  switch (funct) {
-    case SmeshFunct::Mvin:
-      return 0;
-    case SmeshFunct::Mvin2:
-      return 1;
-    case SmeshFunct::Mvin3:
-      return 2;
-    default:
-      return 0;
-  }
-}
-
-} // namespace
-
 LdCtrl::LdCtrl(std::string /*name*/, IMPL_CTOR) {
-  state_Q_ <= state_D_;
-  UPDATE(updateCompletionView).reads(state_Q_).writes(completed_val, completed_bits);
-  UPDATE(updateState)
-      .reads(state_Q_, cmd_in, dma_resp, completed_rdy)
-      .writes(state_D_, dma_req);
+  cmd_queue_ = new LdCtrlCmdQueue("CmdQueue");
+  decoder_   = new LdCtrlCmdDec("CmdDec");
+  state_     = new LdCtrlState("State");
+  geometry_  = new LdCtrlGeom("Geom");
+  request_   = new LdCtrlDmaReq("DmaReq");
+  tracker_   = new LdCtrlCmdTracker("CmdTracker");
+
+  cmd_queue_->clk << clk;
+  decoder_->clk   << clk;
+  state_->clk     << clk;
+  geometry_->clk  << clk;
+  request_->clk   << clk;
+  tracker_->clk   << clk;
+
+  cmd_queue_->cmd_val  << cmd_val;
+  cmd_queue_->cmd_bits << cmd_bits;
+  cmd_rdy              << cmd_queue_->cmd_rdy;
+  cmd_queue_->head_rdy << state_->head_rdy;
+
+  decoder_->head_val  << cmd_queue_->head_val;
+  decoder_->head_bits << cmd_queue_->head_bits;
+
+  state_->head_val             << cmd_queue_->head_val;
+  state_->do_config            << decoder_->do_config;
+  state_->do_load              << decoder_->do_load;
+  state_->rows                 << decoder_->rows;
+  state_->block_stride         << block_stride_;
+  state_->config_state_id      << decoder_->config_state_id;
+  state_->config_stride        << decoder_->config_stride;
+  state_->config_scale         << decoder_->config_scale;
+  state_->config_shrink        << decoder_->config_shrink;
+  state_->config_block_stride  << decoder_->config_block_stride;
+  state_->config_pixel_repeats << decoder_->config_pixel_repeats;
+
+  state_->tracker_alloc_rdy    << tracker_->alloc_rdy;
+  state_->tracker_alloc_cmd_id << tracker_->alloc_cmd_id;
+  state_->dma_req_rdy          << dma_req_rdy;
+  state_->actual_rows_read     << geometry_->actual_rows_read;
+
+  geometry_->vaddr       << decoder_->vaddr;
+  geometry_->localaddr   << decoder_->localaddr;
+  geometry_->rows        << decoder_->rows;
+  geometry_->stride      << stride_;
+  geometry_->row_counter << state_->row_counter;
+
+  request_->current_vaddr     << geometry_->current_vaddr;
+  request_->current_localaddr << geometry_->localaddr_plus_row_counter;
+  request_->cols              << decoder_->cols;
+  request_->rows              << decoder_->rows;
+  request_->actual_rows_read  << geometry_->actual_rows_read;
+  request_->stride            << stride_;
+  request_->all_zeros         << geometry_->all_zeros;
+  request_->scale             << scale_;
+  request_->shrink            << shrink_;
+  request_->block_stride      << block_stride_;
+  request_->pixel_repeat      << pixel_repeat_;
+  request_->cmd_id            << state_->dma_req_cmd_id;
+
+  tracker_->alloc_val           << state_->tracker_alloc_val;
+  tracker_->alloc_bytes_to_read << request_->bytes_to_read;
+  tracker_->alloc_rs_tag        << alloc_rs_tag_;
+  tracker_->returned_val        << dma_resp_val;
+  tracker_->returned_cmd_id     << returned_cmd_id_;
+  tracker_->returned_bytes_read << returned_bytes_read_;
+  tracker_->completed_rdy       << completed_rdy;
+
+  dma_req_val    << state_->dma_req_val;
+  dma_req_bits   << request_->req_bits;
+  completed_val  << tracker_->completed_val;
+  completed_bits << tracker_->completed_bits;
+  control_state  << state_->control_state;
+
+  UPDATE(updateSelectedConfig)
+      .reads(decoder_->state_id, state_->strides, state_->scales,
+             state_->shrinks, state_->block_strides, state_->pixel_repeats)
+      .writes(stride_, scale_, shrink_, block_stride_, pixel_repeat_);
+  UPDATE(updateHeadTag).reads(cmd_queue_->head_bits).writes(alloc_rs_tag_);
+  UPDATE(updateReturnFields).reads(dma_resp_bits)
+                            .writes(returned_cmd_id_, returned_bytes_read_);
+  UPDATE(updateBusy).reads(cmd_queue_->head_val, tracker_->busy).writes(busy);
 }
 
-void LdCtrl::updateCompletionView() {
-  const auto current = *state_Q_;
-  completed_val = bit(current.active_valid && current.command_done);
-  completed_bits = current.active_valid && current.command_done
-                       ? current.active.rs_tag : SmeshRsTag{};
+void LdCtrl::updateSelectedConfig() {
+  const auto slot = static_cast<std::size_t>(*decoder_->state_id);
+  assert(slot < kLoadStates);
+  stride_       = *state_->strides[slot];
+  scale_        = *state_->scales[slot];
+  shrink_       = *state_->shrinks[slot];
+  block_stride_ = *state_->block_strides[slot];
+  pixel_repeat_ = *state_->pixel_repeats[slot];
 }
 
-void LdCtrl::updateState() {
-  const auto current = *state_Q_;
-  auto next = current;
+void LdCtrl::updateHeadTag() {
+  alloc_rs_tag_ = cmd_queue_->head_bits->rs_tag;
+}
 
-  if (current.active_valid && current.command_done && completed_rdy == 1) {
-    trace("ld_ctrl: completed tag=%u", static_cast<unsigned>(current.active.rs_tag));
-    next.active_valid = false;
-    next.command_done = false;
-  } else if (!current.active_valid && !cmd_in.empty()) {
-    next.active = cmd_in.pop();
-    next.active_valid = true;
-    next.command_done = false;
+void LdCtrl::updateReturnFields() {
+  returned_cmd_id_ = dma_resp_bits->cmd_id;
+  returned_bytes_read_ = dma_resp_bits->bytes_read;
+}
 
-    trace("ld_ctrl: accepted tag=%u funct=%u",
-          static_cast<unsigned>(next.active.rs_tag),
-          static_cast<unsigned>(next.active.cmd.funct));
-
-    const auto funct = static_cast<SmeshFunct>(static_cast<std::uint32_t>(next.active.cmd.funct));
-    if (funct == SmeshFunct::Config) {
-      const auto rs1 = static_cast<std::uint64_t>(next.active.cmd.rs1);
-      const auto kind = static_cast<ConfigKind>(rs1 & 0x3u);
-      assert_always(kind == ConfigKind::Load, "LdCtrl received a non-load CONFIG command");
-      const auto state_id = unpackConfigStateId(rs1);
-      assert_always(state_id < next.load_config.size(), "LdCtrl CONFIG load-state ID is out of range");
-      next.load_config[state_id].ld_block_stride = unpackConfigLoadBlockStride(rs1);
-      next.load_config[state_id].dram_row_stride = static_cast<std::uint32_t>(next.active.cmd.rs2);
-      next.command_done = true;
-      trace("ld_ctrl: config state=%u dram_stride=%u block_stride=%u",
-            static_cast<unsigned>(state_id),
-            static_cast<unsigned>(next.load_config[state_id].dram_row_stride),
-            static_cast<unsigned>(next.load_config[state_id].ld_block_stride));
-    } else {
-      assert_always(funct == SmeshFunct::Mvin || funct == SmeshFunct::Mvin2 ||
-                    funct == SmeshFunct::Mvin3, "LdCtrl received an unsupported command");
-      const auto local = unpackLocal(static_cast<std::uint64_t>(next.active.cmd.rs2));
-      const auto& config = current.load_config[loadStateId(funct)];
-      next.base_vaddr = static_cast<std::uint64_t>(next.active.cmd.rs1);
-      next.base_laddr = makeLocalAddr(local.row);
-      next.rows = static_cast<std::uint32_t>(local.shape.rows);
-      next.cols = static_cast<std::uint32_t>(local.shape.cols);
-      next.next_row = 0;
-      next.request_in_flight = false;
-      next.dram_row_stride = config.dram_row_stride;
-      next.ld_block_stride = config.ld_block_stride;
-      next.expected_bytes = next.rows * next.cols;
-      next.returned_bytes = 0;
-      next.dma_response_valid = false;
-    }
-  }
-
-  if (current.active_valid && !current.command_done &&
-      !current.request_in_flight && current.next_row < current.rows &&
-      !dma_req.full()) {
-    DmaReadReq req{};
-    req.vaddr = u64(current.base_vaddr +
-                    static_cast<std::uint64_t>(current.next_row) * current.dram_row_stride);
-    req.laddr = current.base_laddr + current.next_row;
-    req.cols = u16(static_cast<std::uint16_t>(current.cols));
-    req.block_stride = u16(static_cast<std::uint16_t>(current.ld_block_stride));
-    req.cmd_id = u16(current.active.rs_tag);
-    dma_req.push(req);
-    next.request_in_flight = true;
-    ++next.next_row;
-
-    trace("ld_ctrl: dma request vaddr=0x%llx laddr=0x%x cols=%u cmd_id=%u",
-          static_cast<unsigned long long>(req.vaddr),
-          static_cast<unsigned>(req.laddr.raw),
-          static_cast<unsigned>(req.cols),
-          static_cast<unsigned>(req.cmd_id));
-  }
-
-  if (!dma_resp.empty()) {
-    const auto response = dma_resp.peek();
-    assert_always(current.active_valid, "LdCtrl received a DMA response without an active command");
-    assert_always(static_cast<std::uint16_t>(response.cmd_id) == current.active.rs_tag,
-                  "LdCtrl DMA response ID does not match active command");
-    dma_resp.pop();
-    next.returned_bytes = current.returned_bytes + static_cast<std::uint16_t>(response.bytes_read);
-    next.request_in_flight = false;
-    next.response_rs_tag = static_cast<SmeshRsTag>(response.cmd_id);
-    next.dma_response_valid = true;
-    next.command_done = next.returned_bytes >= current.expected_bytes;
-
-    trace("ld_ctrl: dma response bytes_read=%u cmd_id=%u total=%u",
-          static_cast<unsigned>(response.bytes_read),
-          static_cast<unsigned>(response.cmd_id),
-          static_cast<unsigned>(next.returned_bytes));
-  }
-
-  state_D_ = next;
+void LdCtrl::updateBusy() {
+  busy = bit(cmd_queue_->head_val == 1 || tracker_->busy == 1);
 }
 
 void LdCtrl::reset() {
-  State initial{};
-  for (auto& config : initial.load_config) {
-    config.dram_row_stride = static_cast<std::uint32_t>(kDim);
-    config.ld_block_stride = static_cast<std::uint32_t>(kDim);
-  }
-  state_D_.reset(initial);
-  completed_val.reset(0);
-  completed_bits.reset(SmeshRsTag{});
+  stride_.reset(0);
+  scale_.reset(0);
+  shrink_.reset(0);
+  block_stride_.reset(0);
+  pixel_repeat_.reset(1);
+  alloc_rs_tag_.reset(0);
+  returned_cmd_id_.reset(0);
+  returned_bytes_read_.reset(0);
+  busy.reset(0);
+}
+
+LdCtrl::~LdCtrl() {
+  delete tracker_;
+  delete request_;
+  delete geometry_;
+  delete state_;
+  delete decoder_;
+  delete cmd_queue_;
 }
 
 } // namespace smesh

@@ -24,7 +24,7 @@ smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 #include "DmaReader.hpp"
 #include "DmaWriter.hpp"
 #include "ExCtrl.hpp"
-#include "LdCtrl2.hpp"
+#include "LdCtrl.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
@@ -64,7 +64,7 @@ class Smesh : public Component {
 
   // narrow inspection accessors for testbench to check internal state
   const SmeshRS& rs()     const { return *rs_; }
-  const LdCtrl2& ldCtrl() const { return *ld_ctrl_; }
+  const LdCtrl& ldCtrl() const { return *ld_ctrl_; }
   const Spad&    spad()   const { return *spad_; }
   const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_[0]; }
   const Accum&   accum()  const { return *accum_; }
@@ -105,7 +105,7 @@ class Smesh : public Component {
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
   ArbExLdStComplete*       completion_arb_ = nullptr;
-  LdCtrl2*                 ld_ctrl_ = nullptr;
+  LdCtrl*                  ld_ctrl_ = nullptr;
   DmaReadIssueQueue*       read_issue_queue_ = nullptr;
   ExCtrl*                  ex_ctrl_ = nullptr;
   StCtrl*                  st_ctrl_ = nullptr;

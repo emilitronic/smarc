@@ -6,7 +6,7 @@
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
 
-#include "LdCtrl2.hpp"
+#include "LdCtrl.hpp"
 #include "SmeshCommand.hpp"
 
 #include <array>
@@ -201,7 +201,7 @@ int main(int argc, char* argv[]) {
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
 
-  smesh::LdCtrl2 controller("LoadController2");
+  smesh::LdCtrl controller("LoadController");
   LoadDriver driver("Driver");
   LoadMonitor monitor("Monitor");
   controller.cmd_val << driver.cmd_val;

@@ -1,73 +1,70 @@
 // **********************************************************************
 // smesh/include/LdCtrl.hpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Jul 1 2026
-/*
-Load controller declaration.
-*/
-
+// Sebastian Claudiusz Magierowski Sep 24 2026
 #pragma once
 
 #include <cascade/Cascade.hpp>
 
 #include "SmeshPorts.hpp"
 
-#include <array>
-
 namespace smesh {
 
+class LdCtrlCmdQueue;
+class LdCtrlCmdDec;
+class LdCtrlState;
+class LdCtrlGeom;
+class LdCtrlDmaReq;
+class LdCtrlCmdTracker;
+
+// Load controller assembled from the independently tested command-path blocks.
 class LdCtrl : public Component {
   DECLARE_COMPONENT(LdCtrl);
 
  public:
   LdCtrl(std::string name, COMPONENT_CTOR);
+  ~LdCtrl() override;
 
   Clock(clk);
 
-  FifoInput(SmeshIssue, cmd_in);      // RS-issued load command to accept
-  Output(bit,           completed_val);
-  Output(SmeshRsTag,    completed_bits);
-  Input(bit,            completed_rdy);
-  FifoOutput(DmaReadReq, dma_req);    // DMA read request to memory controller
-  FifoInput(DmaReadCompletion, dma_resp); // ack completion of memory move
-  void updateCompletionView();
-  void updateState();
+  Input(bit,        cmd_val);
+  Output(bit,       cmd_rdy);
+  Input(SmeshIssue, cmd_bits);
+
+  Output(bit,        dma_req_val);
+  Input(bit,         dma_req_rdy);
+  Output(DmaReadReq, dma_req_bits);
+  Input(bit,               dma_resp_val);  // no rdy backpressure, just update tracker
+  Input(DmaReadCompletion, dma_resp_bits); // just cmd_id and bytesRead
+
+  Output(bit,        completed_val);
+  Input(bit,         completed_rdy);
+  Output(SmeshRsTag, completed_bits);
+  Output(bit,        busy);
+  Output(u8,         control_state);
+
+  void updateSelectedConfig();
+  void updateHeadTag();
+  void updateReturnFields();
+  void updateBusy();
   void reset();
-  // accessor functions for testbench to check LdCtrl state
-  bool hasActiveCommand()           const { return (*state_Q_).active_valid; }
-  const SmeshIssue& activeCommand() const { return (*state_Q_).active; }
-  bool hasDmaResponse()             const { return (*state_Q_).dma_response_valid; }
-  std::uint32_t expectedBytes()     const { return (*state_Q_).expected_bytes; }
-  std::uint32_t returnedBytes()     const { return (*state_Q_).returned_bytes; }
-  SmeshRsTag responseRsTag()        const { return (*state_Q_).response_rs_tag; }
 
  private:
-  struct LoadConfigState {
-    std::uint32_t dram_row_stride = 0;
-    std::uint32_t ld_block_stride = 0;
-  };
+  LdCtrlCmdQueue* cmd_queue_ = nullptr;
+  LdCtrlCmdDec* decoder_ = nullptr;
+  LdCtrlState* state_ = nullptr;
+  LdCtrlGeom* geometry_ = nullptr;
+  LdCtrlDmaReq* request_ = nullptr;
+  LdCtrlCmdTracker* tracker_ = nullptr;
 
-  struct State {
-    bool active_valid = false;
-    SmeshIssue active{};
-    bool command_done = false;
-    bool dma_response_valid = false;
-    bool request_in_flight = false;
-    std::uint64_t base_vaddr = 0;
-    SmeshLocalAddr base_laddr{};
-    std::uint32_t rows = 0;
-    std::uint32_t cols = 0;
-    std::uint32_t next_row = 0;
-    std::uint32_t dram_row_stride = 0;
-    std::uint32_t ld_block_stride = 0;
-    std::uint32_t expected_bytes = 0;
-    std::uint32_t returned_bytes = 0;
-    SmeshRsTag response_rs_tag = 0;
-    std::array<LoadConfigState, kLoadStates> load_config{};
-  };
-
-  Output(State, state_Q_);
-  Register(State, state_D_);
+  Output(u64, stride_);
+  Output(u32, scale_);
+  Output(bit, shrink_);
+  Output(u16, block_stride_);
+  Output(u8, pixel_repeat_);
+  Output(SmeshRsTag, alloc_rs_tag_);
+  Output(u16, returned_cmd_id_);
+  Output(u32, returned_bytes_read_);
 };
 
 } // namespace smesh

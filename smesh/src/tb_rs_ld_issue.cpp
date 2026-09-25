@@ -12,7 +12,7 @@
 #include "DmaIssueQueues.hpp"
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
-#include "LdCtrl2.hpp"
+#include "LdCtrl.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
 
   RsAllocDriver driver("Driver");
   smesh::SmeshRS rs("RS");
-  smesh::LdCtrl2 ld_ctrl("LdCtrl");
+  smesh::LdCtrl ld_ctrl("LdCtrl");
   smesh::DmaReadIssueQueue read_issue_queue("ReadIssueQueue");
   smesh::DmaReadCompletionMux completion_mux("CompletionMux");
   smesh::ArbExLdStComplete completion_arb("CompletionArb");
