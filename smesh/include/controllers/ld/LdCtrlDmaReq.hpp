@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/LdCtrlDmaReq.hpp
+// smesh/include/controllers/ld/LdCtrlDmaReq.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
 /*

@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/LdCtrlCmdDec.cpp
+// smesh/src/controllers/ld/LdCtrlCmdDec.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
 

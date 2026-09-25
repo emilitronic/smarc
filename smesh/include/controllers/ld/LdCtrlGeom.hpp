@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/LdCtrlGeom.hpp
+// smesh/include/controllers/ld/LdCtrlGeom.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
 /*

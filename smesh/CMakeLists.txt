@@ -27,13 +27,13 @@ add_library(smesh_model
   src/controllers/ex/ExCtrlState.cpp
   src/controllers/ex/ExCtrlState2.cpp
   src/controllers/ex/ExCtrlWriteback.cpp
-  src/LdCtrl.cpp
-  src/LdCtrlCmdDec.cpp
-  src/LdCtrlCmdTracker.cpp
-  src/LdCtrlDmaReq.cpp
-  src/LdCtrlGeom.cpp
-  src/LdCtrlQueues.cpp
-  src/LdCtrlState.cpp
+  src/controllers/ld/LdCtrl.cpp
+  src/controllers/ld/LdCtrlCmdDec.cpp
+  src/controllers/ld/LdCtrlCmdTracker.cpp
+  src/controllers/ld/LdCtrlDmaReq.cpp
+  src/controllers/ld/LdCtrlGeom.cpp
+  src/controllers/ld/LdCtrlQueues.cpp
+  src/controllers/ld/LdCtrlState.cpp
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
@@ -68,6 +68,7 @@ target_include_directories(smesh_model
     include
     include/memory
     include/controllers/ex
+    include/controllers/ld
     include/mesh
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )

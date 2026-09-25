@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/LdCtrlQueues.cpp
+// smesh/src/controllers/ld/LdCtrlQueues.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
 

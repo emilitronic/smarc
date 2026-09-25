@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/LdCtrlQueues.hpp
+// smesh/include/controllers/ld/LdCtrlQueues.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 24 2026
 #pragma once
