@@ -29,19 +29,27 @@ class ExCtrlCmdQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshIssue, cmd_in);
+  Input(bit, cmd_val);
+  Output(bit, cmd_rdy);
+  Input(SmeshIssue, cmd_bits);
 
   OutputArray(bit,        head_val,  kExCtrlCmdWindow); // is valid cmd at this head position?
   OutputArray(SmeshIssue, head_bits, kExCtrlCmdWindow); // cmd at this head position (if valid)
   Input(u8, pop_count); // number of head entries to pop; supported values are 0, 1, or 2
 
   void updateHeadView();
+  void updateReady();
   void updateStorage();
   void reset();
 
  private:
-  std::array<SmeshIssue, kDefaultConfig.ex_queue_length> entries_{};
-  std::size_t count_ = 0;
+  struct QueueState {
+    std::array<SmeshIssue, kDefaultConfig.ex_queue_length> entries{};
+    u8 count = 0;
+  };
+
+  Output(QueueState, state_Q_);
+  Register(QueueState, state_D_);
 };
 
 } // namespace smesh

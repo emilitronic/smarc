@@ -48,7 +48,9 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesher_->clk             << clk;
   writeback_->clk          << clk;
   
-  cmd_queue_->cmd_in    << cmd_in;
+  cmd_queue_->cmd_val   << cmd_val;
+  cmd_queue_->cmd_bits  << cmd_bits;
+  cmd_rdy               << cmd_queue_->cmd_rdy;
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
 
   // TEMPORARY TEST OBSERVABILITY: expose internal queue/FSM signals at ExCtrl.

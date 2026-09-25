@@ -21,7 +21,7 @@ SmeshShell::SmeshShell(std::string /*name*/, IMPL_CTOR) {
   rs_->clk << clk;
   rs_->alloc_in << rs_alloc_out; // allocation interface from shell to RS
   rs_->issue_ld_rdy << store_issue_not_ready_;
-  rs_->issue_ex.sendToBitBucket();
+  rs_->issue_ex_rdy << store_issue_not_ready_;
   rs_->issue_st_rdy << store_issue_not_ready_;
   rs_->completed.wireToZero();
   UPDATE(update).reads(cmd_in, m_resp).writes(resp_out, m_req, rs_alloc_out, store_issue_not_ready_); // native memory master interface

@@ -20,17 +20,24 @@ class FakeRsProgram : public Component {
   FakeRsProgram(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(smesh::SmeshIssue, issue_out);
+  Output(bit, issue_val);
+  Input(bit, issue_rdy);
+  Output(smesh::SmeshIssue, issue_bits);
   Input(bit, completed_val);
   Input(smesh::SmeshRsTag, completed_bits);
 
   void updateIssue() {
-    if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size() || issue_out.full()) {
+    issue_val = 0;
+    issue_bits = smesh::SmeshIssue{};
+    if (Sim::state == Sim::SimResetting || next_issue_ >= program_.size()) {
       return;
     }
 
-    issue_out.push(program_[next_issue_]);
-    ++next_issue_;
+    issue_val = 1;
+    issue_bits = program_[next_issue_];
+    if (issue_rdy == 1) {
+      ++next_issue_;
+    }
   }
 
   void updateCompleted() {
@@ -56,10 +63,13 @@ class FakeRsProgram : public Component {
     next_complete_ = 0;
     done_          = false;
     matched_       = true;
+    issue_val.reset(0);
+    issue_bits.reset(smesh::SmeshIssue{});
   }
 
   bool done()    const { return done_; }
   bool matched() const { return matched_; }
+  std::size_t completedCount() const { return next_complete_; }
 
  private:
   static smesh::SmeshIssue issue(smesh::SmeshRsTag tag, smesh::SmeshFunct funct, bool tag_valid = true) {
@@ -84,7 +94,7 @@ class FakeRsProgram : public Component {
 };
 
 FakeRsProgram::FakeRsProgram(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateIssue).writes(issue_out);
+  UPDATE(updateIssue).reads(issue_rdy).writes(issue_val, issue_bits);
   UPDATE(updateCompleted).reads(completed_val, completed_bits);
 }
 
@@ -96,10 +106,11 @@ int main(int argc, char* argv[]) {
   smesh::ExCtrl ctrl("ExCtrl");
   FakeRsProgram fake_rs("FakeRS");
 
-  ctrl.cmd_in            << fake_rs.issue_out;
+  ctrl.cmd_val           << fake_rs.issue_val;
+  ctrl.cmd_bits          << fake_rs.issue_bits;
+  fake_rs.issue_rdy      << ctrl.cmd_rdy;
   fake_rs.completed_val  << ctrl.completed_val;
   fake_rs.completed_bits << ctrl.completed_bits;
-  ctrl.cmd_in.setDelay(1);
 
   Clock clk;
   ctrl.clk    << clk;
@@ -109,11 +120,17 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  for (int i = 0; i < 16 && !fake_rs.done(); ++i) {
+  for (int i = 0; i < 64 && !fake_rs.done(); ++i) {
     Sim::run();
   }
 
   const bool ok = fake_rs.done() && fake_rs.matched();
+  if (!ok) {
+    std::printf("  completed=%zu state=%u head0=%u head1=%u\n",
+                fake_rs.completedCount(), static_cast<unsigned>(ctrl.control_state),
+                static_cast<unsigned>(ctrl.cmd_queue_head_val[0]),
+                static_cast<unsigned>(ctrl.cmd_queue_head_val[1]));
+  }
   std::printf("[EX_CTRL_ARCH] %s fake_rs_program\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
 }

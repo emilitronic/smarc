@@ -77,7 +77,9 @@ class ExCtrlSuiteDriver : public Component {
   ExCtrlSuiteDriver(const ExCtrlTestCase& test, std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(SmeshIssue, cmd_out);
+  Output(bit, cmd_val);
+  Input(bit, cmd_rdy);
+  Output(SmeshIssue, cmd_bits);
   Input(bit, completed_val);
   Input(SmeshRsTag, completed_bits);
 

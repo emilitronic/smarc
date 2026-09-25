@@ -40,7 +40,9 @@ class ExCtrl : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshIssue, cmd_in);
+  Input(bit, cmd_val);
+  Output(bit, cmd_rdy);
+  Input(SmeshIssue, cmd_bits);
   Output(bit, completed_val);
   Output(SmeshRsTag, completed_bits);
   // TEMPORARY TEST OBSERVABILITY: these are not functional ExCtrl ports.

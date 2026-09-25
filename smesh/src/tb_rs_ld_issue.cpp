@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
   ld_ctrl.cmd_val << rs.issue_ld_val;
   ld_ctrl.cmd_bits << rs.issue_ld_bits;
   rs.issue_ld_rdy << ld_ctrl.cmd_rdy;
-  rs.issue_ex.sendToBitBucket();
+  rs.issue_ex_rdy << zero_spad_read.zero_bit;
   rs.issue_st_rdy << zero_spad_read.zero_bit;
   completion_arb.ex_completed_val << zero_spad_read.zero_bit;
   completion_arb.ex_completed_bits << zero_spad_read.zero_tag;

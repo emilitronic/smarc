@@ -343,7 +343,7 @@ ExCtrlSuiteDriver::ExCtrlSuiteDriver(const ExCtrlTestCase& test,
                 "%s: mesh response expectations disagree with progress count",
                 test_.name.c_str());
 
-  UPDATE(updateIssue).writes(cmd_out);
+  UPDATE(updateIssue).reads(cmd_rdy).writes(cmd_val, cmd_bits);
   UPDATE(updateMemoryReady)
       .writes(accum_read_req_rdy, accum_read_resp_val, accum_read_resp_bits,
               spad_write_rdy, accum_write_rdy);
@@ -361,13 +361,19 @@ ExCtrlSuiteDriver::ExCtrlSuiteDriver(const ExCtrlTestCase& test,
       .reads(accum_write_val, accum_write_rdy, accum_write_bits);
 }
 
-// Feed the scenario's commands into ExCtrl in program order whenever its FIFO has room.
+// Feed the scenario's commands into ExCtrl in program order when its queue accepts them.
 void ExCtrlSuiteDriver::updateIssue() {
+  cmd_val = 0;
+  cmd_bits = SmeshIssue{};
   if (Sim::state == Sim::SimResetting ||
-      next_issue_ >= test_.program.size() || cmd_out.full()) {
+      next_issue_ >= test_.program.size()) {
     return;
   }
-  cmd_out.push(test_.program[next_issue_++]);
+  cmd_val = 1;
+  cmd_bits = test_.program[next_issue_];
+  if (cmd_rdy == 1) {
+    ++next_issue_;
+  }
 }
 
 // Model always-ready write ports and an unused accumulator-read response path.
@@ -556,6 +562,8 @@ void ExCtrlSuiteDriver::updateMonitor() {
 // Restore all software-side counters and checker status before simulation starts.
 void ExCtrlSuiteDriver::reset() {
   next_issue_ = 0;
+  cmd_val.reset(0);
+  cmd_bits.reset(SmeshIssue{});
   req_count_ = {};
   resp_count_ = {};
   mesh_req_count_ = 0;
@@ -639,7 +647,9 @@ ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
   spad_.reset(new ExCtrlSuiteSpad(test, prefix + "Spad"));
 
   // Connect command input, completion output, and test-only observability taps.
-  ctrl_->cmd_in << driver_->cmd_out;
+  ctrl_->cmd_val << driver_->cmd_val;
+  ctrl_->cmd_bits << driver_->cmd_bits;
+  driver_->cmd_rdy << ctrl_->cmd_rdy;
   driver_->completed_val << ctrl_->completed_val;
   driver_->completed_bits << ctrl_->completed_bits;
   driver_->control_state << ctrl_->control_state;
@@ -696,8 +706,7 @@ ExCtrlHarnessInstance::ExCtrlHarnessInstance(const ExCtrlTestCase& test,
     driver_->accum_write_bits[bank] << ctrl_->accum_write_bits[bank];
   }
 
-  // RS commands have one cycle of transport delay; all components share one clock.
-  ctrl_->cmd_in.setDelay(1);
+  // All components share one clock.
   ctrl_->clk << clk;
   driver_->clk << clk;
   spad_->clk << clk;

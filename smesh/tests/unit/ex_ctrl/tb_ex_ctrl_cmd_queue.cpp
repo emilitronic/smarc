@@ -48,7 +48,9 @@ class CmdQueueDriver : public Component {
   CmdQueueDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(smesh::SmeshIssue, cmd_out);
+  Output(bit, cmd_val);
+  Input(bit, cmd_rdy);
+  Output(smesh::SmeshIssue, cmd_bits);
   Output(u8, pop_count);
   InputArray(bit, head_val, smesh::kExCtrlCmdWindow);
   InputArray(smesh::SmeshIssue, head_bits, smesh::kExCtrlCmdWindow);
@@ -67,11 +69,14 @@ class CmdQueueDriver : public Component {
 };
 
 CmdQueueDriver::CmdQueueDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(head_val, head_bits).writes(cmd_out, pop_count);
+  UPDATE(update).reads(head_val, head_bits, cmd_rdy)
+                .writes(cmd_val, cmd_bits, pop_count);
 }
 
 void CmdQueueDriver::update() {
   pop_count = 0;
+  cmd_val = 0;
+  cmd_bits = smesh::SmeshIssue{};
 
   if (Sim::state == Sim::SimResetting) {
     return;
@@ -89,15 +94,18 @@ void CmdQueueDriver::update() {
               static_cast<unsigned>(head_bits[2]->rs_tag),
               commandName(head_val[2] != 0, head_bits[2]->cmd.funct));
 
-  if (!sent_ && !cmd_out.full()) {
+  if (!sent_) {
     smesh::SmeshIssue issue{};
     issue.rs_tag_valid = 1;
     issue.rs_tag = 7;
     issue.cmd.funct = static_cast<std::uint32_t>(smesh::SmeshFunct::Config);
     issue.cmd.rs1 = smesh::packConfigExRs1(1);
     issue.cmd.rs2 = smesh::packConfigExRs2(1);
-    cmd_out.push(issue);
-    sent_ = true;
+    cmd_val = 1;
+    cmd_bits = issue;
+    if (cmd_rdy == 1) {
+      sent_ = true;
+    }
     return;
   }
 
@@ -121,6 +129,8 @@ void CmdQueueDriver::reset() {
   passed_ = false;
   cycle_ = 0;
   pop_count.reset(0);
+  cmd_val.reset(0);
+  cmd_bits.reset(smesh::SmeshIssue{});
 }
 
 int main(int argc, char* argv[]) {
@@ -132,13 +142,14 @@ int main(int argc, char* argv[]) {
   CmdQueueDriver driver("Driver");
   queue.setTrace("");
 
-  queue.cmd_in << driver.cmd_out;
+  queue.cmd_val << driver.cmd_val;
+  queue.cmd_bits << driver.cmd_bits;
+  driver.cmd_rdy << queue.cmd_rdy;
   queue.pop_count << driver.pop_count;
   for (std::size_t i = 0; i < smesh::kExCtrlCmdWindow; ++i) {
     driver.head_val[i] << queue.head_val[i];
     driver.head_bits[i] << queue.head_bits[i];
   }
-  queue.cmd_in.setDelay(1);
 
   Clock clk;
   queue.clk << clk;

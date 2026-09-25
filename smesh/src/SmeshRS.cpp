@@ -260,7 +260,7 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
   UPDATE(updateIssueLoad).reads(issue_ld_rdy).writes(issue_ld_val, issue_ld_bits);
-  UPDATE(updateIssueExecute).writes(issue_ex);
+  UPDATE(updateIssueExecute).reads(issue_ex_rdy).writes(issue_ex_val, issue_ex_bits);
   UPDATE(updateIssueStore).reads(issue_st_rdy).writes(issue_st_val, issue_st_bits);
   UPDATE(updateComplete).reads(completed);
 }
@@ -510,11 +510,9 @@ void SmeshRS::updateIssueLoad() {
 
 // runs each cycle ("update"): send oldest ready execute command to ExCtrl and mark its RS entry issued
 void SmeshRS::updateIssueExecute() {
-  if (!execute_issue_port_enabled_ || issue_ex.full()) {
-    return;
-  }
-
-  const auto* entry = issueExecute();
+  const auto* entry = execute_issue_port_enabled_ ? issueExecute() : nullptr;
+  issue_ex_val = bit(entry != nullptr);
+  issue_ex_bits = SmeshIssue{};
   if (entry == nullptr) {
     return;
   }
@@ -523,8 +521,10 @@ void SmeshRS::updateIssueExecute() {
   issue.cmd = entry->cmd;
   issue.rs_tag_valid = true;
   issue.rs_tag = entry->rs_tag;
-  issue_ex.push(issue);
-  markIssued(entry->rs_tag);
+  issue_ex_bits = issue;
+  if (issue_ex_rdy == 1) {
+    markIssued(entry->rs_tag);
+  }
 }
 
 // Present the oldest ready Store command; retire CONFIG or mark STORE issued on acceptance.

@@ -62,7 +62,7 @@ int main() {
   rs.alloc_in.wireToZero();
   rs.completed.wireToZero();
   rs.issue_ld_rdy << consumer.head_rdy;
-  rs.issue_ex.sendToBitBucket();
+  rs.issue_ex_rdy << consumer.head_rdy;
   clk.generateClock();
 
   Sim::init();
