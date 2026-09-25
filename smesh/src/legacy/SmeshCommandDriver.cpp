@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/SmeshCommandDriver.cpp
+// smesh/src/legacy/SmeshCommandDriver.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski May 10 2026
 

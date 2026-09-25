@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/SmeshShell.hpp
+// smesh/include/legacy/SmeshShell.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski May 10 2026
 /*

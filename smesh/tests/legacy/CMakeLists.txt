@@ -23,14 +23,9 @@ target_link_libraries(tb_smesh_m1
 )
 
 add_executable(tb_smesh_m2
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/SmeshCommandDriver.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/SmeshShell.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/legacy/SmeshCommandDriver.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/legacy/SmeshShell.cpp
   tb_smesh_m2.cpp
-)
-
-target_include_directories(tb_smesh_m2
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src
 )
 
 target_link_libraries(tb_smesh_m2
@@ -43,14 +38,9 @@ target_link_libraries(tb_smesh_m2
 )
 
 add_executable(tb_smesh_m3
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/SmeshCommandDriver.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/SmeshShell.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/legacy/SmeshCommandDriver.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/legacy/SmeshShell.cpp
   tb_smesh_m3.cpp
-)
-
-target_include_directories(tb_smesh_m3
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src
 )
 
 target_link_libraries(tb_smesh_m3

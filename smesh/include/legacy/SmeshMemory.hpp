@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/SmeshMemory.hpp
+// smesh/include/legacy/SmeshMemory.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Apr 26 2026
 /*

@@ -42,7 +42,7 @@ add_library(smesh_model
   src/mesh/Mesher.cpp
   src/Normalizer.cpp
   src/SmeshCmdQueues.cpp
-  src/SmeshDevice.cpp
+  src/legacy/SmeshDevice.cpp
   src/SmeshRS.cpp
   src/Smesh.cpp
   src/memory/Spad.cpp
@@ -67,6 +67,7 @@ target_include_directories(smesh_model
   PUBLIC
     include
     include/common
+    include/legacy
     include/memory
     include/controllers/ex
     include/controllers/ld
