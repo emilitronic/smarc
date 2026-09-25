@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/StIssueMux.hpp
+// smesh/include/mvout/StIssueMux.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 14 2026
 /*

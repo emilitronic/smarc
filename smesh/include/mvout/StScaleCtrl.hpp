@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/StScaleCtrl.hpp
+// smesh/include/mvout/StScaleCtrl.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 13 2026
 /*

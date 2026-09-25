@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/DmaIssueQueues.cpp
+// smesh/src/dma/DmaIssueQueues.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 10 2026
 /*

@@ -4,8 +4,8 @@ add_library(smesh_model
   src/ArbComplete.cpp
   src/memory/ArbReadLocal.cpp
   src/memory/ArbWriteLocal.cpp
-  src/DmaIssueQueues.cpp
-  src/DmaReadCompletionMux.cpp
+  src/dma/DmaIssueQueues.cpp
+  src/dma/DmaReadCompletionMux.cpp
   src/dma/DmaReader.cpp
   src/dma/DmaWriter.cpp
   src/controllers/ex/ExCtrl.cpp
@@ -55,11 +55,11 @@ add_library(smesh_model
   src/controllers/st/StCtrlGeom.cpp
   src/controllers/st/StCtrlQueues.cpp
   src/controllers/st/StCtrlState.cpp
-  src/StIssueCtrl.cpp
-  src/StIssueMux.cpp
-  src/StNormCtrl.cpp
-  src/StReadCtrl.cpp
-  src/StScaleCtrl.cpp
+  src/mvout/StIssueCtrl.cpp
+  src/mvout/StIssueMux.cpp
+  src/mvout/StNormCtrl.cpp
+  src/mvout/StReadCtrl.cpp
+  src/mvout/StScaleCtrl.cpp
   src/mvin/WriteCtrl.cpp
 )
 
@@ -74,6 +74,7 @@ target_include_directories(smesh_model
     include/controllers/st
     include/mesh
     include/mvin
+    include/mvout
     include/dma
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )

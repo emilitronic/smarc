@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/DmaReadCompletionMux.cpp
+// smesh/src/dma/DmaReadCompletionMux.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 9 2026
 /*
