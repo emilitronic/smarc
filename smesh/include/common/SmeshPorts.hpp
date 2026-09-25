@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/SmeshPorts.hpp
+// smesh/include/common/SmeshPorts.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski May 10 2026
 /*

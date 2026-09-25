@@ -66,6 +66,7 @@ add_library(smesh_model
 target_include_directories(smesh_model
   PUBLIC
     include
+    include/common
     include/memory
     include/controllers/ex
     include/controllers/ld

@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/SmeshLocalAddr.hpp
+// smesh/include/common/SmeshLocalAddr.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jun 28 2026
 /*

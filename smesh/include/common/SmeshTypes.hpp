@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/SmeshTypes.hpp
+// smesh/include/common/SmeshTypes.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Apr 26 2026
 /*
