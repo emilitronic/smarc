@@ -1,17 +1,17 @@
 // **********************************************************************
-// smesh/src/Accum.cpp
+// smesh/src/memory/Spad.cpp
 // **********************************************************************
-// Sebastian Claudiusz Magierowski Jul 9 2026
+// Sebastian Claudiusz Magierowski Jul 6 2026
 /*
-Standalone smesh accumulator memory implementation.
+Standalone smesh scratchpad memory implementation.
 */
 
-#include "Accum.hpp"
+#include "Spad.hpp"
 
 namespace smesh {
 
-Accum::Accum(std::string /*name*/, IMPL_CTOR) {
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+Spad::Spad(std::string /*name*/, IMPL_CTOR) {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     read_resp_valid_Q_[bank] <= read_resp_valid_D_[bank];
     read_resp_entry_Q_[bank] <= read_resp_entry_D_[bank];
   }
@@ -33,47 +33,41 @@ Accum::Accum(std::string /*name*/, IMPL_CTOR) {
       .writes(read_resp_valid_D_, read_resp_entry_D_);
 }
 
-void Accum::updateWriteReady() {
+void Spad::updateWriteReady() {
   const bool completion_blocked = dma_resp.full();
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     write_rdy_bnk[bank] = bit(!completion_blocked);
   }
 }
 
-void Accum::updateWrite() {
+void Spad::updateWrite() {
   bool accepted_write = false;
   bool completion_pushed = false;
 
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     if (write_val_bnk[bank] == 0 || write_rdy_bnk[bank] == 0) {
       continue;
     }
     const auto write = *write_bits_bnk[bank];
-    assert_always(write.laddr.is_acc_addr(),
-                  "Accum write received a scratchpad address");
-    assert_always(write.laddr.acc_bank() == bank,
-                  "Accum write payload does not match its bank port");
+    assert_always(!write.laddr.is_acc_addr(),
+                  "Spad write received an accumulator address");
+    assert_always(write.laddr.sp_bank() == bank,
+                  "Spad write payload does not match its bank port");
 
-    auto& destination = banks_[bank][write.laddr.acc_row()];
+    auto& destination = banks_[bank][write.laddr.sp_row()];
+    const auto data = low64DmaReadData(write.data);
     const auto mask = static_cast<std::uint8_t>(write.mask);
     for (std::size_t lane = 0; lane < kDim; ++lane) {
       if ((mask & (std::uint8_t{1} << lane)) != 0) {
-        if (write.has_acc_bitwidth != 0) {
-          std::uint32_t word = 0;
-          for (std::size_t byte = 0; byte < sizeof(Acc); ++byte) {
-            word |= static_cast<std::uint32_t>(write.data[lane * sizeof(Acc) + byte]) << (8 * byte);
-          }
-          destination[lane] = static_cast<Acc>(word);
-        } else {
-          const auto byte = static_cast<std::uint8_t>(write.data[lane]);
-          destination[lane] = static_cast<Acc>(static_cast<Elem>(byte));
-        }
+        destination[lane] = static_cast<Elem>((data >> (lane * 8)) & 0xffu);
       }
     }
 
+    // The load path has one response stream, so at most one accepted bank
+    // write may complete a DMA command in a cycle.
     if (static_cast<bool>(write.last)) {
       assert_always(!completion_pushed,
-                    "Accum accepted multiple final DMA writes in one cycle");
+                    "Spad accepted multiple final DMA writes in one cycle");
       DmaReadCompletion completion{};
       completion.bytes_read = write.bytes_read;
       completion.cmd_id = write.cmd_id;
@@ -82,9 +76,9 @@ void Accum::updateWrite() {
     }
 
     accepted_write = true;
-    trace("accum: write bank=%u row=%u mask=0x%x cmd_id=%u last=%u",
+    trace("spad: write bank=%u row=%u mask=0x%x cmd_id=%u last=%u",
           static_cast<unsigned>(bank),
-          static_cast<unsigned>(write.laddr.acc_row()),
+          static_cast<unsigned>(write.laddr.sp_row()),
           static_cast<unsigned>(write.mask),
           static_cast<unsigned>(write.cmd_id),
           static_cast<unsigned>(write.last));
@@ -92,26 +86,25 @@ void Accum::updateWrite() {
 
   write_accepted_ = write_accepted_ || accepted_write;
 }
-
 // A bank can replace a consumed response immediately; a single-port write wins.
-void Accum::updateReadReady() {
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+void Spad::updateReadReady() {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     const bool response_pop = read_resp_valid_Q_[bank] == 1 &&
                               read_resp_rdy_bnk[bank] == 1;
     const bool slot_available = read_resp_valid_Q_[bank] == 0 || response_pop;
     const bool write_fire = write_val_bnk[bank] == 1 && write_rdy_bnk[bank] == 1;
-    const bool write_blocks_read = kDefaultConfig.acc_singleported && write_fire;
+    const bool write_blocks_read = kDefaultConfig.sp_singleported && write_fire;
     read_req_rdy_bnk[bank] = bit(slot_available && !write_blocks_read);
   }
 }
-
-void Accum::updateReadRespView() {
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+// expose current held spad read response onto o/p ports
+void Spad::updateReadRespView() {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     read_resp_val_bnk[bank] = 0;
-    read_resp_bits_bnk[bank] = AccumReadResp{};
+    read_resp_bits_bnk[bank] = SpadReadResp{};
   }
 
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     if (read_resp_valid_Q_[bank] == 1) {
       read_resp_val_bnk[bank] = 1;
       read_resp_bits_bnk[bank] = *read_resp_entry_Q_[bank];
@@ -119,8 +112,8 @@ void Accum::updateReadRespView() {
   }
 }
 
-void Accum::updateRead() {
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+void Spad::updateRead() {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     const bool response_pop = read_resp_valid_Q_[bank] == 1 &&
                               read_resp_rdy_bnk[bank] == 1;
     const bool request_fire = read_req_val_bnk[bank] == 1 &&
@@ -128,15 +121,11 @@ void Accum::updateRead() {
 
     if (request_fire) {
       const auto req = *read_req_bits_bnk[bank];
-      const auto row = static_cast<std::uint32_t>(req.addr) & kAccBankRowMask;
+      const auto row = static_cast<std::uint32_t>(req.addr) & kSpBankRowMask;
       const auto& source = banks_[bank][row];
-      AccumReadResp resp{};
-      resp.laddr = makeAccAddr(static_cast<std::uint32_t>(bank * kAccBankRows) + row,
-                               false, req.full != 0);
+      SpadReadResp resp{};
+      resp.laddr = makeSpAddr(static_cast<std::uint32_t>(bank * kSpBankRows) + row);
       resp.len = req.len;
-      resp.act = req.act;
-      resp.scale = req.scale;
-      resp.full = req.full;
       resp.cmd_id = req.cmd_id;
       resp.from_dma = req.from_dma;
       resp.data = source;
@@ -145,35 +134,40 @@ void Accum::updateRead() {
       }
       read_resp_entry_D_[bank] = resp;
       read_resp_valid_D_[bank] = 1;
-      trace("accum: read bank=%u row=%u mask=0x%x cmd_id=%u",
+      trace("spad: read bank=%u row=%u mask=0x%x cmd_id=%u",
             static_cast<unsigned>(bank),
             static_cast<unsigned>(row),
             static_cast<unsigned>(resp.mask),
             static_cast<unsigned>(req.cmd_id));
     } else if (response_pop) {
       read_resp_valid_D_[bank] = 0;
-      read_resp_entry_D_[bank] = AccumReadResp{};
+      read_resp_entry_D_[bank] = SpadReadResp{};
     }
   }
 }
 
-void Accum::reset() {
+void Spad::reset() {
   banks_ = {};
   write_accepted_ = false;
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     read_resp_valid_Q_[bank].reset(0);
-    read_resp_entry_Q_[bank].reset(AccumReadResp{});
+    read_resp_entry_Q_[bank].reset(SpadReadResp{});
     read_resp_valid_D_[bank].reset(0);
-    read_resp_entry_D_[bank].reset(AccumReadResp{});
+    read_resp_entry_D_[bank].reset(SpadReadResp{});
     write_rdy_bnk[bank].reset(1);
     read_req_rdy_bnk[bank].reset(0);
     read_resp_val_bnk[bank].reset(0);
-    read_resp_bits_bnk[bank].reset(AccumReadResp{});
+    read_resp_bits_bnk[bank].reset(SpadReadResp{});
   }
 }
 
-const Accum::Row& Accum::row(SmeshLocalAddr addr) const {
-  return banks_[addr.acc_bank()][addr.acc_row()];
+const Spad::Row& Spad::row(SmeshLocalAddr addr) const {
+  return banks_[addr.sp_bank()][addr.sp_row()];
+}
+
+void Spad::initializeRow(SmeshLocalAddr addr, const Row& data) {
+  assert_always(!addr.is_acc_addr(), "Spad initialization received an accumulator address");
+  banks_[addr.sp_bank()][addr.sp_row()] = data;
 }
 
 } // namespace smesh

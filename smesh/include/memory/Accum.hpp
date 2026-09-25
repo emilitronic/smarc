@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/Accum.hpp
+// smesh/include/memory/Accum.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 9 2026
 /*

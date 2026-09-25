@@ -1,9 +1,9 @@
 add_library(smesh_model
   src/AccScaleUnit.cpp
-  src/Accum.cpp
+  src/memory/Accum.cpp
   src/ArbComplete.cpp
-  src/ArbReadLocal.cpp
-  src/ArbWriteLocal.cpp
+  src/memory/ArbReadLocal.cpp
+  src/memory/ArbWriteLocal.cpp
   src/DmaIssueQueues.cpp
   src/DmaReadCompletionMux.cpp
   src/DmaReader.cpp
@@ -45,9 +45,9 @@ add_library(smesh_model
   src/SmeshDevice.cpp
   src/SmeshRS.cpp
   src/Smesh.cpp
-  src/Spad.cpp
-  src/SpadReadPipes.cpp
-  src/SpadWriter.cpp
+  src/memory/Spad.cpp
+  src/memory/SpadReadPipes.cpp
+  src/memory/SpadWriter.cpp
   src/StCtrl.cpp
   src/StCtrlCmdDec.cpp
   src/StCtrlCmdTracker.cpp
@@ -66,6 +66,7 @@ add_library(smesh_model
 target_include_directories(smesh_model
   PUBLIC
     include
+    include/memory
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )
 

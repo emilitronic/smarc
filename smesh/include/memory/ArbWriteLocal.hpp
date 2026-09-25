@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/ArbWriteLocal.hpp
+// smesh/include/memory/ArbWriteLocal.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 23 2026
 /*
