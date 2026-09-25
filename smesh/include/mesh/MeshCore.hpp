@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/MeshCore.hpp
+// smesh/include/mesh/MeshCore.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Aug 1 2026
 /*

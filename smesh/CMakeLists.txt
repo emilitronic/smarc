@@ -37,9 +37,9 @@ add_library(smesh_model
   src/MvinLocalRouter.cpp
   src/MvinPixelRepeater.cpp
   src/MvinScale.cpp
-  src/MeshCore.cpp
-  src/MeshHull.cpp
-  src/Mesher.cpp
+  src/mesh/MeshCore.cpp
+  src/mesh/MeshHull.cpp
+  src/mesh/Mesher.cpp
   src/Normalizer.cpp
   src/SmeshCmdQueues.cpp
   src/SmeshDevice.cpp
@@ -68,6 +68,7 @@ target_include_directories(smesh_model
     include
     include/memory
     include/controllers/ex
+    include/mesh
     ${CMAKE_CURRENT_SOURCE_DIR}/../smem/include
 )
 

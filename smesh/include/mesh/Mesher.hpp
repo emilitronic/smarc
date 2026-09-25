@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/Mesher.hpp
+// smesh/include/mesh/Mesher.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 29 2026
 /*
