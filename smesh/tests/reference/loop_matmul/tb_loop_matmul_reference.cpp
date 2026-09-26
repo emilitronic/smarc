@@ -14,7 +14,7 @@ cmake --build build --target tb_loop_matmul_reference -j >/dev/null 2>&1
 namespace {
 
 void show(const char* name, const smesh::tb::PrimitiveCommand& cmd) {
-  std::printf("%-10s funct=%2u rs1=%016llx rs2=%016llx\n",
+  std::printf("%-12s funct=%2u rs1=%016llx rs2=%016llx\n",
               name, static_cast<unsigned>(cmd.funct),
               static_cast<unsigned long long>(cmd.rs1),
               static_cast<unsigned long long>(cmd.rs2));
