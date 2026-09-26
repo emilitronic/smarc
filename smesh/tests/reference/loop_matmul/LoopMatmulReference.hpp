@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/tests/reference/loop_matmul/tb_loop_matmul_reference.hpp
+// smesh/tests/reference/loop_matmul/LoopMatmulReference.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 25 2026
 
@@ -8,8 +8,10 @@
 #include "SmeshCommand.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <vector>
 
 namespace smesh {
 namespace tb {
@@ -22,17 +24,17 @@ struct PrimitiveCommand {
 
 using LoopWsProgram = std::array<PrimitiveCommand, 6>;
 
-// Each field is one generator's command; their interleaving depends on arbitration.
-struct LoopWsSingleTileCommands {
-  PrimitiveCommand load_a;
-  PrimitiveCommand load_b;
-  PrimitiveCommand load_d;
-  PrimitiveCommand preload;
-  PrimitiveCommand compute;
-  PrimitiveCommand store_c;
+// Preserve each generator's order; the top-level arbiter chooses their interleaving.
+struct LoopWsCommands {
+  std::vector<PrimitiveCommand> load_a;
+  std::vector<PrimitiveCommand> load_b;
+  std::vector<PrimitiveCommand> load_d;
+  std::vector<PrimitiveCommand> preload;
+  std::vector<PrimitiveCommand> compute;
+  std::vector<PrimitiveCommand> store_c;
 };
 
-inline LoopWsSingleTileCommands generateSingleTileWs(const LoopWsProgram& program) {
+inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
   constexpr std::array<SmeshFunct, 6> expected{
       SmeshFunct::LoopWsBounds, SmeshFunct::LoopWsAddrsAb,
       SmeshFunct::LoopWsAddrsDc, SmeshFunct::LoopWsStridesAb,
@@ -48,14 +50,15 @@ inline LoopWsSingleTileCommands generateSingleTileWs(const LoopWsProgram& progra
   const auto i_tiles = bounds & 0xffffu;
   const auto j_tiles = (bounds >> 16) & 0xffffu;
   const auto k_tiles = (bounds >> 32) & 0xffffu;
-  if (i_tiles != 1 || j_tiles != 1 || k_tiles != 1 || pads != 0 ||
-      program[5].rs1 != 0 || program[5].rs2 != 0) {
-    throw std::invalid_argument("reference model currently supports one unpadded WS tile");
+  const auto b_spad_id = (program[5].rs1 >> 16) & 0x3u;
+  if (i_tiles < 1 || i_tiles > 2 || j_tiles != 1 || k_tiles != 1 || pads != 0 ||
+      (program[5].rs1 & ~(std::uint64_t{0x3} << 16)) != 0 ||
+      program[5].rs2 != 0 || b_spad_id > 2) {
+    throw std::invalid_argument("reference model supports I=1..2, J=K=1, no padding or transpose");
   }
 
-  // On reset, loop 0 starts A and accumulator rows at zero; B ends halfway
-  // through SPAD. Strides are configured by commands 3 and 4 but do not affect
-  // the first and only tile.
+  // Loop 0 starts A and accumulator rows at zero. B's region end comes from
+  // its LOOP_WS selector; selector zero uses the first half-SPAD boundary.
   const auto a_dram_addr = program[1].rs1;
   const auto b_dram_addr = program[1].rs2;
   const auto d_dram_addr = program[2].rs1;
@@ -64,18 +67,35 @@ inline LoopWsSingleTileCommands generateSingleTileWs(const LoopWsProgram& progra
     throw std::invalid_argument("this case requires A, B, D, and C DRAM addresses");
   }
   const MatrixShape tile{kDim, kDim};
-  const auto b_start = static_cast<std::uint32_t>(kSpRows / 2 - kDim);
+  const auto half_spad = static_cast<std::uint32_t>(kSpRows / 2);
+  const auto b_end = b_spad_id == 0 ? half_spad :
+                     static_cast<std::uint32_t>(b_spad_id) * half_spad;
+  const auto b_start = b_end - static_cast<std::uint32_t>(kDim);
+  const auto garbage = packLocal(std::uint32_t{0xffffffff}, tile);
 
-  return {
-      {SmeshFunct::Mvin, a_dram_addr, packLocal(makeSpAddr(0), tile)},
-      {SmeshFunct::Mvin2, b_dram_addr, packLocal(makeSpAddr(b_start), tile)},
-      {SmeshFunct::Mvin3, d_dram_addr, packLocal(makeAccAddr(0), tile)},
-      {SmeshFunct::Preload, packLocal(makeSpAddr(b_start), tile),
-       packLocal(makeAccAddr(0), tile)},
-      {SmeshFunct::ComputeFlip, packLocal(makeSpAddr(0), tile),
-       packLocal(std::uint32_t{0xffffffff}, tile)},
-      {SmeshFunct::Mvout, c_dram_addr, packLocal(makeAccAddr(0), tile)},
-  };
+  LoopWsCommands out;
+  out.load_b.push_back({SmeshFunct::Mvin2, b_dram_addr,
+                        packLocal(makeSpAddr(b_start), tile)});
+  for (std::uint32_t i = 0; i < i_tiles; ++i) {
+    const auto row = i * static_cast<std::uint32_t>(kDim);
+    // Gemmini masks each DRAM tile offset to 32 bits before adding its base.
+    const auto a_offset = (static_cast<std::uint64_t>(i) * program[3].rs1 * kDim * sizeof(Elem)) & 0xffffffffull;
+    const auto d_offset = (static_cast<std::uint64_t>(i) * program[4].rs1 * kDim * sizeof(Acc)) & 0xffffffffull;
+    const auto c_offset = (static_cast<std::uint64_t>(i) * program[4].rs2 * kDim * sizeof(Elem)) & 0xffffffffull;
+
+    out.load_a.push_back({SmeshFunct::Mvin, a_dram_addr + a_offset,
+                          packLocal(makeSpAddr(row), tile)});
+    out.load_d.push_back({SmeshFunct::Mvin3, d_dram_addr + d_offset,
+                          packLocal(makeAccAddr(row), tile)});
+    out.preload.push_back({SmeshFunct::Preload,
+                           i == 0 ? packLocal(makeSpAddr(b_start), tile) : garbage,
+                           packLocal(makeAccAddr(row), tile)});
+    out.compute.push_back({i == 0 ? SmeshFunct::ComputeFlip : SmeshFunct::ComputeStay,
+                           packLocal(makeSpAddr(row), tile), garbage});
+    out.store_c.push_back({SmeshFunct::Mvout, c_dram_addr + c_offset,
+                           packLocal(makeAccAddr(row), tile)});
+  }
+  return out;
 }
 
 } // namespace tb
