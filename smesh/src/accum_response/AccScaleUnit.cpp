@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/src/AccScaleUnit.cpp
+// smesh/src/accum_response/AccScaleUnit.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 13 2026
 /*

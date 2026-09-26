@@ -1,5 +1,5 @@
 // **********************************************************************
-// smesh/include/Normalizer.hpp
+// smesh/include/accum_response/Normalizer.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*

@@ -1,5 +1,5 @@
 add_library(smesh_model
-  src/AccScaleUnit.cpp
+  src/accum_response/AccScaleUnit.cpp
   src/memory/Accum.cpp
   src/ArbComplete.cpp
   src/memory/ArbReadLocal.cpp
@@ -40,7 +40,7 @@ add_library(smesh_model
   src/mesh/MeshCore.cpp
   src/mesh/MeshHull.cpp
   src/mesh/Mesher.cpp
-  src/Normalizer.cpp
+  src/accum_response/Normalizer.cpp
   src/SmeshCmdQueues.cpp
   src/legacy/SmeshDevice.cpp
   src/SmeshRS.cpp
@@ -67,6 +67,7 @@ target_include_directories(smesh_model
   PUBLIC
     include
     include/common
+    include/accum_response
     include/legacy
     include/memory
     include/controllers/ex
