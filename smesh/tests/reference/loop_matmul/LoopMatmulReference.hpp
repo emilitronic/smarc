@@ -53,12 +53,11 @@ inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
   // 0 means use loop-slot (loop-slot 0 ends at half-SPAD, loop-slot 1 ends at full SPAD)
   // 1 means use half-SPAD, 2 means use full SPAD.
   // 3 is invalid because it would require a third SPAD region for B.
-  const auto b_spad_id = (program[5].rs1 >> 16) & 0x3u;   const auto expanded_axes = (i_tiles > 1) + (j_tiles > 1) + (k_tiles > 1);
-  if (i_tiles < 1 || i_tiles > 2 || j_tiles < 1 || j_tiles > 2 ||  k_tiles < 1 || k_tiles > 2 || expanded_axes > 1 || pads != 0 ||
+  const auto b_spad_id = (program[5].rs1 >> 16) & 0x3u;
+  if (i_tiles == 0 || j_tiles == 0 || k_tiles == 0 || pads != 0 ||
       (program[5].rs1 & ~(std::uint64_t{0x3} << 16)) != 0 || program[5].rs2 != 0 || b_spad_id > 2) {
-    throw std::invalid_argument("reference model supports one expanded axis, size 1..2, no padding or transpose");
+    throw std::invalid_argument("reference model requires nonzero tile counts and supported LOOP_WS flags");
   }
-  // 
   if (j_tiles > kDefaultConfig.dma_max_bytes / (kDim * sizeof(Acc))) {
     throw std::invalid_argument("J exceeds one full-width DMA block");
   }

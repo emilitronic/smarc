@@ -11,6 +11,7 @@ cmake --build build --target tb_loop_matmul_reference -j >/dev/null 2>&1
 
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <stdexcept>
 
 namespace {
@@ -62,6 +63,37 @@ bool checkOverlapRejected(const char* name, const smesh::tb::LoopWsProgram& prog
   }
   std::fprintf(stderr, "%s: overlapping A and B were accepted\n", name);
   return false;
+}
+
+bool checkStream(const char* name, const std::vector<smesh::tb::PrimitiveCommand>& got,
+                 std::initializer_list<smesh::tb::PrimitiveCommand> expected) {
+  if (!checkCount(name, got.size(), expected.size())) return false;
+  bool passed = true;
+  std::size_t index = 0;
+  for (const auto& command : expected) {
+    passed &= check(name, got[index++], command.funct, command.rs1, command.rs2);
+  }
+  return passed;
+}
+
+void showCase(const char* title, const smesh::tb::LoopWsCommands& commands) {
+  std::puts(title);
+  const auto showStream = [](const char* stream, const auto& entries) {
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+      char label[24];
+      std::snprintf(label, sizeof(label), "%s[%zu]", stream, i);
+      show(label, entries[i]);
+    }
+  };
+  showStream("load A", commands.load_a);
+  showStream("load B", commands.load_b);
+  showStream("load D", commands.load_d);
+  for (std::size_t i = 0; i < commands.execute.size(); ++i) {
+    char label[24];
+    std::snprintf(label, sizeof(label), "exec[%zu] %s", i, i % 2 == 0 ? "PRE" : "CMP");
+    show(label, commands.execute[i]);
+  }
+  showStream("store C", commands.store_c);
 }
 
 } // namespace
@@ -265,7 +297,105 @@ int main() {
   passed &= check("K store C", two_k.store_c[0], smesh::SmeshFunct::Mvout,
                   0x4000, shape | acc0);
 
-  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1 I=1,J=1,K=2"
-                   : "[LOOP_MATMUL_REFERENCE] FAIL I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1 I=1,J=1,K=2");
+  // Two tile rows and two tile columns fill both SPAD halves and all accumulator rows.
+  auto two_by_two_program = program;
+  two_by_two_program[0].rs2 = (1ull << 32) | (2ull << 16) | 2ull;
+  two_by_two_program[5].rs1 = 2ull << 16;
+  const auto two_by_two = smesh::tb::generateWsCommands(two_by_two_program);
+  showCase("LOOP_WS case: I=2 J=2 K=1", two_by_two);
+  const auto garbage = smesh::packLocal(std::uint32_t{0xffffffff}, {smesh::kDim, smesh::kDim});
+  passed &= checkStream("I2 J2 load A", two_by_two.load_a, {
+      {smesh::SmeshFunct::Mvin, 0x1000, shape},
+      {smesh::SmeshFunct::Mvin, 0x1100, shape | 4},
+  });
+  passed &= checkStream("I2 J2 load B", two_by_two.load_b, {
+      {smesh::SmeshFunct::Mvin2, 0x2000, wide_shape | 8},
+  });
+  passed &= checkStream("I2 J2 load D", two_by_two.load_d, {
+      {smesh::SmeshFunct::Mvin3, 0x3000, wide_shape | acc0},
+      {smesh::SmeshFunct::Mvin3, 0x3800, wide_shape | acc0 | 8},
+  });
+  passed &= checkStream("I2 J2 execute", two_by_two.execute, {
+      {smesh::SmeshFunct::Preload, shape | 8, shape | acc0},
+      {smesh::SmeshFunct::ComputeFlip, shape, garbage},
+      {smesh::SmeshFunct::Preload, garbage, shape | acc0 | 8},
+      {smesh::SmeshFunct::ComputeStay, shape | 4, garbage},
+      {smesh::SmeshFunct::Preload, shape | 12, shape | acc0 | 4},
+      {smesh::SmeshFunct::ComputeFlip, shape, garbage},
+      {smesh::SmeshFunct::Preload, garbage, shape | acc0 | 12},
+      {smesh::SmeshFunct::ComputeStay, shape | 4, garbage},
+  });
+  passed &= checkStream("I2 J2 store C", two_by_two.store_c, {
+      {smesh::SmeshFunct::Mvout, 0x4000, wide_shape | acc0},
+      {smesh::SmeshFunct::Mvout, 0x4280, wide_shape | acc0 | 8},
+  });
+
+  // A takes three tiles and B the fourth; C occupies three accumulator tiles.
+  auto three_i_program = program;
+  three_i_program[0].rs2 = (1ull << 32) | (1ull << 16) | 3ull;
+  three_i_program[5].rs1 = 2ull << 16;
+  const auto three_i = smesh::tb::generateWsCommands(three_i_program);
+  showCase("LOOP_WS case: I=3 J=1 K=1", three_i);
+  passed &= checkStream("I3 load A", three_i.load_a, {
+      {smesh::SmeshFunct::Mvin, 0x1000, shape},
+      {smesh::SmeshFunct::Mvin, 0x1100, shape | 4},
+      {smesh::SmeshFunct::Mvin, 0x1200, shape | 8},
+  });
+  passed &= checkStream("I3 load B", three_i.load_b, {
+      {smesh::SmeshFunct::Mvin2, 0x2000, shape | 12},
+  });
+  passed &= checkStream("I3 load D", three_i.load_d, {
+      {smesh::SmeshFunct::Mvin3, 0x3000, shape | acc0},
+      {smesh::SmeshFunct::Mvin3, 0x3800, shape | acc0 | 4},
+      {smesh::SmeshFunct::Mvin3, 0x4000, shape | acc0 | 8},
+  });
+  passed &= checkStream("I3 execute", three_i.execute, {
+      {smesh::SmeshFunct::Preload, shape | 12, shape | acc0},
+      {smesh::SmeshFunct::ComputeFlip, shape, garbage},
+      {smesh::SmeshFunct::Preload, garbage, shape | acc0 | 4},
+      {smesh::SmeshFunct::ComputeStay, shape | 4, garbage},
+      {smesh::SmeshFunct::Preload, garbage, shape | acc0 | 8},
+      {smesh::SmeshFunct::ComputeStay, shape | 8, garbage},
+  });
+  passed &= checkStream("I3 store C", three_i.store_c, {
+      {smesh::SmeshFunct::Mvout, 0x4000, shape | acc0},
+      {smesh::SmeshFunct::Mvout, 0x4280, shape | acc0 | 4},
+      {smesh::SmeshFunct::Mvout, 0x4500, shape | acc0 | 8},
+  });
+
+  // B takes three tiles and A the fourth; each J tile gets its own compute pair.
+  auto three_j_program = program;
+  three_j_program[0].rs2 = (1ull << 32) | (3ull << 16) | 1ull;
+  three_j_program[5].rs1 = 2ull << 16;
+  const auto three_j = smesh::tb::generateWsCommands(three_j_program);
+  showCase("LOOP_WS case: I=1 J=3 K=1", three_j);
+  constexpr std::uint64_t three_shape = (std::uint64_t{4} << 48) | (std::uint64_t{12} << 32);
+  passed &= checkStream("J3 load A", three_j.load_a, {
+      {smesh::SmeshFunct::Mvin, 0x1000, shape},
+  });
+  passed &= checkStream("J3 load B", three_j.load_b, {
+      {smesh::SmeshFunct::Mvin2, 0x2000, three_shape | 4},
+  });
+  passed &= checkStream("J3 load D", three_j.load_d, {
+      {smesh::SmeshFunct::Mvin3, 0x3000, three_shape | acc0},
+  });
+  passed &= checkStream("J3 execute", three_j.execute, {
+      {smesh::SmeshFunct::Preload, shape | 4, shape | acc0},
+      {smesh::SmeshFunct::ComputeFlip, shape, garbage},
+      {smesh::SmeshFunct::Preload, shape | 8, shape | acc0 | 4},
+      {smesh::SmeshFunct::ComputeFlip, shape, garbage},
+      {smesh::SmeshFunct::Preload, shape | 12, shape | acc0 | 8},
+      {smesh::SmeshFunct::ComputeFlip, shape, garbage},
+  });
+  passed &= checkStream("J3 store C", three_j.store_c, {
+      {smesh::SmeshFunct::Mvout, 0x4000, three_shape | acc0},
+  });
+
+  auto over_capacity = program;
+  over_capacity[0].rs2 = (2ull << 32) | (1ull << 16) | 2ull;
+  over_capacity[5].rs1 = 2ull << 16;
+  passed &= checkOverlapRejected("I2 J1 K2 exceeds SPAD", over_capacity);
+
+  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS" : "[LOOP_MATMUL_REFERENCE] FAIL");
   return passed ? 0 : 1;
 }
