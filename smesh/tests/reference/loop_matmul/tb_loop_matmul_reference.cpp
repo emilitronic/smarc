@@ -148,7 +148,54 @@ int main() {
   passed &= check("store C tile 1", two.store_c[1], smesh::SmeshFunct::Mvout,
                   0x4280, shape | acc0 | 4);
 
-  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS one_tile_ws two_tile_i_ws"
-                   : "[LOOP_MATMUL_REFERENCE] FAIL one_tile_ws two_tile_i_ws");
+  // Advance J once. The DMA generators combine the two column tiles, while
+  // execute still emits one PRELOAD/COMPUTE pair per tile.
+  auto two_j_program = program;
+  two_j_program[0].rs2 = (1ull << 32) | (2ull << 16) | 1ull;
+  two_j_program[5].rs1 = 2ull << 16;
+  const auto two_j = smesh::tb::generateWsCommands(two_j_program);
+  passed &= checkCount("two J load A", two_j.load_a.size(), 1);
+  passed &= checkCount("two J load B", two_j.load_b.size(), 1);
+  passed &= checkCount("two J load D", two_j.load_d.size(), 1);
+  passed &= checkCount("two J preload", two_j.preload.size(), 2);
+  passed &= checkCount("two J compute", two_j.compute.size(), 2);
+  passed &= checkCount("two J store", two_j.store_c.size(), 1);
+  if (!passed) return 1;
+
+  std::puts("two_tile_j_ws:");
+  show("load A", two_j.load_a[0]);
+  show("load B", two_j.load_b[0]);
+  show("load D", two_j.load_d[0]);
+  show("preload[0]", two_j.preload[0]);
+  show("preload[1]", two_j.preload[1]);
+  show("compute[0]", two_j.compute[0]);
+  show("compute[1]", two_j.compute[1]);
+  show("store C", two_j.store_c[0]);
+
+  constexpr std::uint64_t wide_shape = (std::uint64_t{4} << 48) | (std::uint64_t{8} << 32);
+  passed &= check("J load A", two_j.load_a[0], smesh::SmeshFunct::Mvin, 0x1000, shape);
+  passed &= check("J load B", two_j.load_b[0], smesh::SmeshFunct::Mvin2,
+                  0x2000, wide_shape | 8);
+  passed &= check("J load D", two_j.load_d[0], smesh::SmeshFunct::Mvin3,
+                  0x3000, wide_shape | acc0);
+  passed &= check("J preload 0", two_j.preload[0], smesh::SmeshFunct::Preload,
+                  shape | 8, shape | acc0);
+  passed &= check("J preload 1", two_j.preload[1], smesh::SmeshFunct::Preload,
+                  shape | 12, shape | acc0 | 4);
+  const bool j_computes_ok = two_j.compute[0].funct == smesh::SmeshFunct::ComputeFlip &&
+                             two_j.compute[0].rs1 == shape &&
+                             isGarbageTile(two_j.compute[0].rs2) &&
+                             two_j.compute[1].funct == smesh::SmeshFunct::ComputeFlip &&
+                             two_j.compute[1].rs1 == shape &&
+                             isGarbageTile(two_j.compute[1].rs2);
+  if (!j_computes_ok) {
+    std::fprintf(stderr, "J computes: expected two FLIPs using A row 0\n");
+  }
+  passed &= j_computes_ok;
+  passed &= check("J store C", two_j.store_c[0], smesh::SmeshFunct::Mvout,
+                  0x4000, wide_shape | acc0);
+
+  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS one_tile_ws two_tile_i_ws two_tile_j_ws"
+                   : "[LOOP_MATMUL_REFERENCE] FAIL one_tile_ws two_tile_i_ws two_tile_j_ws");
   return passed ? 0 : 1;
 }
