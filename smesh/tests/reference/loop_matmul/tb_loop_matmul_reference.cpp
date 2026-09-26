@@ -5,6 +5,7 @@
 /*
 cmake --build build --target tb_loop_matmul_reference -j >/dev/null 2>&1
 ./build/smesh/tb_loop_matmul_reference
+ ctest --test-dir build -R '^smesh_reference_loop_matmul_small_ws$' --output-on-failure
 */
 #include "LoopMatmulReference.hpp"
 
@@ -69,8 +70,7 @@ int main() {
   passed &= checkCount("one tile load A", got.load_a.size(), 1);
   passed &= checkCount("one tile load B", got.load_b.size(), 1);
   passed &= checkCount("one tile load D", got.load_d.size(), 1);
-  passed &= checkCount("one tile preload", got.preload.size(), 1);
-  passed &= checkCount("one tile compute", got.compute.size(), 1);
+  passed &= checkCount("one tile execute stream", got.execute.size(), 2);
   passed &= checkCount("one tile store", got.store_c.size(), 1);
   if (!passed) return 1;
 
@@ -78,8 +78,8 @@ int main() {
   show("load A", got.load_a[0]);
   show("load B", got.load_b[0]);
   show("load D", got.load_d[0]);
-  show("preload", got.preload[0]);
-  show("compute", got.compute[0]);
+  show("exec[0] PRE", got.execute[0]);
+  show("exec[1] CMP", got.execute[1]);
   show("store C", got.store_c[0]);
 
   constexpr std::uint64_t shape = (std::uint64_t{4} << 48) | (std::uint64_t{4} << 32);
@@ -87,9 +87,9 @@ int main() {
   passed &= check("load A", got.load_a[0], smesh::SmeshFunct::Mvin, 0x1000, shape);
   passed &= check("load B", got.load_b[0], smesh::SmeshFunct::Mvin2, 0x2000, shape | 4);
   passed &= check("load D", got.load_d[0], smesh::SmeshFunct::Mvin3, 0x3000, shape | acc0);
-  passed &= check("preload", got.preload[0], smesh::SmeshFunct::Preload, shape | 4, shape | acc0);
-  const bool compute_ok = got.compute[0].funct == smesh::SmeshFunct::ComputeFlip &&
-                          got.compute[0].rs1 == shape && isGarbageTile(got.compute[0].rs2);
+  passed &= check("preload", got.execute[0], smesh::SmeshFunct::Preload, shape | 4, shape | acc0);
+  const bool compute_ok = got.execute[1].funct == smesh::SmeshFunct::ComputeFlip &&
+                          got.execute[1].rs1 == shape && isGarbageTile(got.execute[1].rs2);
   if (!compute_ok) {
     std::fprintf(stderr, "compute: expected FLIP with A at SPAD row 0 and a garbage addend\n");
   }
@@ -105,8 +105,7 @@ int main() {
   passed &= checkCount("two tile load A", two.load_a.size(), 2);
   passed &= checkCount("two tile load B", two.load_b.size(), 1);
   passed &= checkCount("two tile load D", two.load_d.size(), 2);
-  passed &= checkCount("two tile preload", two.preload.size(), 2);
-  passed &= checkCount("two tile compute", two.compute.size(), 2);
+  passed &= checkCount("two tile execute stream", two.execute.size(), 4);
   passed &= checkCount("two tile store", two.store_c.size(), 2);
   if (!passed) return 1;
 
@@ -116,10 +115,10 @@ int main() {
   show("load B", two.load_b[0]);
   show("load D[0]", two.load_d[0]);
   show("load D[1]", two.load_d[1]);
-  show("preload[0]", two.preload[0]);
-  show("preload[1]", two.preload[1]);
-  show("compute[0]", two.compute[0]);
-  show("compute[1]", two.compute[1]);
+  show("exec[0] PRE", two.execute[0]);
+  show("exec[1] CMP", two.execute[1]);
+  show("exec[2] PRE", two.execute[2]);
+  show("exec[3] CMP", two.execute[3]);
   show("store C[0]", two.store_c[0]);
   show("store C[1]", two.store_c[1]);
 
@@ -128,19 +127,19 @@ int main() {
   passed &= check("B tile", two.load_b[0], smesh::SmeshFunct::Mvin2, 0x2000, shape | 12);
   passed &= check("D tile 0", two.load_d[0], smesh::SmeshFunct::Mvin3, 0x3000, shape | acc0);
   passed &= check("D tile 1", two.load_d[1], smesh::SmeshFunct::Mvin3, 0x3800, shape | acc0 | 4);
-  passed &= check("preload 0", two.preload[0], smesh::SmeshFunct::Preload,
+  passed &= check("preload 0", two.execute[0], smesh::SmeshFunct::Preload,
                   shape | 12, shape | acc0);
-  const bool preload_reuses_b = two.preload[1].funct == smesh::SmeshFunct::Preload &&
-                                isGarbageTile(two.preload[1].rs1) &&
-                                two.preload[1].rs2 == (shape | acc0 | 4);
+  const bool preload_reuses_b = two.execute[2].funct == smesh::SmeshFunct::Preload &&
+                                isGarbageTile(two.execute[2].rs1) &&
+                                two.execute[2].rs2 == (shape | acc0 | 4);
   if (!preload_reuses_b) {
     std::fprintf(stderr, "preload 1: expected garbage B and accumulator row 4\n");
   }
   passed &= preload_reuses_b;
-  const bool computes_ok = two.compute[0].funct == smesh::SmeshFunct::ComputeFlip &&
-                           two.compute[0].rs1 == shape && isGarbageTile(two.compute[0].rs2) &&
-                           two.compute[1].funct == smesh::SmeshFunct::ComputeStay &&
-                           two.compute[1].rs1 == (shape | 4) && isGarbageTile(two.compute[1].rs2);
+  const bool computes_ok = two.execute[1].funct == smesh::SmeshFunct::ComputeFlip &&
+                           two.execute[1].rs1 == shape && isGarbageTile(two.execute[1].rs2) &&
+                           two.execute[3].funct == smesh::SmeshFunct::ComputeStay &&
+                           two.execute[3].rs1 == (shape | 4) && isGarbageTile(two.execute[3].rs2);
   if (!computes_ok) {
     std::fprintf(stderr, "compute: expected FLIP for A row 0, then STAY for A row 4\n");
   }
@@ -159,8 +158,7 @@ int main() {
   passed &= checkCount("two J load A", two_j.load_a.size(), 1);
   passed &= checkCount("two J load B", two_j.load_b.size(), 1);
   passed &= checkCount("two J load D", two_j.load_d.size(), 1);
-  passed &= checkCount("two J preload", two_j.preload.size(), 2);
-  passed &= checkCount("two J compute", two_j.compute.size(), 2);
+  passed &= checkCount("two J execute stream", two_j.execute.size(), 4);
   passed &= checkCount("two J store", two_j.store_c.size(), 1);
   if (!passed) return 1;
 
@@ -168,10 +166,10 @@ int main() {
   show("load A", two_j.load_a[0]);
   show("load B", two_j.load_b[0]);
   show("load D", two_j.load_d[0]);
-  show("preload[0]", two_j.preload[0]);
-  show("preload[1]", two_j.preload[1]);
-  show("compute[0]", two_j.compute[0]);
-  show("compute[1]", two_j.compute[1]);
+  show("exec[0] PRE", two_j.execute[0]);
+  show("exec[1] CMP", two_j.execute[1]);
+  show("exec[2] PRE", two_j.execute[2]);
+  show("exec[3] CMP", two_j.execute[3]);
   show("store C", two_j.store_c[0]);
 
   constexpr std::uint64_t wide_shape = (std::uint64_t{4} << 48) | (std::uint64_t{8} << 32);
@@ -180,16 +178,16 @@ int main() {
                   0x2000, wide_shape | 8);
   passed &= check("J load D", two_j.load_d[0], smesh::SmeshFunct::Mvin3,
                   0x3000, wide_shape | acc0);
-  passed &= check("J preload 0", two_j.preload[0], smesh::SmeshFunct::Preload,
+  passed &= check("J preload 0", two_j.execute[0], smesh::SmeshFunct::Preload,
                   shape | 8, shape | acc0);
-  passed &= check("J preload 1", two_j.preload[1], smesh::SmeshFunct::Preload,
+  passed &= check("J preload 1", two_j.execute[2], smesh::SmeshFunct::Preload,
                   shape | 12, shape | acc0 | 4);
-  const bool j_computes_ok = two_j.compute[0].funct == smesh::SmeshFunct::ComputeFlip &&
-                             two_j.compute[0].rs1 == shape &&
-                             isGarbageTile(two_j.compute[0].rs2) &&
-                             two_j.compute[1].funct == smesh::SmeshFunct::ComputeFlip &&
-                             two_j.compute[1].rs1 == shape &&
-                             isGarbageTile(two_j.compute[1].rs2);
+  const bool j_computes_ok = two_j.execute[1].funct == smesh::SmeshFunct::ComputeFlip &&
+                             two_j.execute[1].rs1 == shape &&
+                             isGarbageTile(two_j.execute[1].rs2) &&
+                             two_j.execute[3].funct == smesh::SmeshFunct::ComputeFlip &&
+                             two_j.execute[3].rs1 == shape &&
+                             isGarbageTile(two_j.execute[3].rs2);
   if (!j_computes_ok) {
     std::fprintf(stderr, "J computes: expected two FLIPs using A row 0\n");
   }
@@ -205,8 +203,7 @@ int main() {
   passed &= checkCount("two K load A", two_k.load_a.size(), 1);
   passed &= checkCount("two K load B", two_k.load_b.size(), 2);
   passed &= checkCount("two K load D", two_k.load_d.size(), 1);
-  passed &= checkCount("two K preload", two_k.preload.size(), 2);
-  passed &= checkCount("two K compute", two_k.compute.size(), 2);
+  passed &= checkCount("two K execute stream", two_k.execute.size(), 4);
   passed &= checkCount("two K store C", two_k.store_c.size(), 1);
   if (!passed) return 1;
 
@@ -215,10 +212,10 @@ int main() {
   show("load B[0]", two_k.load_b[0]);
   show("load B[1]", two_k.load_b[1]);
   show("load D", two_k.load_d[0]);
-  show("preload[0]", two_k.preload[0]);
-  show("preload[1]", two_k.preload[1]);
-  show("compute[0]", two_k.compute[0]);
-  show("compute[1]", two_k.compute[1]);
+  show("exec[0] PRE", two_k.execute[0]);
+  show("exec[1] CMP", two_k.execute[1]);
+  show("exec[2] PRE", two_k.execute[2]);
+  show("exec[3] CMP", two_k.execute[3]);
   show("store C", two_k.store_c[0]);
 
   passed &= check("K load A", two_k.load_a[0], smesh::SmeshFunct::Mvin,
@@ -229,15 +226,15 @@ int main() {
                   0x2180, shape | 12);
   passed &= check("K load D", two_k.load_d[0], smesh::SmeshFunct::Mvin3,
                   0x3000, shape | acc0);
-  passed &= check("K preload 0", two_k.preload[0], smesh::SmeshFunct::Preload,
+  passed &= check("K preload 0", two_k.execute[0], smesh::SmeshFunct::Preload,
                   shape | 8, shape | acc0);
-  passed &= check("K preload 1", two_k.preload[1], smesh::SmeshFunct::Preload,
+  passed &= check("K preload 1", two_k.execute[2], smesh::SmeshFunct::Preload,
                   shape | 12, shape | acc0 | smesh::kLocalAddrAccumulateMask);
   const bool k_computes_ok =
-      two_k.compute[0].funct == smesh::SmeshFunct::ComputeFlip &&
-      two_k.compute[0].rs1 == shape && isGarbageTile(two_k.compute[0].rs2) &&
-      two_k.compute[1].funct == smesh::SmeshFunct::ComputeFlip &&
-      two_k.compute[1].rs1 == (shape | 4) && isGarbageTile(two_k.compute[1].rs2);
+      two_k.execute[1].funct == smesh::SmeshFunct::ComputeFlip &&
+      two_k.execute[1].rs1 == shape && isGarbageTile(two_k.execute[1].rs2) &&
+      two_k.execute[3].funct == smesh::SmeshFunct::ComputeFlip &&
+      two_k.execute[3].rs1 == (shape | 4) && isGarbageTile(two_k.execute[3].rs2);
   if (!k_computes_ok) {
     std::fprintf(stderr, "K computes: expected FLIP for A K rows 0 and 4\n");
   }

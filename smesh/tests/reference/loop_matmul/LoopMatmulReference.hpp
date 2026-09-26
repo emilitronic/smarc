@@ -29,8 +29,7 @@ struct LoopWsCommands {
   std::vector<PrimitiveCommand> load_a;
   std::vector<PrimitiveCommand> load_b;
   std::vector<PrimitiveCommand> load_d;
-  std::vector<PrimitiveCommand> preload;
-  std::vector<PrimitiveCommand> compute;
+  std::vector<PrimitiveCommand> execute;
   std::vector<PrimitiveCommand> store_c;
 };
 
@@ -45,19 +44,18 @@ inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
     }
   }
 
-  const auto bounds = program[0].rs2;
-  const auto pads = program[0].rs1;
-  const auto i_tiles = bounds & 0xffffu;
-  const auto j_tiles = (bounds >> 16) & 0xffffu;
-  const auto k_tiles = (bounds >> 32) & 0xffffu;
-  const auto b_spad_id = (program[5].rs1 >> 16) & 0x3u;
+  const auto bounds    = program[0].rs2; // max_I, max_J, max_K
+  const auto pads      = program[0].rs1; // pad_I, pad_J, pad_K
+  const auto i_tiles   = bounds & 0xffffu;         // I_t
+  const auto j_tiles   = (bounds >> 16) & 0xffffu; // J_t
+  const auto k_tiles   = (bounds >> 32) & 0xffffu; // K_t
+  const auto b_spad_id = (program[5].rs1 >> 16) & 0x3u; // b_ex_spad_id: which half of SPAD to use for B's region
   const auto expanded_axes = (i_tiles > 1) + (j_tiles > 1) + (k_tiles > 1);
-  if (i_tiles < 1 || i_tiles > 2 || j_tiles < 1 || j_tiles > 2 ||
-      k_tiles < 1 || k_tiles > 2 || expanded_axes > 1 || pads != 0 ||
-      (program[5].rs1 & ~(std::uint64_t{0x3} << 16)) != 0 ||
-      program[5].rs2 != 0 || b_spad_id > 2) {
+  if (i_tiles < 1 || i_tiles > 2 || j_tiles < 1 || j_tiles > 2 ||  k_tiles < 1 || k_tiles > 2 || expanded_axes > 1 || pads != 0 ||
+      (program[5].rs1 & ~(std::uint64_t{0x3} << 16)) != 0 || program[5].rs2 != 0 || b_spad_id > 2) {
     throw std::invalid_argument("reference model supports one expanded axis, size 1..2, no padding or transpose");
   }
+  
   if (j_tiles > kDefaultConfig.dma_max_bytes / (kDim * sizeof(Acc))) {
     throw std::invalid_argument("J exceeds one full-width DMA block");
   }
@@ -109,10 +107,10 @@ inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
         const auto a_row = (i * k_tiles + k) * static_cast<std::uint32_t>(kDim);
         const auto b_row = b_start + (k * j_tiles + j) * static_cast<std::uint32_t>(kDim);
         const auto c_row = (i * j_tiles + j) * static_cast<std::uint32_t>(kDim);
-        out.preload.push_back({SmeshFunct::Preload,
+        out.execute.push_back({SmeshFunct::Preload,
                                i == 0 ? packLocal(makeSpAddr(b_row), tile) : garbage,
                                packLocal(makeAccAddr(c_row, k != 0), tile)});
-        out.compute.push_back({i == 0 ? SmeshFunct::ComputeFlip : SmeshFunct::ComputeStay,
+        out.execute.push_back({i == 0 ? SmeshFunct::ComputeFlip : SmeshFunct::ComputeStay,
                                packLocal(makeSpAddr(a_row), tile), garbage});
       }
     }
