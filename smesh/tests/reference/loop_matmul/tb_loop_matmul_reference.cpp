@@ -10,6 +10,8 @@ cmake --build build --target tb_loop_matmul_reference -j >/dev/null 2>&1
 #include "LoopMatmulReference.hpp"
 
 #include <cstdio>
+#include <cstring>
+#include <stdexcept>
 
 namespace {
 
@@ -48,6 +50,18 @@ bool isGarbageTile(std::uint64_t packed) {
   const auto matrix = smesh::unpackLocal(packed);
   return matrix.shape.rows == 4 && matrix.shape.cols == 4 &&
          smesh::makeLocalAddr(matrix.row).is_garbage();
+}
+
+bool checkOverlapRejected(const char* name, const smesh::tb::LoopWsProgram& program) {
+  try {
+    smesh::tb::generateWsCommands(program);
+  } catch (const std::invalid_argument& error) {
+    if (std::strcmp(error.what(), "A and B SPAD ranges overlap") == 0) return true;
+    std::fprintf(stderr, "%s: rejected for wrong reason: %s\n", name, error.what());
+    return false;
+  }
+  std::fprintf(stderr, "%s: overlapping A and B were accepted\n", name);
+  return false;
 }
 
 } // namespace
@@ -96,6 +110,15 @@ int main() {
   passed &= compute_ok;
   passed &= check("store C", got.store_c[0], smesh::SmeshFunct::Mvout,
                   0x4000, shape | acc0);
+
+  // Expanding any axis makes B overlap A when B still ends at the first half-SPAD boundary.
+  for (const auto bounds : {(1ull << 32) | (1ull << 16) | 2ull,
+                            (1ull << 32) | (2ull << 16) | 1ull,
+                            (2ull << 32) | (1ull << 16) | 1ull}) {
+    auto overlapping = program;
+    overlapping[0].rs2 = bounds;
+    passed &= checkOverlapRejected("first-half B placement", overlapping);
+  }
 
   // Advance I once. B moves to a separate SPAD region so A's second tile cannot overlap it.
   auto two_tile_program = program;

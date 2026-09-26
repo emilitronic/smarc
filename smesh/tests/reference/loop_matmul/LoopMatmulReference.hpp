@@ -75,10 +75,21 @@ inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
   const MatrixShape tile{kDim, kDim};
   const MatrixShape a_block{kDim, static_cast<std::size_t>(k_tiles) * kDim}; // 1 row of tiles (in elements)
   const MatrixShape b_block{kDim, static_cast<std::size_t>(j_tiles) * kDim}; // 1 row of tiles (in elements)
-  // B can start at half_spad or 
   const auto half_spad = static_cast<std::uint32_t>(kSpRows / 2); // half of SPAD rows
   const auto b_end     = b_spad_id == 0 ? half_spad : static_cast<std::uint32_t>(b_spad_id) * half_spad; // set B placement by its last row...
-  const auto b_start   = b_end - static_cast<std::uint32_t>(k_tiles * j_tiles * kDim); // ...and compute B's first from that (and number of rows it needs)
+  const auto a_rows    = i_tiles * k_tiles * kDim;
+  const auto b_rows    = k_tiles * j_tiles * kDim;
+  const auto acc_rows  = i_tiles * j_tiles * kDim;
+  if (a_rows > kSpRows || b_end > kSpRows || b_rows > b_end) {
+    throw std::invalid_argument("A or B exceeds SPAD rows");
+  }
+  const auto b_start = b_end - static_cast<std::uint32_t>(b_rows);
+  if (a_rows > b_start) {
+    throw std::invalid_argument("A and B SPAD ranges overlap");
+  }
+  if (acc_rows > kAccRows) {
+    throw std::invalid_argument("D/C exceeds accumulator rows");
+  }
   const auto garbage   = packLocal(std::uint32_t{0xffffffff}, tile); // an all  F addr is garbage, don't read it
 
   LoopWsCommands out;
