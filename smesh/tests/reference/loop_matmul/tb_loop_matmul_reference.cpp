@@ -197,7 +197,55 @@ int main() {
   passed &= check("J store C", two_j.store_c[0], smesh::SmeshFunct::Mvout,
                   0x4000, wide_shape | acc0);
 
-  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1"
-                   : "[LOOP_MATMUL_REFERENCE] FAIL I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1");
+  // Advance K once. A's K tiles combine into one wider load; B loads once per K.
+  auto two_k_program = program;
+  two_k_program[0].rs2 = (2ull << 32) | (1ull << 16) | 1ull;
+  two_k_program[5].rs1 = 2ull << 16;
+  const auto two_k = smesh::tb::generateWsCommands(two_k_program);
+  passed &= checkCount("two K load A", two_k.load_a.size(), 1);
+  passed &= checkCount("two K load B", two_k.load_b.size(), 2);
+  passed &= checkCount("two K load D", two_k.load_d.size(), 1);
+  passed &= checkCount("two K preload", two_k.preload.size(), 2);
+  passed &= checkCount("two K compute", two_k.compute.size(), 2);
+  passed &= checkCount("two K store C", two_k.store_c.size(), 1);
+  if (!passed) return 1;
+
+  std::puts("LOOP_WS case: I=1 J=1 K=2");
+  show("load A", two_k.load_a[0]);
+  show("load B[0]", two_k.load_b[0]);
+  show("load B[1]", two_k.load_b[1]);
+  show("load D", two_k.load_d[0]);
+  show("preload[0]", two_k.preload[0]);
+  show("preload[1]", two_k.preload[1]);
+  show("compute[0]", two_k.compute[0]);
+  show("compute[1]", two_k.compute[1]);
+  show("store C", two_k.store_c[0]);
+
+  passed &= check("K load A", two_k.load_a[0], smesh::SmeshFunct::Mvin,
+                  0x1000, wide_shape);
+  passed &= check("K load B 0", two_k.load_b[0], smesh::SmeshFunct::Mvin2,
+                  0x2000, shape | 8);
+  passed &= check("K load B 1", two_k.load_b[1], smesh::SmeshFunct::Mvin2,
+                  0x2180, shape | 12);
+  passed &= check("K load D", two_k.load_d[0], smesh::SmeshFunct::Mvin3,
+                  0x3000, shape | acc0);
+  passed &= check("K preload 0", two_k.preload[0], smesh::SmeshFunct::Preload,
+                  shape | 8, shape | acc0);
+  passed &= check("K preload 1", two_k.preload[1], smesh::SmeshFunct::Preload,
+                  shape | 12, shape | acc0 | smesh::kLocalAddrAccumulateMask);
+  const bool k_computes_ok =
+      two_k.compute[0].funct == smesh::SmeshFunct::ComputeFlip &&
+      two_k.compute[0].rs1 == shape && isGarbageTile(two_k.compute[0].rs2) &&
+      two_k.compute[1].funct == smesh::SmeshFunct::ComputeFlip &&
+      two_k.compute[1].rs1 == (shape | 4) && isGarbageTile(two_k.compute[1].rs2);
+  if (!k_computes_ok) {
+    std::fprintf(stderr, "K computes: expected FLIP for A K rows 0 and 4\n");
+  }
+  passed &= k_computes_ok;
+  passed &= check("K store C", two_k.store_c[0], smesh::SmeshFunct::Mvout,
+                  0x4000, shape | acc0);
+
+  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1 I=1,J=1,K=2"
+                   : "[LOOP_MATMUL_REFERENCE] FAIL I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1 I=1,J=1,K=2");
   return passed ? 0 : 1;
 }

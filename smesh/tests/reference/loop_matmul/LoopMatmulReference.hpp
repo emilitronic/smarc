@@ -51,10 +51,12 @@ inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
   const auto j_tiles = (bounds >> 16) & 0xffffu;
   const auto k_tiles = (bounds >> 32) & 0xffffu;
   const auto b_spad_id = (program[5].rs1 >> 16) & 0x3u;
-  if (i_tiles < 1 || i_tiles > 2 || j_tiles < 1 || j_tiles > 2 || k_tiles != 1 || pads != 0 ||
+  const auto expanded_axes = (i_tiles > 1) + (j_tiles > 1) + (k_tiles > 1);
+  if (i_tiles < 1 || i_tiles > 2 || j_tiles < 1 || j_tiles > 2 ||
+      k_tiles < 1 || k_tiles > 2 || expanded_axes > 1 || pads != 0 ||
       (program[5].rs1 & ~(std::uint64_t{0x3} << 16)) != 0 ||
       program[5].rs2 != 0 || b_spad_id > 2) {
-    throw std::invalid_argument("reference model supports I,J=1..2, K=1, no padding or transpose");
+    throw std::invalid_argument("reference model supports one expanded axis, size 1..2, no padding or transpose");
   }
   if (j_tiles > kDefaultConfig.dma_max_bytes / (kDim * sizeof(Acc))) {
     throw std::invalid_argument("J exceeds one full-width DMA block");
@@ -70,18 +72,23 @@ inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
     throw std::invalid_argument("this case requires A, B, D, and C DRAM addresses");
   }
   const MatrixShape tile{kDim, kDim};
-  const MatrixShape wide{kDim, static_cast<std::size_t>(j_tiles) * kDim};
+  const MatrixShape a_block{kDim, static_cast<std::size_t>(k_tiles) * kDim};
+  const MatrixShape b_block{kDim, static_cast<std::size_t>(j_tiles) * kDim};
   const auto half_spad = static_cast<std::uint32_t>(kSpRows / 2);
   const auto b_end = b_spad_id == 0 ? half_spad :
                      static_cast<std::uint32_t>(b_spad_id) * half_spad;
-  const auto b_start = b_end - static_cast<std::uint32_t>(j_tiles * kDim);
+  const auto b_start = b_end - static_cast<std::uint32_t>(k_tiles * j_tiles * kDim);
   const auto garbage = packLocal(std::uint32_t{0xffffffff}, tile);
 
   LoopWsCommands out;
-  out.load_b.push_back({SmeshFunct::Mvin2, b_dram_addr,
-                        packLocal(makeSpAddr(b_start), wide)});
+  for (std::uint32_t k = 0; k < k_tiles; ++k) {
+    const auto b_row = b_start + k * static_cast<std::uint32_t>(j_tiles * kDim);
+    const auto b_offset = (static_cast<std::uint64_t>(k) * program[3].rs2 * kDim * sizeof(Elem)) & 0xffffffffull;
+    out.load_b.push_back({SmeshFunct::Mvin2, b_dram_addr + b_offset,
+                          packLocal(makeSpAddr(b_row), b_block)});
+  }
   for (std::uint32_t i = 0; i < i_tiles; ++i) {
-    const auto a_row = i * static_cast<std::uint32_t>(kDim);
+    const auto a_row = i * static_cast<std::uint32_t>(k_tiles * kDim);
     const auto c_row = i * static_cast<std::uint32_t>(j_tiles * kDim);
     // Gemmini masks each DRAM tile offset to 32 bits before adding its base.
     const auto a_offset = (static_cast<std::uint64_t>(i) * program[3].rs1 * kDim * sizeof(Elem)) & 0xffffffffull;
@@ -89,23 +96,25 @@ inline LoopWsCommands generateWsCommands(const LoopWsProgram& program) {
     const auto c_offset = (static_cast<std::uint64_t>(i) * program[4].rs2 * kDim * sizeof(Elem)) & 0xffffffffull;
 
     out.load_a.push_back({SmeshFunct::Mvin, a_dram_addr + a_offset,
-                          packLocal(makeSpAddr(a_row), tile)});
+                          packLocal(makeSpAddr(a_row), a_block)});
     out.load_d.push_back({SmeshFunct::Mvin3, d_dram_addr + d_offset,
-                          packLocal(makeAccAddr(c_row), wide)});
+                          packLocal(makeAccAddr(c_row), b_block)});
     out.store_c.push_back({SmeshFunct::Mvout, c_dram_addr + c_offset,
-                           packLocal(makeAccAddr(c_row), wide)});
+                           packLocal(makeAccAddr(c_row), b_block)});
   }
-  // Execute advances I first, then J. B changes with J; A changes with I.
-  for (std::uint32_t j = 0; j < j_tiles; ++j) {
-    for (std::uint32_t i = 0; i < i_tiles; ++i) {
-      const auto a_row = i * static_cast<std::uint32_t>(kDim);
-      const auto b_row = b_start + j * static_cast<std::uint32_t>(kDim);
-      const auto c_row = (i * j_tiles + j) * static_cast<std::uint32_t>(kDim);
-      out.preload.push_back({SmeshFunct::Preload,
-                             i == 0 ? packLocal(makeSpAddr(b_row), tile) : garbage,
-                             packLocal(makeAccAddr(c_row), tile)});
-      out.compute.push_back({i == 0 ? SmeshFunct::ComputeFlip : SmeshFunct::ComputeStay,
-                             packLocal(makeSpAddr(a_row), tile), garbage});
+  // Execute advances K, then J, then I. Weights reload at each K step.
+  for (std::uint32_t k = 0; k < k_tiles; ++k) {
+    for (std::uint32_t j = 0; j < j_tiles; ++j) {
+      for (std::uint32_t i = 0; i < i_tiles; ++i) {
+        const auto a_row = (i * k_tiles + k) * static_cast<std::uint32_t>(kDim);
+        const auto b_row = b_start + (k * j_tiles + j) * static_cast<std::uint32_t>(kDim);
+        const auto c_row = (i * j_tiles + j) * static_cast<std::uint32_t>(kDim);
+        out.preload.push_back({SmeshFunct::Preload,
+                               i == 0 ? packLocal(makeSpAddr(b_row), tile) : garbage,
+                               packLocal(makeAccAddr(c_row, k != 0), tile)});
+        out.compute.push_back({i == 0 ? SmeshFunct::ComputeFlip : SmeshFunct::ComputeStay,
+                               packLocal(makeSpAddr(a_row), tile), garbage});
+      }
     }
   }
   return out;
