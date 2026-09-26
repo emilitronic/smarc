@@ -99,6 +99,13 @@ std::uint64_t SmeshDevice::executeCustom(SmeshMemory& mem, SmeshFunct funct, std
       throw std::runtime_error("compute_stay is not implemented yet");
     case SmeshFunct::StoreSpad:
       throw std::runtime_error("store_spad is not implemented yet");
+    case SmeshFunct::LoopWs:
+    case SmeshFunct::LoopWsBounds:
+    case SmeshFunct::LoopWsAddrsAb:
+    case SmeshFunct::LoopWsAddrsDc:
+    case SmeshFunct::LoopWsStridesAb:
+    case SmeshFunct::LoopWsStridesDc:
+      throw std::runtime_error("LOOP_WS requires the command unroller");
   }
 
   throw std::runtime_error("unsupported smesh funct");

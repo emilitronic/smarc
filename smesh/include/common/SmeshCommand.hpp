@@ -23,6 +23,12 @@ enum class SmeshFunct : std::uint32_t {
   ComputeStay =  5,
   Preload     =  6,
   Flush       =  7,
+  LoopWs      =  8,
+  LoopWsBounds = 9,
+  LoopWsAddrsAb = 10,
+  LoopWsAddrsDc = 11,
+  LoopWsStridesAb = 12,
+  LoopWsStridesDc = 13,
   Mvin3       = 14,
   StoreSpad   = 23,
 };
