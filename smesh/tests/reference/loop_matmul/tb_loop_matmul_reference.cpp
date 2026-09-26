@@ -2,7 +2,10 @@
 // smesh/tests/reference/loop_matmul/tb_loop_matmul_reference.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 25 2026
-
+/*
+cmake --build build --target tb_loop_matmul_reference -j >/dev/null 2>&1
+./build/smesh/tb_loop_matmul_reference
+*/
 #include "LoopMatmulReference.hpp"
 
 #include <cstdio>
@@ -71,7 +74,7 @@ int main() {
   passed &= checkCount("one tile store", got.store_c.size(), 1);
   if (!passed) return 1;
 
-  std::puts("one_tile_ws:");
+  std::puts("LOOP_WS case: I=1 J=1 K=1");
   show("load A", got.load_a[0]);
   show("load B", got.load_b[0]);
   show("load D", got.load_d[0]);
@@ -84,8 +87,7 @@ int main() {
   passed &= check("load A", got.load_a[0], smesh::SmeshFunct::Mvin, 0x1000, shape);
   passed &= check("load B", got.load_b[0], smesh::SmeshFunct::Mvin2, 0x2000, shape | 4);
   passed &= check("load D", got.load_d[0], smesh::SmeshFunct::Mvin3, 0x3000, shape | acc0);
-  passed &= check("preload", got.preload[0], smesh::SmeshFunct::Preload,
-                  shape | 4, shape | acc0);
+  passed &= check("preload", got.preload[0], smesh::SmeshFunct::Preload, shape | 4, shape | acc0);
   const bool compute_ok = got.compute[0].funct == smesh::SmeshFunct::ComputeFlip &&
                           got.compute[0].rs1 == shape && isGarbageTile(got.compute[0].rs2);
   if (!compute_ok) {
@@ -108,7 +110,7 @@ int main() {
   passed &= checkCount("two tile store", two.store_c.size(), 2);
   if (!passed) return 1;
 
-  std::puts("two_tile_i_ws:");
+  std::puts("LOOP_WS case: I=2 J=1 K=1");
   show("load A[0]", two.load_a[0]);
   show("load A[1]", two.load_a[1]);
   show("load B", two.load_b[0]);
@@ -162,7 +164,7 @@ int main() {
   passed &= checkCount("two J store", two_j.store_c.size(), 1);
   if (!passed) return 1;
 
-  std::puts("two_tile_j_ws:");
+  std::puts("LOOP_WS case: I=1 J=2 K=1");
   show("load A", two_j.load_a[0]);
   show("load B", two_j.load_b[0]);
   show("load D", two_j.load_d[0]);
@@ -195,7 +197,7 @@ int main() {
   passed &= check("J store C", two_j.store_c[0], smesh::SmeshFunct::Mvout,
                   0x4000, wide_shape | acc0);
 
-  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS one_tile_ws two_tile_i_ws two_tile_j_ws"
-                   : "[LOOP_MATMUL_REFERENCE] FAIL one_tile_ws two_tile_i_ws two_tile_j_ws");
+  std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1"
+                   : "[LOOP_MATMUL_REFERENCE] FAIL I=1,J=1,K=1 I=2,J=1,K=1 I=1,J=2,K=1");
   return passed ? 0 : 1;
 }
