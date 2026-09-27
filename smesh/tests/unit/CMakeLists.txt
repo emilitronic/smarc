@@ -1,5 +1,6 @@
 add_subdirectory(ex_ctrl)
 add_subdirectory(ld_ctrl)
+add_subdirectory(loop_matmul)
 add_subdirectory(memory)
 add_subdirectory(mesh)
 add_subdirectory(rs)

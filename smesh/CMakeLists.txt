@@ -34,6 +34,8 @@ add_library(smesh_model
   src/controllers/ld/LdCtrlGeom.cpp
   src/controllers/ld/LdCtrlQueues.cpp
   src/controllers/ld/LdCtrlState.cpp
+  src/loop_matmul/LoopMatmul.cpp
+  src/loop_matmul/LoopMatmulCmdQueue.cpp
   src/mvin/MvinLocalRouter.cpp
   src/mvin/MvinPixelRepeater.cpp
   src/mvin/MvinScale.cpp
@@ -72,6 +74,7 @@ target_include_directories(smesh_model
     include/memory
     include/controllers/ex
     include/controllers/ld
+    include/loop_matmul
     include/controllers/st
     include/mesh
     include/mvin
