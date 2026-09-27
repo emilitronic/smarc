@@ -4,7 +4,8 @@
 // Sebastian Claudiusz Magierowski Sep 26 2026
 /*
 Captures LOOP_WS setup in two slots and connects the command generators and arbiters.
-Generator requests and loop completion are not yet scheduled here.
+Generator requests and progress are connected; loop completion and utilization accounting
+remain to be implemented.
 */
 #pragma once
 
@@ -100,6 +101,7 @@ class LoopMatmul : public Component {
   void updateDecision();
   void updateStatus();
   void updateGeneratorInputs();
+  void updateProgress();
   void updateSlots();
   void reset();
 
@@ -108,6 +110,9 @@ class LoopMatmul : public Component {
     std::array<LoopMatmulSlot, 2> loops{};
     u8  head_id = 0;
     bit is_resadd = false;
+    u32 ld_d_addr_start = 0;
+    u32 ex_c_addr_start = 0;
+    u32 st_c_addr_start = 0;
   };
 
   LoopMatmulCmdQueue* cmd_queue_ = nullptr;
@@ -128,16 +133,44 @@ class LoopMatmul : public Component {
   Input(SmeshCmd, unrolled_bits_);
   Output(bit, is_resadd_);
 
-  // Step 2 replaces these inactive request and capacity signals with scheduling.
-  Output(bit, generator_req_val_);
+  Output(bit, ld_a_req_val_);
+  Input(bit, ld_a_req_rdy_);
   Output(LoopMatmulLdAReq, ld_a_req_bits_);
+  Output(bit, ld_b_req_val_);
+  Input(bit, ld_b_req_rdy_);
   Output(LoopMatmulLdBReq, ld_b_req_bits_);
+  Output(bit, ld_d_req_val_);
+  Input(bit, ld_d_req_rdy_);
   Output(LoopMatmulLdDReq, ld_d_req_bits_);
+  Output(bit, ex_req_val_);
+  Input(bit, ex_req_rdy_);
   Output(LoopMatmulExReq, ex_req_bits_);
+  Output(bit, st_c_req_val_);
+  Input(bit, st_c_req_rdy_);
   Output(LoopMatmulStCReq, st_c_req_bits_);
+  Output(bit, st_c_spad_req_val_);
+  Input(bit, st_c_spad_req_rdy_);
   Output(LoopMatmulStCSpadReq, st_c_spad_req_bits_);
+
+  Input(bit, ld_a_idle_);
+  Input(u8, ld_a_loop_id_);
+  Input(bit, ld_b_idle_);
+  Input(u8, ld_b_loop_id_);
+  Input(bit, ld_d_idle_);
+  Input(u8, ld_d_loop_id_);
+  Input(bit, ex_idle_);
+  Input(u8, ex_loop_id_);
+  Input(bit, st_c_idle_);
+  Input(u8, st_c_loop_id_);
+  Input(bit, st_c_spad_idle_);
+  Input(u8, st_c_spad_loop_id_);
+
   Output(bit, utilization_at_limit_);
-  Output(bit, progress_complete_);
+  Output(bit, lda_complete_to_ex_);
+  Output(bit, ldb_complete_to_ex_);
+  Output(bit, ldd_complete_to_ex_);
+  Output(bit, ex_complete_to_st_c_);
+  Output(bit, ex_complete_to_st_c_spad_);
 
   Output(State, state_Q_);
   Register(State, state_D_);

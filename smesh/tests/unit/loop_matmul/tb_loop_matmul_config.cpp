@@ -109,12 +109,14 @@ void LoopDriver::observeOutput() {
   if (out_val == 1 && out_rdy == 0) saw_stall_ = true;
   if (out_val == 1 && out_rdy == 1) {
     const auto value = *out_bits;
-    passed_ &= static_cast<std::uint32_t>(value.cmd.funct) ==
-                   static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin) &&
-               static_cast<std::uint64_t>(value.cmd.rs1) == 0xabc0 &&
-               value.rs_tag == 7 && value.rs_tag_valid == 1 &&
-               value.from_conv_loop == 1;
-    ++forwarded_;
+    if (value.from_mmul_loop == 0) {
+      passed_ &= static_cast<std::uint32_t>(value.cmd.funct) ==
+                     static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin) &&
+                 static_cast<std::uint64_t>(value.cmd.rs1) == 0xabc0 &&
+                 value.rs_tag == 7 && value.rs_tag_valid == 1 &&
+                 value.from_conv_loop == 1;
+      ++forwarded_;
+    }
   }
   ++cycle_;
 }
