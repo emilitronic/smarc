@@ -3,6 +3,10 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 27 2026
 /*
+Accepts an B-load request and emits MVIN2 commands, with transpose, 
+padding, accumulator destination, DMA block splitting, and 
+backpressure handled.
+
 Never applies B-row padding because its row comparison is always false. 
 This implementation preserves that literal behavior for now.
 */
