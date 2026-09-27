@@ -1,5 +1,6 @@
 add_executable(tb_loop_matmul_config tb_loop_matmul_config.cpp)
 add_executable(tb_loop_matmul_ld_a tb_loop_matmul_ld_a.cpp)
+add_executable(tb_loop_matmul_ld_b tb_loop_matmul_ld_b.cpp)
 
 target_link_libraries(tb_loop_matmul_config
   PRIVATE
@@ -19,16 +20,29 @@ target_link_libraries(tb_loop_matmul_ld_a
     -lpthread
 )
 
+target_link_libraries(tb_loop_matmul_ld_b
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 set_target_properties(tb_loop_matmul_config PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
 set_target_properties(tb_loop_matmul_ld_a PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
+set_target_properties(tb_loop_matmul_ld_b PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
+)
 
 add_test(NAME smesh_unit_loop_matmul_config COMMAND tb_loop_matmul_config)
 add_test(NAME smesh_unit_loop_matmul_ld_a COMMAND tb_loop_matmul_ld_a)
-set_tests_properties(smesh_unit_loop_matmul_config smesh_unit_loop_matmul_ld_a PROPERTIES
+add_test(NAME smesh_unit_loop_matmul_ld_b COMMAND tb_loop_matmul_ld_b)
+set_tests_properties(smesh_unit_loop_matmul_config smesh_unit_loop_matmul_ld_a smesh_unit_loop_matmul_ld_b PROPERTIES
   LABELS "unit;loop_matmul"
   TIMEOUT 10
 )
