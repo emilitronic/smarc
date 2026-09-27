@@ -43,6 +43,7 @@ add_library(smesh_model
   src/loop_matmul/LoopMatmulEx.cpp
   src/loop_matmul/LoopMatmulStC.cpp
   src/loop_matmul/LoopMatmulStCSpad.cpp
+  src/loop_matmul/LoopMatmulLdABArb.cpp
   src/mvin/MvinLocalRouter.cpp
   src/mvin/MvinPixelRepeater.cpp
   src/mvin/MvinScale.cpp
