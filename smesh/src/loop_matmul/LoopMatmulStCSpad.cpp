@@ -1,3 +1,8 @@
+// **********************************************************************
+// smesh/src/loop_matmul/LoopMatmulStCSpad.cpp
+// **********************************************************************
+// Sebastian Claudiusz Magierowski Sep 27 2026
+
 #include "LoopMatmulStCSpad.hpp"
 
 #include "SmeshCommand.hpp"
