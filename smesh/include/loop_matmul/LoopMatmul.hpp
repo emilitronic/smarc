@@ -3,13 +3,20 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 26 2026
 /*
-Controller that decodes six LOOP_WS commands into two registered loop slots.
+Captures LOOP_WS setup in two slots and connects the command generators and arbiters.
+Generator requests and loop completion are not yet scheduled here.
 */
 #pragma once
 
 #include <cascade/Cascade.hpp>
 
 #include "SmeshPorts.hpp"
+#include "LoopMatmulLdA.hpp"
+#include "LoopMatmulLdB.hpp"
+#include "LoopMatmulLdD.hpp"
+#include "LoopMatmulEx.hpp"
+#include "LoopMatmulStC.hpp"
+#include "LoopMatmulStCSpad.hpp"
 
 #include <array>
 #include <cstdint>
@@ -17,6 +24,8 @@ Controller that decodes six LOOP_WS commands into two registered loop slots.
 namespace smesh {
 
 class LoopMatmulCmdQueue;
+class LoopMatmulLdABArb;
+class LoopMatmulCmdArb;
 
 // One pending LOOP_WS operation, including the fields collected from its setup commands.
 struct LoopMatmulSlot {
@@ -65,7 +74,7 @@ struct LoopMatmulSlot {
   bit st_completed  = false;
 };
 
-// Captures LOOP_WS setup into two slots; command generators will consume them later.
+// Captures LOOP_WS setup and routes generated or ordinary commands to the output.
 class LoopMatmul : public Component {
   DECLARE_COMPONENT(LoopMatmul);
 
@@ -89,6 +98,8 @@ class LoopMatmul : public Component {
   Output(LoopMatmulSlot, loop1);
 
   void updateDecision();
+  void updateStatus();
+  void updateGeneratorInputs();
   void updateSlots();
   void reset();
 
@@ -100,9 +111,33 @@ class LoopMatmul : public Component {
   };
 
   LoopMatmulCmdQueue* cmd_queue_ = nullptr;
+  LoopMatmulLdA*      ld_a_      = nullptr;
+  LoopMatmulLdB*      ld_b_      = nullptr;
+  LoopMatmulLdD*      ld_d_      = nullptr;
+  LoopMatmulEx*       ex_        = nullptr;
+  LoopMatmulStC*      st_c_      = nullptr;
+  LoopMatmulStCSpad*  st_c_spad_ = nullptr;
+  LoopMatmulLdABArb*  ld_ab_arb_ = nullptr;
+  LoopMatmulCmdArb*   cmd_arb_   = nullptr;
+
   Input(bit, head_val_);
   Input(SmeshQueuedCmd, head_bits_);
   Output(bit, head_rdy_);
+
+  Input(bit, unrolled_val_);
+  Input(SmeshCmd, unrolled_bits_);
+  Output(bit, is_resadd_);
+
+  // Step 2 replaces these inactive request and capacity signals with scheduling.
+  Output(bit, generator_req_val_);
+  Output(LoopMatmulLdAReq, ld_a_req_bits_);
+  Output(LoopMatmulLdBReq, ld_b_req_bits_);
+  Output(LoopMatmulLdDReq, ld_d_req_bits_);
+  Output(LoopMatmulExReq, ex_req_bits_);
+  Output(LoopMatmulStCReq, st_c_req_bits_);
+  Output(LoopMatmulStCSpadReq, st_c_spad_req_bits_);
+  Output(bit, utilization_at_limit_);
+  Output(bit, progress_complete_);
 
   Output(State, state_Q_);
   Register(State, state_D_);

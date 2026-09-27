@@ -48,8 +48,12 @@ class LoopMatmulCmdArb : public Component {
   Input(bit,       out_rdy);
   Output(SmeshCmd, out_bits);
 
-  void update();
+  void updateOutput();
+  void updateReady();
   void reset();
+
+ private:
+  Output(u8, selected_);
 };
 
 } // namespace smesh

@@ -8,13 +8,14 @@
 namespace smesh {
 
 LoopMatmulLdABArb::LoopMatmulLdABArb(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
+  UPDATE(updateOutput)
       .reads(a_val, a_bits, a_idle, a_k, a_i, a_loop_id, b_val, b_bits)
-      .reads(b_idle, b_k, b_j, b_loop_id, head_loop_id, is_resadd, out_rdy)
-      .writes(a_rdy, b_rdy, out_val, out_bits);
+      .reads(b_idle, b_k, b_j, b_loop_id, head_loop_id, is_resadd)
+      .writes(chosen_a_, out_val, out_bits);
+  UPDATE(updateReady).reads(chosen_a_, out_rdy).writes(a_rdy, b_rdy);
 }
 
-void LoopMatmulLdABArb::update() {
+void LoopMatmulLdABArb::updateOutput() {
   const bool same_loop = a_loop_id == b_loop_id;
   const bool force_a = is_resadd == 1
       ? same_loop && a_idle == 0
@@ -32,8 +33,12 @@ void LoopMatmulLdABArb::update() {
 
   out_val = choose_a ? *a_val : *b_val;
   out_bits = choose_a ? *a_bits : *b_bits;
-  a_rdy = bit(choose_a && out_rdy == 1);
-  b_rdy = bit(!choose_a && out_rdy == 1);
+  chosen_a_ = bit(choose_a);
+}
+
+void LoopMatmulLdABArb::updateReady() {
+  a_rdy = bit(chosen_a_ == 1 && out_rdy == 1);
+  b_rdy = bit(chosen_a_ == 0 && out_rdy == 1);
 }
 
 void LoopMatmulLdABArb::reset() {
@@ -41,6 +46,7 @@ void LoopMatmulLdABArb::reset() {
   b_rdy.reset(0);
   out_val.reset(0);
   out_bits.reset(SmeshCmd{});
+  chosen_a_.reset(0);
 }
 
 } // namespace smesh

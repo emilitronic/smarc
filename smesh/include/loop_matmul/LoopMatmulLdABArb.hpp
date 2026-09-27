@@ -47,8 +47,12 @@ class LoopMatmulLdABArb : public Component {
   Input(bit,       out_rdy);
   Output(SmeshCmd, out_bits);
 
-  void update();
+  void updateOutput();
+  void updateReady();
   void reset();
+
+ private:
+  Output(bit, chosen_a_);
 };
 
 } // namespace smesh
