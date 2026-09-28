@@ -43,20 +43,30 @@ class Driver : public Component {
   Input(bit, out_val);
   Input(smesh::SmeshQueuedCmd, out_bits);
   Output(bit, out_rdy);
+  Output(u8, ld_completed);
+  Output(u8, st_completed);
+  Output(u8, ex_completed);
+  Input(bit, completed0);
+  Input(bit, completed1);
 
   void drive();
   void advance();
+  void driveCompletion();
+  void advanceCompletion();
   void observe();
   void reset();
   bool passed() const;
   unsigned sent() const { return sent_; }
   unsigned accepted() const { return static_cast<unsigned>(*program_Q_); }
+  unsigned completions() const { return completions_; }
 
  private:
   Output(u8, program_Q_);
   Register(u8, program_D_);
   Output(u8, cycle_Q_);
   Register(u8, cycle_D_);
+  Output(u8, completion_kind_Q_);
+  Register(u8, completion_kind_D_);
   const std::array<smesh::SmeshQueuedCmd, 6> program_{{
       command(smesh::SmeshFunct::LoopWsBounds, 0, (1ull << 32) | (1ull << 16) | 1ull),
       command(smesh::SmeshFunct::LoopWsAddrsAb, 0x1000, 0x2000),
@@ -83,6 +93,7 @@ class Driver : public Component {
   }};
   std::array<bool, 6> seen_{};
   unsigned sent_ = 0;
+  unsigned completions_ = 0;
   bool saw_stall_ = false;
   bool waiting_ = false;
   smesh::SmeshQueuedCmd held_{};
@@ -92,11 +103,16 @@ class Driver : public Component {
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   program_Q_ <= program_D_;
   cycle_Q_ <= cycle_D_;
+  completion_kind_Q_ <= completion_kind_D_;
   UPDATE(drive).reads(program_Q_, cycle_Q_).writes(in_val, in_bits, out_rdy);
   UPDATE(advance)
       .reads(program_Q_, cycle_Q_, in_val, in_rdy)
       .writes(program_D_, cycle_D_);
-  UPDATE(observe).reads(out_val, out_bits, out_rdy);
+  UPDATE(driveCompletion).reads(completion_kind_Q_)
+      .writes(ld_completed, st_completed, ex_completed);
+  UPDATE(advanceCompletion).reads(out_val, out_rdy, out_bits)
+      .writes(completion_kind_D_);
+  UPDATE(observe).reads(out_val, out_bits, out_rdy, completed0, completed1);
 }
 
 void Driver::drive() {
@@ -113,8 +129,33 @@ void Driver::advance() {
   cycle_D_ = static_cast<std::uint8_t>(static_cast<unsigned>(*cycle_Q_) + 1);
 }
 
+void Driver::driveCompletion() {
+  ld_completed = bit(completion_kind_Q_ == 1);
+  st_completed = bit(completion_kind_Q_ == 2);
+  ex_completed = bit(completion_kind_Q_ == 3);
+}
+
+void Driver::advanceCompletion() {
+  std::uint8_t kind = 0;
+  if (out_val == 1 && out_rdy == 1) {
+    const auto funct = static_cast<smesh::SmeshFunct>(
+        static_cast<std::uint32_t>(out_bits->cmd.funct));
+    if (funct == smesh::SmeshFunct::Mvin ||
+        funct == smesh::SmeshFunct::Mvin2 ||
+        funct == smesh::SmeshFunct::Mvin3) kind = 1;
+    else if (funct == smesh::SmeshFunct::Mvout ||
+             funct == smesh::SmeshFunct::StoreSpad) kind = 2;
+    else if (funct == smesh::SmeshFunct::Preload ||
+             funct == smesh::SmeshFunct::ComputeFlip ||
+             funct == smesh::SmeshFunct::ComputeStay) kind = 3;
+  }
+  completion_kind_D_ = kind;
+}
+
 void Driver::observe() {
   if (Sim::state == Sim::SimResetting) return;
+  if (completed0 == 1) ++completions_;
+  if (completed1 == 1) passed_ = false;
   if (waiting_) {
     const auto actual = *out_bits;
     passed_ &= out_val == 1 &&
@@ -156,11 +197,16 @@ void Driver::observe() {
 void Driver::reset() {
   program_D_.reset(0);
   cycle_D_.reset(0);
+  completion_kind_D_.reset(0);
   in_val.reset(0);
   in_bits.reset(smesh::SmeshQueuedCmd{});
   out_rdy.reset(0);
+  ld_completed.reset(0);
+  st_completed.reset(0);
+  ex_completed.reset(0);
   seen_.fill(false);
   sent_ = 0;
+  completions_ = 0;
   saw_stall_ = false;
   waiting_ = false;
   held_ = smesh::SmeshQueuedCmd{};
@@ -186,6 +232,11 @@ int main(int argc, char* argv[]) {
   loop.in_bits << driver.in_bits;
   driver.in_rdy << loop.in_rdy;
   loop.out_rdy << driver.out_rdy;
+  loop.ld_completed << driver.ld_completed;
+  loop.st_completed << driver.st_completed;
+  loop.ex_completed << driver.ex_completed;
+  driver.completed0 << loop.completed0;
+  driver.completed1 << loop.completed1;
   driver.out_val << loop.out_val;
   driver.out_bits << loop.out_bits;
 
@@ -198,17 +249,13 @@ int main(int argc, char* argv[]) {
   Sim::reset();
   for (int cycle = 0; cycle < 80; ++cycle) Sim::run();
   const auto slot = *loop.loop0;
-  const bool complete = slot.lda_completed == 1 && slot.ldb_completed == 1 &&
-                        slot.ldd_completed == 1 && slot.ex_completed == 1 &&
-                        slot.st_completed == 1;
-  const bool passed = driver.passed() && driver.accepted() == 6 && complete;
+  const bool released = slot.configured == 0 && slot.running == 0 &&
+                        *loop.head_loop_id == 1;
+  const bool passed = driver.passed() && driver.accepted() == 6 &&
+                      driver.completions() == 1 && released;
   descore::flushLog();
-  std::printf("[LOOP_MATMUL_STREAM] %s commands=%u completed=%u%u%u%u%u\n",
-              passed ? "PASS" : "FAIL", driver.sent(),
-              static_cast<unsigned>(slot.lda_completed == 1),
-              static_cast<unsigned>(slot.ldb_completed == 1),
-              static_cast<unsigned>(slot.ldd_completed == 1),
-              static_cast<unsigned>(slot.ex_completed == 1),
-              static_cast<unsigned>(slot.st_completed == 1));
+  std::printf("[LOOP_MATMUL_STREAM] %s commands=%u completions=%u released=%u\n",
+              passed ? "PASS" : "FAIL", driver.sent(), driver.completions(),
+              static_cast<unsigned>(released));
   return passed ? 0 : 1;
 }

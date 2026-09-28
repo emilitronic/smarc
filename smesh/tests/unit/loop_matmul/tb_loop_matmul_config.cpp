@@ -38,6 +38,9 @@ class LoopDriver : public Component {
   Input(bit, out_val);
   Input(smesh::SmeshQueuedCmd, out_bits);
   Output(bit, out_rdy);
+  Output(u8, ld_completed);
+  Output(u8, st_completed);
+  Output(u8, ex_completed);
 
   void updateCommand();
   void updateReady();
@@ -83,13 +86,16 @@ LoopDriver::LoopDriver(std::string /*name*/, IMPL_CTOR) {
       command(smesh::SmeshFunct::LoopWsAddrsDc, 0xb000, 0xc000),
   }};
 
-  UPDATE(updateReady).writes(out_rdy);
+  UPDATE(updateReady).writes(out_rdy, ld_completed, st_completed, ex_completed);
   UPDATE(updateCommand).reads(in_rdy).writes(in_val, in_bits);
   UPDATE(observeOutput).reads(out_val, out_bits, out_rdy);
 }
 
 void LoopDriver::updateReady() {
   out_rdy = bit(Sim::state != Sim::SimResetting && cycle_ >= 4);
+  ld_completed = 0;
+  st_completed = 0;
+  ex_completed = 0;
 }
 
 void LoopDriver::updateCommand() {
@@ -130,6 +136,9 @@ void LoopDriver::reset() {
   in_val.reset(0);
   in_bits.reset(smesh::SmeshQueuedCmd{});
   out_rdy.reset(0);
+  ld_completed.reset(0);
+  st_completed.reset(0);
+  ex_completed.reset(0);
 }
 
 } // namespace
@@ -145,6 +154,9 @@ int main(int argc, char* argv[]) {
   loop.in_bits << driver.in_bits;
   driver.in_rdy << loop.in_rdy;
   loop.out_rdy << driver.out_rdy;
+  loop.ld_completed << driver.ld_completed;
+  loop.st_completed << driver.st_completed;
+  loop.ex_completed << driver.ex_completed;
   driver.out_val << loop.out_val;
   driver.out_bits << loop.out_bits;
 

@@ -4,8 +4,12 @@
 // Sebastian Claudiusz Magierowski Sep 26 2026
 /*
 Captures LOOP_WS setup in two slots and connects the command generators and arbiters.
-Generator requests and progress are connected; loop completion and utilization accounting
-remain to be implemented.
+Generator requests, progress, utilization, and loop completion are connected.
+
+Launches primitive command generators (PCGs), connects load and execute progress, 
+records when each generator finishes, tracks load, store, and execute utilization,
+applies capacity backpressure, and releases completed loop slots for reuse.
+
 */
 #pragma once
 
@@ -27,6 +31,7 @@ namespace smesh {
 class LoopMatmulCmdQueue;
 class LoopMatmulLdABArb;
 class LoopMatmulCmdArb;
+class LoopMatmulLdUtilization;
 
 // One pending LOOP_WS operation, including the fields collected from its setup commands.
 struct LoopMatmulSlot {
@@ -94,6 +99,12 @@ class LoopMatmul : public Component {
   Input(bit,             out_rdy);
 
   Output(bit,            busy);
+  Input(u8,              ld_completed);
+  Input(u8,              st_completed);
+  Input(u8,              ex_completed);
+  // One-cycle pulses when the corresponding loop slot is released.
+  Output(bit,            completed0);
+  Output(bit,            completed1);
   Output(u8,             head_loop_id);
   Output(LoopMatmulSlot, loop0);
   Output(LoopMatmulSlot, loop1);
@@ -102,6 +113,8 @@ class LoopMatmul : public Component {
   void updateStatus();
   void updateGeneratorInputs();
   void updateProgress();
+  void updateCapacity();
+  void updateCommandFires();
   void updateSlots();
   void reset();
 
@@ -113,6 +126,8 @@ class LoopMatmul : public Component {
     u32 ld_d_addr_start = 0;
     u32 ex_c_addr_start = 0;
     u32 st_c_addr_start = 0;
+    u16 st_outstanding = 0;
+    u16 ex_outstanding = 0;
   };
 
   LoopMatmulCmdQueue* cmd_queue_ = nullptr;
@@ -124,6 +139,7 @@ class LoopMatmul : public Component {
   LoopMatmulStCSpad*  st_c_spad_ = nullptr;
   LoopMatmulLdABArb*  ld_ab_arb_ = nullptr;
   LoopMatmulCmdArb*   cmd_arb_   = nullptr;
+  LoopMatmulLdUtilization* ld_utilization_ = nullptr;
 
   Input(bit, head_val_);
   Input(SmeshQueuedCmd, head_bits_);
@@ -165,7 +181,26 @@ class LoopMatmul : public Component {
   Input(bit, st_c_spad_idle_);
   Input(u8, st_c_spad_loop_id_);
 
-  Output(bit, utilization_at_limit_);
+  Output(bit, st_utilization_at_limit_);
+  Output(bit, ex_utilization_at_limit_);
+  Output(bit, ld_a_cmd_fire_);
+  Output(bit, ld_b_cmd_fire_);
+  Output(bit, ld_d_cmd_fire_);
+  Output(bit, ex_cmd_fire_);
+  Output(bit, st_c_cmd_fire_);
+  Output(bit, st_c_spad_cmd_fire_);
+  Input(bit, ld_a_cmd_val_);
+  Input(bit, ld_a_cmd_rdy_);
+  Input(bit, ld_b_cmd_val_);
+  Input(bit, ld_b_cmd_rdy_);
+  Input(bit, ld_d_cmd_val_);
+  Input(bit, ld_d_cmd_rdy_);
+  Input(bit, ex_cmd_val_);
+  Input(bit, ex_cmd_rdy_);
+  Input(bit, st_c_cmd_val_);
+  Input(bit, st_c_cmd_rdy_);
+  Input(bit, st_c_spad_cmd_val_);
+  Input(bit, st_c_spad_cmd_rdy_);
   Output(bit, lda_complete_to_ex_);
   Output(bit, ldb_complete_to_ex_);
   Output(bit, ldd_complete_to_ex_);

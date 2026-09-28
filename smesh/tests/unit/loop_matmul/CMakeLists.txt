@@ -9,6 +9,7 @@ add_executable(tb_loop_matmul_st_c_spad tb_loop_matmul_st_c_spad.cpp)
 add_executable(tb_loop_matmul_ld_ab_arb tb_loop_matmul_ld_ab_arb.cpp)
 add_executable(tb_loop_matmul_cmd_arb tb_loop_matmul_cmd_arb.cpp)
 add_executable(tb_loop_matmul_stream tb_loop_matmul_stream.cpp)
+add_executable(tb_loop_matmul_reuse tb_loop_matmul_reuse.cpp)
 
 target_link_libraries(tb_loop_matmul_config
   PRIVATE
@@ -109,6 +110,15 @@ target_link_libraries(tb_loop_matmul_stream
     -lpthread
 )
 
+target_link_libraries(tb_loop_matmul_reuse
+  PRIVATE
+    smesh_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
 set_target_properties(tb_loop_matmul_config PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
@@ -142,6 +152,9 @@ set_target_properties(tb_loop_matmul_cmd_arb PROPERTIES
 set_target_properties(tb_loop_matmul_stream PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
+set_target_properties(tb_loop_matmul_reuse PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
+)
 
 add_test(NAME smesh_unit_loop_matmul_config COMMAND tb_loop_matmul_config)
 add_test(NAME smesh_unit_loop_matmul_ld_a COMMAND tb_loop_matmul_ld_a)
@@ -154,7 +167,8 @@ add_test(NAME smesh_unit_loop_matmul_st_c_spad COMMAND tb_loop_matmul_st_c_spad)
 add_test(NAME smesh_unit_loop_matmul_ld_ab_arb COMMAND tb_loop_matmul_ld_ab_arb)
 add_test(NAME smesh_unit_loop_matmul_cmd_arb COMMAND tb_loop_matmul_cmd_arb)
 add_test(NAME smesh_unit_loop_matmul_stream COMMAND tb_loop_matmul_stream)
-set_tests_properties(smesh_unit_loop_matmul_config smesh_unit_loop_matmul_ld_a smesh_unit_loop_matmul_ld_b smesh_unit_loop_matmul_ld_d smesh_unit_loop_matmul_ld_utilization smesh_unit_loop_matmul_ex smesh_unit_loop_matmul_st_c smesh_unit_loop_matmul_st_c_spad smesh_unit_loop_matmul_ld_ab_arb smesh_unit_loop_matmul_cmd_arb smesh_unit_loop_matmul_stream PROPERTIES
+add_test(NAME smesh_unit_loop_matmul_reuse COMMAND tb_loop_matmul_reuse)
+set_tests_properties(smesh_unit_loop_matmul_config smesh_unit_loop_matmul_ld_a smesh_unit_loop_matmul_ld_b smesh_unit_loop_matmul_ld_d smesh_unit_loop_matmul_ld_utilization smesh_unit_loop_matmul_ex smesh_unit_loop_matmul_st_c smesh_unit_loop_matmul_st_c_spad smesh_unit_loop_matmul_ld_ab_arb smesh_unit_loop_matmul_cmd_arb smesh_unit_loop_matmul_stream smesh_unit_loop_matmul_reuse PROPERTIES
   LABELS "unit;loop_matmul"
   TIMEOUT 10
 )
