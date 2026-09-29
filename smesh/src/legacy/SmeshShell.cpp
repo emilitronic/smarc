@@ -80,7 +80,7 @@ void SmeshShell::update() {
 
     // next deal with all other commends (all of which go through the RS)
     if (!rs_alloc_out.full()) { 
-      rs_alloc_out.push(cmd);
+      rs_alloc_out.push(SmeshQueuedCmd{cmd});
       cmd_in.pop();
     }
   }

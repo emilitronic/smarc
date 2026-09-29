@@ -72,9 +72,10 @@ int main() {
   const auto cmd = configStore();
   bool ok = true;
   for (int i = 0; i < 2; ++i) {
-    ok &= rs.allocate(cmd);
+    ok &= rs.allocate(cmd, nullptr, bit(i == 0));
     Sim::run();
     ok &= !rs.storeEntry(0).valid;
+    ok &= rs.loop_st_config_issued == bit(i == 0);
   }
 
   ok &= rs.allocate(cmd);

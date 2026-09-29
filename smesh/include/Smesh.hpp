@@ -25,6 +25,7 @@ smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 #include "DmaWriter.hpp"
 #include "ExCtrl.hpp"
 #include "LdCtrl.hpp"
+#include "LoopMatmul.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
@@ -64,6 +65,7 @@ class Smesh : public Component {
 
   // narrow inspection accessors for testbench to check internal state
   const SmeshRS& rs()     const { return *rs_; }
+  const LoopMatmul& loopMatmul() const { return *loop_matmul_; }
   const LdCtrl& ldCtrl() const { return *ld_ctrl_; }
   const Spad&    spad()   const { return *spad_; }
   const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_[0]; }
@@ -90,6 +92,7 @@ class Smesh : public Component {
   auto& storeDmaWriterReqBits() { return dma_writer_->req_bits; }
 
   void update();
+  void updateLoopStoreCompletions();
   void updateExWriteAdapter();
   void reset();
 
@@ -97,11 +100,14 @@ class Smesh : public Component {
   // Converts ExCtrl's bank-local write requests into the legacy payloads
   // still expected by the local-memory write arbiters.
   OutputArray(bit, ex_spad_write_val_, kSpBanks);
+  Output(u8, loop_st_completed_total_);
   OutputArray(DmaReadResp, ex_spad_write_bits_, kSpBanks);
   OutputArray(bit, ex_accum_write_val_, kAccBanks);
   OutputArray(DmaReadResp, ex_accum_write_bits_, kAccBanks);
 
   SmeshCmdQueue*           cmd_queue_ = nullptr;
+  SmeshLoopCmdAdapter*     loop_cmd_adapter_ = nullptr;
+  LoopMatmul*              loop_matmul_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;
   ArbExLdStComplete*       completion_arb_ = nullptr;

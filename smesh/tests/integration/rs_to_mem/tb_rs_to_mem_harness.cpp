@@ -100,7 +100,10 @@ void RsMemHarnessInstance::sampleBankConcurrency() {
 }
 
 bool RsMemHarnessInstance::activityComplete() const {
-  return cmd_driver_->done() && top_->rs().empty();
+  if (!cmd_driver_->done() || !top_->rs().empty()) return false;
+  return !test_.expect_loop_release ||
+      (top_->loopMatmul().loop0->configured == 0 &&
+       top_->loopMatmul().loop1->configured == 0);
 }
 
 bool RsMemHarnessInstance::passed() const {
@@ -111,6 +114,9 @@ bool RsMemHarnessInstance::passed() const {
   if (observed_tags != expected_tags) {
     return false;
   }
+  if (test_.expect_loop_release &&
+      (top_->loopMatmul().loop0->configured == 1 ||
+       top_->loopMatmul().loop1->configured == 1)) return false;
   if (test_.min_concurrent_spad_banks > 0 &&
       max_concurrent_spad_banks_ < test_.min_concurrent_spad_banks) {
     return false;

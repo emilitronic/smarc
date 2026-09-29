@@ -37,7 +37,7 @@ class RsAllocDriver : public Component {
   RsAllocDriver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(smesh::SmeshCmd, alloc_out);
+  FifoOutput(smesh::SmeshQueuedCmd, alloc_out);
 
   void update();
   void reset();
@@ -82,7 +82,7 @@ void RsAllocDriver::update() {
     cmd.rs1 = u64(kDramBase);
     cmd.rs2 = u64(smesh::packLocal(smesh::makeSpAddr(0), shape));
   }
-  alloc_out.push(cmd);
+  alloc_out.push(smesh::SmeshQueuedCmd{cmd});
   ++next_command_;
 }
 

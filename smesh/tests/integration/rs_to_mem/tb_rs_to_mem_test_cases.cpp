@@ -4,7 +4,7 @@
 // Sebastian Claudiusz Magierowski Sep 19 2026
 /*
 rs_to_mem test scenarios. Each program is issued as raw SmeshCmds through
-the real SmeshCmdQueue -> SmeshUnrolledCmdQueue -> SmeshRS -> ExCtrl path
+the real SmeshCmdQueue -> LoopMatmul -> SmeshUnrolledCmdQueue -> SmeshRS -> ExCtrl path
 (see tb_rs_to_mem_harness.hpp), so completion tags are assigned by the
 real SmeshRS at allocation time rather than hand-picked -- since our
 programs are issued one command per cycle and RS allocates strictly in
@@ -303,9 +303,53 @@ RsMemTestCase makeSameBankSerializesCase() {
   return test;
 }
 
+RsMemTestCase makeLoopWsCase() {
+  RsMemTestCase test{};
+  test.name = "loop_ws";
+  test.description = "one LOOP_WS through Smesh, RS, ExCtrl, and Accum";
+  test.max_cycles = 300;
+  test.expect_loop_release = true;
+
+  const std::array<MeshInputRow, kDim> a = {
+      row({1, 2, 3, 4}), row({5, 6, 7, 8}),
+      row({9, 10, 11, 12}), row({13, 14, 15, 16})};
+  const std::array<MeshInputRow, kDim> b = {
+      row({1, 0, 0, 0}), row({0, 1, 0, 0}),
+      row({0, 0, 1, 0}), row({0, 0, 0, 1})};
+  const auto b_start = static_cast<std::uint32_t>(kSpRows / 2 - kDim);
+  for (std::size_t r = 0; r < kDim; ++r) {
+    test.spad_rows.push_back(SpadPreloadRow{makeSpAddr(static_cast<std::uint32_t>(r)), a[r]});
+    test.spad_rows.push_back(SpadPreloadRow{makeSpAddr(b_start + static_cast<std::uint32_t>(r)), b[r]});
+  }
+
+  const auto loopCmd = [](SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2) {
+    SmeshCmd cmd{};
+    cmd.funct = static_cast<std::uint32_t>(funct);
+    cmd.rs1 = rs1;
+    cmd.rs2 = rs2;
+    return cmd;
+  };
+  test.program = {
+      configExCmd(),
+      loopCmd(SmeshFunct::LoopWsBounds, 0, (1ull << 32) | (1ull << 16) | 1ull),
+      loopCmd(SmeshFunct::LoopWsAddrsAb, 0, 0),
+      loopCmd(SmeshFunct::LoopWsAddrsDc, 0, 0),
+      loopCmd(SmeshFunct::LoopWsStridesAb, kDim, kDim),
+      loopCmd(SmeshFunct::LoopWsStridesDc, kDim, kDim),
+      loopCmd(SmeshFunct::LoopWs, 0, 0),
+  };
+  test.expected_completion_tags = {0, 1, 2};
+  std::vector<MeshAccumRow> c;
+  for (std::size_t r = 0; r < kDim; ++r) {
+    c.push_back(matmulRow(a, b, {}, r));
+  }
+  test.expected_results = {ExpectedAccumResult{makeAccAddr(0), c}};
+  return test;
+}
+
 std::vector<RsMemTestCase> rsMemTestCases() {
   return {makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
-          makeSameBankSerializesCase()};
+          makeSameBankSerializesCase(), makeLoopWsCase()};
 }
 
 } // namespace tb

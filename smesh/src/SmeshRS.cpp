@@ -261,8 +261,10 @@ SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
   UPDATE(updateIssueLoad).reads(issue_ld_rdy).writes(issue_ld_val, issue_ld_bits);
   UPDATE(updateIssueExecute).reads(issue_ex_rdy).writes(issue_ex_val, issue_ex_bits);
-  UPDATE(updateIssueStore).reads(issue_st_rdy).writes(issue_st_val, issue_st_bits);
-  UPDATE(updateComplete).reads(completed);
+  UPDATE(updateIssueStore).reads(issue_st_rdy)
+      .writes(issue_st_val, issue_st_bits, loop_st_config_issued);
+  UPDATE(updateComplete).reads(completed)
+      .writes(loop_ld_completed, loop_ex_completed, loop_st_completed);
 }
 
 // ********** RS STATUS **********
@@ -332,7 +334,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd) { // convenience wrapper for allocat
   return allocate(cmd, nullptr);
 }
 // places new command into appropriate RS entry and fills its operands and dependencies
-bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out) {
+bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out, bit from_mmul_loop) {
   if (!canAccept(cmd)) {
     return false;
   }
@@ -380,6 +382,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out) {
   new_entry.complete_on_issue = new_entry.is_config && queue != SmeshQueueClass::Execute; // true if config ld or st
   new_entry.cmd               = cmd;
   new_entry.rs_tag            = next_rs_tag_++;
+  new_entry.from_mmul_loop    = from_mmul_loop;
   new_entry.allocated_at      = instructions_allocated_++;
 
   fillOperands(new_entry, config_state_);
@@ -399,13 +402,13 @@ void SmeshRS::updateAlloc() {
     return;
   }
 
-  const auto cmd = alloc_in.peek();
-  if (!canAccept(cmd)) {
+  const auto queued = alloc_in.peek();
+  if (!canAccept(queued.cmd)) {
     return;
   }
 
   alloc_in.pop();
-  allocate(cmd);
+  allocate(queued.cmd, nullptr, queued.from_mmul_loop);
 }
 
 // ********** ENTRY ACCESS **********
@@ -529,6 +532,7 @@ void SmeshRS::updateIssueExecute() {
 
 // Present the oldest ready Store command; retire CONFIG or mark STORE issued on acceptance.
 void SmeshRS::updateIssueStore() {
+  loop_st_config_issued = 0;
   const auto* entry = store_issue_port_enabled_ ? issueStore() : nullptr;
   issue_st_val = bit(entry != nullptr);
   issue_st_bits = SmeshIssue{};
@@ -543,6 +547,7 @@ void SmeshRS::updateIssueStore() {
   issue_st_bits = issue;
   if (issue_st_rdy == 1) {
     if (entry->complete_on_issue) {
+      loop_st_config_issued = entry->from_mmul_loop;
       assert_always(complete(entry->rs_tag), "SmeshRS could not retire issued Store CONFIG");
     } else {
       markIssued(entry->rs_tag);
@@ -576,16 +581,28 @@ bool SmeshRS::markIssued(SmeshRsTag rs_tag) {
 // ********** COMPLETION **********
 
 void SmeshRS::updateComplete() {
+  loop_ld_completed = 0;
+  loop_ex_completed = 0;
+  loop_st_completed = 0;
   if (completed.empty()) {
     return;
   }
 
   const auto rs_tag = completed.pop();
-  assert_always(complete(rs_tag), "SmeshRS received completion for an unknown RS tag");
+  SmeshQueueClass completed_q = SmeshQueueClass::Invalid;
+  bit from_mmul_loop = false;
+  assert_always(complete(rs_tag, &completed_q, &from_mmul_loop),
+                "SmeshRS received completion for an unknown RS tag");
+  if (from_mmul_loop == 1) {
+    loop_ld_completed = bit(completed_q == SmeshQueueClass::Load);
+    loop_ex_completed = bit(completed_q == SmeshQueueClass::Execute);
+    loop_st_completed = bit(completed_q == SmeshQueueClass::Store);
+  }
 }
 
 // mark RS entry as completed (based on rs_tag) and free it, clearing dependencies in other entries
-bool SmeshRS::complete(SmeshRsTag rs_tag) {
+bool SmeshRS::complete(SmeshRsTag rs_tag, SmeshQueueClass* completed_q_out,
+                       bit* from_mmul_loop_out) {
   SmeshRsEntry* completed_entry = nullptr;
   std::size_t completed_row = 0;
 
@@ -622,6 +639,8 @@ bool SmeshRS::complete(SmeshRsTag rs_tag) {
   }
 
   const auto completed_q = completed_entry->q; // remember whether it was a LOAD, EXECUTE, or STORE entry
+  if (completed_q_out != nullptr) *completed_q_out = completed_q;
+  if (from_mmul_loop_out != nullptr) *from_mmul_loop_out = completed_entry->from_mmul_loop;
   const auto completed_bit = std::uint32_t{1} << completed_row; // dep bit to clear corresponding to the completed entry's row
 
   // visit every entry that might have a dependency on the completed entry and clear that dependency
@@ -669,6 +688,10 @@ bool SmeshRS::complete(SmeshRsTag rs_tag) {
 }
 
 void SmeshRS::reset() {
+  loop_ld_completed.reset(0);
+  loop_ex_completed.reset(0);
+  loop_st_completed.reset(0);
+  loop_st_config_issued.reset(0);
   config_state_ = {};
   entries_ld_ = {};
   entries_ex_ = {};

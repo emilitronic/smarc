@@ -31,6 +31,23 @@ class SmeshCmdQueue : public Component {
   void updateAccept(); // pushes cmd_bits when cmd_valid && cmd_ready
 };
 
+// Converts the command FIFO head to LoopMatmul's valid/ready input.
+class SmeshLoopCmdAdapter : public Component {
+  DECLARE_COMPONENT(SmeshLoopCmdAdapter);
+
+ public:
+  SmeshLoopCmdAdapter(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+  FifoInput(SmeshCmd, cmd_in);
+  Output(bit, cmd_val);
+  Output(SmeshQueuedCmd, cmd_bits);
+  Input(bit, cmd_rdy);
+
+  void update();
+  void reset();
+};
+
 class SmeshUnrolledCmdQueue : public Component {
   DECLARE_COMPONENT(SmeshUnrolledCmdQueue);
 
@@ -39,10 +56,14 @@ class SmeshUnrolledCmdQueue : public Component {
 
   Clock(clk);
 
-  FifoInput(SmeshCmd, cmd_in);
-  FifoOutput(SmeshCmd, cmd_out);
+  Input(bit, cmd_val);
+  Input(SmeshQueuedCmd, cmd_bits);
+  Output(bit, cmd_rdy);
+  FifoOutput(SmeshQueuedCmd, cmd_out);
 
-  void update();
+  void updateReady();
+  void updateAccept();
+  void reset();
 };
 
 } // namespace smesh

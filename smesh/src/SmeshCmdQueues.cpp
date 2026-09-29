@@ -30,19 +30,44 @@ void SmeshCmdQueue::updateAccept() {
   trace("cmd_queue: accepted funct=%u", static_cast<unsigned>(cmd.funct));
 }
 
-SmeshUnrolledCmdQueue::SmeshUnrolledCmdQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(cmd_in).writes(cmd_out);
+SmeshLoopCmdAdapter::SmeshLoopCmdAdapter(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).reads(cmd_in, cmd_rdy).writes(cmd_val, cmd_bits);
 }
 
-void SmeshUnrolledCmdQueue::update() {
-  if (cmd_in.empty() || cmd_out.full()) {
-    return;
-  }
+void SmeshLoopCmdAdapter::update() {
+  cmd_val = bit(!cmd_in.empty());
+  cmd_bits = SmeshQueuedCmd{};
+  if (cmd_in.empty()) return;
 
-  const auto cmd = cmd_in.pop();
+  cmd_bits = SmeshQueuedCmd{cmd_in.peek()};
+  if (cmd_rdy == 1) cmd_in.pop();
+}
+
+void SmeshLoopCmdAdapter::reset() {
+  cmd_val.reset(0);
+  cmd_bits.reset(SmeshQueuedCmd{});
+}
+
+SmeshUnrolledCmdQueue::SmeshUnrolledCmdQueue(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(updateReady).writes(cmd_rdy);
+  UPDATE(updateAccept).reads(cmd_val, cmd_bits).writes(cmd_out);
+}
+
+void SmeshUnrolledCmdQueue::updateReady() {
+  cmd_rdy = bit(!cmd_out.full());
+}
+
+void SmeshUnrolledCmdQueue::updateAccept() {
+  if (cmd_val == 0 || cmd_out.full()) return;
+
+  const auto cmd = *cmd_bits;
   cmd_out.push(cmd);
 
-  trace("unrolled_cmd_queue: accepted funct=%u", static_cast<unsigned>(cmd.funct));
+  trace("unrolled_cmd_queue: accepted funct=%u", static_cast<unsigned>(cmd.cmd.funct));
+}
+
+void SmeshUnrolledCmdQueue::reset() {
+  cmd_rdy.reset(0);
 }
 
 } // namespace smesh

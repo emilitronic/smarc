@@ -10,6 +10,8 @@ namespace smesh {
 
 Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_            = new SmeshCmdQueue("CmdQueue");
+  loop_cmd_adapter_     = new SmeshLoopCmdAdapter("LoopCmdAdapter");
+  loop_matmul_          = new LoopMatmul("LoopMatmul");
   unrolled_cmd_queue_   = new SmeshUnrolledCmdQueue("UnrolledCmdQueue");
   rs_                   = new SmeshRS("RS");
   completion_arb_       = new ArbExLdStComplete("ArbExLdStComplete");
@@ -62,6 +64,8 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   completion_mux_       = new DmaReadCompletionMux("DmaReadCompletionMux");
 
   cmd_queue_->clk            << clk;
+  loop_cmd_adapter_->clk     << clk;
+  loop_matmul_->clk          << clk;
   unrolled_cmd_queue_->clk   << clk;
   rs_->clk                   << clk;
   completion_arb_->clk       << clk;
@@ -116,7 +120,16 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   cmd_queue_->cmd_valid << cmd_valid;
   cmd_queue_->cmd_bits  << cmd_bits;
   cmd_ready             << cmd_queue_->cmd_ready;
-  unrolled_cmd_queue_->cmd_in << cmd_queue_->cmd_out;
+  loop_cmd_adapter_->cmd_in     << cmd_queue_->cmd_out;
+  loop_matmul_->in_val          << loop_cmd_adapter_->cmd_val;
+  loop_matmul_->in_bits         << loop_cmd_adapter_->cmd_bits;
+  loop_cmd_adapter_->cmd_rdy    << loop_matmul_->in_rdy;
+  unrolled_cmd_queue_->cmd_val  << loop_matmul_->out_val;
+  unrolled_cmd_queue_->cmd_bits << loop_matmul_->out_bits;
+  loop_matmul_->out_rdy         << unrolled_cmd_queue_->cmd_rdy;
+  loop_matmul_->ld_completed    << rs_->loop_ld_completed;
+  loop_matmul_->ex_completed    << rs_->loop_ex_completed;
+  loop_matmul_->st_completed    << loop_st_completed_total_;
   rs_->alloc_in    << unrolled_cmd_queue_->cmd_out;
   ld_ctrl_->cmd_val << rs_->issue_ld_val;
   ld_ctrl_->cmd_bits << rs_->issue_ld_bits;
@@ -313,6 +326,9 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   rs_->setExecuteIssuePortEnabled(true);
 
   UPDATE(update).writes(write_arb_zero_val_, write_arb_zero_bits_);
+  UPDATE(updateLoopStoreCompletions)
+      .reads(rs_->loop_st_completed, rs_->loop_st_config_issued)
+      .writes(loop_st_completed_total_);
   UPDATE(updateExWriteAdapter)
       .reads(ex_ctrl_->spad_write_val, ex_ctrl_->spad_write_bits,
              ex_ctrl_->accum_write_val, ex_ctrl_->accum_write_bits)
@@ -373,7 +389,15 @@ Smesh::~Smesh() {
   delete completion_arb_;
   delete rs_;
   delete unrolled_cmd_queue_;
+  delete loop_matmul_;
+  delete loop_cmd_adapter_;
   delete cmd_queue_;
+}
+
+void Smesh::updateLoopStoreCompletions() {
+  loop_st_completed_total_ = static_cast<std::uint8_t>(
+      static_cast<std::uint8_t>(*rs_->loop_st_completed) +
+      static_cast<std::uint8_t>(*rs_->loop_st_config_issued));
 }
 
 void Smesh::update() {
@@ -433,6 +457,7 @@ void Smesh::reset() {
   rs_->setStoreIssuePortEnabled(true);
   rs_->setExecuteIssuePortEnabled(true);
   write_arb_zero_val_.reset(0);
+  loop_st_completed_total_.reset(0);
   write_arb_zero_bits_.reset(DmaReadResp{});
   trace("smesh: reset");
 }

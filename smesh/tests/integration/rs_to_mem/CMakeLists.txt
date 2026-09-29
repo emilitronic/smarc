@@ -22,12 +22,14 @@ add_test(NAME smesh_rs_to_mem_basic COMMAND tb_rs_to_mem_suite -test=basic)
 add_test(NAME smesh_rs_to_mem_mul_pre COMMAND tb_rs_to_mem_suite -test=mul_pre)
 add_test(NAME smesh_rs_to_mem_concurrent_banks COMMAND tb_rs_to_mem_suite -test=concurrent_banks)
 add_test(NAME smesh_rs_to_mem_same_bank_serializes COMMAND tb_rs_to_mem_suite -test=same_bank_serializes)
+add_test(NAME smesh_rs_to_mem_loop_ws COMMAND tb_rs_to_mem_suite -test=loop_ws)
 
 set_tests_properties(
   smesh_rs_to_mem_basic
   smesh_rs_to_mem_mul_pre
   smesh_rs_to_mem_concurrent_banks
   smesh_rs_to_mem_same_bank_serializes
+  smesh_rs_to_mem_loop_ws
   PROPERTIES
     LABELS "integration;rs_to_mem"
     TIMEOUT 30
