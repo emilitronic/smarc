@@ -13,28 +13,95 @@ Minimal DMA reader implementation.
 namespace smesh {
 
 DmaReader::DmaReader(std::string /*name*/, IMPL_CTOR) {
-  // One memory beat can produce two local tile rows.
-  resp_out.setSize(2); // give FIFO room for 2 entries
-  UPDATE(updateRequest).reads(req_in).writes(mem_req);     // update reads from req_in & writes to mem_req
-  UPDATE(updateResponse).reads(mem_resp).writes(resp_out);
+  // One narrow 8-byte response can produce two local tile rows.
+  resp_out.setSize(2);
+  UPDATE(update).reads(req_in, mem_resp).writes(mem_req, resp_out);
 }
 
-void DmaReader::updateRequest() {
-  if (waiting_ || req_in.empty() || mem_req.full()) {
+void DmaReader::update() {
+  // Assemble the returned beat before issuing the next one.
+  if (waiting_ && !mem_resp.empty()) {
+    const auto segments = active_.has_acc_bitwidth == 1
+                              ? 1u : (static_cast<unsigned>(active_.cols) + kDim - 1) / kDim;
+    const bool final_beat = bytes_received_ + beat_bytes_ == total_bytes_;
+    if (!final_beat || resp_out.freeCount() >= static_cast<int>(segments)) {
+      const auto resp = mem_resp.pop();
+      assert_always(static_cast<std::uint16_t>(resp.id) == static_cast<std::uint16_t>(active_.cmd_id),
+                    "DmaReader response ID does not match active request");
+      assert_always(static_cast<std::uint8_t>(resp.err) == 0,
+                    "DmaReader memory response reported an error");
+
+      const auto word = static_cast<std::uint64_t>(resp.rdata);
+      for (unsigned byte = 0; byte < beat_bytes_; ++byte) {
+        row_data_[bytes_received_ + byte] = static_cast<std::uint8_t>(word >> (8 * byte));
+      }
+      bytes_received_ += beat_bytes_;
+      waiting_ = false;
+
+      if (final_beat) {
+        // The assembled row may occupy one full-width or two narrow local rows.
+        assert_always(segments == 1 || active_.block_stride > 0,
+                      "DmaReader needs a local block stride for multi-tile rows");
+        for (unsigned segment = 0; segment < segments; ++segment) {
+          const auto first_col = segment * kDim;
+          const auto cols = static_cast<std::uint16_t>(
+              std::min<std::size_t>(kDim, static_cast<std::uint16_t>(active_.cols) - first_col));
+          const auto element_bytes = active_.has_acc_bitwidth == 1 ? sizeof(Acc) : sizeof(Elem);
+          const auto chunk_bytes = static_cast<std::uint16_t>(cols * element_bytes);
+          DmaReadResp dma_resp{};
+          for (unsigned byte = 0; byte < chunk_bytes; ++byte) {
+            dma_resp.data[byte] = row_data_[first_col * element_bytes + byte];
+          }
+          dma_resp.laddr = active_.laddr + segment * static_cast<std::uint16_t>(active_.block_stride);
+          dma_resp.mask = u8((1u << cols) - 1u);
+          dma_resp.has_acc_bitwidth = active_.has_acc_bitwidth;
+          dma_resp.scale = active_.scale;
+          dma_resp.repeats = active_.repeats;
+          dma_resp.len = cols;
+          dma_resp.bytes_read = u16(chunk_bytes);
+          dma_resp.pixel_repeats = active_.pixel_repeats;
+          dma_resp.cmd_id = active_.cmd_id;
+          dma_resp.last = true;
+          resp_out.push(dma_resp);
+        }
+        active_valid_ = false;
+      }
+      trace("dma_reader: response data=0x%llx cmd_id=%u\n",
+            static_cast<unsigned long long>(resp.rdata),
+            static_cast<unsigned>(resp.id));
+    }
+  }
+
+  if (waiting_ || mem_req.full()) {
     return;
   }
 
-  active_ = req_in.pop();
-  const auto bytes = static_cast<std::uint16_t>(active_.cols);
-  assert_always(bytes > 0 && bytes <= sizeof(std::uint64_t), "DmaReader currently supports one 1-to-8-byte row");
+  if (!active_valid_) {
+    if (req_in.empty()) return;
+    active_ = req_in.pop();
+    const auto cols = static_cast<std::uint16_t>(active_.cols);
+    const auto element_bytes = active_.has_acc_bitwidth == 1 ? sizeof(Acc) : sizeof(Elem);
+    const auto row_bytes = static_cast<std::size_t>(cols) * element_bytes;
+    assert_always(cols > 0 && row_bytes <= row_data_.size() &&
+                      (active_.has_acc_bitwidth == 1 || cols <= 2 * kDim),
+                  "DmaReader supports up to one full-width or two narrow local rows");
+    total_bytes_ = static_cast<std::uint16_t>(row_bytes);
+    row_data_ = {};
+    bytes_requested_ = 0;
+    bytes_received_ = 0;
+    active_valid_ = true;
+  }
 
   smem::MemReq req{};
-  req.addr = active_.vaddr;
-  req.size = u16(bytes);
+  beat_bytes_ = static_cast<std::uint16_t>(
+      std::min<std::size_t>(sizeof(std::uint64_t), total_bytes_ - bytes_requested_));
+  req.addr = active_.vaddr + bytes_requested_;
+  req.size = u16(beat_bytes_);
   req.write = false;
   req.id = active_.cmd_id;
   mem_req.push(req);
   waiting_ = true;
+  bytes_requested_ += beat_bytes_;
 
   trace("dma_reader: read addr=0x%llx bytes=%u cmd_id=%u\n",
         static_cast<unsigned long long>(req.addr),
@@ -42,49 +109,15 @@ void DmaReader::updateRequest() {
         static_cast<unsigned>(req.id));
 }
 
-void DmaReader::updateResponse() {
-  if (!waiting_ || mem_resp.empty()) {
-    return;
-  }
-
-  const auto bytes = static_cast<std::uint16_t>(active_.cols); // number of cols in req 
-  // segment = one local-mem row from DRAM resp; 
-  const auto segments = active_.has_acc_bitwidth != 0 ? 1u : (bytes + kDim - 1) / kDim;
-  if (resp_out.freeCount() < static_cast<int>(segments)) return;
-
-  const auto resp = mem_resp.pop();
-  assert_always(static_cast<std::uint16_t>(resp.id) == static_cast<std::uint16_t>(active_.cmd_id), "DmaReader response ID does not match active request");
-  assert_always(static_cast<std::uint8_t>(resp.err) == 0, "DmaReader memory response reported an error");
-
-  assert_always(segments == 1 || active_.block_stride > 0, "DmaReader needs a local block stride for multi-tile rows");
-  // Complete each tile row after its local-memory write has been accepted.
-  for (unsigned segment = 0; segment < segments; ++segment) {
-    const auto byte_offset = segment * kDim;
-    const auto chunk_bytes = static_cast<std::uint16_t>(segments == 1 ? bytes : std::min<std::size_t>(kDim, bytes - byte_offset));
-    DmaReadResp dma_resp{};
-    dma_resp.data = packDmaReadData(static_cast<std::uint64_t>(resp.rdata) >> (8 * byte_offset));
-    dma_resp.laddr = active_.laddr + segment * static_cast<std::uint16_t>(active_.block_stride);
-    dma_resp.mask = u8(chunk_bytes == 8 ? 0xffu : ((1u << chunk_bytes) - 1u));
-    dma_resp.has_acc_bitwidth = active_.has_acc_bitwidth;
-    dma_resp.scale = active_.scale;
-    dma_resp.repeats = active_.repeats;
-    dma_resp.len = chunk_bytes;
-    dma_resp.bytes_read = u16(chunk_bytes);
-    dma_resp.pixel_repeats = active_.pixel_repeats;
-    dma_resp.cmd_id = active_.cmd_id;
-    dma_resp.last = true;
-    resp_out.push(dma_resp);
-  }
-  waiting_               = false;
-
-  trace("dma_reader: response data=0x%llx cmd_id=%u\n",
-        static_cast<unsigned long long>(resp.rdata),
-        static_cast<unsigned>(resp.id));
-}
-
 void DmaReader::reset() {
+  active_valid_ = false;
   waiting_ = false;
   active_ = {};
+  row_data_ = {};
+  total_bytes_ = 0;
+  bytes_requested_ = 0;
+  bytes_received_ = 0;
+  beat_bytes_ = 0;
 }
 
 } // namespace smesh

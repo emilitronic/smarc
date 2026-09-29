@@ -75,6 +75,7 @@ RsMemTestCase makeLoopWsCase();
 RsMemTestCase makeLoopWsDmaCase();
 RsMemTestCase makeLoopWsDmaI2Case();
 RsMemTestCase makeLoopWsDmaK2Case();
+RsMemTestCase makeFullWidthAccumLoadCase();
 std::vector<RsMemTestCase> rsMemTestCases();
 
 } // namespace tb

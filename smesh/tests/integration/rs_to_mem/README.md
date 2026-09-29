@@ -31,6 +31,7 @@ The suite currently covers:
 - `loop_ws_dma`: one tile loaded from DRAM and stored back to DRAM.
 - `loop_ws_dma_i2`: two output tiles with a shared B tile.
 - `loop_ws_dma_k2`: two products accumulated into one output tile.
+- `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
 
 The focused memory unit tests cover bank-local arbitration and simultaneous
 operations independently. This suite also checks Spad read concurrency and
@@ -47,6 +48,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=mul_pre
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_i2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
+./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load
 ctest --test-dir build -L rs_to_mem --output-on-failure
 ```
 

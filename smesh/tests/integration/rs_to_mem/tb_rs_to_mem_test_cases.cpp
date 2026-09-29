@@ -568,10 +568,39 @@ RsMemTestCase makeLoopWsDmaK2Case() {
   return test;
 }
 
+// One 4-element accumulator row occupies 16 DRAM bytes, or two memory beats.
+RsMemTestCase makeFullWidthAccumLoadCase() {
+  RsMemTestCase test{};
+  test.name = "full_width_accum_load";
+  test.description = "LOAD full-width accumulator row across two DRAM beats";
+  test.max_cycles = 160;
+
+  constexpr std::uint64_t dram_base = 0x80008000;
+  const auto destination = makeAccAddr(8);
+  const MeshAccumRow values{0x12345678, 0x00000123, 0x76543210, 0x00010002};
+  std::vector<std::uint8_t> bytes;
+  for (const auto value : values) {
+    const auto word = static_cast<std::uint32_t>(value);
+    for (unsigned byte = 0; byte < sizeof(Acc); ++byte) {
+      bytes.push_back(static_cast<std::uint8_t>(word >> (8 * byte)));
+    }
+  }
+  test.dram_initial.push_back({dram_base, bytes});
+
+  test.program = {
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim), bytes.size()),
+      loopCommand(SmeshFunct::Mvin, dram_base,
+                  packLocal(destination, MatrixShape{1, kDim})),
+  };
+  test.expected_completion_tags = {1};
+  test.expected_results = {ExpectedAccumResult{destination, {values}}};
+  return test;
+}
+
 std::vector<RsMemTestCase> rsMemTestCases() {
   return {makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
           makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
-          makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case()};
+          makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase()};
 }
 
 } // namespace tb
