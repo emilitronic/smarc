@@ -99,6 +99,45 @@ SmeshCmd computeStayCmd(SmeshLocalAddr input, SmeshLocalAddr addend) {
   return cmd;
 }
 
+std::vector<std::uint8_t> rowBytes(const MeshInputRow& values) {
+  std::vector<std::uint8_t> bytes;
+  for (const auto value : values) bytes.push_back(static_cast<std::uint8_t>(value));
+  return bytes;
+}
+
+SmeshCmd loopCommand(SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2) {
+  SmeshCmd cmd{};
+  cmd.funct = static_cast<std::uint32_t>(funct);
+  cmd.rs1 = rs1;
+  cmd.rs2 = rs2;
+  return cmd;
+}
+
+std::vector<SmeshCmd> dmaLoopProgram(std::uint16_t i_tiles, std::uint16_t k_tiles,
+                                     std::uint64_t a_base, std::uint64_t b_base,
+                                     std::uint64_t d_base, std::uint64_t c_base) {
+  const auto config_load = [](unsigned state, std::uint64_t stride, bool shrink) {
+    const auto rs1 = packConfig(ConfigKind::Load, state, kDim) |
+                     (shrink ? (std::uint64_t{1} << 2) : 0);
+    return loopCommand(SmeshFunct::Config, rs1, stride);
+  };
+  const auto a_stride = static_cast<std::uint64_t>(k_tiles) * kDim;
+  const auto row_stride = static_cast<std::uint64_t>(kDim);
+  return {
+      config_load(0, a_stride, false), config_load(1, row_stride, false),
+      config_load(2, row_stride, true), configExCmd(),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                  (std::uint64_t{1} << 32) | row_stride),
+      loopCommand(SmeshFunct::LoopWsBounds, 0,
+                  (std::uint64_t{k_tiles} << 32) | (std::uint64_t{1} << 16) | i_tiles),
+      loopCommand(SmeshFunct::LoopWsAddrsAb, a_base, b_base),
+      loopCommand(SmeshFunct::LoopWsAddrsDc, d_base, c_base),
+      loopCommand(SmeshFunct::LoopWsStridesAb, a_stride, row_stride),
+      loopCommand(SmeshFunct::LoopWsStridesDc, row_stride, row_stride),
+      loopCommand(SmeshFunct::LoopWs, (std::uint64_t{2} << 16) | (1ull << 2) | 1ull, 0),
+  };
+}
+
 } // namespace
 
 // ********************* TEST CASES *********************
@@ -349,8 +388,9 @@ RsMemTestCase makeLoopWsCase() {
 }
 
 // "loop_ws_dma": exercises the LOOP_WS path with DRAM loads and stores 
-// Seeds A, B, and D in DRAM, runs a LOOP_WS through Smech, and checks
-// the loaded rows, accumulator result, completions, and C written back to DRAM.
+// Seeds 4x4 A, identity B, and all-ones D in DRAM, runs a LOOP_WS through Smesh,
+// and checks the loaded rows, accumulator result, completions, and C written
+// back to DRAM.
 RsMemTestCase makeLoopWsDmaCase() {
   RsMemTestCase test{};
   test.name = "loop_ws_dma";
@@ -422,9 +462,116 @@ RsMemTestCase makeLoopWsDmaCase() {
   return test;
 }
 
+// Two output tiles share B but use distinct A/D tiles and two destinct C destinations.
+RsMemTestCase makeLoopWsDmaI2Case() {
+  RsMemTestCase test{};
+  test.name = "loop_ws_dma_i2";
+  test.description = "LOOP_WS I=2 J=1 K=1 writes two C tiles to DRAM";
+  test.max_cycles = 900;
+  test.drain_cycles = 16;
+  test.expect_loop_release = true;
+
+  constexpr std::uint64_t a_base = 0x80004000;
+  constexpr std::uint64_t b_base = 0x80005000;
+  constexpr std::uint64_t d_base = 0x80006000;
+  constexpr std::uint64_t c_base = 0x80007000;
+  test.program = dmaLoopProgram(2, 1, a_base, b_base, d_base, c_base);
+
+  const auto b_start = static_cast<std::uint32_t>(kSpRows - kDim);
+  std::vector<MeshAccumRow> c_rows;
+  for (std::size_t r = 0; r < 2 * kDim; ++r) {
+    MeshInputRow a{};
+    MeshInputRow d{};
+    MeshAccumRow c{};
+    for (std::size_t col = 0; col < kDim; ++col) {
+      a[col] = static_cast<Elem>(1 + r * kDim + col);
+      d[col] = 1;
+      c[col] = static_cast<Acc>(a[col]) + 1;
+    }
+    const auto offset = r * kDim;
+    test.dram_initial.push_back({a_base + offset, rowBytes(a)});
+    test.dram_initial.push_back({d_base + offset, rowBytes(d)});
+    test.expected_loaded_spad_rows.push_back({makeSpAddr(static_cast<std::uint32_t>(r)), a});
+    c_rows.push_back(c);
+    MeshInputRow narrow_c{};
+    for (std::size_t col = 0; col < kDim; ++col) narrow_c[col] = static_cast<Elem>(c[col]);
+    test.expected_dram.push_back({c_base + offset, rowBytes(narrow_c)});
+  }
+  for (std::size_t r = 0; r < kDim; ++r) {
+    MeshInputRow b{};
+    b[r] = 1;
+    test.dram_initial.push_back({b_base + r * kDim, rowBytes(b)});
+    test.expected_loaded_spad_rows.push_back({makeSpAddr(b_start + static_cast<std::uint32_t>(r)), b});
+  }
+  test.expected_results = {ExpectedAccumResult{makeAccAddr(0), c_rows}};
+  test.expected_completion_tags.push_back(3);
+  for (std::uint8_t tag = 5; tag <= 15; ++tag) test.expected_completion_tags.push_back(tag);
+  return test;
+}
+
+// Two K tiles contribute to one C tile; the second product must accumulate.
+// That is, expected results is: D + A0*B0 + A1*B1
+RsMemTestCase makeLoopWsDmaK2Case() {
+  RsMemTestCase test{};
+  test.name = "loop_ws_dma_k2";
+  test.description = "LOOP_WS I=1 J=1 K=2 accumulates two products into C";
+  test.max_cycles = 900;
+  test.drain_cycles = 16;
+  test.expect_loop_release = true;
+
+  constexpr std::uint64_t a_base = 0x80004000;
+  constexpr std::uint64_t b_base = 0x80005000;
+  constexpr std::uint64_t d_base = 0x80006000;
+  constexpr std::uint64_t c_base = 0x80007000;
+  test.program = dmaLoopProgram(1, 2, a_base, b_base, d_base, c_base);
+
+  const auto b_start = static_cast<std::uint32_t>(kSpRows - 2 * kDim);
+  std::vector<MeshAccumRow> c_rows;
+  for (std::size_t r = 0; r < kDim; ++r) {
+    std::vector<std::uint8_t> a_bytes;
+    MeshAccumRow c{};
+    MeshInputRow d{};
+    for (std::size_t col = 0; col < 2 * kDim; ++col) {
+      a_bytes.push_back(static_cast<std::uint8_t>(1 + r * 2 * kDim + col));
+    }
+    for (std::size_t col = 0; col < kDim; ++col) {
+      d[col] = 1;
+      c[col] = 1 + a_bytes[col] + 2 * a_bytes[kDim + col];
+    }
+    test.dram_initial.push_back({a_base + r * 2 * kDim, a_bytes});
+    test.dram_initial.push_back({d_base + r * kDim, rowBytes(d)});
+    for (std::size_t k = 0; k < 2; ++k) {
+      MeshInputRow a_tile_row{};
+      for (std::size_t col = 0; col < kDim; ++col) {
+        a_tile_row[col] = static_cast<Elem>(a_bytes[k * kDim + col]);
+      }
+      test.expected_loaded_spad_rows.push_back(
+          {makeSpAddr(static_cast<std::uint32_t>(k * kDim + r)), a_tile_row});
+    }
+    c_rows.push_back(c);
+    MeshInputRow narrow_c{};
+    for (std::size_t col = 0; col < kDim; ++col) narrow_c[col] = static_cast<Elem>(c[col]);
+    test.expected_dram.push_back({c_base + r * kDim, rowBytes(narrow_c)});
+  }
+  for (std::size_t k = 0; k < 2; ++k) {
+    for (std::size_t r = 0; r < kDim; ++r) {
+      MeshInputRow b{};
+      b[r] = static_cast<Elem>(k == 0 ? 1 : 2);
+      test.dram_initial.push_back({b_base + (k * kDim + r) * kDim, rowBytes(b)});
+      test.expected_loaded_spad_rows.push_back(
+          {makeSpAddr(b_start + static_cast<std::uint32_t>(k * kDim + r)), b});
+    }
+  }
+  test.expected_results = {ExpectedAccumResult{makeAccAddr(0), c_rows}};
+  test.expected_completion_tags.push_back(3);
+  for (std::uint8_t tag = 5; tag <= 13; ++tag) test.expected_completion_tags.push_back(tag);
+  return test;
+}
+
 std::vector<RsMemTestCase> rsMemTestCases() {
   return {makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
-          makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase()};
+          makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
+          makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case()};
 }
 
 } // namespace tb

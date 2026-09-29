@@ -73,6 +73,8 @@ RsMemTestCase makeConcurrentBanksCase();
 RsMemTestCase makeSameBankSerializesCase();
 RsMemTestCase makeLoopWsCase();
 RsMemTestCase makeLoopWsDmaCase();
+RsMemTestCase makeLoopWsDmaI2Case();
+RsMemTestCase makeLoopWsDmaK2Case();
 std::vector<RsMemTestCase> rsMemTestCases();
 
 } // namespace tb

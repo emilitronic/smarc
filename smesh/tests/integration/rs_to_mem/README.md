@@ -14,13 +14,12 @@ That makes it complementary to the unit tests and the ExCtrl suite: it catches
 integration issues such as bank arbitration and backpressure that an isolated
 ExCtrl simulation cannot expose.
 
-The current scenarios issue `CONFIG_EX`, `PRELOAD`, and `COMPUTE_*` commands.
-They read operands from Spad and write results to Accum, but do not issue load
-or store commands. The test harness therefore initializes the behavioral
-Spad image directly before the first simulated cycle. The external memory
-boundary is connected to MemCtrl/Dram because Smesh requires it, but that
-path remains idle in these cases. Accum results and RS completion tags are
-checked after each run.
+The direct-command scenarios issue `CONFIG_EX`, `PRELOAD`, and `COMPUTE_*`.
+The `loop_ws` scenario starts with Spad data already loaded. The `loop_ws_dma`
+scenarios instead seed A, B, and D in DRAM and exercise generated loads,
+execute commands, and stores through the shared memory boundary. The harness
+checks completions and Accum results, plus loaded Spad rows and final DRAM
+bytes for the DMA scenarios.
 
 The suite currently covers:
 
@@ -28,6 +27,10 @@ The suite currently covers:
 - `mul_pre`: two operations using the overlapping COMPUTE+PRELOAD path.
 - `concurrent_banks`: checks that Spad reads can fire on three banks at once.
 - `same_bank_serializes`: checks that aliased A/addend reads serialize.
+- `loop_ws`: one tile with operands initialized in Spad.
+- `loop_ws_dma`: one tile loaded from DRAM and stored back to DRAM.
+- `loop_ws_dma_i2`: two output tiles with a shared B tile.
+- `loop_ws_dma_k2`: two products accumulated into one output tile.
 
 The focused memory unit tests cover bank-local arbitration and simultaneous
 operations independently. This suite also checks Spad read concurrency and
@@ -42,6 +45,8 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -list_tests
 ./build/smesh/tb_rs_to_mem_suite -test=basic
 ./build/smesh/tb_rs_to_mem_suite -test=mul_pre
+./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_i2
+./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
 ctest --test-dir build -L rs_to_mem --output-on-failure
 ```
 
