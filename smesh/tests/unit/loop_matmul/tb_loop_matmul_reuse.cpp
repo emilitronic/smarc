@@ -8,7 +8,6 @@ applies capacity backpressure, and releases completed loop slots for reuse).
 
 This test runs three loops: two consecutive loops occupy both slots, and the third
 reuses slot 0.  It also checks delayed completions and load-capacity backpressure.
-
 */
 
 #include <cascade/Cascade.hpp>
@@ -26,21 +25,20 @@ namespace {
 // Delayed RS completions fill the small load capacity before issuing can resume.
 using CompletionPipe = std::array<u8, 12>;
 
-smesh::SmeshQueuedCmd command(smesh::SmeshFunct funct, std::uint64_t rs1,
-                              std::uint64_t rs2) {
+// 
+smesh::SmeshQueuedCmd command(smesh::SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2) {
   smesh::SmeshQueuedCmd value{};
   value.cmd.funct = static_cast<std::uint32_t>(funct);
-  value.cmd.rs1 = rs1;
-  value.cmd.rs2 = rs2;
+  value.cmd.rs1   = rs1;
+  value.cmd.rs2   = rs2;
   return value;
 }
 
-smesh::SmeshCmd expected(smesh::SmeshFunct funct, std::uint64_t rs1,
-                         std::uint64_t rs2) {
+smesh::SmeshCmd expected(smesh::SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2) {
   smesh::SmeshCmd value{};
   value.funct = static_cast<std::uint32_t>(funct);
-  value.rs1 = rs1;
-  value.rs2 = rs2;
+  value.rs1   = rs1;
+  value.rs2   = rs2;
   return value;
 }
 
@@ -50,12 +48,14 @@ class Driver : public Component {
   Driver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  Output(bit, in_val);
+  Output(bit,                   in_val);
   Output(smesh::SmeshQueuedCmd, in_bits);
-  Input(bit, in_rdy);
-  Input(bit, out_val);
-  Input(smesh::SmeshQueuedCmd, out_bits);
-  Output(bit, out_rdy);
+  Input(bit,                    in_rdy);
+
+  Input(bit,                    out_val);
+  Input(smesh::SmeshQueuedCmd,  out_bits);
+  Output(bit,                   out_rdy);
+
   Output(u8, ld_completed);
   Output(u8, st_completed);
   Output(u8, ex_completed);
@@ -92,39 +92,30 @@ class Driver : public Component {
 };
 
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
+  // build 3 test programs
   for (unsigned n = 0; n < 3; ++n) {
-    const auto base = std::uint64_t{0x1000} + std::uint64_t{n} * 0x4000;
-    const auto local_a = (n % 2) * 8u;
-    const auto local_b = local_a + 4u;
+    const auto base      = std::uint64_t{0x1000} + std::uint64_t{n} * 0x4000;
+    const auto local_a   = (n % 2) * 8u;
+    const auto local_b   = local_a + 4u;
     const auto local_acc = (n % 2) * 8u;
-    const auto p = n * 6;
-    program_[p + 0] = command(smesh::SmeshFunct::LoopWsBounds, 0,
-                              (1ull << 32) | (1ull << 16) | 1ull);
-    program_[p + 1] = command(smesh::SmeshFunct::LoopWsAddrsAb, base, base + 0x1000);
-    program_[p + 2] = command(smesh::SmeshFunct::LoopWsAddrsDc,
-                              base + 0x2000, base + 0x3000);
-    program_[p + 3] = command(smesh::SmeshFunct::LoopWsStridesAb, 4, 4);
-    program_[p + 4] = command(smesh::SmeshFunct::LoopWsStridesDc, 4, 4);
-    program_[p + 5] = command(smesh::SmeshFunct::LoopWs, 0, 0);
+    const auto p         = n * 6; // ea. prog. has 6 commands
+    program_[p + 0] = command(smesh::SmeshFunct::LoopWsBounds,    0,             (1ull << 32) | (1ull << 16) | 1ull);
+    program_[p + 1] = command(smesh::SmeshFunct::LoopWsAddrsAb,   base,          base + 0x1000);
+    program_[p + 2] = command(smesh::SmeshFunct::LoopWsAddrsDc,   base + 0x2000, base + 0x3000);
+    program_[p + 3] = command(smesh::SmeshFunct::LoopWsStridesAb, 4,             4);
+    program_[p + 4] = command(smesh::SmeshFunct::LoopWsStridesDc, 4,             4);
+    program_[p + 5] = command(smesh::SmeshFunct::LoopWs,          0,             0);
 
-    expected_[p + 0] = expected(smesh::SmeshFunct::Mvin3, base + 0x2000,
-                                smesh::packLocal(smesh::makeAccAddr(local_acc), {4, 4}));
-    expected_[p + 1] = expected(smesh::SmeshFunct::Mvin2, base + 0x1000,
-                                smesh::packLocal(smesh::makeSpAddr(local_b), {4, 4}));
-    expected_[p + 2] = expected(smesh::SmeshFunct::Mvin, base,
-                                smesh::packLocal(smesh::makeSpAddr(local_a), {4, 4}));
-    expected_[p + 3] = expected(smesh::SmeshFunct::Preload,
-                                smesh::packLocal(smesh::makeSpAddr(local_b), {4, 4}),
-                                smesh::packLocal(smesh::makeAccAddr(local_acc), {4, 4}));
-    expected_[p + 4] = expected(smesh::SmeshFunct::ComputeFlip,
-                                smesh::packLocal(smesh::makeSpAddr(local_a), {4, 4}),
-                                smesh::packLocal(smesh::makeLocalAddr(0xffffffffu), {4, 4}));
-    expected_[p + 5] = expected(smesh::SmeshFunct::Mvout, base + 0x3000,
-                                smesh::packLocal(smesh::makeAccAddr(local_acc), {4, 4}));
+    expected_[p + 0] = expected(smesh::SmeshFunct::Mvin3,   base + 0x2000, smesh::packLocal(smesh::makeAccAddr(local_acc), {4, 4}));
+    expected_[p + 1] = expected(smesh::SmeshFunct::Mvin2,   base + 0x1000, smesh::packLocal(smesh::makeSpAddr(local_b), {4, 4}));
+    expected_[p + 2] = expected(smesh::SmeshFunct::Mvin,    base, smesh::packLocal(smesh::makeSpAddr(local_a), {4, 4}));
+    expected_[p + 3] = expected(smesh::SmeshFunct::Preload, smesh::packLocal(smesh::makeSpAddr(local_b), {4, 4}), smesh::packLocal(smesh::makeAccAddr(local_acc), {4, 4}));
+    expected_[p + 4] = expected(smesh::SmeshFunct::ComputeFlip,          smesh::packLocal(smesh::makeSpAddr(local_a), {4, 4}), smesh::packLocal(smesh::makeLocalAddr(0xffffffffu), {4, 4}));
+    expected_[p + 5] = expected(smesh::SmeshFunct::Mvout, base + 0x3000, smesh::packLocal(smesh::makeAccAddr(local_acc), {4, 4}));
   }
 
-  program_Q_ <= program_D_;
-  cycle_Q_ <= cycle_D_;
+  program_Q_         <= program_D_;
+  cycle_Q_           <= cycle_D_;
   completion_pipe_Q_ <= completion_pipe_D_;
   UPDATE(drive).reads(program_Q_, cycle_Q_).writes(in_val, in_bits, out_rdy);
   UPDATE(advance).reads(program_Q_, cycle_Q_, in_val, in_rdy)

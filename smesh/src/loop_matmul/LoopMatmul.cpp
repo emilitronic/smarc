@@ -65,50 +65,58 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
 
   cmd_queue_->head_rdy << head_rdy_;
 
-  ld_a_ = new LoopMatmulLdA("LdA");
-  ld_b_ = new LoopMatmulLdB("LdB");
-  ld_d_ = new LoopMatmulLdD("LdD");
-  ex_ = new LoopMatmulEx("Ex");
-  st_c_ = new LoopMatmulStC("StC");
-  st_c_spad_ = new LoopMatmulStCSpad("StCSpad");
-  ld_ab_arb_ = new LoopMatmulLdABArb("LdABArb");
-  cmd_arb_ = new LoopMatmulCmdArb("CmdArb");
+  ld_a_           = new LoopMatmulLdA("LdA");
+  ld_b_           = new LoopMatmulLdB("LdB");
+  ld_d_           = new LoopMatmulLdD("LdD");
+  ex_             = new LoopMatmulEx("Ex");
+  st_c_           = new LoopMatmulStC("StC");
+  st_c_spad_      = new LoopMatmulStCSpad("StCSpad");
+  ld_ab_arb_      = new LoopMatmulLdABArb("LdABArb");
+  cmd_arb_        = new LoopMatmulCmdArb("CmdArb");
   ld_utilization_ = new LoopMatmulLdUtilization("LdUtilization");
 
-  ld_a_->clk << clk;
-  ld_b_->clk << clk;
-  ld_d_->clk << clk;
-  ex_->clk << clk;
-  st_c_->clk << clk;
-  st_c_spad_->clk << clk;
-  ld_ab_arb_->clk << clk;
-  cmd_arb_->clk << clk;
+  ld_a_->clk           << clk;
+  ld_b_->clk           << clk;
+  ld_d_->clk           << clk;
+  ex_->clk             << clk;
+  st_c_->clk           << clk;
+  st_c_spad_->clk      << clk;
+  ld_ab_arb_->clk      << clk;
+  cmd_arb_->clk        << clk;
   ld_utilization_->clk << clk;
 
-  ld_a_->req_val << ld_a_req_val_;
-  ld_a_req_rdy_ << ld_a_->req_rdy;
-  ld_b_->req_val << ld_b_req_val_;
-  ld_b_req_rdy_ << ld_b_->req_rdy;
-  ld_d_->req_val << ld_d_req_val_;
-  ld_d_req_rdy_ << ld_d_->req_rdy;
-  ex_->req_val << ex_req_val_;
-  ex_req_rdy_ << ex_->req_rdy;
-  st_c_->req_val << st_c_req_val_;
-  st_c_req_rdy_ << st_c_->req_rdy;
-  st_c_spad_->req_val << st_c_spad_req_val_;
-  st_c_spad_req_rdy_ << st_c_spad_->req_rdy;
+  ld_a_->req_val  << ld_a_req_val_;
+  ld_a_req_rdy_   << ld_a_->req_rdy;
   ld_a_->req_bits << ld_a_req_bits_;
+
+  ld_b_->req_val  << ld_b_req_val_;
+  ld_b_req_rdy_   << ld_b_->req_rdy;
   ld_b_->req_bits << ld_b_req_bits_;
+
+  ld_d_->req_val  << ld_d_req_val_;
+  ld_d_req_rdy_   << ld_d_->req_rdy;
   ld_d_->req_bits << ld_d_req_bits_;
-  ex_->req_bits << ex_req_bits_;
+
+  ex_->req_val    << ex_req_val_;
+  ex_req_rdy_     << ex_->req_rdy;
+  ex_->req_bits   << ex_req_bits_;
+
+  st_c_->req_val  << st_c_req_val_;
+  st_c_req_rdy_   << st_c_->req_rdy;
   st_c_->req_bits << st_c_req_bits_;
+
+  st_c_spad_->req_val  << st_c_spad_req_val_;
+  st_c_spad_req_rdy_   << st_c_spad_->req_rdy;
   st_c_spad_->req_bits << st_c_spad_req_bits_;
+
   ld_a_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
   ld_b_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
   ld_d_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
-  ex_->ex_utilization_at_limit << ex_utilization_at_limit_;
-  st_c_->st_utilization_at_limit << st_utilization_at_limit_;
+
+  ex_->ex_utilization_at_limit        << ex_utilization_at_limit_;
+  st_c_->st_utilization_at_limit      << st_utilization_at_limit_;
   st_c_spad_->st_utilization_at_limit << st_utilization_at_limit_;
+
   ld_utilization_->lda_cmd_fire << ld_a_cmd_fire_;
   ld_utilization_->ldb_cmd_fire << ld_b_cmd_fire_;
   ld_utilization_->ldd_cmd_fire << ld_d_cmd_fire_;
@@ -116,8 +124,8 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
 
   ex_->ld_ka << ld_a_->k;
   ex_->ld_kb << ld_b_->k;
-  ex_->ld_i << ld_a_->i;
-  ex_->ld_j << ld_b_->j;
+  ex_->ld_i  << ld_a_->i;
+  ex_->ld_j  << ld_b_->j;
   ex_->lda_completed << lda_complete_to_ex_;
   ex_->ldb_completed << ldb_complete_to_ex_;
   ex_->ldd_completed << ldd_complete_to_ex_;
@@ -130,45 +138,45 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   st_c_spad_->ex_i << ex_->i;
   st_c_spad_->ex_completed << ex_complete_to_st_c_spad_;
 
-  ld_a_idle_ << ld_a_->idle;
-  ld_a_loop_id_ << ld_a_->loop_id;
-  ld_b_idle_ << ld_b_->idle;
-  ld_b_loop_id_ << ld_b_->loop_id;
-  ld_d_idle_ << ld_d_->idle;
-  ld_d_loop_id_ << ld_d_->loop_id;
-  ex_idle_ << ex_->idle;
-  ex_loop_id_ << ex_->loop_id;
-  st_c_idle_ << st_c_->idle;
-  st_c_loop_id_ << st_c_->loop_id;
-  st_c_spad_idle_ << st_c_spad_->idle;
+  ld_a_idle_         << ld_a_->idle;
+  ld_a_loop_id_      << ld_a_->loop_id;
+  ld_b_idle_         << ld_b_->idle;
+  ld_b_loop_id_      << ld_b_->loop_id;
+  ld_d_idle_         << ld_d_->idle;
+  ld_d_loop_id_      << ld_d_->loop_id;
+  ex_idle_           << ex_->idle;
+  ex_loop_id_        << ex_->loop_id;
+  st_c_idle_         << st_c_->idle;
+  st_c_loop_id_      << st_c_->loop_id;
+  st_c_spad_idle_    << st_c_spad_->idle;
   st_c_spad_loop_id_ << st_c_spad_->loop_id;
-  ld_a_cmd_val_ << ld_a_->cmd_val;
-  ld_a_cmd_rdy_ << ld_a_->cmd_rdy;
-  ld_b_cmd_val_ << ld_b_->cmd_val;
-  ld_b_cmd_rdy_ << ld_b_->cmd_rdy;
-  ld_d_cmd_val_ << ld_d_->cmd_val;
-  ld_d_cmd_rdy_ << ld_d_->cmd_rdy;
-  ex_cmd_val_ << ex_->cmd_val;
-  ex_cmd_rdy_ << ex_->cmd_rdy;
-  st_c_cmd_val_ << st_c_->cmd_val;
-  st_c_cmd_rdy_ << st_c_->cmd_rdy;
+  ld_a_cmd_val_      << ld_a_->cmd_val;
+  ld_a_cmd_rdy_      << ld_a_->cmd_rdy;
+  ld_b_cmd_val_      << ld_b_->cmd_val;
+  ld_b_cmd_rdy_      << ld_b_->cmd_rdy;
+  ld_d_cmd_val_      << ld_d_->cmd_val;
+  ld_d_cmd_rdy_      << ld_d_->cmd_rdy;
+  ex_cmd_val_        << ex_->cmd_val;
+  ex_cmd_rdy_        << ex_->cmd_rdy;
+  st_c_cmd_val_      << st_c_->cmd_val;
+  st_c_cmd_rdy_      << st_c_->cmd_rdy;
   st_c_spad_cmd_val_ << st_c_spad_->cmd_val;
   st_c_spad_cmd_rdy_ << st_c_spad_->cmd_rdy;
 
-  ld_ab_arb_->a_val << ld_a_->cmd_val;
-  ld_ab_arb_->a_bits << ld_a_->cmd_bits;
-  ld_ab_arb_->a_idle << ld_a_->idle;
-  ld_ab_arb_->a_k << ld_a_->k;
-  ld_ab_arb_->a_i << ld_a_->i;
+  ld_ab_arb_->a_val     << ld_a_->cmd_val;
+  ld_ab_arb_->a_bits    << ld_a_->cmd_bits;
+  ld_ab_arb_->a_idle    << ld_a_->idle;
+  ld_ab_arb_->a_k       << ld_a_->k;
+  ld_ab_arb_->a_i       << ld_a_->i;
   ld_ab_arb_->a_loop_id << ld_a_->loop_id;
-  ld_a_->cmd_rdy << ld_ab_arb_->a_rdy;
-  ld_ab_arb_->b_val << ld_b_->cmd_val;
-  ld_ab_arb_->b_bits << ld_b_->cmd_bits;
-  ld_ab_arb_->b_idle << ld_b_->idle;
-  ld_ab_arb_->b_k << ld_b_->k;
-  ld_ab_arb_->b_j << ld_b_->j;
+  ld_a_->cmd_rdy        << ld_ab_arb_->a_rdy;
+  ld_ab_arb_->b_val     << ld_b_->cmd_val;
+  ld_ab_arb_->b_bits    << ld_b_->cmd_bits;
+  ld_ab_arb_->b_idle    << ld_b_->idle;
+  ld_ab_arb_->b_k       << ld_b_->k;
+  ld_ab_arb_->b_j       << ld_b_->j;
   ld_ab_arb_->b_loop_id << ld_b_->loop_id;
-  ld_b_->cmd_rdy << ld_ab_arb_->b_rdy;
+  ld_b_->cmd_rdy        << ld_ab_arb_->b_rdy;
   ld_ab_arb_->head_loop_id << head_loop_id;
   ld_ab_arb_->is_resadd << is_resadd_;
 
@@ -246,18 +254,18 @@ LoopMatmul::~LoopMatmul() {
 
 void LoopMatmul::updateGeneratorInputs() {
   const auto state = *state_Q_;
-  const auto head = static_cast<std::uint8_t>(state.head_id);
-  const auto tail = static_cast<std::uint8_t>(head ^ 1u);
-  const auto a_id = state.loops[head].lda_started == 1 ? tail : head;
-  const auto b_id = state.loops[head].ldb_started == 1 ? tail : head;
-  const auto d_id = state.loops[head].ldd_started == 1 ? tail : head;
+  const auto head  = static_cast<std::uint8_t>(state.head_id);
+  const auto tail  = static_cast<std::uint8_t>(head ^ 1u);
+  const auto a_id  = state.loops[head].lda_started == 1 ? tail : head;
+  const auto b_id  = state.loops[head].ldb_started == 1 ? tail : head;
+  const auto d_id  = state.loops[head].ldd_started == 1 ? tail : head;
   const auto ex_id = state.loops[head].ex_started == 1 ? tail : head;
   const auto st_id = state.loops[head].st_started == 1 ? tail : head;
-  const auto& a = state.loops[a_id];
-  const auto& b = state.loops[b_id];
-  const auto& d = state.loops[d_id];
-  const auto& ex = state.loops[ex_id];
-  const auto& st = state.loops[st_id];
+  const auto& a    = state.loops[a_id];
+  const auto& b    = state.loops[b_id];
+  const auto& d    = state.loops[d_id];
+  const auto& ex   = state.loops[ex_id];
+  const auto& st   = state.loops[st_id];
   const auto half_spad = static_cast<std::uint32_t>(kSpRows / 2);
 
   LoopMatmulLdAReq a_req{};
