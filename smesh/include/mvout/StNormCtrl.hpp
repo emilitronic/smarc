@@ -22,18 +22,18 @@ class StNormCtrl : public Component {
 
   Clock(clk);
 
-  Input(bit, norm_deq_val);
-  Input(DmaWriteReq, norm_deq_bits);
-  InputArray(bit, accum_read_resp_val, kAccBanks);
+  Input(bit,                norm_deq_val);
+  Input(DmaWriteReq,        norm_deq_bits);
+  InputArray(bit,           accum_read_resp_val, kAccBanks);
   InputArray(AccumReadResp, accum_read_resp_bits, kAccBanks);
-  Input(bit, normalizer_cmd_rdy);
-  Input(bit, scale_enq_rdy);
+  Input(bit,                normalizer_cmd_rdy);
+  Input(bit,                scale_enq_rdy);
 
-  Output(bit, norm_deq_rdy);
-  Output(bit, scale_enq_val);
-  Output(bit, normalizer_cmd_val);
+  Output(bit,        norm_deq_rdy);
+  Output(bit,        scale_enq_val);
+  Output(bit,        normalizer_cmd_val);
   Output(AccNormReq, normalizer_req_bits);
-  OutputArray(bit, accum_read_resp_rdy, kAccBanks);
+  OutputArray(bit,   accum_read_resp_rdy, kAccBanks);
 
   void update();
 };
