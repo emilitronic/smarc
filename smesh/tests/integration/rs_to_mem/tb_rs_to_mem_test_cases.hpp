@@ -40,11 +40,20 @@ struct ExpectedAccumResult {
   std::vector<MeshAccumRow> rows;
 };
 
+// Bytes placed in or expected from the simulated DRAM.
+struct DramBytes {
+  std::uint64_t addr = 0;
+  std::vector<std::uint8_t> bytes;
+};
+
 struct RsMemTestCase {
   std::string name;
   std::string description;
   std::vector<SmeshCmd> program;
   std::vector<SpadPreloadRow> spad_rows;
+  std::vector<DramBytes> dram_initial;
+  std::vector<DramBytes> expected_dram;
+  std::vector<SpadPreloadRow> expected_loaded_spad_rows;
   std::vector<ExpectedAccumResult> expected_results;
   std::vector<SmeshRsTag> expected_completion_tags;
   bool expect_loop_release = false;
@@ -63,6 +72,7 @@ RsMemTestCase makeMulPreCase();
 RsMemTestCase makeConcurrentBanksCase();
 RsMemTestCase makeSameBankSerializesCase();
 RsMemTestCase makeLoopWsCase();
+RsMemTestCase makeLoopWsDmaCase();
 std::vector<RsMemTestCase> rsMemTestCases();
 
 } // namespace tb

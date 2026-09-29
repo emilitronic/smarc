@@ -149,6 +149,14 @@ void AccumBankedDriver::updateDrive() {
     case 6:
       read_resp_rdy[1] = 1;
       break;
+    case 7: // Add a full-width row into bank 0's existing row.
+      write_val[0] = 1;
+      {
+        auto write = writeFor(0, kRow0, 5);
+        write.laddr = makeAccAddr(kRow0, true);
+        write_bits[0] = write;
+      }
+      break;
     default:
       break;
   }
@@ -200,6 +208,12 @@ void AccumBankedDriver::updateCheck() {
       passed_ &= read_resp_val[1] == 1;
       passed_ &= rowMatches(*read_resp_bits[1], 40);
       if (read_resp_val[1] == 1) {
+        advance = true;
+      }
+      break;
+    case 7:
+      passed_ &= write_rdy[0] == 1;
+      if (write_rdy[0] == 1) {
         done_ = true;
         advance = true;
       }
@@ -414,8 +428,13 @@ int main(int argc, char* argv[]) {
     Sim::run();
   }
 
+  bool accumulated = true;
+  const auto& result = accum.row(smesh::makeAccAddr(kRow0));
+  for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+    accumulated &= result[lane] == static_cast<smesh::Acc>(5 + 2 * lane);
+  }
   const bool ok = driver.done() && driver.passed() &&
-                  arb_driver.done() && arb_driver.passed();
+                  arb_driver.done() && arb_driver.passed() && accumulated;
   std::printf("[ACCUM_BANKED] %s independent_bank_handshakes\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
 }

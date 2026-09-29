@@ -197,6 +197,7 @@ int main(int argc, char* argv[]) {
   StorePathMonitor monitor("StorePathMonitor");
   smesh::Smesh top("Smesh");
   smem::MemCtrl mem("MemCtrl");
+  mem.set_posted_writes(false);
   smem::Dram dram("Dram", 0);
 
   top.cmd_valid << driver.cmd_valid;

@@ -303,6 +303,7 @@ RsMemTestCase makeSameBankSerializesCase() {
   return test;
 }
 
+// starts with data already in SPAD
 RsMemTestCase makeLoopWsCase() {
   RsMemTestCase test{};
   test.name = "loop_ws";
@@ -347,9 +348,83 @@ RsMemTestCase makeLoopWsCase() {
   return test;
 }
 
+// "loop_ws_dma": exercises the LOOP_WS path with DRAM loads and stores 
+// Seeds A, B, and D in DRAM, runs a LOOP_WS through Smech, and checks
+// the loaded rows, accumulator result, completions, and C written back to DRAM.
+RsMemTestCase makeLoopWsDmaCase() {
+  RsMemTestCase test{};
+  test.name = "loop_ws_dma";
+  test.description = "LOOP_WS loads A/B/D from DRAM and stores C to DRAM";
+  test.max_cycles = 600;
+  test.drain_cycles = 16;
+  test.expect_loop_release = true;
+
+  constexpr std::uint64_t a_base = 0x80004000;
+  constexpr std::uint64_t b_base = 0x80005000;
+  constexpr std::uint64_t d_base = 0x80006000;
+  constexpr std::uint64_t c_base = 0x80007000;
+  const std::array<MeshInputRow, kDim> a = {
+      row({1, 2, 3, 4}), row({5, 6, 7, 8}),
+      row({9, 10, 11, 12}), row({13, 14, 15, 16})};
+  const std::array<MeshInputRow, kDim> b = {
+      row({1, 0, 0, 0}), row({0, 1, 0, 0}),
+      row({0, 0, 1, 0}), row({0, 0, 0, 1})};
+  const std::array<MeshInputRow, kDim> d = {
+      row({1, 1, 1, 1}), row({1, 1, 1, 1}),
+      row({1, 1, 1, 1}), row({1, 1, 1, 1})};
+
+  const auto bytes = [](const MeshInputRow& values) {
+    std::vector<std::uint8_t> out;
+    for (const auto value : values) out.push_back(static_cast<std::uint8_t>(value));
+    return out;
+  };
+  const auto b_start = static_cast<std::uint32_t>(kSpRows / 2 - kDim);
+  std::vector<MeshAccumRow> c;
+  for (std::size_t r = 0; r < kDim; ++r) {
+    const auto offset = r * kDim;
+    test.dram_initial.push_back({a_base + offset, bytes(a[r])});
+    test.dram_initial.push_back({b_base + offset, bytes(b[r])});
+    test.dram_initial.push_back({d_base + offset, bytes(d[r])});
+    test.expected_loaded_spad_rows.push_back({makeSpAddr(static_cast<std::uint32_t>(r)), a[r]});
+    test.expected_loaded_spad_rows.push_back({makeSpAddr(b_start + static_cast<std::uint32_t>(r)), b[r]});
+    c.push_back(matmulRow(a, b, d, r));
+    std::vector<std::uint8_t> result;
+    for (const auto value : c.back()) result.push_back(static_cast<std::uint8_t>(value));
+    test.expected_dram.push_back({c_base + offset, result});
+  }
+
+  const auto command = [](SmeshFunct funct, std::uint64_t rs1, std::uint64_t rs2) {
+    SmeshCmd cmd{};
+    cmd.funct = static_cast<std::uint32_t>(funct);
+    cmd.rs1 = rs1;
+    cmd.rs2 = rs2;
+    return cmd;
+  };
+  const auto configLoad = [&](unsigned state, bool shrink) {
+    const auto rs1 = packConfig(ConfigKind::Load, state, kDim) |
+                     (shrink ? (std::uint64_t{1} << 2) : 0);
+    return command(SmeshFunct::Config, rs1, kDim);
+  };
+  test.program = {
+      configLoad(0, false), configLoad(1, false), configLoad(2, true),
+      configExCmd(),
+      command(SmeshFunct::Config, packConfig(ConfigKind::Store),
+              (std::uint64_t{1} << 32) | kDim),
+      command(SmeshFunct::LoopWsBounds, 0, (1ull << 32) | (1ull << 16) | 1ull),
+      command(SmeshFunct::LoopWsAddrsAb, a_base, b_base),
+      command(SmeshFunct::LoopWsAddrsDc, d_base, c_base),
+      command(SmeshFunct::LoopWsStridesAb, kDim, kDim),
+      command(SmeshFunct::LoopWsStridesDc, kDim, kDim),
+      command(SmeshFunct::LoopWs, (1ull << 2) | 1ull, 0),
+  };
+  test.expected_completion_tags = {3, 5, 6, 7, 8, 9, 10};
+  test.expected_results = {ExpectedAccumResult{makeAccAddr(0), c}};
+  return test;
+}
+
 std::vector<RsMemTestCase> rsMemTestCases() {
   return {makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
-          makeSameBankSerializesCase(), makeLoopWsCase()};
+          makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase()};
 }
 
 } // namespace tb

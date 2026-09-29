@@ -55,6 +55,12 @@ class CompletionObserver : public Component {
   Clock(clk);
   Input(bit, completed_val);
   Input(SmeshRsTag, completed_bits);
+  Input(bit, ld_completed_val);
+  Input(SmeshRsTag, ld_completed_bits);
+  Input(bit, ld_completed_rdy);
+  Input(bit, st_completed_val);
+  Input(SmeshRsTag, st_completed_bits);
+  Input(bit, st_completed_rdy);
 
   const std::vector<SmeshRsTag>& observed() const { return observed_; }
 
@@ -74,7 +80,7 @@ class RsMemHarnessInstance {
   bool activityComplete() const;
   bool passed() const;
   void report() const;
-  void initializeSpadImage();
+  void initializeMemoryImages();
 
   // Call once per cycle, after Sim::run(), from the runner loop -- Smesh's
   // Spad is private, so bank concurrency is sampled from outside via

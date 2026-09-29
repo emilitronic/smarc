@@ -50,6 +50,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   dma_writer_           = new DmaWriter("DmaWriter");
   spad_writer_          = new SpadWriter("SpadWriter");
   dma_reader_           = new DmaReader("DmaReader");
+  dma_mem_mux_          = new DmaMemMux("DmaMemMux");
   mvin_scale_split_     = new MvinScaleSplit("MvinScaleSplit");
   mvin_scale_           = new MvinScale("MvinScale");
   mvin_scale_acc_       = new MvinScaleAcc("MvinScaleAcc");
@@ -104,6 +105,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   dma_writer_->clk           << clk;
   spad_writer_->clk          << clk;
   dma_reader_->clk           << clk;
+  dma_mem_mux_->clk          << clk;
   mvin_scale_split_->clk     << clk;
   mvin_scale_->clk           << clk;
   mvin_scale_acc_->clk       << clk;
@@ -214,7 +216,9 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   dma_writer_->req_bits << st_issue_mux_->writer_req_bits;
   spad_writer_->req_val  << st_issue_ctrl_->spad_writer_req_val;
   spad_writer_->req_bits << st_issue_mux_->writer_req_bits;
-  dma_writer_->mem_req.sendToBitBucket();              // later: connect to store-side external memory boundary
+  dma_mem_mux_->read_req << dma_reader_->mem_req;
+  dma_mem_mux_->write_req << dma_writer_->mem_req;
+  dma_reader_->mem_resp << dma_mem_mux_->read_resp;
   spad_writer_->spad_write_out.sendToBitBucket();      // later: connect to store-spad destination path
   write_issue_queue_->deq_rdy << st_issue_ctrl_->issue_deq_rdy;
   mvin_scale_split_->data_in << dma_reader_->resp_out;
@@ -352,6 +356,7 @@ Smesh::~Smesh() {
   delete mvin_scale_;
   delete mvin_scale_split_;
   delete dma_reader_;
+  delete dma_mem_mux_;
   delete spad_writer_;
   delete dma_writer_;
   delete st_issue_mux_;

@@ -554,23 +554,35 @@ void SmeshRS::updateIssueStore() {
     }
   }
 }
-// Mark a normal issued command as waiting for its completion.
+
+// Mark a normal issued cmd as waiting for its completion.
+// (i.e., issued cmds are not immediately removed from RS, they are marked as issued)
+// You also clear dependencies that are satisfied by issue, those are same-queue
+// ld and ex dependencies.  Once earlier ld is accepted later ld in ld queue are ready to issue,
+// and once earlier ex is accepted later ex in ex queue are ready to issue.
+// Dependencies inovolving other queue have to wait for completion, so they are not cleared here.
 bool SmeshRS::markIssued(SmeshRsTag rs_tag) {
-  for (auto& entry : entries_ld_) {
-    if (entry.valid && entry.rs_tag == rs_tag) {
-      entry.issued = true;
+  for (std::size_t i = 0; i < entries_ld_.size(); ++i) { // for ea ld entry...
+    auto& entry = entries_ld_[i];
+    if (entry.valid && entry.rs_tag == rs_tag) {         // if it's occupied & mathches issued tag
+      entry.issued = true;                               // mark it issued
+      const auto bit = ~(std::uint32_t{1} << i);         // all 1's bit mask w/ 0 at i-th position
+      for (auto& dependent : entries_ld_) dependent.deps_ld &= bit; // clear bit i from every entry's deps_ld
       return true;
     }
   }
-  for (auto& entry : entries_ex_) {
+  for (std::size_t i = 0; i < entries_ex_.size(); ++i) { // for ea ex entry...
+    auto& entry = entries_ex_[i];
     if (entry.valid && entry.rs_tag == rs_tag) {
-      entry.issued = true;
+      entry.issued = true;                               // mark issued as issued
+      const auto bit = ~(std::uint32_t{1} << i);
+      for (auto& dependent : entries_ex_) dependent.deps_ex &= bit; // remove dependency in ex queue
       return true;
     }
   }
-  for (auto& entry : entries_st_) {
+  for (auto& entry : entries_st_) {                     // for ea st entry...
     if (entry.valid && entry.rs_tag == rs_tag) {
-      entry.issued = true;
+      entry.issued = true;                              // mark issued as issued
       return true;
     }
   }

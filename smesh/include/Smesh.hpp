@@ -23,6 +23,7 @@ smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 #include "DmaReadCompletionMux.hpp"
 #include "DmaReader.hpp"
 #include "DmaWriter.hpp"
+#include "DmaMemMux.hpp"
 #include "ExCtrl.hpp"
 #include "LdCtrl.hpp"
 #include "LoopMatmul.hpp"
@@ -60,8 +61,8 @@ class Smesh : public Component {
   Output(bit, cmd_ready);
 
   // Memory accessors let the testbench connect the current memory boundary.
-  auto& memReq() { return dma_reader_->mem_req; }
-  auto& memResp() { return dma_reader_->mem_resp; }
+  auto& memReq() { return dma_mem_mux_->mem_req; }
+  auto& memResp() { return dma_mem_mux_->mem_resp; }
 
   // narrow inspection accessors for testbench to check internal state
   const SmeshRS& rs()     const { return *rs_; }
@@ -79,6 +80,12 @@ class Smesh : public Component {
   // Narrow completion taps for integration-test observation.
   auto& exCtrlCompletedVal()  { return ex_ctrl_->completed_val; }
   auto& exCtrlCompletedBits() { return ex_ctrl_->completed_bits; }
+  auto& ldCtrlCompletedVal()  { return ld_ctrl_->completed_val; }
+  auto& ldCtrlCompletedBits() { return ld_ctrl_->completed_bits; }
+  auto& ldCtrlCompletedRdy()  { return completion_arb_->ld_completed_rdy; }
+  auto& stCtrlCompletedVal()  { return st_ctrl_->completed_val; }
+  auto& stCtrlCompletedBits() { return st_ctrl_->completed_bits; }
+  auto& stCtrlCompletedRdy()  { return completion_arb_->st_completed_rdy; }
 
   // Store-path monitor taps for testbench-only checkers.
   auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad[0]; }
@@ -136,6 +143,7 @@ class Smesh : public Component {
   StIssueCtrl*             st_issue_ctrl_ = nullptr;
   StIssueMux*              st_issue_mux_ = nullptr;
   DmaWriter*               dma_writer_ = nullptr;
+  DmaMemMux*               dma_mem_mux_ = nullptr;
   SpadWriter*              spad_writer_ = nullptr;
   DmaReader*               dma_reader_ = nullptr;
   MvinScaleSplit*          mvin_scale_split_ = nullptr;

@@ -58,16 +58,22 @@ void Accum::updateWrite() {
     const auto mask = static_cast<std::uint8_t>(write.mask);
     for (std::size_t lane = 0; lane < kDim; ++lane) {
       if ((mask & (std::uint8_t{1} << lane)) != 0) {
-        if (write.has_acc_bitwidth != 0) {
+        Acc incoming = 0;                    // temp for val being written to current lane
+        if (write.has_acc_bitwidth != 0) {   // are we writing accum-width val (32b)
           std::uint32_t word = 0;
           for (std::size_t byte = 0; byte < sizeof(Acc); ++byte) {
             word |= static_cast<std::uint32_t>(write.data[lane * sizeof(Acc) + byte]) << (8 * byte);
           }
-          destination[lane] = static_cast<Acc>(word);
-        } else {
+          incoming = static_cast<Acc>(word);
+        } else {                             // or writing byte-width val (8b)
           const auto byte = static_cast<std::uint8_t>(write.data[lane]);
-          destination[lane] = static_cast<Acc>(static_cast<Elem>(byte));
+          incoming = static_cast<Acc>(static_cast<Elem>(byte));
         }
+        // if its a cumulative write, add incoming to existing, else just overwrite with incoming
+        destination[lane] = write.laddr.accumulate()
+                                ? static_cast<Acc>(static_cast<std::uint32_t>(destination[lane]) +
+                                                   static_cast<std::uint32_t>(incoming))
+                                : incoming;
       }
     }
 

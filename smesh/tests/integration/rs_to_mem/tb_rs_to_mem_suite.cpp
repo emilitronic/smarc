@@ -12,6 +12,7 @@ Run:
   ./build/smesh/tb_rs_to_mem_suite -test=mul_pre
   ./build/smesh/tb_rs_to_mem_suite -test=concurrent_banks
   ./build/smesh/tb_rs_to_mem_suite -test=same_bank_serializes
+  ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma
   ./build/smesh/tb_rs_to_mem_suite -list_tests
 */
 
@@ -58,7 +59,7 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  harness.initializeSpadImage();
+  harness.initializeMemoryImages();
 
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
