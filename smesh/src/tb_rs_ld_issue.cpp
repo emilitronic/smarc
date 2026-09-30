@@ -57,6 +57,7 @@ class ZeroSpadReadDriver : public Component {
   Output(bit, one_bit);
   Output(smesh::SmeshRsTag, zero_tag);
   Output(smesh::DmaReadResp, dma_read_resp);
+  Output(smesh::SpadBankWriteReq, spad_write_req);
   Output(smesh::SpadBankReadReq, read_req);
 
   void update();
@@ -91,7 +92,7 @@ void RsAllocDriver::reset() {
 }
 
 ZeroSpadReadDriver::ZeroSpadReadDriver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(zero_bit, one_bit, zero_tag, dma_read_resp, read_req);
+  UPDATE(update).writes(zero_bit, one_bit, zero_tag, dma_read_resp, spad_write_req, read_req);
 }
 
 void ZeroSpadReadDriver::update() {
@@ -99,6 +100,7 @@ void ZeroSpadReadDriver::update() {
   one_bit = 1;
   zero_tag = 0;
   dma_read_resp = smesh::DmaReadResp{};
+  spad_write_req = smesh::SpadBankWriteReq{};
   read_req = smesh::SpadBankReadReq{};
 }
 
@@ -120,7 +122,7 @@ int main(int argc, char* argv[]) {
   smesh::WriteCtrl write_ctrl("WriteCtrl");
   std::array<smesh::ArbWriteSpad*, smesh::kSpBanks> arb_spad{};
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
-    arb_spad[bank] = new smesh::ArbWriteSpad("ArbWriteSpad");
+    arb_spad[bank] = new smesh::ArbWriteSpad("ArbWriteSpad", bank);
   }
   smesh::Spad spad("Spad");
   ZeroSpadReadDriver zero_spad_read("ZeroSpadRead");
@@ -162,7 +164,7 @@ int main(int argc, char* argv[]) {
   write_ctrl.dmaread_accum_full_bits << zero_spad_read.dma_read_resp;
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     arb_spad[bank]->exwrite_val << zero_spad_read.zero_bit;
-    arb_spad[bank]->exwrite_bits << zero_spad_read.dma_read_resp;
+    arb_spad[bank]->exwrite_bits << zero_spad_read.spad_write_req;
     arb_spad[bank]->dmaread_val << write_ctrl.arb_spad_dmaread_val[bank];
     arb_spad[bank]->dmaread_bits << write_ctrl.arb_spad_dmaread_bits[bank];
     write_ctrl.arb_spad_dmaread_rdy[bank] << arb_spad[bank]->dmaread_rdy;

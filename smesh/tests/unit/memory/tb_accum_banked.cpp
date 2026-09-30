@@ -255,7 +255,7 @@ class AccumArbDriver : public Component {
   Input(bit, read_req_val);
   Input(AccumBankReadReq, read_req_bits);
   Output(bit, exwrite_val);
-  Output(DmaReadResp, exwrite_bits);
+  Output(AccumBankWriteReq, exwrite_bits);
   Input(bit, exwrite_rdy);
   Output(bit, dmaread_full_val);
   Output(DmaReadResp, dmaread_full_bits);
@@ -305,7 +305,14 @@ void AccumArbDriver::updateDrive() {
   dmawrite_val = bit(phase <= 1);
   dmawrite_bits = readFor(2, 102);
   exwrite_val = bit(phase == 0);
-  exwrite_bits = writeFor(0, 0, 100, 201);
+  AccumBankWriteReq exwrite{};
+  exwrite.addr = 0;
+  exwrite.mask = 0x000000ffu; // two accumulator lanes at byte alignment
+  exwrite.acc = 1;
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    exwrite.data[lane] = 100 + static_cast<Acc>(lane);
+  }
+  exwrite_bits = exwrite;
   dmaread_full_val = bit(phase <= 1);
   dmaread_full_bits = writeFor(0, 0, 200, 202);
   dmaread_val = bit(phase <= 2);
@@ -328,7 +335,15 @@ void AccumArbDriver::updateCheck() {
 
   if (phase <= 3) {
     phase_ok &= write_val == 1;
-    phase_ok &= write_bits->cmd_id == static_cast<std::uint16_t>(201 + phase);
+    if (phase == 0) {
+      phase_ok &= write_bits->laddr.acc_row() == 0;
+      phase_ok &= write_bits->laddr.accumulate();
+      phase_ok &= write_bits->mask == 0x3u;
+      phase_ok &= write_bits->has_acc_bitwidth == 1;
+      phase_ok &= write_bits->data[0] == 100;
+    } else {
+      phase_ok &= write_bits->cmd_id == static_cast<std::uint16_t>(201 + phase);
+    }
     phase_ok &= exwrite_rdy == 1;
     phase_ok &= dmaread_full_rdy == bit(phase >= 1);
     phase_ok &= dmaread_rdy == bit(phase >= 2);
@@ -352,7 +367,7 @@ void AccumArbDriver::reset() {
   dmawrite_val.reset(0);
   dmawrite_bits.reset(AccumBankReadReq{});
   exwrite_val.reset(0);
-  exwrite_bits.reset(DmaReadResp{});
+  exwrite_bits.reset(AccumBankWriteReq{});
   dmaread_full_val.reset(0);
   dmaread_full_bits.reset(DmaReadResp{});
   dmaread_val.reset(0);
@@ -371,7 +386,7 @@ int main(int argc, char* argv[]) {
   smesh::Accum accum("Accum");
   AccumBankedDriver driver("Driver");
   smesh::ArbReadAccum read_arb("ArbReadAccum");
-  smesh::ArbWriteAccum write_arb("ArbWriteAccum");
+  smesh::ArbWriteAccum write_arb("ArbWriteAccum", 0);
   AccumArbDriver arb_driver("ArbDriver");
 
   for (std::size_t bank = 0; bank < smesh::kAccBanks; ++bank) {

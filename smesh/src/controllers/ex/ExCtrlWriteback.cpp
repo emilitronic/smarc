@@ -15,6 +15,11 @@ TraceKey(ex_ctrl_writeback_view);
 
 namespace {
 
+static_assert(kDefaultConfig.aligned_to > 0 &&
+              sizeof(Acc) % kDefaultConfig.aligned_to == 0 &&
+              kDim * (sizeof(Acc) / kDefaultConfig.aligned_to) <= 32,
+              "ExCtrl accumulator writeback mask exceeds 32 bits");
+
 constexpr std::uint8_t kActivationRelu = 1;
 
 std::uint32_t maskForColumns(std::uint32_t cols,

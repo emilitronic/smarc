@@ -28,10 +28,10 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
     arb_read_accum_[bank] = new ArbReadAccum("ArbReadAccum");
   }
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    arb_write_spad_[bank] = new ArbWriteSpad("ArbWriteSpad");
+    arb_write_spad_[bank] = new ArbWriteSpad("ArbWriteSpad", bank);
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    arb_write_accum_[bank] = new ArbWriteAccum("ArbWriteAccum");
+    arb_write_accum_[bank] = new ArbWriteAccum("ArbWriteAccum", bank);
   }
   write_ctrl_ = new WriteCtrl("WriteCtrl");
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
@@ -240,8 +240,8 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   write_ctrl_->dmaread_accum_full_bits << mvin_scale_acc_->data_bits;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     // Route ExCtrl writeback through this bank's normal write arbiter.
-    arb_write_spad_[bank]->exwrite_val    << ex_spad_write_val_[bank];
-    arb_write_spad_[bank]->exwrite_bits   << ex_spad_write_bits_[bank];
+    arb_write_spad_[bank]->exwrite_val    << ex_ctrl_->spad_write_val[bank];
+    arb_write_spad_[bank]->exwrite_bits   << ex_ctrl_->spad_write_bits[bank];
     ex_ctrl_->spad_write_rdy[bank]        << arb_write_spad_[bank]->exwrite_rdy;
     arb_write_spad_[bank]->dmaread_val    << write_ctrl_->arb_spad_dmaread_val[bank];
     arb_write_spad_[bank]->dmaread_bits   << write_ctrl_->arb_spad_dmaread_bits[bank];
@@ -254,8 +254,8 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     // Route ExCtrl accumulator writeback through this bank's write arbiter.
-    arb_write_accum_[bank]->exwrite_val       << ex_accum_write_val_[bank];
-    arb_write_accum_[bank]->exwrite_bits      << ex_accum_write_bits_[bank];
+    arb_write_accum_[bank]->exwrite_val       << ex_ctrl_->accum_write_val[bank];
+    arb_write_accum_[bank]->exwrite_bits      << ex_ctrl_->accum_write_bits[bank];
     ex_ctrl_->accum_write_rdy[bank]           << arb_write_accum_[bank]->exwrite_rdy;
     arb_write_accum_[bank]->dmaread_val       << write_ctrl_->arb_accum_dmaread_val[bank];
     arb_write_accum_[bank]->dmaread_bits      << write_ctrl_->arb_accum_dmaread_bits[bank];
@@ -333,11 +333,6 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateLoopStoreCompletions)
       .reads(rs_->loop_st_completed, rs_->loop_st_config_issued)
       .writes(loop_st_completed_total_);
-  UPDATE(updateExWriteAdapter)
-      .reads(ex_ctrl_->spad_write_val, ex_ctrl_->spad_write_bits,
-             ex_ctrl_->accum_write_val, ex_ctrl_->accum_write_bits)
-      .writes(ex_spad_write_val_, ex_spad_write_bits_,
-              ex_accum_write_val_, ex_accum_write_bits_);
 }
 
 Smesh::~Smesh() {
@@ -411,50 +406,6 @@ void Smesh::update() {
   rs_->setExecuteIssuePortEnabled(true);
   write_arb_zero_val_ = 0;
   write_arb_zero_bits_ = DmaReadResp{};
-}
-
-void Smesh::updateExWriteAdapter() {
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    ex_spad_write_val_[bank] = ex_ctrl_->spad_write_val[bank];
-    if (ex_ctrl_->spad_write_val[bank] == 0) {
-      ex_spad_write_bits_[bank] = DmaReadResp{};
-      continue;
-    }
-    const auto req = *ex_ctrl_->spad_write_bits[bank];
-    DmaReadResp resp{};
-    resp.laddr = makeSpAddr(static_cast<std::uint32_t>(bank * kSpBankRows) +
-                            (req.addr & kSpBankRowMask));
-    for (std::size_t lane = 0; lane < kDim; ++lane) {
-      resp.data[lane] = static_cast<std::uint8_t>(req.data[lane]);
-    }
-    resp.mask = static_cast<std::uint8_t>(req.mask & 0xffu);
-    resp.last = false;
-    ex_spad_write_bits_[bank] = resp;
-  }
-
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    ex_accum_write_val_[bank] = ex_ctrl_->accum_write_val[bank];
-    if (ex_ctrl_->accum_write_val[bank] == 0) {
-      ex_accum_write_bits_[bank] = DmaReadResp{};
-      continue;
-    }
-    const auto req = *ex_ctrl_->accum_write_bits[bank];
-    DmaReadResp resp{};
-    resp.laddr = makeAccAddr(static_cast<std::uint32_t>(bank * kAccBankRows) +
-                             (req.addr & kAccBankRowMask),
-                             /*do_accumulate=*/req.acc != 0);
-    resp.has_acc_bitwidth = true;
-    for (std::size_t lane = 0; lane < kDim; ++lane) {
-      const auto value = static_cast<std::uint32_t>(req.data[lane]);
-      for (std::size_t byte = 0; byte < sizeof(Acc); ++byte) {
-        resp.data[lane * sizeof(Acc) + byte] =
-            static_cast<std::uint8_t>((value >> (8 * byte)) & 0xffu);
-      }
-    }
-    resp.mask = static_cast<std::uint8_t>(req.mask & 0xffu);
-    resp.last = false;
-    ex_accum_write_bits_[bank] = resp;
-  }
 }
 
 void Smesh::reset() {

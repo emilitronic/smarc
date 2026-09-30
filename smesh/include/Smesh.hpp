@@ -100,17 +100,10 @@ class Smesh : public Component {
 
   void update();
   void updateLoopStoreCompletions();
-  void updateExWriteAdapter();
   void reset();
 
  private:
-  // Converts ExCtrl's bank-local write requests into the legacy payloads
-  // still expected by the local-memory write arbiters.
-  OutputArray(bit, ex_spad_write_val_, kSpBanks);
   Output(u8, loop_st_completed_total_);
-  OutputArray(DmaReadResp, ex_spad_write_bits_, kSpBanks);
-  OutputArray(bit, ex_accum_write_val_, kAccBanks);
-  OutputArray(DmaReadResp, ex_accum_write_bits_, kAccBanks);
 
   SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshLoopCmdAdapter*     loop_cmd_adapter_ = nullptr;

@@ -256,7 +256,7 @@ struct MesherResp {
 struct SpadBankWriteReq {
   u32          addr = 0;
   MeshInputRow data{};
-  u32          mask = 0;
+  u32          mask = 0; // one bit per output alignment unit
 };
 
 // Bank-local accumulator write produced by ExecuteController writeback.
@@ -264,7 +264,7 @@ struct AccumBankWriteReq {
   u32          addr = 0;
   MeshAccumRow data{};
   bit          acc  = 0;
-  u32          mask = 0;
+  u32          mask = 0; // one bit per output alignment unit, not per Acc lane
 };
 
 // TODO: migrate the local-memory write arbiters and Spad/Accum bank write
