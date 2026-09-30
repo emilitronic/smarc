@@ -12,9 +12,13 @@ Minimal DMA reader implementation.
 
 namespace smesh {
 
+namespace {
+constexpr std::size_t kMaxNarrowRowsPerRead = 2;
+}
+
 DmaReader::DmaReader(std::string /*name*/, IMPL_CTOR) {
   // One narrow 8-byte response can produce two local tile rows.
-  resp_out.setSize(2);
+  resp_out.setSize(static_cast<int>(kMaxNarrowRowsPerRead));
   UPDATE(update).reads(req_in, mem_resp).writes(mem_req, resp_out);
 }
 
@@ -83,7 +87,7 @@ void DmaReader::update() {
     const auto element_bytes = active_.has_acc_bitwidth == 1 ? sizeof(Acc) : sizeof(Elem);
     const auto row_bytes = static_cast<std::size_t>(cols) * element_bytes;
     assert_always(cols > 0 && row_bytes <= row_data_.size() &&
-                      (active_.has_acc_bitwidth == 1 || cols <= 2 * kDim),
+                      (active_.has_acc_bitwidth == 1 || cols <= kMaxNarrowRowsPerRead * kDim),
                   "DmaReader supports up to one full-width or two narrow local rows");
     total_bytes_ = static_cast<std::uint16_t>(row_bytes);
     row_data_ = {};
@@ -94,7 +98,7 @@ void DmaReader::update() {
 
   smem::MemReq req{};
   beat_bytes_ = static_cast<std::uint16_t>(
-      std::min<std::size_t>(sizeof(std::uint64_t), total_bytes_ - bytes_requested_));
+      std::min<std::size_t>(kMemBeatBytes, total_bytes_ - bytes_requested_));
   req.addr = active_.vaddr + bytes_requested_;
   req.size = u16(beat_bytes_);
   req.write = false;

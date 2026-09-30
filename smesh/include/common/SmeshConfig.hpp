@@ -31,9 +31,10 @@ struct SmeshConfig {
   bool has_first_layer_optimizations = false;
   std::size_t max_in_flight_mem_reqs = 16; // default up to 16 in-flight mem reqs for load
 
-  std::size_t elem_bits     =  8;
-  std::size_t acc_bits      = 32;
-  std::size_t dma_max_bytes = 64;
+  std::size_t elem_bits      =  8;
+  std::size_t acc_bits       = 32;
+  std::size_t mem_beat_bytes =  8; // smem currently carries one u64 per response
+  std::size_t dma_max_bytes  = 64; // maximum DMA transfer size, not memory beat width
 
   bool has_max_pool = true; // StoreController includes max-pooling geometry
   std::size_t store_cmd_tracker_entries = 2; // concurrent StoreController commands

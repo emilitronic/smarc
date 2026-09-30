@@ -37,6 +37,15 @@ The focused memory unit tests cover bank-local arbitration and simultaneous
 operations independently. This suite also checks Spad read concurrency and
 same-bank serialization through the full command-to-memory composition.
 
+## Current size contract
+
+The tested configuration is `dim=4`, 8-bit elements, 32-bit accumulator
+elements, and an 8-byte memory beat. Compile-time checks require the configured
+element widths to match `Elem`/`Acc`, the beat width to match the current 64-bit
+`smem` interface, and `dim <= 8` for the existing masks and Spad write path.
+These checks prevent known truncation, but do not establish that every other
+dimension up to 8 works. `dma_max_bytes` is a transfer limit, not the beat width.
+
 ## Run
 
 From the repository root:

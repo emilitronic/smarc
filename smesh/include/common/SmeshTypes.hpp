@@ -16,6 +16,7 @@ Common types and constants for the Smesh project.
 namespace smesh {
 
 constexpr std::size_t kDim              = kDefaultConfig.dim;                // cols per row
+constexpr std::size_t kMemBeatBytes     = kDefaultConfig.mem_beat_bytes;
 constexpr std::size_t kSpBanks          = kDefaultConfig.sp_banks;
 constexpr std::size_t kSpBankRows       = kDefaultConfig.sp_bank_rows;
 constexpr std::size_t kSpRows           = kSpBanks * kSpBankRows;            // total rows in SP
@@ -47,6 +48,17 @@ static_assert(kAccBankRows > 0 && (kAccBankRows & (kAccBankRows - 1)) == 0,
 
 using Elem = std::int8_t;
 using Acc = std::int32_t;
+
+static_assert(kDefaultConfig.elem_bits == sizeof(Elem) * 8,
+              "elem_bits must match Elem until element types are configurable");
+static_assert(kDefaultConfig.acc_bits == sizeof(Acc) * 8,
+              "acc_bits must match Acc until accumulator types are configurable");
+static_assert(kMemBeatBytes == sizeof(std::uint64_t),
+              "smem MemReq/MemResp currently use one 64-bit memory beat");
+static_assert(kDim > 0 && kDim <= 8,
+              "load-path u8 masks and Spad low64 writes support at most 8 lanes");
+static_assert(sizeof(Acc) >= sizeof(Elem),
+              "DMA read payload must hold either kind of local row");
 
 using MeshInputRow = std::array<Elem, kDim>;
 using MeshAccumRow = std::array<Acc, kDim>;
