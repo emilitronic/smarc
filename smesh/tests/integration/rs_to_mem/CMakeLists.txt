@@ -18,6 +18,20 @@ set_target_properties(tb_rs_to_mem_suite PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
 
+add_executable(tb_rs_to_mem_suite_dim8
+  tb_rs_to_mem_suite.cpp
+  tb_rs_to_mem_harness.cpp
+  tb_rs_to_mem_test_cases.cpp
+)
+target_link_libraries(tb_rs_to_mem_suite_dim8 PRIVATE
+  smesh_model_dim8 smem_memory cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_rs_to_mem_suite_dim8 PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+add_test(NAME smesh_rs_to_mem_dim8_loads
+  COMMAND tb_rs_to_mem_suite_dim8 -test=dim8_loads)
+set_tests_properties(smesh_rs_to_mem_dim8_loads PROPERTIES
+  LABELS "integration;rs_to_mem;dim8" TIMEOUT 30)
+
 add_test(NAME smesh_rs_to_mem_basic COMMAND tb_rs_to_mem_suite -test=basic)
 add_test(NAME smesh_rs_to_mem_mul_pre COMMAND tb_rs_to_mem_suite -test=mul_pre)
 add_test(NAME smesh_rs_to_mem_concurrent_banks COMMAND tb_rs_to_mem_suite -test=concurrent_banks)

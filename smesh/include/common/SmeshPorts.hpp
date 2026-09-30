@@ -90,7 +90,7 @@ inline std::uint64_t low64DmaReadData(const DmaReadData& data) {
 struct DmaReadResp {
   DmaReadData data{};
   SmeshLocalAddr laddr{};
-  u8 mask = 0;
+  u32 mask = 0; // one bit per local-memory element lane
   bit has_acc_bitwidth = false;
   u32 scale = 0;
   u16 repeats = 0;
@@ -143,7 +143,7 @@ struct SpadBankReadReq {
 struct SpadReadResp {
   MeshInputRow data{};
   SmeshLocalAddr laddr{};
-  u8 mask = 0;
+  u32 mask = 0;
   u16 len = 0; // number of row elements being read from spad (not bytes)
   u16 cmd_id = 0;
   bit from_dma = true;
@@ -166,7 +166,7 @@ struct AccumBankReadReq {
 struct AccumReadResp {
   MeshAccumRow data{};
   SmeshLocalAddr laddr{};
-  u8  mask = 0;
+  u32  mask = 0;
   u16 len = 0; // number of row elements being read from accum (not bytes)
   u8  act = 0;
   u32 scale = 0;

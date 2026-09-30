@@ -15,8 +15,12 @@ until there is code which consumes them.
 
 namespace smesh {
 
+#ifndef SMESH_DIM
+#define SMESH_DIM 4
+#endif
+
 struct SmeshConfig {
-  std::size_t dim = 4;
+  std::size_t dim = SMESH_DIM;
 
   std::size_t sp_banks       =  4;
   std::size_t sp_bank_rows   =  4;

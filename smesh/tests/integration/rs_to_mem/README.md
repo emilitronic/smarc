@@ -32,6 +32,7 @@ The suite currently covers:
 - `loop_ws_dma_i2`: two output tiles with a shared B tile.
 - `loop_ws_dma_k2`: two products accumulated into one output tile.
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
+- `dim8_loads`: separate `dim=8` build; full and partial SPAD/Accum row loads.
 
 The focused memory unit tests cover bank-local arbitration and simultaneous
 operations independently. This suite also checks Spad read concurrency and
@@ -42,9 +43,11 @@ same-bank serialization through the full command-to-memory composition.
 The tested configuration is `dim=4`, 8-bit elements, 32-bit accumulator
 elements, and an 8-byte memory beat. Compile-time checks require the configured
 element widths to match `Elem`/`Acc`, the beat width to match the current 64-bit
-`smem` interface, and `dim <= 8` for the existing masks and Spad write path.
-These checks prevent known truncation, but do not establish that every other
-dimension up to 8 works. `dma_max_bytes` is a transfer limit, not the beat width.
+`smem` interface, and `dim <= 8` for the remaining ExCtrl writeback adapters.
+The `dim8_loads` target separately compiles Smesh at `dim=8` and checks all
+eight lanes plus six-lane partial overwrites. Larger dimensions remain
+unsupported by the full system. `dma_max_bytes` is a transfer limit, not the
+beat width.
 
 ## Run
 
@@ -58,6 +61,8 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_i2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load
+cmake --build build --target tb_rs_to_mem_suite_dim8 -j
+./build/smesh/tb_rs_to_mem_suite_dim8 -test=dim8_loads
 ctest --test-dir build -L rs_to_mem --output-on-failure
 ```
 

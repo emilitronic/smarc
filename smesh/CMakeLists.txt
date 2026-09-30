@@ -98,6 +98,15 @@ target_link_libraries(smesh_model
     cascade
 )
 
+if(BUILD_TESTING)
+  get_target_property(SMESH_MODEL_SOURCES smesh_model SOURCES)
+  add_library(smesh_model_dim8 ${SMESH_MODEL_SOURCES})
+  target_include_directories(smesh_model_dim8 PUBLIC
+    $<TARGET_PROPERTY:smesh_model,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_compile_definitions(smesh_model_dim8 PUBLIC SMESH_DIM=8)
+  target_link_libraries(smesh_model_dim8 PUBLIC cascade)
+endif()
+
 add_executable(tb_ex_ctrl_arch
   src/tb_ex_ctrl_arch.cpp
 )

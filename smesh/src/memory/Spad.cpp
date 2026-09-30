@@ -55,11 +55,10 @@ void Spad::updateWrite() {
                   "Spad write payload does not match its bank port");
 
     auto& destination = banks_[bank][write.laddr.sp_row()];
-    const auto data = low64DmaReadData(write.data);
-    const auto mask = static_cast<std::uint8_t>(write.mask);
+    const auto mask = static_cast<std::uint32_t>(write.mask);
     for (std::size_t lane = 0; lane < kDim; ++lane) {
-      if ((mask & (std::uint8_t{1} << lane)) != 0) {
-        destination[lane] = static_cast<Elem>((data >> (lane * 8)) & 0xffu);
+      if ((mask & (std::uint32_t{1} << lane)) != 0) {
+        destination[lane] = static_cast<Elem>(write.data[lane]);
       }
     }
 
@@ -130,7 +129,7 @@ void Spad::updateRead() {
       resp.from_dma = req.from_dma;
       resp.data = source;
       for (std::size_t lane = 0; lane < kDim; ++lane) {
-        resp.mask |= static_cast<u8>(u8{1} << lane);
+        resp.mask |= u32(std::uint32_t{1} << lane);
       }
       read_resp_entry_D_[bank] = resp;
       read_resp_valid_D_[bank] = 1;

@@ -57,7 +57,7 @@ void DmaReader::update() {
             dma_resp.data[byte] = row_data_[first_col * element_bytes + byte];
           }
           dma_resp.laddr = active_.laddr + segment * static_cast<std::uint16_t>(active_.block_stride);
-          dma_resp.mask = u8((1u << cols) - 1u);
+          dma_resp.mask = u32((std::uint64_t{1} << cols) - 1u);
           dma_resp.has_acc_bitwidth = active_.has_acc_bitwidth;
           dma_resp.scale = active_.scale;
           dma_resp.repeats = active_.repeats;

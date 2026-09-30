@@ -56,7 +56,7 @@ static_assert(kDefaultConfig.acc_bits == sizeof(Acc) * 8,
 static_assert(kMemBeatBytes == sizeof(std::uint64_t),
               "smem MemReq/MemResp currently use one 64-bit memory beat");
 static_assert(kDim > 0 && kDim <= 8,
-              "load-path u8 masks and Spad low64 writes support at most 8 lanes");
+              "full Smesh currently supports at most 8 lanes in ExCtrl writeback adapters");
 static_assert(sizeof(Acc) >= sizeof(Elem),
               "DMA read payload must hold either kind of local row");
 

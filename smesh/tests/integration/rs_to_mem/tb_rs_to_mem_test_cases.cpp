@@ -597,10 +597,71 @@ RsMemTestCase makeFullWidthAccumLoadCase() {
   return test;
 }
 
+// Exercise full rows and partial lane masks in a separately compiled dim=8 system.
+RsMemTestCase makeDim8LoadsCase() {
+  RsMemTestCase test{};
+  test.name = "dim8_loads";
+  test.description = "Load full 8-element rows, then overwrite only six lanes";
+  test.max_cycles = 280;
+
+  constexpr std::uint64_t spad_base = 0x80008000;
+  constexpr std::uint64_t accum_base = 0x80009000;
+  constexpr std::uint64_t spad_partial_base = 0x8000a000;
+  constexpr std::uint64_t accum_partial_base = 0x8000b000;
+  const auto spad_dest = makeSpAddr(0);
+  const auto accum_dest = makeAccAddr(0);
+  MeshInputRow spad_row{};
+  MeshAccumRow accum_row{};
+  std::vector<std::uint8_t> spad_bytes;
+  std::vector<std::uint8_t> accum_bytes;
+  std::vector<std::uint8_t> spad_partial_bytes;
+  std::vector<std::uint8_t> accum_partial_bytes;
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    spad_row[lane] = static_cast<Elem>(lane + 1);
+    spad_bytes.push_back(static_cast<std::uint8_t>(spad_row[lane]));
+    accum_row[lane] = static_cast<Acc>(0x12340000u + 257u * lane);
+    const auto word = static_cast<std::uint32_t>(accum_row[lane]);
+    for (unsigned byte = 0; byte < sizeof(Acc); ++byte) {
+      accum_bytes.push_back(static_cast<std::uint8_t>(word >> (8 * byte)));
+    }
+    if (lane < 6) {
+      spad_row[lane] = static_cast<Elem>(21 + lane);
+      spad_partial_bytes.push_back(static_cast<std::uint8_t>(spad_row[lane]));
+      accum_row[lane] = static_cast<Acc>(0x56780000u + 257u * lane);
+      const auto partial_word = static_cast<std::uint32_t>(accum_row[lane]);
+      for (unsigned byte = 0; byte < sizeof(Acc); ++byte) {
+        accum_partial_bytes.push_back(static_cast<std::uint8_t>(partial_word >> (8 * byte)));
+      }
+    }
+  }
+  test.dram_initial = {{spad_base, spad_bytes}, {accum_base, accum_bytes},
+                       {spad_partial_base, spad_partial_bytes},
+                       {accum_partial_base, accum_partial_bytes}};
+  test.program = {
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim),
+                  kDim * sizeof(Acc)),
+      loopCommand(SmeshFunct::Mvin, spad_base,
+                  packLocal(spad_dest, MatrixShape{1, kDim})),
+      loopCommand(SmeshFunct::Mvin, accum_base,
+                  packLocal(accum_dest, MatrixShape{1, kDim})),
+      loopCommand(SmeshFunct::Mvin, spad_partial_base,
+                  packLocal(spad_dest, MatrixShape{1, 6})),
+      loopCommand(SmeshFunct::Mvin, accum_partial_base,
+                  packLocal(accum_dest, MatrixShape{1, 6})),
+  };
+  test.expected_loaded_spad_rows = {{spad_dest, spad_row}};
+  test.expected_results = {ExpectedAccumResult{accum_dest, {accum_row}}};
+  test.expected_completion_tags = {1, 2, 3, 4};
+  return test;
+}
+
 std::vector<RsMemTestCase> rsMemTestCases() {
-  return {makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
-          makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
-          makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase()};
+  auto tests = std::vector<RsMemTestCase>{
+      makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
+      makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
+      makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase()};
+  if (kDim == 8) tests.push_back(makeDim8LoadsCase());
+  return tests;
 }
 
 } // namespace tb

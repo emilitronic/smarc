@@ -55,9 +55,9 @@ void Accum::updateWrite() {
                   "Accum write payload does not match its bank port");
 
     auto& destination = banks_[bank][write.laddr.acc_row()];
-    const auto mask = static_cast<std::uint8_t>(write.mask);
+    const auto mask = static_cast<std::uint32_t>(write.mask);
     for (std::size_t lane = 0; lane < kDim; ++lane) {
-      if ((mask & (std::uint8_t{1} << lane)) != 0) {
+      if ((mask & (std::uint32_t{1} << lane)) != 0) {
         Acc incoming = 0;                    // temp for val being written to current lane
         if (write.has_acc_bitwidth != 0) {   // are we writing accum-width val (32b)
           std::uint32_t word = 0;
@@ -147,7 +147,7 @@ void Accum::updateRead() {
       resp.from_dma = req.from_dma;
       resp.data = source;
       for (std::size_t lane = 0; lane < kDim; ++lane) {
-        resp.mask |= static_cast<u8>(u8{1} << lane);
+        resp.mask |= u32(std::uint32_t{1} << lane);
       }
       read_resp_entry_D_[bank] = resp;
       read_resp_valid_D_[bank] = 1;
