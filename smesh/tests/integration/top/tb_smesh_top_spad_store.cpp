@@ -91,7 +91,7 @@ void TopSpadStoreDriver::update() {
   smesh::SmeshCmd cmd{};
   if (next_command_ == 0) {
     cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Config));
-    cmd.rs1 = u64(smesh::packConfig(smesh::ConfigKind::Load, 0, kLoadBlockStride));
+    cmd.rs1 = u64(smesh::packConfigLoadRs1(0, kLoadBlockStride));
     cmd.rs2 = u64(kDramRowStride);
   } else if (next_command_ == 1) {
     cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin));

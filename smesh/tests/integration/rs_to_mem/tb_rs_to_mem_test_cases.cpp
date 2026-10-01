@@ -119,8 +119,7 @@ std::vector<SmeshCmd> dmaLoopProgram(std::uint16_t i_tiles, std::uint16_t k_tile
                                      std::uint64_t a_base, std::uint64_t b_base,
                                      std::uint64_t d_base, std::uint64_t c_base) {
   const auto config_load = [](unsigned state, std::uint64_t stride, bool shrink) {
-    const auto rs1 = packConfig(ConfigKind::Load, state, kDim) |
-                     (shrink ? (std::uint64_t{1} << 2) : 0);
+    const auto rs1 = packConfigLoadRs1(state, kDim, kMvinScaleIdentityBits, shrink);
     return loopCommand(SmeshFunct::Config, rs1, stride);
   };
   const auto a_stride = static_cast<std::uint64_t>(k_tiles) * kDim;
@@ -443,8 +442,7 @@ RsMemTestCase makeLoopWsDmaCase() {
     return cmd;
   };
   const auto configLoad = [&](unsigned state, bool shrink) {
-    const auto rs1 = packConfig(ConfigKind::Load, state, kDim) |
-                     (shrink ? (std::uint64_t{1} << 2) : 0);
+    const auto rs1 = packConfigLoadRs1(state, kDim, kMvinScaleIdentityBits, shrink);
     return command(SmeshFunct::Config, rs1, kDim);
   };
   test.program = {
@@ -590,7 +588,7 @@ RsMemTestCase makeFullWidthAccumLoadCase() {
   test.dram_initial.push_back({dram_base, bytes});
 
   test.program = {
-      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim), bytes.size()),
+      loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, kDim), bytes.size()),
       loopCommand(SmeshFunct::Mvin, dram_base,
                   packLocal(destination, MatrixShape{1, kDim})),
   };
@@ -603,11 +601,12 @@ RsMemTestCase makeFullWidthAccumLoadCase() {
 RsMemTestCase makeRepeatedLoadsCase() {
   RsMemTestCase test{};
   test.name = "repeated_loads";
-  test.description = "Repeat one DRAM row into three Spad and Accum rows";
+  test.description = "Repeat and scale one Spad row; repeat one full-width Accum row";
   test.max_cycles = 180;
 
   constexpr std::uint64_t spad_base = 0x8000c000;
   constexpr std::uint64_t accum_base = 0x8000d000;
+  constexpr std::uint32_t double_scale_bits = 0x40000000u; // binary32 2.0
   const auto spad_dest = makeSpAddr(0);
   const auto accum_dest = makeAccAddr(4);
   MeshInputRow spad_values{};
@@ -615,8 +614,8 @@ RsMemTestCase makeRepeatedLoadsCase() {
   std::vector<std::uint8_t> spad_bytes;
   std::vector<std::uint8_t> accum_bytes;
   for (std::size_t lane = 0; lane < kDim; ++lane) {
-    spad_values[lane] = static_cast<Elem>(lane + 1);
-    spad_bytes.push_back(static_cast<std::uint8_t>(spad_values[lane]));
+    spad_bytes.push_back(static_cast<std::uint8_t>(lane + 1));
+    spad_values[lane] = static_cast<Elem>(2 * (lane + 1));
     accum_values[lane] = static_cast<Acc>(0x12340000u + 257u * lane);
     const auto word = static_cast<std::uint32_t>(accum_values[lane]);
     for (unsigned byte = 0; byte < sizeof(Acc); ++byte) {
@@ -625,7 +624,7 @@ RsMemTestCase makeRepeatedLoadsCase() {
   }
   test.dram_initial = {{spad_base, spad_bytes}, {accum_base, accum_bytes}};
   test.program = {
-      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim), 0),
+      loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, kDim, double_scale_bits), 0),
       loopCommand(SmeshFunct::Mvin, spad_base,
                   packLocal(spad_dest, MatrixShape{3, kDim})),
       loopCommand(SmeshFunct::Mvin, accum_base,
@@ -637,6 +636,57 @@ RsMemTestCase makeRepeatedLoadsCase() {
   test.expected_results = {ExpectedAccumResult{
       accum_dest, {accum_values, accum_values, accum_values}}};
   test.expected_completion_tags = {1, 2};
+  return test;
+}
+
+// Shrunk accumulator loads use normal-width scaling before sign extension on write.
+RsMemTestCase makeScaledShrinkLoadCase() {
+  RsMemTestCase test{};
+  test.name = "scaled_shrink_load";
+  test.description = "Scale signed bytes into Accum with rounding, saturation, and zero scale";
+  test.max_cycles = 220;
+
+  constexpr std::uint64_t half_source = 0x8000e000;
+  constexpr std::uint64_t double_source = 0x8000f000;
+  constexpr std::uint64_t zero_source = 0x80010000;
+  constexpr std::uint32_t half_scale_bits = 0x3f000000u; // binary32 0.5
+  constexpr std::uint32_t double_scale_bits = 0x40000000u; // binary32 2.0
+  const auto destination = makeAccAddr(0);
+  const std::uint8_t half_source_lanes[] = {0xfdu, 0xffu, 1u, 3u};
+  const std::uint8_t double_source_lanes[] = {100u, 0x9cu, 127u, 0x80u};
+  std::vector<std::uint8_t> half_bytes;
+  std::vector<std::uint8_t> double_bytes;
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    half_bytes.push_back(half_source_lanes[lane % 4]);
+    double_bytes.push_back(double_source_lanes[lane % 4]);
+  }
+  test.dram_initial = {{half_source, half_bytes}, {double_source, double_bytes},
+                       {zero_source, half_bytes}};
+  test.program = {
+      loopCommand(SmeshFunct::Config,
+                  packConfigLoadRs1(0, kDim, half_scale_bits, true), kDim),
+      loopCommand(SmeshFunct::Mvin, half_source,
+                  packLocal(destination, MatrixShape{1, kDim})),
+      loopCommand(SmeshFunct::Config,
+                  packConfigLoadRs1(0, kDim, double_scale_bits, true), kDim),
+      loopCommand(SmeshFunct::Mvin, double_source,
+                  packLocal(destination + 1, MatrixShape{1, kDim})),
+      loopCommand(SmeshFunct::Config,
+                  packConfigLoadRs1(0, kDim, 0, true), kDim),
+      loopCommand(SmeshFunct::Mvin, zero_source,
+                  packLocal(destination + 2, MatrixShape{1, kDim})),
+  };
+  MeshAccumRow half_expected{};
+  MeshAccumRow double_expected{};
+  const Acc half_lanes[] = {-2, 0, 0, 2};
+  const Acc double_lanes[] = {127, -128, 127, -128};
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    half_expected[lane] = half_lanes[lane % 4];
+    double_expected[lane] = double_lanes[lane % 4];
+  }
+  test.expected_results = {ExpectedAccumResult{
+      destination, {half_expected, double_expected, MeshAccumRow{}}}};
+  test.expected_completion_tags = {1, 3, 5};
   return test;
 }
 
@@ -681,7 +731,7 @@ RsMemTestCase makeDim8LoadsCase() {
                        {spad_partial_base, spad_partial_bytes},
                        {accum_partial_base, accum_partial_bytes}};
   test.program = {
-      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim),
+      loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, kDim),
                   kDim * sizeof(Acc)),
       loopCommand(SmeshFunct::Mvin, spad_base,
                   packLocal(spad_dest, MatrixShape{1, kDim})),
@@ -703,7 +753,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
-      makeRepeatedLoadsCase()};
+      makeRepeatedLoadsCase(), makeScaledShrinkLoadCase()};
   if (kDim == 8) tests.push_back(makeDim8LoadsCase());
   if (kMemBeatBytes == 4) {
     auto posted = makeLoopWsDmaCase();
@@ -723,7 +773,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
     const auto local = makeSpAddr(0);
     tail.dram_initial = {{source, {11, 22, 33}}};
     tail.program = {
-        loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim), 3),
+        loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, kDim), 3),
         loopCommand(SmeshFunct::Mvin, source,
                     packLocal(local, MatrixShape{1, 3})),
         loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),

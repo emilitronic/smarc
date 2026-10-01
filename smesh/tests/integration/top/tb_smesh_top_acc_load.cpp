@@ -56,8 +56,8 @@ void TopAccLoadDriver::update() {
   if (next_command_ == 0) {
     cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Config));
     // DRAM rows contain 8-bit elements, widened when written to Accum.
-    cmd.rs1 = u64(smesh::packConfig(smesh::ConfigKind::Load, 0, kLoadBlockStride) |
-                  (std::uint64_t{1} << 2)); // CONFIG_LOAD shrink
+    cmd.rs1 = u64(smesh::packConfigLoadRs1(0, kLoadBlockStride,
+                                          smesh::kMvinScaleIdentityBits, true)); // CONFIG_LOAD shrink
     cmd.rs2 = u64(kDramRowStride);
   } else {
     cmd.funct = u32(static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin));

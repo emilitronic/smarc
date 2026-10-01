@@ -8,8 +8,41 @@ Load-path scaling stage implementation.
 
 #include "MvinScale.hpp"
 
+#include <cmath>
+#include <cstring>
+#include <limits>
+
 namespace smesh {
 namespace {
+
+// ********************* Normal-width Scaling *********************
+// Original's normal MVIN scale uses binary32 multiplication and signed int8 output.
+// 
+std::int8_t scaleElem(std::uint8_t encoded, float scale) {
+  const int   value   = encoded <= 127 ? encoded : static_cast<int>(encoded) - 256; // convert to signed int32
+  const float product = static_cast<float>(value) * scale; // multiply by configured 32b FP scale
+  // Handle 1) NaN (choose limit based on sign bit); 2) clamp ordinary values to signed int8 limit (-128,127)
+  if (std::isnan(product)) {return std::signbit(product) ? std::numeric_limits<Elem>::min() : std::numeric_limits<Elem>::max();}
+  if (product >= std::numeric_limits<Elem>::max()) return std::numeric_limits<Elem>::max();
+  if (product <= std::numeric_limits<Elem>::min()) return std::numeric_limits<Elem>::min();
+  // compute round-to-nearest-ties-to-even (banker's rounding) and return as signed int8
+  const double lower     = std::floor(static_cast<double>(product)); // get int
+  const int rounded_down = static_cast<int>(lower);                 
+  const double fraction  = static_cast<double>(product) - lower;     // get fractional part
+  const bool round_up    = fraction > 0.5 || (fraction == 0.5 && rounded_down % 2 != 0);
+  return static_cast<Elem>(rounded_down + static_cast<int>(round_up));
+}
+
+DmaReadResp scaledNormalRow(DmaReadResp row) {
+  const auto bits = static_cast<std::uint32_t>(row.scale);
+  float scale     = 0;
+  static_assert(sizeof(scale) == sizeof(bits) && std::numeric_limits<float>::is_iec559);
+  std::memcpy(&scale, &bits, sizeof(scale));
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    row.data[lane] = static_cast<std::uint8_t>(scaleElem(row.data[lane], scale));
+  }
+  return row;
+}
 
 // ********************* Repeat Helpers *********************
 // Create the current copy; the countdown sets its destination offset.
@@ -75,7 +108,8 @@ void MvinScale::updateStorage() {
           static_cast<unsigned>(current.remaining),
           static_cast<unsigned>(current.remaining == 0 && current.bits.last == 1));
   }
-  entry_D_ = advanceRow(current, pop, push, push ? *in_bits : DmaReadResp{});
+  // What do to with the input row?  Push an incomring row or an empty row if nothing is incoming.
+  entry_D_ = advanceRow(current, pop, push, push ? scaledNormalRow(*in_bits) : DmaReadResp{});
 }
 
 void MvinScale::reset() {
@@ -86,7 +120,7 @@ void MvinScale::reset() {
 }
 
 // ********************* MvinScaleAcc *********************
-// Accumulator-width path uses the same repeat sequence.
+// Accumulator-width path repeats rows without scaling (Gemmini mvin_scale_acc_args=None).
 MvinScaleAcc::MvinScaleAcc(std::string /*name*/, IMPL_CTOR) {
   entry_Q_ <= entry_D_;
   UPDATE(updateView).reads(entry_Q_).writes(out_val, out_bits);

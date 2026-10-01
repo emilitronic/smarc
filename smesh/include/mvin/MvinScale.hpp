@@ -7,7 +7,9 @@ Load-path scale stages. They latch load-responses, process them and forward them
 downstream blocks.
 
 Current functions:
-- Repeated row outputs (present multiple-row copies of a single row to downstream blocks))
+- Repeated row outputs (multiple local rows from one DMA response).
+- Binary32 scaling of normal-width signed 8-bit elements; full-width accumulator rows pass through.
+The four-cycle scale-unit pipeline from Original is not modeled yet.
 */
 
 #pragma once

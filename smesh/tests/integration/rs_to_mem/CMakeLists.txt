@@ -63,6 +63,7 @@ add_test(NAME smesh_rs_to_mem_loop_ws_dma_i2 COMMAND tb_rs_to_mem_suite -test=lo
 add_test(NAME smesh_rs_to_mem_loop_ws_dma_k2 COMMAND tb_rs_to_mem_suite -test=loop_ws_dma_k2)
 add_test(NAME smesh_rs_to_mem_full_width_accum_load COMMAND tb_rs_to_mem_suite -test=full_width_accum_load)
 add_test(NAME smesh_rs_to_mem_repeated_loads COMMAND tb_rs_to_mem_suite -test=repeated_loads)
+add_test(NAME smesh_rs_to_mem_scaled_shrink_load COMMAND tb_rs_to_mem_suite -test=scaled_shrink_load)
 
 set_tests_properties(
   smesh_rs_to_mem_basic
@@ -75,6 +76,7 @@ set_tests_properties(
   smesh_rs_to_mem_loop_ws_dma_k2
   smesh_rs_to_mem_full_width_accum_load
   smesh_rs_to_mem_repeated_loads
+  smesh_rs_to_mem_scaled_shrink_load
   PROPERTIES
     LABELS "integration;rs_to_mem"
     TIMEOUT 30

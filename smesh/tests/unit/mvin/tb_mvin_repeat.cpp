@@ -18,7 +18,17 @@ smesh::DmaReadResp makeRow(unsigned id, bool accum) {
   smesh::DmaReadResp row{};
   row.cmd_id = u16(id);
   row.laddr = accum ? smesh::makeAccAddr(6, true) : smesh::makeSpAddr(4);
-  row.data[0] = static_cast<std::uint8_t>(id);
+  if (accum) {
+    row.data[0] = static_cast<std::uint8_t>(id);
+  } else {
+    const int values[] = {-3, -1, 1, 3};
+    const int clipped[] = {100, -100, 127, -128};
+    for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+      row.data[lane] = static_cast<std::uint8_t>(id == 10 ? values[lane % 4]
+                                                             : clipped[lane % 4]);
+    }
+    row.scale = id == 10 ? 0x3f000000u : 0x40000000u; // binary32 0.5 and 2.0
+  }
   row.mask = 1;
   row.len = 1;
   row.bytes_read = u16(accum ? sizeof(smesh::Acc) : sizeof(smesh::Elem));
@@ -126,11 +136,22 @@ void Driver::updateState() {
     assert_always(index < 4 && row.laddr.data() == base + offset &&
                       row.laddr.is_acc_addr() == accum &&
                       row.laddr.accumulate() == accum &&
-                      row.cmd_id == id && row.data[0] == id &&
+                      row.cmd_id == id &&
                       row.mask == 1 && row.len == 1 &&
                       row.bytes_read == (accum ? sizeof(smesh::Acc) : sizeof(smesh::Elem)) &&
                       row.last == bit(index >= 2),
                   "MvinScale emitted the wrong repeated row");
+    if (accum) {
+      assert_always(row.data[0] == id, "MvinScaleAcc changed a full-width row");
+    } else {
+      const int half[] = {-2, 0, 0, 2};
+      const int clipped[] = {127, -128, 127, -128};
+      for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
+        const auto expected = index < 3 ? half[lane % 4] : clipped[lane % 4];
+        assert_always(row.data[lane] == static_cast<std::uint8_t>(expected),
+                      "MvinScale rounded or clipped a lane incorrectly");
+      }
+    }
   };
 
   if (normal_out_val == 1) {

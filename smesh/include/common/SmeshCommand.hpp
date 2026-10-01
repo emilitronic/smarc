@@ -81,6 +81,7 @@ inline LocalMatrix unpackLocal(std::uint64_t packed) {
 constexpr std::uint32_t kConfigStateIdShift             =  3;
 constexpr std::uint32_t kConfigLoadBlockStrideShift     = 16;
 constexpr std::uint64_t kConfigLoadBlockStrideMask      = 0xffffull;
+constexpr std::uint32_t kMvinScaleIdentityBits          = 0x3f800000u; // IEEE-754 pattern
 constexpr std::uint32_t kConfigExecuteDataflowBit       =  2;
 constexpr std::uint32_t kConfigExecuteActivationShift   =  3;
 constexpr std::uint32_t kConfigExecuteSetOnlyStridesBit =  7;
@@ -97,6 +98,15 @@ inline std::uint64_t packConfig(ConfigKind kind, std::uint32_t state_id = 0, std
          (static_cast<std::uint64_t>(state_id & 0x3u) << kConfigStateIdShift) |
          ((static_cast<std::uint64_t>(ld_block_stride) & kConfigLoadBlockStrideMask)
           << kConfigLoadBlockStrideShift);
+}
+// Build CONFIG_LOAD rs1, including the binary32 MVIN scale in its upper half.
+inline std::uint64_t packConfigLoadRs1(std::uint32_t state_id, std::uint32_t block_stride,
+                                      std::uint32_t scale_bits = kMvinScaleIdentityBits,
+                                      bool shrink = false, std::uint32_t pixel_repeats = 0) {
+  return packConfig(ConfigKind::Load, state_id, block_stride) |
+         (static_cast<std::uint64_t>(shrink) << 2) |
+         (static_cast<std::uint64_t>(pixel_repeats & 0xffu) << 8) |
+         (static_cast<std::uint64_t>(scale_bits) << 32);
 }
 // Extracts the generic CONFIG state selector from rs1
 inline std::uint32_t unpackConfigStateId(std::uint64_t rs1) {

@@ -101,9 +101,9 @@ std::vector<smesh::SmeshCmd> makeScript() {
   };
 
   return {
-      cmd(smesh::SmeshFunct::Config, smesh::packConfig(smesh::ConfigKind::Load, 0, smesh::kDim), elem_stride),
-      cmd(smesh::SmeshFunct::Config, smesh::packConfig(smesh::ConfigKind::Load, 1, smesh::kDim), b_elem_stride),
-      cmd(smesh::SmeshFunct::Config, smesh::packConfig(smesh::ConfigKind::Load, 2, smesh::kDim), elem_stride),
+      cmd(smesh::SmeshFunct::Config, smesh::packConfigLoadRs1(0, smesh::kDim), elem_stride),
+      cmd(smesh::SmeshFunct::Config, smesh::packConfigLoadRs1(1, smesh::kDim), b_elem_stride),
+      cmd(smesh::SmeshFunct::Config, smesh::packConfigLoadRs1(2, smesh::kDim), elem_stride),
       cmd(smesh::SmeshFunct::Config, smesh::packConfig(smesh::ConfigKind::Store), acc_stride),
       cmd(smesh::SmeshFunct::Config, smesh::packConfigExRs1(1), smesh::packConfigExRs2(1)),
       cmd(smesh::SmeshFunct::Mvin, kAAddr, smesh::packLocal(a_spad_row, shape)),
