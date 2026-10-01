@@ -221,23 +221,30 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   dma_reader_->mem_resp << dma_mem_mux_->read_resp;
   spad_writer_->spad_write_out.sendToBitBucket();      // later: connect to store-spad destination path
   write_issue_queue_->deq_rdy << st_issue_ctrl_->issue_deq_rdy;
-  mvin_scale_split_->data_in << dma_reader_->resp_out;
-  mvin_scale_->data_in       << mvin_scale_split_->normal_out;
-  mvin_scale_acc_->data_in   << mvin_scale_split_->acc_out;
-  mvin_scale_acc_->data_rdy  << write_ctrl_->dmaread_accum_full_rdy;
-  mvin_scale_acc_->data_out.sendToBitBucket();
-  pixel_repeater_->data_in << mvin_scale_->data_out;
-  local_router_->data_in   << pixel_repeater_->data_out;
+  mvin_scale_split_->in_val  << dma_reader_->resp_val;
+  mvin_scale_split_->in_bits << dma_reader_->resp_bits;
+  dma_reader_->resp_rdy      << mvin_scale_split_->in_rdy;
+  mvin_scale_->in_val        << mvin_scale_split_->normal_val;
+  mvin_scale_->in_bits       << mvin_scale_split_->normal_bits;
+  mvin_scale_split_->normal_rdy << mvin_scale_->in_rdy;
+  mvin_scale_acc_->in_val    << mvin_scale_split_->acc_val;
+  mvin_scale_acc_->in_bits   << mvin_scale_split_->acc_bits;
+  mvin_scale_split_->acc_rdy << mvin_scale_acc_->in_rdy;
+  mvin_scale_acc_->out_rdy   << write_ctrl_->dmaread_accum_full_rdy;
+  pixel_repeater_->in_val   << mvin_scale_->out_val;
+  pixel_repeater_->in_bits  << mvin_scale_->out_bits;
+  mvin_scale_->out_rdy       << pixel_repeater_->in_rdy;
+  local_router_->in_val      << pixel_repeater_->out_val;
+  local_router_->in_bits     << pixel_repeater_->out_bits;
+  pixel_repeater_->out_rdy  << local_router_->in_rdy;
   local_router_->dmaread_spad_rdy << write_ctrl_->dmaread_spad_rdy;
   local_router_->dmaread_accum_rdy << write_ctrl_->dmaread_accum_rdy;
-  local_router_->dmaread_spad.sendToBitBucket();
-  local_router_->dmaread_accum.sendToBitBucket();
   write_ctrl_->dmaread_spad_val        << local_router_->dmaread_spad_val;
   write_ctrl_->dmaread_spad_bits       << local_router_->dmaread_spad_bits;
   write_ctrl_->dmaread_accum_val       << local_router_->dmaread_accum_val;
   write_ctrl_->dmaread_accum_bits      << local_router_->dmaread_accum_bits;
-  write_ctrl_->dmaread_accum_full_val  << mvin_scale_acc_->data_val;
-  write_ctrl_->dmaread_accum_full_bits << mvin_scale_acc_->data_bits;
+  write_ctrl_->dmaread_accum_full_val  << mvin_scale_acc_->out_val;
+  write_ctrl_->dmaread_accum_full_bits << mvin_scale_acc_->out_bits;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     // Route ExCtrl writeback through this bank's normal write arbiter.
     arb_write_spad_[bank]->exwrite_val    << ex_ctrl_->spad_write_val[bank];

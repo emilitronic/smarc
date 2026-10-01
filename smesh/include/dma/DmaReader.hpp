@@ -3,7 +3,16 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*
-Minimal DMA reader for assembling memory beats into one local row request.
+DMA reader for assembling memory beats into one local row request.
+Collects multiple memory beats before producing local row data and
+produces lane masks.
+
+Currently only starts filling row at lane 0.  Waits for all bytes in current request
+before producing output.  Currently limits one request to one accumulator-width row or two
+narrow rows.
+
+TODO: for multi-row requests send a completed row to local memory while waiting for
+subsequent beats to arrive.
 */
 
 #pragma once
@@ -26,14 +35,26 @@ class DmaReader : public Component {
   FifoInput(DmaReadReq, req_in);
   FifoOutput(smem::MemReq, mem_req);
   FifoInput(smem::MemResp, mem_resp);
-  FifoOutput(DmaReadResp, resp_out);
+  Output(bit, resp_val);
+  Output(DmaReadResp, resp_bits);
+  Input(bit, resp_rdy);
 
   void update();
+  void updateRespView();
   void reset();
 
   const DmaReadReq& activeRequest() const { return active_; }
 
  private:
+  struct PendingRows {
+    u8 count = 0;
+    DmaReadResp first{};
+    DmaReadResp second{};
+  };
+
+  Output(PendingRows, pending_Q_);
+  Register(PendingRows, pending_D_);
+
   bool active_valid_ = false;
   bool waiting_ = false;
   DmaReadReq active_{};

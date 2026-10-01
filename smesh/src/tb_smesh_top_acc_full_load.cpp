@@ -24,13 +24,17 @@ class FullAccumLoadSource : public Component {
   FullAccumLoadSource(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  FifoOutput(smesh::DmaReadResp, data_out);
+  Output(bit, data_val);
+  Output(smesh::DmaReadResp, data_bits);
+  Input(bit, data_rdy);
 
-  void update();
+  void updateView();
+  void updateAccept();
   void reset();
 
  private:
-  bool sent_ = false;
+  Output(bit, sent_Q_);
+  Register(bit, sent_D_);
 };
 
 class FullAccumLoadTieOff : public Component {
@@ -70,14 +74,12 @@ smesh::DmaReadData packAccRow(const std::array<smesh::Acc, smesh::kDim>& row) {
 } // namespace
 
 FullAccumLoadSource::FullAccumLoadSource(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(data_out);
+  sent_Q_ <= sent_D_;
+  UPDATE(updateView).reads(sent_Q_).writes(data_val, data_bits);
+  UPDATE(updateAccept).reads(data_val, data_rdy).writes(sent_D_);
 }
 
-void FullAccumLoadSource::update() {
-  if (sent_ || data_out.full()) {
-    return;
-  }
-
+void FullAccumLoadSource::updateView() {
   smesh::DmaReadResp resp{};
   resp.data = packAccRow(kExpected);
   resp.laddr = smesh::makeAccAddr(0);
@@ -87,12 +89,18 @@ void FullAccumLoadSource::update() {
   resp.bytes_read = smesh::kDim * sizeof(smesh::Acc);
   resp.cmd_id = 7;
   resp.last = true;
-  data_out.push(resp);
-  sent_ = true;
+  data_val = bit(sent_Q_ == 0);
+  data_bits = sent_Q_ == 0 ? resp : smesh::DmaReadResp{};
+}
+
+void FullAccumLoadSource::updateAccept() {
+  if (data_val == 1 && data_rdy == 1) sent_D_ = 1;
 }
 
 void FullAccumLoadSource::reset() {
-  sent_ = false;
+  sent_D_.reset(0);
+  data_val.reset(0);
+  data_bits.reset(smesh::DmaReadResp{});
 }
 
 FullAccumLoadTieOff::FullAccumLoadTieOff(std::string /*name*/, IMPL_CTOR) {
@@ -131,18 +139,21 @@ int main(int argc, char* argv[]) {
   }
   smesh::Accum accum("Accum");
 
-  split.data_in << source.data_out;
-  split.normal_out.sendToBitBucket();
-  scale_acc.data_in << split.acc_out;
-  scale_acc.data_rdy << write_ctrl.dmaread_accum_full_rdy;
-  scale_acc.data_out.sendToBitBucket();
+  split.in_val << source.data_val;
+  split.in_bits << source.data_bits;
+  source.data_rdy << split.in_rdy;
+  scale_acc.in_val << split.acc_val;
+  scale_acc.in_bits << split.acc_bits;
+  split.acc_rdy << scale_acc.in_rdy;
+  split.normal_rdy << tie_off.zero_bit;
+  scale_acc.out_rdy << write_ctrl.dmaread_accum_full_rdy;
 
   write_ctrl.dmaread_spad_val << tie_off.zero_bit;
   write_ctrl.dmaread_spad_bits << tie_off.dma_read_resp;
   write_ctrl.dmaread_accum_val << tie_off.zero_bit;
   write_ctrl.dmaread_accum_bits << tie_off.dma_read_resp;
-  write_ctrl.dmaread_accum_full_val << scale_acc.data_val;
-  write_ctrl.dmaread_accum_full_bits << scale_acc.data_bits;
+  write_ctrl.dmaread_accum_full_val << scale_acc.out_val;
+  write_ctrl.dmaread_accum_full_bits << scale_acc.out_bits;
 
   for (std::size_t bank = 0; bank < smesh::kSpBanks; ++bank) {
     write_ctrl.arb_spad_dmaread_rdy[bank] << tie_off.zero_bit;

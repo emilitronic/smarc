@@ -22,10 +22,16 @@ class MvinPixelRepeater : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaReadResp, data_in);
-  FifoOutput(DmaReadResp, data_out);
+  Input(bit, in_val);
+  Input(DmaReadResp, in_bits);
+  Output(bit, in_rdy);
+  Output(bit, out_val);
+  Output(DmaReadResp, out_bits);
+  Input(bit, out_rdy);
 
-  void update();
+  void updateView();
+  void updateReady();
+  void reset();
 };
 
 } // namespace smesh

@@ -11,19 +11,27 @@ Load-path pixel repetition stage implementation.
 namespace smesh {
 
 MvinPixelRepeater::MvinPixelRepeater(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(data_in).writes(data_out);
+  UPDATE(updateView).reads(in_val, in_bits).writes(out_val, out_bits);
+  UPDATE(updateReady).reads(out_rdy).writes(in_rdy);
 }
 
-void MvinPixelRepeater::update() {
-  if (data_in.empty() || data_out.full()) {
-    return;
+void MvinPixelRepeater::updateView() {
+  if (in_val == 1) {
+    assert_always(static_cast<std::uint8_t>(in_bits->pixel_repeats) == 1,
+                  "MvinPixelRepeater currently supports pixel_repeats=1 only");
   }
+  out_val = in_val;
+  out_bits = in_val == 1 ? *in_bits : DmaReadResp{};
+}
 
-  const auto data = data_in.pop();
-  assert_always(static_cast<std::uint8_t>(data.pixel_repeats) == 1,
-                "MvinPixelRepeater currently supports pixel_repeats=1 only");
-  data_out.push(data);
-  trace("mvin_pixel_repeater: identity data cmd_id=%u last=%u", static_cast<unsigned>(data.cmd_id), static_cast<unsigned>(data.last));
+void MvinPixelRepeater::updateReady() {
+  in_rdy = out_rdy;
+}
+
+void MvinPixelRepeater::reset() {
+  in_rdy.reset(0);
+  out_val.reset(0);
+  out_bits.reset(DmaReadResp{});
 }
 
 } // namespace smesh

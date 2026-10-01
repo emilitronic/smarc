@@ -22,9 +22,9 @@ class MvinLocalRouter : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaReadResp, data_in);
-  FifoOutput(DmaReadResp, dmaread_spad);
-  FifoOutput(DmaReadResp, dmaread_accum);
+  Input(bit, in_val);
+  Input(DmaReadResp, in_bits);
+  Output(bit, in_rdy);
   Output(bit, dmaread_spad_val);
   Output(DmaReadResp, dmaread_spad_bits);
   Input(bit, dmaread_spad_rdy);
@@ -32,13 +32,19 @@ class MvinLocalRouter : public Component {
   Output(DmaReadResp, dmaread_accum_bits);
   Input(bit, dmaread_accum_rdy);
 
-  void update();
   void updateView();
+  void updateReady();
+  void updateStorage();
   void reset();
 
  private:
-  bool entry_valid_ = false;
-  DmaReadResp entry_{};
+  struct Entry {
+    bit valid = 0;
+    DmaReadResp bits{};
+  };
+
+  Output(Entry, entry_Q_);
+  Register(Entry, entry_D_);
 };
 
 } // namespace smesh

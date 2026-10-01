@@ -17,18 +17,35 @@ constexpr std::size_t kMaxNarrowRowsPerRead = 2;
 }
 
 DmaReader::DmaReader(std::string /*name*/, IMPL_CTOR) {
-  // A narrow row can produce two local tile rows after its beats are assembled.
-  resp_out.setSize(static_cast<int>(kMaxNarrowRowsPerRead));
-  UPDATE(update).reads(req_in, mem_resp).writes(mem_req, resp_out);
+  pending_Q_ <= pending_D_;
+  UPDATE(updateRespView).reads(pending_Q_).writes(resp_val, resp_bits);
+  UPDATE(update).reads(req_in, mem_resp, pending_Q_, resp_rdy)
+      .writes(mem_req, pending_D_);
+}
+
+void DmaReader::updateRespView() {
+  const auto pending = *pending_Q_;
+  resp_val = bit(pending.count != 0);
+  resp_bits = pending.count != 0 ? pending.first : DmaReadResp{};
 }
 
 void DmaReader::update() {
+  auto pending = *pending_Q_;
+  auto pending_count = static_cast<unsigned>(static_cast<std::uint8_t>(pending.count));
+  bool pending_changed = false;
+  if (pending_count > 0 && resp_rdy == 1) {
+    pending.first = pending_count == 2 ? pending.second : DmaReadResp{};
+    pending.second = DmaReadResp{};
+    --pending_count;
+    pending_changed = true;
+  }
+
   // Assemble the returned beat before issuing the next one.
   if (waiting_ && !mem_resp.empty()) {
     const auto segments = active_.has_acc_bitwidth == 1
                               ? 1u : (static_cast<unsigned>(active_.cols) + kDim - 1) / kDim;
     const bool final_beat = bytes_received_ + beat_bytes_ == total_bytes_;
-    if (!final_beat || resp_out.freeCount() >= static_cast<int>(segments)) {
+    if (!final_beat || pending_count + segments <= kMaxNarrowRowsPerRead) {
       const auto resp = mem_resp.pop();
       assert_always(static_cast<std::uint16_t>(resp.id) == static_cast<std::uint16_t>(active_.cmd_id),
                     "DmaReader response ID does not match active request");
@@ -66,7 +83,10 @@ void DmaReader::update() {
           dma_resp.pixel_repeats = active_.pixel_repeats;
           dma_resp.cmd_id = active_.cmd_id;
           dma_resp.last = true;
-          resp_out.push(dma_resp);
+          if (pending_count == 0) pending.first = dma_resp;
+          else pending.second = dma_resp;
+          ++pending_count;
+          pending_changed = true;
         }
         active_valid_ = false;
       }
@@ -74,6 +94,11 @@ void DmaReader::update() {
             static_cast<unsigned long long>(resp.rdata),
             static_cast<unsigned>(resp.id));
     }
+  }
+
+  if (pending_changed) {
+    pending.count = u8(pending_count);
+    pending_D_ = pending;
   }
 
   if (waiting_ || mem_req.full()) {
@@ -114,6 +139,9 @@ void DmaReader::update() {
 }
 
 void DmaReader::reset() {
+  pending_D_.reset(PendingRows{});
+  resp_val.reset(0);
+  resp_bits.reset(DmaReadResp{});
   active_valid_ = false;
   waiting_ = false;
   active_ = {};

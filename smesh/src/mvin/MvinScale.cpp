@@ -11,103 +11,104 @@ Load-path scaling stage implementation.
 namespace smesh {
 // scale normal width data coming from DMA reader
 MvinScale::MvinScale(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(data_in).writes(data_out);
+  UPDATE(updateView).reads(in_val, in_bits).writes(out_val, out_bits);
+  UPDATE(updateReady).reads(in_val, in_bits, out_rdy).writes(in_rdy);
 }
 
-void MvinScale::update() {
-  if (data_in.empty() || data_out.full()) {
-    return;
-  }
+void MvinScale::updateView() {
+  out_val = in_val;
+  out_bits = in_val == 1 ? *in_bits : DmaReadResp{};
+}
 
-  const auto data = data_in.pop();
-  data_out.push(data);
-  trace("mvin_scale: identity data cmd_id=%u last=%u", static_cast<unsigned>(data.cmd_id), static_cast<unsigned>(data.last));
+void MvinScale::updateReady() {
+  in_rdy = out_rdy;
+  if (in_val == 1 && out_rdy == 1) {
+    const auto data = *in_bits;
+    trace("mvin_scale: identity data cmd_id=%u last=%u",
+          static_cast<unsigned>(data.cmd_id), static_cast<unsigned>(data.last));
+  }
+}
+
+void MvinScale::reset() {
+  in_rdy.reset(0);
+  out_val.reset(0);
+  out_bits.reset(DmaReadResp{});
 }
 // scale accumulator-width data coming from DMA reader
 MvinScaleAcc::MvinScaleAcc(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update)
-      .reads(data_in, data_rdy)
-      .writes(data_out);
-  UPDATE(updateView).writes(data_val, data_bits);
-}
-
-void MvinScaleAcc::update() {
-  if (Sim::state == Sim::SimResetting) {
-    return;
-  }
-
-  if (!entry_valid_) {
-    if (data_in.empty()) {
-      return;
-    }
-    entry_ = data_in.pop();
-    entry_valid_ = true;
-    return;
-  }
-
-  if (data_rdy != 0) {
-    trace("mvin_scale_acc: explicit data cmd_id=%u last=%u",
-          static_cast<unsigned>(entry_.cmd_id),
-          static_cast<unsigned>(entry_.last));
-    entry_ = DmaReadResp{};
-    entry_valid_ = false;
-    return;
-  }
-
-  if (data_out.full()) {
-    return;
-  }
-
-  data_out.push(entry_);
-  trace("mvin_scale_acc: identity data cmd_id=%u last=%u",
-        static_cast<unsigned>(entry_.cmd_id),
-        static_cast<unsigned>(entry_.last));
-  entry_ = DmaReadResp{};
-  entry_valid_ = false;
+  entry_Q_ <= entry_D_;
+  UPDATE(updateView).reads(entry_Q_).writes(out_val, out_bits);
+  UPDATE(updateReady).reads(entry_Q_, out_rdy).writes(in_rdy);
+  UPDATE(updateStorage)
+      .reads(entry_Q_, in_val, in_bits, in_rdy, out_rdy)
+      .writes(entry_D_);
 }
 
 void MvinScaleAcc::updateView() {
-  data_val = bit(entry_valid_);
-  data_bits = entry_valid_ ? entry_ : DmaReadResp{};
+  const auto entry = *entry_Q_;
+  out_val = entry.valid;
+  out_bits = entry.valid == 1 ? entry.bits : DmaReadResp{};
+}
+
+void MvinScaleAcc::updateReady() {
+  const auto entry = *entry_Q_;
+  in_rdy = bit(entry.valid == 0 || out_rdy == 1);
+}
+
+void MvinScaleAcc::updateStorage() {
+  const auto current = *entry_Q_;
+  const bool pop = current.valid == 1 && out_rdy == 1;
+  const bool push = in_val == 1 && in_rdy == 1;
+  if (!pop && !push) return;
+
+  Entry next = current;
+  if (pop) {
+    trace("mvin_scale_acc: accepted data cmd_id=%u last=%u",
+          static_cast<unsigned>(current.bits.cmd_id),
+          static_cast<unsigned>(current.bits.last));
+    next = Entry{};
+  }
+  if (push) {
+    next.valid = 1;
+    next.bits = *in_bits;
+  }
+  entry_D_ = next;
 }
 
 void MvinScaleAcc::reset() {
-  entry_valid_ = false;
-  entry_ = DmaReadResp{};
-  data_val.reset(0);
-  data_bits.reset(DmaReadResp{});
+  entry_D_.reset(Entry{});
+  in_rdy.reset(0);
+  out_val.reset(0);
+  out_bits.reset(DmaReadResp{});
 }
 // split incoming data into normal-width path and accumulator-width path
 MvinScaleSplit::MvinScaleSplit(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(data_in).writes(normal_out, acc_out);
+  UPDATE(updateView).reads(in_val, in_bits)
+      .writes(normal_val, normal_bits, acc_val, acc_bits);
+  UPDATE(updateReady).reads(in_bits, normal_rdy, acc_rdy).writes(in_rdy);
 }
 
-void MvinScaleSplit::update() {
-  if (data_in.empty()) {
-    return;
-  }
+void MvinScaleSplit::updateView() {
+  const auto data = *in_bits;
+  const bool acc_path = data.laddr.is_acc_addr() && data.has_acc_bitwidth == 1;
+  normal_val = bit(in_val == 1 && !acc_path);
+  normal_bits = in_val == 1 && !acc_path ? data : DmaReadResp{};
+  acc_val = bit(in_val == 1 && acc_path);
+  acc_bits = in_val == 1 && acc_path ? data : DmaReadResp{};
+}
 
-  const auto& pending = data_in.peek();
-  const bool use_acc_path = pending.laddr.is_acc_addr() &&
-                            pending.has_acc_bitwidth != 0;
-  if (use_acc_path) {
-    if (acc_out.full()) {
-      return;
-    }
-    const auto data = data_in.pop();
-    acc_out.push(data);
-    trace("mvin_scale_split: to acc-width path cmd_id=%u",
-          static_cast<unsigned>(data.cmd_id));
-    return;
-  }
+void MvinScaleSplit::updateReady() {
+  const auto data = *in_bits;
+  const bool acc_path = data.laddr.is_acc_addr() && data.has_acc_bitwidth == 1;
+  in_rdy = acc_path ? *acc_rdy : *normal_rdy;
+}
 
-  if (normal_out.full()) {
-    return;
-  }
-  const auto data = data_in.pop();
-  normal_out.push(data);
-  trace("mvin_scale_split: to normal path cmd_id=%u",
-        static_cast<unsigned>(data.cmd_id));
+void MvinScaleSplit::reset() {
+  in_rdy.reset(0);
+  normal_val.reset(0);
+  normal_bits.reset(DmaReadResp{});
+  acc_val.reset(0);
+  acc_bits.reset(DmaReadResp{});
 }
 
 } // namespace smesh
