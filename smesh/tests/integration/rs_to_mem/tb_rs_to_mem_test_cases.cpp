@@ -599,6 +599,47 @@ RsMemTestCase makeFullWidthAccumLoadCase() {
   return test;
 }
 
+// Zero DRAM stride reads one row, then writes it to three local rows.
+RsMemTestCase makeRepeatedLoadsCase() {
+  RsMemTestCase test{};
+  test.name = "repeated_loads";
+  test.description = "Repeat one DRAM row into three Spad and Accum rows";
+  test.max_cycles = 180;
+
+  constexpr std::uint64_t spad_base = 0x8000c000;
+  constexpr std::uint64_t accum_base = 0x8000d000;
+  const auto spad_dest = makeSpAddr(0);
+  const auto accum_dest = makeAccAddr(4);
+  MeshInputRow spad_values{};
+  MeshAccumRow accum_values{};
+  std::vector<std::uint8_t> spad_bytes;
+  std::vector<std::uint8_t> accum_bytes;
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    spad_values[lane] = static_cast<Elem>(lane + 1);
+    spad_bytes.push_back(static_cast<std::uint8_t>(spad_values[lane]));
+    accum_values[lane] = static_cast<Acc>(0x12340000u + 257u * lane);
+    const auto word = static_cast<std::uint32_t>(accum_values[lane]);
+    for (unsigned byte = 0; byte < sizeof(Acc); ++byte) {
+      accum_bytes.push_back(static_cast<std::uint8_t>(word >> (8 * byte)));
+    }
+  }
+  test.dram_initial = {{spad_base, spad_bytes}, {accum_base, accum_bytes}};
+  test.program = {
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim), 0),
+      loopCommand(SmeshFunct::Mvin, spad_base,
+                  packLocal(spad_dest, MatrixShape{3, kDim})),
+      loopCommand(SmeshFunct::Mvin, accum_base,
+                  packLocal(accum_dest, MatrixShape{3, kDim})),
+  };
+  for (std::uint32_t offset = 0; offset < 3; ++offset) {
+    test.expected_loaded_spad_rows.push_back({spad_dest + offset, spad_values});
+  }
+  test.expected_results = {ExpectedAccumResult{
+      accum_dest, {accum_values, accum_values, accum_values}}};
+  test.expected_completion_tags = {1, 2};
+  return test;
+}
+
 // Exercise full rows and partial lane masks in a separately compiled dim=8 system.
 RsMemTestCase makeDim8LoadsCase() {
   RsMemTestCase test{};
@@ -661,7 +702,8 @@ std::vector<RsMemTestCase> rsMemTestCases() {
   auto tests = std::vector<RsMemTestCase>{
       makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
-      makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase()};
+      makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
+      makeRepeatedLoadsCase()};
   if (kDim == 8) tests.push_back(makeDim8LoadsCase());
   if (kMemBeatBytes == 4) {
     auto posted = makeLoopWsDmaCase();

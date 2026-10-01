@@ -3,7 +3,11 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*
-Load-path scaling stage. Scaling is currently an identity operation.
+Load-path scale stages. They latch load-responses, process them and forward them to
+downstream blocks.
+
+Current functions:
+- Repeated row outputs (present multiple-row copies of a single row to downstream blocks))
 */
 
 #pragma once
@@ -13,6 +17,12 @@ Load-path scaling stage. Scaling is currently an identity operation.
 #include "SmeshPorts.hpp"
 
 namespace smesh {
+
+struct MvinRepeatEntry {
+  bit valid     = 0;
+  DmaReadResp bits{};
+  u16 remaining = 0;  // number of repeats remaining after the current one
+};
 
 class MvinScale : public Component {
   DECLARE_COMPONENT(MvinScale);
@@ -31,7 +41,12 @@ class MvinScale : public Component {
 
   void updateView();
   void updateReady();
+  void updateStorage();
   void reset();
+
+ private:
+  Output(MvinRepeatEntry, entry_Q_);
+  Register(MvinRepeatEntry, entry_D_);
 };
 
 class MvinScaleAcc : public Component {
@@ -55,13 +70,8 @@ class MvinScaleAcc : public Component {
   void reset();
 
  private:
-  struct Entry {
-    bit valid = 0;
-    DmaReadResp bits{};
-  };
-
-  Output(Entry, entry_Q_);
-  Register(Entry, entry_D_);
+  Output(MvinRepeatEntry, entry_Q_);
+  Register(MvinRepeatEntry, entry_D_);
 };
 
 class MvinScaleSplit : public Component {
