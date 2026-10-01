@@ -17,7 +17,7 @@ constexpr std::size_t kMaxNarrowRowsPerRead = 2;
 }
 
 DmaReader::DmaReader(std::string /*name*/, IMPL_CTOR) {
-  // One narrow 8-byte response can produce two local tile rows.
+  // A narrow row can produce two local tile rows after its beats are assembled.
   resp_out.setSize(static_cast<int>(kMaxNarrowRowsPerRead));
   UPDATE(update).reads(req_in, mem_resp).writes(mem_req, resp_out);
 }

@@ -61,7 +61,7 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test,
     : test_(test) {
   top_ = std::make_unique<Smesh>(prefix + "Smesh");
   mem_ = std::make_unique<smem::MemCtrl>(prefix + "MemCtrl");
-  mem_->set_posted_writes(false);
+  mem_->set_posted_writes(test_.posted_writes);
   dram_ = std::make_unique<smem::Dram>(prefix + "Dram", 0);
 
   cmd_driver_ = std::make_unique<RsMemCmdDriver>(test_.program, prefix + "CmdDriver");

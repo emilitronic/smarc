@@ -53,8 +53,8 @@ static_assert(kDefaultConfig.elem_bits == sizeof(Elem) * 8,
               "elem_bits must match Elem until element types are configurable");
 static_assert(kDefaultConfig.acc_bits == sizeof(Acc) * 8,
               "acc_bits must match Acc until accumulator types are configurable");
-static_assert(kMemBeatBytes == sizeof(std::uint64_t),
-              "smem MemReq/MemResp currently use one 64-bit memory beat");
+static_assert(kMemBeatBytes == 4 || kMemBeatBytes == sizeof(std::uint64_t),
+              "DMA memory beats must be 4 or 8 bytes");
 static_assert(kDim > 0 && kDim <= 32,
               "local-memory lane masks support at most 32 lanes");
 static_assert(sizeof(Acc) >= sizeof(Elem),

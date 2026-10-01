@@ -1,7 +1,7 @@
 // **********************************************************************
 // smem/src/MemCtrl.cpp
 // **********************************************************************
-// S Magierowski Aug 22 2025
+// Sebastian Claudiusz Magierowski Aug 22 2025
 /*
 Does three simple things each cycle.  
 1) Keeps a queue with a mem latency countdown per request. 
@@ -16,6 +16,20 @@ Some details:
   - non-posted STORE means core gets ACK only afer DRAM gets store
 • LOADs can fetch from STORE queue
   - if a LOAD matches a STORE in the queue, return that value to core right away (and still send that STORE to DRAM)
+
+SCM Sep 30 2026: 
+1) previously, posted writes had to be exactly 8 bytes and aligned to an 8-byte
+address.  Now the check allows any positive size up to the 8-byte wdata container.  The address
+no longer has to be 8-byte aligned, which matters when a later piece begins partway through
+an 8-byte boundary. E.g., a 6-byte write for a 4-byte wide DRAM interface could make  
+request 1 at addr 0x1000 of size 4 and request 2 at addr 0x1004 of size 2, the second  req
+starts halfway through the 8-byte range 0x1000-0x1007.  The new check allows this because its
+size fits in the 8-byte data container.
+2) find_pending_store() decides whether a LOAD can use data from a write still queues inside
+MemCtrl.  We now only forward such data if pending write has *exactly the same starting addr
+and size* as the load.  If not, load follows the normal path through the memory queue. E.g.,
+a pending 4-B write at 0x1004 can satisfy a 4-B load at 0x1004, but it cannot directly satisfy
+a 2-B laod at 0x1004, forwarding the whole write word would return too many bytes.
 */
 
 #include "smem/MemCtrl.hpp"
@@ -52,15 +66,15 @@ void MemCtrl::update_issue() {
     auto r = in_core_req.pop();       // take REQ from core
     if (r.write) {                    // *** if core's REQ is STORE ***
       if (posted_writes_) {                                       // if posted STORE
-        assert_always(((u64)r.size == 8) && (((u64)r.addr & 7ull) == 0ull), "MemCtrl posted write: only 8-byte aligned ops supported for now"); // Guard
+        assert_always((u16)r.size > 0 && (u16)r.size <= sizeof(r.wdata),
+                      "MemCtrl posted write exceeds one memory beat");
         MemResp ack{}; ack.rdata = 0; ack.id = r.id; ack.err = 0;   // build ACK
         out_core_resp.push(ack);                                    // send ACK to core now
       }
       pipe_.push_back(Q{r, latency_});                            // put STORE in latency queue
     } else {                          // *** if core's REQ is LOAD ***
       u64 fwd = 0;
-      if (find_pending_store((u64)r.addr, (u16)r.size, fwd)) {   // check if a queued STORE=LOAD (store hazard); if so forward full word; partial size handling can be added later
-        assert_always(((u64)r.size == 8) && (((u64)r.addr & 7ull) == 0ull), "MemCtrl RAW forward: only 8-byte aligned ops supported for now"); // Guard
+      if (find_pending_store((u64)r.addr, (u16)r.size, fwd)) {   // forward only an exact pending STORE match
         MemResp rr{}; rr.rdata = fwd; rr.id = r.id; rr.err = 0;    // build synthetic LOAD response with STORE's data
         out_core_resp.push(rr);                                    // return data to core now (no DRAM access)
       } else {                                                   // normal path through latency pipe
@@ -85,18 +99,21 @@ void MemCtrl::reset() {
 }
 
 // small helpers
-// deal with LOAD = queued STORE (store hazard); scan most-recent-first for a pending write that overlaps [addr, addr+size)
+// Forward a pending write only when it covers precisely the requested beat.
 bool MemCtrl::find_pending_store(u64 addr, u16 size, u64 &val) const {
   if (size == 0) return false;                           // empty LOAD size is a miss
-  u64 a0 = addr;                                         // read range start
-  u64 a1 = addr + (u64)size;                             // read range end (exclusive)
   for (int i = (int)pipe_.size() - 1; i >= 0; --i) {     // search newset --> oldest
     const Q &q = pipe_[(size_t)i];                         // candidate entry
     if (!q.r.write) continue;                              // only consider STOREs
-    u64 b0 = (u64)q.r.addr;                                // STORE range start
-    u64 b1 = b0 + (u64)q.r.size;                           // STORE range end (exlucsive)
-    bool overlap = !(a1 <= b0 || b1 <= a0);                // overlap test
-    if (overlap) { val = (u64)q.r.wdata; return true; }    // on hit: return STORE data
+    const auto store_addr = static_cast<std::uint64_t>(q.r.addr);
+    const auto store_size = static_cast<std::uint16_t>(q.r.size);
+    const bool overlaps = addr < store_addr + store_size && store_addr < addr + size;
+    if (!overlaps) continue;
+    if (store_addr == addr && store_size == size) {
+      val = (u64)q.r.wdata;
+      return true;
+    }
+    return false; // a newer partial write makes any older exact match stale
   }
   return false;                                         // no pending STORE covers this LOAD
 }

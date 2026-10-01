@@ -19,6 +19,10 @@ namespace smesh {
 #define SMESH_DIM 4
 #endif
 
+#ifndef SMESH_MEM_BEAT_BYTES
+#define SMESH_MEM_BEAT_BYTES 8 // memory beat bytes (bytes to transfer / mem req); this is configurable
+#endif
+
 struct SmeshConfig {
   std::size_t dim = SMESH_DIM;
 
@@ -37,7 +41,7 @@ struct SmeshConfig {
 
   std::size_t elem_bits      =  8;
   std::size_t acc_bits       = 32;
-  std::size_t mem_beat_bytes =  8; // smem currently carries one u64 per response
+  std::size_t mem_beat_bytes = SMESH_MEM_BEAT_BYTES; // meaningful bytes in each DMA memory beat
   std::size_t dma_max_bytes  = 64; // maximum DMA transfer size, not memory beat width
 
   bool has_max_pool = true; // StoreController includes max-pooling geometry

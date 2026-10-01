@@ -16,6 +16,8 @@ checks that every expected tag appears exactly once.
 
 #include "tb_rs_to_mem_test_cases.hpp"
 
+#include <utility>
+
 namespace smesh {
 namespace tb {
 
@@ -661,6 +663,37 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase()};
   if (kDim == 8) tests.push_back(makeDim8LoadsCase());
+  if (kMemBeatBytes == 4) {
+    auto posted = makeLoopWsDmaCase();
+    posted.name = "beat4_posted_loop_ws_dma";
+    posted.description = "LOOP_WS at four-byte memory width with posted stores";
+    posted.posted_writes = true;
+    tests.push_back(std::move(posted));
+
+    RsMemTestCase tail{};
+    tail.name = "beat4_tail";
+    tail.description = "Load and store three bytes through a four-byte memory interface";
+    tail.posted_writes = true;
+    tail.max_cycles = 250;
+    tail.drain_cycles = 16;
+    constexpr std::uint64_t source = 0x80008000;
+    constexpr std::uint64_t dest = 0x80009000;
+    const auto local = makeSpAddr(0);
+    tail.dram_initial = {{source, {11, 22, 33}}};
+    tail.program = {
+        loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Load, 0, kDim), 3),
+        loopCommand(SmeshFunct::Mvin, source,
+                    packLocal(local, MatrixShape{1, 3})),
+        loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                    (std::uint64_t{1} << 32) | 3),
+        loopCommand(SmeshFunct::Mvout, dest,
+                    packLocal(local, MatrixShape{1, 3})),
+    };
+    tail.expected_loaded_spad_rows = {{local, row({11, 22, 33, 0})}};
+    tail.expected_dram = {{dest, {11, 22, 33}}};
+    tail.expected_completion_tags = {1, 3};
+    tests.push_back(std::move(tail));
+  }
   return tests;
 }
 

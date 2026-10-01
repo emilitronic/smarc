@@ -93,6 +93,7 @@ void Dram::update() {
   // Zero-latency storage with 1-entry read hold; writes produce no responses.
   if (!hold_valid_ && !s_req.empty()) {          // accept one req (if not already holding a LOAD req)
     auto rq = s_req.pop();
+    assert_always(rq.size > 0 && rq.size <= sizeof(rq.wdata), "Dram request exceeds one memory beat");
     if (rq.write) {                                // if req=STORE copy wdata into to byte array; no sig on s_resp
       if (rq.addr >= base_addr_) {
         uint64_t off = rq.addr - base_addr_;

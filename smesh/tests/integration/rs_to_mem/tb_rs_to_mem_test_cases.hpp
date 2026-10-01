@@ -56,6 +56,7 @@ struct RsMemTestCase {
   std::vector<SpadPreloadRow> expected_loaded_spad_rows;
   std::vector<ExpectedAccumResult> expected_results;
   std::vector<SmeshRsTag> expected_completion_tags;
+  bool posted_writes = false;
   bool expect_loop_release = false;
   int max_cycles = 200;
   int drain_cycles = 8;

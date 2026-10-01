@@ -32,6 +32,27 @@ add_test(NAME smesh_rs_to_mem_dim8_loads
 set_tests_properties(smesh_rs_to_mem_dim8_loads PROPERTIES
   LABELS "integration;rs_to_mem;dim8" TIMEOUT 30)
 
+add_executable(tb_rs_to_mem_suite_beat4
+  tb_rs_to_mem_suite.cpp
+  tb_rs_to_mem_harness.cpp
+  tb_rs_to_mem_test_cases.cpp
+)
+target_link_libraries(tb_rs_to_mem_suite_beat4 PRIVATE
+  smesh_model_beat4 smem_memory cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_rs_to_mem_suite_beat4 PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+add_test(NAME smesh_rs_to_mem_beat4_accum_load
+  COMMAND tb_rs_to_mem_suite_beat4 -test=full_width_accum_load)
+add_test(NAME smesh_rs_to_mem_beat4_loop_ws_dma
+  COMMAND tb_rs_to_mem_suite_beat4 -test=loop_ws_dma)
+add_test(NAME smesh_rs_to_mem_beat4_posted_loop_ws_dma
+  COMMAND tb_rs_to_mem_suite_beat4 -test=beat4_posted_loop_ws_dma)
+add_test(NAME smesh_rs_to_mem_beat4_tail
+  COMMAND tb_rs_to_mem_suite_beat4 -test=beat4_tail)
+set_tests_properties(smesh_rs_to_mem_beat4_accum_load smesh_rs_to_mem_beat4_loop_ws_dma
+  smesh_rs_to_mem_beat4_posted_loop_ws_dma smesh_rs_to_mem_beat4_tail
+  PROPERTIES LABELS "integration;rs_to_mem;beat4" TIMEOUT 30)
+
 add_test(NAME smesh_rs_to_mem_basic COMMAND tb_rs_to_mem_suite -test=basic)
 add_test(NAME smesh_rs_to_mem_mul_pre COMMAND tb_rs_to_mem_suite -test=mul_pre)
 add_test(NAME smesh_rs_to_mem_concurrent_banks COMMAND tb_rs_to_mem_suite -test=concurrent_banks)
