@@ -4,11 +4,13 @@
 // Sebastian Claudiusz Magierowski Sep 30 2026
 
 // Check repeated local rows, final completion, and output backpressure.
+// Check that identity scale rows bypass scale logic.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
 
 #include "MvinScale.hpp"
+#include "SmeshCommand.hpp"
 
 #include <cstdio>
 
@@ -23,11 +25,14 @@ smesh::DmaReadResp makeRow(unsigned id, bool accum) {
   } else {
     const int values[] = {-3, -1, 1, 3};
     const int clipped[] = {100, -100, 127, -128};
+    const int identity[] = {-128, -1, 0, 127};
     for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
       row.data[lane] = static_cast<std::uint8_t>(id == 10 ? values[lane % 4]
-                                                             : clipped[lane % 4]);
+                                             : id == 11 ? clipped[lane % 4]
+                                                        : identity[lane % 4]);
     }
-    row.scale = id == 10 ? 0x3f000000u : 0x40000000u; // binary32 0.5 and 2.0
+    row.scale = id == 10 ? 0x3f000000u : id == 11 ? 0x40000000u
+                                                  : smesh::kMvinScaleIdentityBits;
   }
   row.mask = 1;
   row.len = 1;
@@ -104,8 +109,8 @@ void Driver::updateInputs() {
   const auto normal_sent = static_cast<std::uint8_t>(*normal_sent_Q_);
   const auto accum_sent = static_cast<std::uint8_t>(*accum_sent_Q_);
   const bool active = Sim::state != Sim::SimResetting;
-  normal_in_val = bit(active && normal_sent < 2);
-  normal_in_bits = active && normal_sent < 2 ? makeRow(10 + normal_sent, false)
+  normal_in_val = bit(active && normal_sent < 3);
+  normal_in_bits = active && normal_sent < 3 ? makeRow(10 + normal_sent, false)
                                                      : smesh::DmaReadResp{};
   accum_in_val = bit(active && accum_sent < 2);
   accum_in_bits = active && accum_sent < 2 ? makeRow(10 + accum_sent, true)
@@ -131,9 +136,9 @@ void Driver::updateState() {
 
   const auto check = [this](smesh::DmaReadResp row, unsigned index, bool accum) {
     const unsigned offset = index < 3 ? 2 - index : 0;
-    const unsigned id = index < 3 ? 10 : 11;
+    const unsigned id = index < 3 ? 10 : index == 3 ? 11 : 12;
     const unsigned base = accum ? 6 : 4;
-    assert_always(index < 4 && row.laddr.data() == base + offset &&
+    assert_always(index < (accum ? 4u : 5u) && row.laddr.data() == base + offset &&
                       row.laddr.is_acc_addr() == accum &&
                       row.laddr.accumulate() == accum &&
                       row.cmd_id == id &&
@@ -146,8 +151,11 @@ void Driver::updateState() {
     } else {
       const int half[] = {-2, 0, 0, 2};
       const int clipped[] = {127, -128, 127, -128};
+      const int identity[] = {-128, -1, 0, 127};
       for (std::size_t lane = 0; lane < smesh::kDim; ++lane) {
-        const auto expected = index < 3 ? half[lane % 4] : clipped[lane % 4];
+        const auto expected = index < 3 ? half[lane % 4]
+                             : index == 3 ? clipped[lane % 4]
+                                          : identity[lane % 4];
         assert_always(row.data[lane] == static_cast<std::uint8_t>(expected),
                       "MvinScale rounded or clipped a lane incorrectly");
       }
@@ -193,8 +201,8 @@ void Driver::reset() {
 }
 
 bool Driver::passed() const {
-  return normal_sent_Q_ == 2 && accum_sent_Q_ == 2 &&
-         normal_received_Q_ == 4 && accum_received_Q_ == 4 &&
+  return normal_sent_Q_ == 3 && accum_sent_Q_ == 2 &&
+         normal_received_Q_ == 5 && accum_received_Q_ == 4 &&
          normal_stalled_Q_ == 1 && accum_stalled_Q_ == 1;
 }
 
@@ -232,7 +240,7 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  for (int cycle = 0; cycle < 14; ++cycle) Sim::run();
+  for (int cycle = 0; cycle < 18; ++cycle) Sim::run();
 
   const bool ok = driver.passed();
   std::printf("[MVIN_REPEAT] %s\n", ok ? "PASS" : "FAIL");

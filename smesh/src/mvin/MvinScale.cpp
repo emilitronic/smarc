@@ -7,6 +7,7 @@ Load-path scaling stage implementation.
 */
 
 #include "MvinScale.hpp"
+#include "SmeshCommand.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -35,6 +36,7 @@ std::int8_t scaleElem(std::uint8_t encoded, float scale) {
 
 DmaReadResp scaledNormalRow(DmaReadResp row) {
   const auto bits = static_cast<std::uint32_t>(row.scale);
+  if (bits == kMvinScaleIdentityBits) return row;
   float scale     = 0;
   static_assert(sizeof(scale) == sizeof(bits) && std::numeric_limits<float>::is_iec559);
   std::memcpy(&scale, &bits, sizeof(scale));
