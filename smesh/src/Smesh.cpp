@@ -8,7 +8,7 @@
 
 namespace smesh {
 
-Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
+Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   cmd_queue_            = new SmeshCmdQueue("CmdQueue");
   loop_cmd_adapter_     = new SmeshLoopCmdAdapter("LoopCmdAdapter");
   loop_matmul_          = new LoopMatmul("LoopMatmul");
@@ -52,7 +52,7 @@ Smesh::Smesh(std::string /*name*/, IMPL_CTOR) {
   dma_reader_           = new DmaReader("DmaReader");
   dma_mem_mux_          = new DmaMemMux("DmaMemMux");
   mvin_scale_split_     = new MvinScaleSplit("MvinScaleSplit");
-  mvin_scale_           = new MvinScale("MvinScale");
+  mvin_scale_           = new MvinScale("MvinScale", mvin_scale_latency);
   mvin_scale_acc_       = new MvinScaleAcc("MvinScaleAcc");
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
   local_router_         = new MvinLocalRouter("MvinLocalRouter");

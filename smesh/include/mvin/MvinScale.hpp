@@ -9,7 +9,16 @@ downstream blocks.
 Current functions:
 - Repeated row outputs (multiple local rows from one DMA response).
 - Binary32 scaling of normal-width signed 8-bit elements; full-width accumulator rows pass through.
-The four-cycle scale-unit pipeline from Original is not modeled yet.
+- Configurable normal-width row latency with elastic backpressure.
+Latency counts cycles from input acceptance to output visibility. Identity-scale
+rows skip arithmetic but still pass through the configured row stages. The model
+does not schedule original's individual scale units.  That is, original defaults 
+using 4 parallel scaling unit pipelines (each pipeline requiring 4 cycles to complete).
+Thus rows that consist of 4 elements would have to be split into chunks of 4 elements
+and sent down the pipeline (followed by the next 4 elements on the next cycle and so on).
+Our system does not currently model such consecutive row-chunk processing, but rather
+handles an entire row in the alloted latency cycles (but does accept consecutive
+full rows into the pipeline each cycle if needed).)
 */
 
 #pragma once
@@ -26,11 +35,17 @@ struct MvinRepeatEntry {
   u16 remaining = 0;  // number of repeats remaining after the current one
 };
 
+struct MvinPipeEntry {
+  bit valid = 0;
+  DmaReadResp bits{};
+};
+
 class MvinScale : public Component {
   DECLARE_COMPONENT(MvinScale);
 
  public:
-  MvinScale(std::string name, COMPONENT_CTOR);
+  // Accepted rows become visible after latency cycles (default: one).
+  MvinScale(std::string name, int latency = 1, COMPONENT_CTOR);
 
   Clock(clk);
 
@@ -44,11 +59,16 @@ class MvinScale : public Component {
   void updateView();
   void updateReady();
   void updateStorage();
+  void updateStages();
   void reset();
 
  private:
-  Output(MvinRepeatEntry, entry_Q_);
-  Register(MvinRepeatEntry, entry_D_);
+  bool rowAdvanceReady() const;
+
+  Output(MvinRepeatEntry,      entry_Q_);
+  Register(MvinRepeatEntry,    entry_D_);
+  OutputArray(MvinPipeEntry,   stages_Q_);
+  RegisterArray(MvinPipeEntry, stages_D_);
 };
 
 class MvinScaleAcc : public Component {

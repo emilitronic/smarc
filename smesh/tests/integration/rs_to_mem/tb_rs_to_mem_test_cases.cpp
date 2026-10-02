@@ -644,6 +644,7 @@ RsMemTestCase makeScaledShrinkLoadCase() {
   RsMemTestCase test{};
   test.name = "scaled_shrink_load";
   test.description = "Scale signed bytes into Accum with rounding, saturation, and zero scale";
+  test.mvin_scale_latency = 4;
   test.max_cycles = 220;
 
   constexpr std::uint64_t half_source = 0x8000e000;

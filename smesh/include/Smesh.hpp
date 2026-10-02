@@ -51,7 +51,8 @@ class Smesh : public Component {
   DECLARE_COMPONENT(Smesh);
 
  public:
-  Smesh(std::string name, COMPONENT_CTOR);
+  // Normal-width MVIN scaling latency in cycles.
+  Smesh(std::string name, int mvin_scale_latency = 1, COMPONENT_CTOR);
   ~Smesh() override;
 
   Clock(clk);

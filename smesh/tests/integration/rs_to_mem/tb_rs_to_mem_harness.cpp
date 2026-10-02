@@ -59,7 +59,7 @@ void CompletionObserver::reset() { observed_.clear(); }
 RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test,
                                            const std::string& prefix, Clock& clk)
     : test_(test) {
-  top_ = std::make_unique<Smesh>(prefix + "Smesh");
+  top_ = std::make_unique<Smesh>(prefix + "Smesh", test_.mvin_scale_latency);
   mem_ = std::make_unique<smem::MemCtrl>(prefix + "MemCtrl");
   mem_->set_posted_writes(test_.posted_writes);
   dram_ = std::make_unique<smem::Dram>(prefix + "Dram", 0);

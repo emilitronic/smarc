@@ -76,36 +76,59 @@ MvinRepeatEntry advanceRow(MvinRepeatEntry entry, bool pop, bool push, const Dma
 
 // ********************* MvinScale *********************
 // Normal-width path. Holds each row until its final repeated copy is accepted.
-MvinScale::MvinScale(std::string /*name*/, IMPL_CTOR) {
+MvinScale::MvinScale(std::string /*name*/, int latency, IMPL_CTOR)
+    : stages_Q_(latency > 0 ? latency - 1 : 0),
+      stages_D_(latency > 0 ? latency - 1 : 0) {
+  assert_always(latency >= 1, "MVIN scale latency must be at least one cycle");
   entry_Q_ <= entry_D_;
-  UPDATE(updateView).reads(entry_Q_).writes(out_val, out_bits);
-  UPDATE(updateReady).reads(entry_Q_, out_rdy).writes(in_rdy);
+  for (int stage = 0; stage < stages_Q_.size(); ++stage) {
+    stages_Q_[stage] <= stages_D_[stage];
+  }
+  UPDATE(updateView).reads(entry_Q_, stages_Q_).writes(out_val, out_bits);
+  UPDATE(updateReady).reads(entry_Q_, stages_Q_, out_rdy).writes(in_rdy);
   UPDATE(updateStorage)
-      .reads(entry_Q_, in_val, in_bits, in_rdy, out_rdy)
+      .reads(entry_Q_, stages_Q_, in_val, in_bits, in_rdy, out_rdy)
       .writes(entry_D_);
+  if (stages_Q_.size() > 0) {
+    UPDATE(updateStages).reads(entry_Q_, stages_Q_, out_rdy).writes(stages_D_);
+  }
 }
 
 void MvinScale::updateView() {
-  const auto entry = *entry_Q_;
-  out_val  = entry.valid;
-  out_bits = entry.valid == 1 ? repeatedRow(entry) : DmaReadResp{}; //
+  if (stages_Q_.size() == 0) {
+    const auto entry = *entry_Q_;
+    out_val  = entry.valid;
+    out_bits = entry.valid == 1 ? repeatedRow(entry) : DmaReadResp{};
+  } else {
+    const auto entry = *stages_Q_[stages_Q_.size() - 1];
+    out_val  = entry.valid;
+    out_bits = entry.valid == 1 ? entry.bits : DmaReadResp{};
+  }
+}
+
+bool MvinScale::rowAdvanceReady() const {
+  bool ready = out_rdy == 1;
+  for (int stage = stages_Q_.size(); stage-- > 0;) {
+    ready = stages_Q_[stage]->valid == 0 || ready;
+  }
+  return ready;
 }
 
 // Accept a new row when empty, or when the current row's final copy is accepted.
 void MvinScale::updateReady() {
   const auto entry = *entry_Q_;
-  in_rdy = bit(entry.valid == 0 || (entry.remaining == 0 && out_rdy == 1));
+  in_rdy = bit(entry.valid == 0 || (entry.remaining == 0 && rowAdvanceReady()));
 }
 
-// Pushing load-returns in, popping load-returns out (of 1 register)
+// Advance one repeated row when the next stage can accept it.
 void MvinScale::updateStorage() {
   const auto current = *entry_Q_;
-  const bool pop  = current.valid == 1 && out_rdy == 1;
+  const bool pop  = current.valid == 1 && rowAdvanceReady();
   const bool push = in_val == 1 && in_rdy == 1;
   if (!pop && !push) return;
 
   if (pop) {
-    trace("mvin_scale: accepted row cmd_id=%u offset=%u last=%u",
+    trace("mvin_scale: advanced row cmd_id=%u offset=%u last=%u",
           static_cast<unsigned>(current.bits.cmd_id),
           static_cast<unsigned>(current.remaining),
           static_cast<unsigned>(current.remaining == 0 && current.bits.last == 1));
@@ -114,8 +137,31 @@ void MvinScale::updateStorage() {
   entry_D_ = advanceRow(current, pop, push, push ? scaledNormalRow(*in_bits) : DmaReadResp{});
 }
 
+void MvinScale::updateStages() {
+  bool downstream_ready = out_rdy == 1;
+  for (int stage = stages_Q_.size(); stage-- > 0;) {
+    const auto current = *stages_Q_[stage];
+    const bool ready = current.valid == 0 || downstream_ready;
+    if (ready) {
+      MvinPipeEntry incoming{};
+      if (stage == 0) {
+        const auto source = *entry_Q_;
+        incoming.valid = source.valid;
+        if (source.valid == 1) incoming.bits = repeatedRow(source);
+      } else {
+        incoming = *stages_Q_[stage - 1];
+      }
+      stages_D_[stage] = incoming;
+    }
+    downstream_ready = ready;
+  }
+}
+
 void MvinScale::reset() {
   entry_D_.reset(MvinRepeatEntry{});
+  for (int stage = 0; stage < stages_D_.size(); ++stage) {
+    stages_D_[stage].reset(MvinPipeEntry{});
+  }
   in_rdy.reset(0);
   out_val.reset(0);
   out_bits.reset(DmaReadResp{});
