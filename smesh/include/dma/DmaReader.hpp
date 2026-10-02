@@ -7,12 +7,25 @@ DMA reader for assembling memory beats into one local row request.
 Collects multiple memory beats before producing local row data and
 produces lane masks.
 
-Currently only starts filling row at lane 0.  Waits for all bytes in current request
-before producing output.  Currently limits one request to one accumulator-width row or two
-narrow rows.
+Currently only starts filling row at lane 0 (i.e., first value returned
+from memory is placed in first position of that row).  Reader cannot 
+currently start placing values at, e.g., lane 2 of a row, and then fill 
+lanes 2,3,0,1 in that order.
+
+Waits for all bytes in current request before producing output.  So if the
+request asks for 2 narrow rows, the reader will wait for all bytes of both
+rows before producing the first output row.
+
+Currently limits one request to one accumulator-width row or two
+narrow rows.  If a request for more reaches DmaReader an assertion
+stops the simulation.
 
 TODO: for multi-row requests send a completed row to local memory while waiting for
 subsequent beats to arrive.
+
+TODO: make DmaReader be able to issue up to 64-byte memory requests (this will
+require a BeatMerger capable of re-constructing rows from the (smaller) memory 
+beats in which the data is received.
 */
 
 #pragma once
@@ -32,12 +45,12 @@ class DmaReader : public Component {
 
   Clock(clk);
 
-  FifoInput(DmaReadReq, req_in);
+  FifoInput(DmaReadReq,    req_in);
   FifoOutput(smem::MemReq, mem_req);
   FifoInput(smem::MemResp, mem_resp);
-  Output(bit, resp_val);
+  Output(bit,         resp_val);
   Output(DmaReadResp, resp_bits);
-  Input(bit, resp_rdy);
+  Input(bit,          resp_rdy);
 
   void update();
   void updateRespView();
