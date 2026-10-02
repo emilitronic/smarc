@@ -57,16 +57,16 @@ struct SmeshIssue {
 // *****************************************************
 // interface between LdCtrl and memory controller
 struct DmaReadReq {
-  u64 vaddr = 0;
+  u64            vaddr            = 0;
   SmeshLocalAddr laddr{};
-  u16 cols = 0;
-  u16 repeats = 0;
-  u32 scale = 0;
-  bit has_acc_bitwidth = false;
-  bit all_zeros = false;
-  u16 block_stride = 0;
-  u8 pixel_repeats = 1;
-  u16 cmd_id = 0;
+  u16            cols             = 0;
+  u16            repeats          = 0;
+  u32            scale            = 0;
+  bit            has_acc_bitwidth = false;
+  bit            all_zeros        = false;
+  u16            block_stride     = 0;
+  u8             pixel_repeats    = 1;
+  u16            cmd_id           = 0;
 };
 // interface between memory controller and LdCtrl (via other components)
 using DmaReadData = std::array<std::uint8_t, kDim * sizeof(Acc)>; // DMA reader's data is set to max possible widht (dim*accum_width)

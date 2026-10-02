@@ -3,29 +3,23 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*
-DMA reader for assembling memory beats into one local row request.
-Collects multiple memory beats before producing local row data and
-produces lane masks.
+DMA reader for assembling memory beats into local rows and lane masks.
 
 Currently only starts filling row at lane 0 (i.e., first value returned
 from memory is placed in first position of that row).  Reader cannot 
 currently start placing values at, e.g., lane 2 of a row, and then fill 
 lanes 2,3,0,1 in that order.
 
-Waits for all bytes in current request before producing output.  So if the
-request asks for 2 narrow rows, the reader will wait for all bytes of both
-rows before producing the first output row.
+Sends each completed local row onward while later memory beats are still
+arriving. A held beat waits if the output rows cannot advance. One request
+may cover up to max(dma_max_bytes, one full accumulator row) bytes.
 
-Currently limits one request to one accumulator-width row or two
-narrow rows.  If a request for more reaches DmaReader an assertion
-stops the simulation.
+Requests can span more than two narrow rows (previous limit), up to the
+configured byte limit.  Each row keeps its own bytes_read and completion
+marker.
 
-TODO: for multi-row requests send a completed row to local memory while waiting for
-subsequent beats to arrive.
-
-TODO: make DmaReader be able to issue up to 64-byte memory requests (this will
-require a BeatMerger capable of re-constructing rows from the (smaller) memory 
-beats in which the data is received.
+TODO: model larger memory transactions returned over multiple response beats.
+The current MemReq/MemResp interface transfers one 4- or 8-byte beat per request.
 */
 
 #pragma once
@@ -56,26 +50,36 @@ class DmaReader : public Component {
   void updateRespView();
   void reset();
 
-  const DmaReadReq& activeRequest() const { return active_; }
+  const DmaReadReq& activeRequest() const { return state_Q_->active; }
 
  private:
+  // structure of output buffer for two rows, each with its own completion marker
   struct PendingRows {
-    u8 count = 0;
+    u8          count = 0;
     DmaReadResp first{};
     DmaReadResp second{};
   };
+  
+  // DmaReader working state
+  struct ReaderState {
+    bit           active_valid         = 0;
+    bit           waiting              = 0; // waiting for a mem_resp for active read req
+    DmaReadReq    active{};                 // active read req
+    DmaReadData   row_data{};
+    std::uint64_t beat_data            = 0; // holds data from one mem resp beat
+    std::uint32_t total_bytes          = 0;
+    std::uint32_t bytes_requested      = 0; // track active read req: # of B requested
+    std::uint32_t bytes_received       = 0; // track active read req: # of B received (i.e. for entire request, not just for a row)
+    std::uint16_t row_fill             = 0; // number of B currently accumulated in row_data for row being assembled
+    std::uint16_t beat_bytes           = 0;
+    std::uint16_t beat_offset          = 0; // track which byte of mem resp beat will be processed by row-loop next
+    std::uint16_t requested_beat_bytes = 0;
+  };
 
-  Output(PendingRows, pending_Q_);
-  Register(PendingRows, pending_D_);
-
-  bool active_valid_ = false;
-  bool waiting_ = false;
-  DmaReadReq active_{};
-  DmaReadData row_data_{};
-  std::uint16_t total_bytes_ = 0;
-  std::uint16_t bytes_requested_ = 0;
-  std::uint16_t bytes_received_ = 0;
-  std::uint16_t beat_bytes_ = 0;
+  Output(PendingRows,   pending_Q_); // current contents of two-row o/p buffer
+  Register(PendingRows, pending_D_); // next contents of two-row o/p buffer
+  Output(ReaderState,   state_Q_);
+  Register(ReaderState, state_D_);
 };
 
 } // namespace smesh
