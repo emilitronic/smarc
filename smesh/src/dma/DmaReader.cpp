@@ -4,6 +4,10 @@
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*
 Not unreasonably minimal DMA reader implementation.
+
+Configurations in: 
+smesh/include/common/SmeshConfig.hpp (dma_max_bytes, mem_beat_bytes) and 
+smesh/include/common/SmeshTypes.hpp (kMemBeatBytes=mem_beat_bytes)
 */
 
 #include "DmaReader.hpp"

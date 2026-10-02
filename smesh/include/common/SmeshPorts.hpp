@@ -90,20 +90,20 @@ inline std::uint64_t low64DmaReadData(const DmaReadData& data) {
 struct DmaReadResp {
   DmaReadData    data{};
   SmeshLocalAddr laddr{};
-  u32            mask = 0; // one bit per local-memory element lane
+  u32            mask             = 0; // one bit per local-memory element lane
   bit            has_acc_bitwidth = false;
-  u32            scale = 0;
-  u16            repeats = 0; // number of times this row should be repeated in local mem
-  u16            len = 0;
-  u16            bytes_read = 0;
-  u8             pixel_repeats = 1;
-  u16            cmd_id = 0;
-  bit            last = false;
+  u32            scale            = 0;
+  u16            repeats          = 0; // number of times this row should be repeated in local mem
+  u16            len              = 0;
+  u16            bytes_read       = 0;
+  u8             pixel_repeats    = 1;
+  u16            cmd_id           = 0;
+  bit            last             = false;
 };
 // let LdCtrl know the last write into local mem is done
 struct DmaReadCompletion {
   u16 bytes_read = 0;
-  u16 cmd_id = 0;
+  u16 cmd_id     = 0;
 };
 
 // ********** STORE CONTROLLER / DMA INTERFACE **********

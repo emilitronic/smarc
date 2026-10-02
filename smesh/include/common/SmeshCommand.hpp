@@ -15,36 +15,36 @@ namespace smesh {
 
 // Enumerates the available functions for the custom command interface.
 enum class SmeshFunct : std::uint32_t {
-  Config      =  0,
-  Mvin2       =  1,
-  Mvin        =  2,
-  Mvout       =  3,
-  ComputeFlip =  4,
-  ComputeStay =  5,
-  Preload     =  6,
-  Flush       =  7,
-  LoopWs      =  8,
-  LoopWsBounds = 9,
-  LoopWsAddrsAb = 10,
-  LoopWsAddrsDc = 11,
+  Config          =  0,
+  Mvin2           =  1,
+  Mvin            =  2,
+  Mvout           =  3,
+  ComputeFlip     =  4,
+  ComputeStay     =  5,
+  Preload         =  6,
+  Flush           =  7,
+  LoopWs          =  8,
+  LoopWsBounds    =  9,
+  LoopWsAddrsAb   = 10,
+  LoopWsAddrsDc   = 11,
   LoopWsStridesAb = 12,
   LoopWsStridesDc = 13,
-  Mvin3       = 14,
-  StoreSpad   = 23,
+  Mvin3           = 14,
+  StoreSpad       = 23,
 };
 
 // Sub-kinds of configuration commands.
 enum class ConfigKind : std::uint32_t {
   Execute = 0,
-  Load = 1,
-  Store = 2,
-  Im2Col = 3,
+  Load    = 1,
+  Store   = 2,
+  Im2Col  = 3,
 };
 
 // Represents a local matrix in the SPAD.  This is used for passing matrix location and shape information in the rs1/rs2 fields of commands.
 struct LocalMatrix {
   std::uint32_t row = 0;
-  MatrixShape shape{};
+  MatrixShape   shape{};
 };
 
 constexpr std::uint32_t kLocalAddrBits = 32; // number of bits in the local address field of rs1/rs2 operands

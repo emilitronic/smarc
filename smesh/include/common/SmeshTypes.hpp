@@ -20,7 +20,7 @@ constexpr std::size_t kMemBeatBytes     = kDefaultConfig.mem_beat_bytes;
 constexpr std::size_t kSpBanks          = kDefaultConfig.sp_banks;
 constexpr std::size_t kSpBankRows       = kDefaultConfig.sp_bank_rows;
 constexpr std::size_t kSpRows           = kSpBanks * kSpBankRows;            // total rows in SP
-constexpr std::size_t kSpadReadDelay     = kDefaultConfig.spad_read_delay;
+constexpr std::size_t kSpadReadDelay    = kDefaultConfig.spad_read_delay;
 constexpr std::size_t kAccBanks         = kDefaultConfig.acc_banks;
 constexpr std::size_t kAccBankRows      = kDefaultConfig.acc_bank_rows;
 constexpr std::size_t kAccRows          = kAccBanks * kAccBankRows;          // total rows in accumulator
@@ -31,7 +31,7 @@ constexpr std::size_t kRsExecuteEntries = kDefaultConfig.rs_execute_entries; // 
 constexpr std::size_t kRsStoreEntries   = kDefaultConfig.rs_store_entries;   // M4v0 RS store slots
 constexpr std::size_t kMaxSimultaneousMatmuls = kDefaultConfig.max_simultaneous_matmuls;
 constexpr std::size_t kMesherTagQueueEntries  = kMaxSimultaneousMatmuls + 1;
-constexpr bool kHasMaxPool = kDefaultConfig.has_max_pool;
+constexpr bool        kHasMaxPool       = kDefaultConfig.has_max_pool;
 constexpr std::size_t kStoreCmdTrackerEntries = kDefaultConfig.store_cmd_tracker_entries;
 
 constexpr std::uint8_t kExDataflowWS = 0;

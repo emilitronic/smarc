@@ -88,7 +88,7 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     arb_write_accum_[bank]->clk << clk;
   }
-  write_ctrl_->clk << clk;
+  write_ctrl_->clk           << clk;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_resp_spad_[bank]->clk << clk;
   }
@@ -122,6 +122,7 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   cmd_queue_->cmd_valid << cmd_valid;
   cmd_queue_->cmd_bits  << cmd_bits;
   cmd_ready             << cmd_queue_->cmd_ready;
+
   loop_cmd_adapter_->cmd_in     << cmd_queue_->cmd_out;
   loop_matmul_->in_val          << loop_cmd_adapter_->cmd_val;
   loop_matmul_->in_bits         << loop_cmd_adapter_->cmd_bits;

@@ -42,7 +42,7 @@ struct SmeshConfig {
   std::size_t elem_bits      =  8;
   std::size_t acc_bits       = 32;
   std::size_t mem_beat_bytes = SMESH_MEM_BEAT_BYTES; // meaningful bytes in each DMA memory beat
-  std::size_t dma_max_bytes  = 64; // maximum DMA transfer size, not memory beat width
+  std::size_t dma_max_bytes  = 64; // max size that DMA can request of mem, not memory beat width (which is mem_beat_bytes)
 
   bool has_max_pool = true; // StoreController includes max-pooling geometry
   std::size_t store_cmd_tracker_entries = 2; // concurrent StoreController commands

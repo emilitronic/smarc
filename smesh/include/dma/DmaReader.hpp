@@ -4,6 +4,9 @@
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*
 DMA reader for assembling memory beats into local rows and lane masks.
+It accepts read requests from the upstream component, and issues memory
+requests to the smesh memory interface.  It receives memory responses and
+assembles them into local rows, which are sent to the downstream component.
 
 Currently only starts filling row at lane 0 (i.e., first value returned
 from memory is placed in first position of that row).  Reader cannot 
