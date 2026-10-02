@@ -11,44 +11,60 @@ Transform/joins accumulator read data and norm metadata.
 namespace smesh {
 
 Normalizer::Normalizer(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReady).writes(req_rdy);
-  UPDATE(updateRespView).writes(resp_val, resp_bits);
-  UPDATE(updateRespPop).reads(resp_rdy);
-  UPDATE(update).reads(req_val, req_bits);
+  resp_valid_Q_ <= resp_valid_D_;
+  resp_entry_Q_ <= resp_entry_D_;
+  UPDATE(updateView).reads(resp_valid_Q_, resp_entry_Q_)
+                    .writes(resp_val, resp_bits);
+  UPDATE(updateReady).reads(resp_valid_Q_, resp_rdy).writes(req_rdy);
+  UPDATE(updateBuffer).reads(resp_valid_Q_, resp_entry_Q_, resp_rdy, req_rdy,
+                             req_val, req_bits)
+                      .writes(resp_valid_D_, resp_entry_D_);
+}
+
+void Normalizer::updateView() {
+  const bool occupied = *resp_valid_Q_ == 1;
+  resp_val            = bit(occupied);
+  resp_bits           = occupied ? *resp_entry_Q_ : AccNormReq{};
 }
 
 void Normalizer::updateReady() {
-  req_rdy = bit(!resp_valid_);
+  const bool occupied = *resp_valid_Q_ == 1;
+  const bool pop      = occupied && resp_rdy == 1;
+  req_rdy             = bit(!occupied || pop);
 }
 
-void Normalizer::updateRespView() {
-  resp_val = bit(resp_valid_);
-  resp_bits = resp_valid_ ? resp_entry_ : AccNormReq{};
-}
+void Normalizer::updateBuffer() {
+  const bool occupied = *resp_valid_Q_ == 1;
+  const bool pop      = occupied && resp_rdy == 1;
+  const bool push     = req_val == 1 && req_rdy == 1;
 
-void Normalizer::updateRespPop() {
-  if (resp_valid_ && resp_rdy != 0) {
-    resp_valid_ = false;
-    resp_entry_ = AccNormReq{};
+  bool next_valid = occupied;
+  AccNormReq next_entry = *resp_entry_Q_;
+  if (push) {
+    next_valid = true;
+    next_entry = *req_bits;
+    trace("normalizer: accepted acc_laddr=0x%x len=%u stats_id=%u norm_cmd=%u cmd_id=%u",
+          static_cast<unsigned>(next_entry.acc_read_resp.laddr.raw),
+          static_cast<unsigned>(next_entry.cmd.len),
+          static_cast<unsigned>(next_entry.cmd.stats_id),
+          static_cast<unsigned>(next_entry.cmd.cmd),
+          static_cast<unsigned>(next_entry.acc_read_resp.cmd_id));
+  } else if (pop) {
+    next_valid = false;
+    next_entry = AccNormReq{};
   }
+  resp_valid_D_ = bit(next_valid);
+  resp_entry_D_ = next_entry;
 }
 
-void Normalizer::update() {
-  if (req_val == 0 || resp_valid_) {
-    return;
-  }
-
-  const auto req = *req_bits;
-  assert_always(req.acc_read_resp.from_dma != 0, "Normalizer received non-DMA accumulator response");
-  resp_entry_ = req;
-  resp_valid_ = true;
-
-  trace("normalizer: accepted acc_laddr=0x%x len=%u stats_id=%u norm_cmd=%u cmd_id=%u",
-        static_cast<unsigned>(req.acc_read_resp.laddr.raw),
-        static_cast<unsigned>(req.cmd.len),
-        static_cast<unsigned>(req.cmd.stats_id),
-        static_cast<unsigned>(req.cmd.cmd),
-        static_cast<unsigned>(req.acc_read_resp.cmd_id));
+void Normalizer::reset() {
+  resp_valid_Q_.reset(0);
+  resp_valid_D_.reset(0);
+  resp_entry_Q_.reset(AccNormReq{});
+  resp_entry_D_.reset(AccNormReq{});
+  req_rdy.reset(0);
+  resp_val.reset(0);
+  resp_bits.reset(AccNormReq{});
 }
 
 } // namespace smesh

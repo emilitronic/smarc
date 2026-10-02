@@ -114,6 +114,28 @@ void RsMemHarnessInstance::sampleBankConcurrency() {
     }
   }
   max_concurrent_spad_banks_ = std::max(max_concurrent_spad_banks_, fired);
+
+  bool ex_read = false;
+  bool store_read = false;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    if (top_->accum().read_req_val_bnk[bank] == 0 ||
+        top_->accum().read_req_rdy_bnk[bank] == 0) continue;
+    if (top_->accum().read_req_bits_bnk[bank]->from_dma == 0) {
+      ++ex_accum_reads_;
+      ex_read = true;
+    } else {
+      ++store_accum_reads_;
+      store_read = true;
+    }
+  }
+  concurrent_accum_reads_ |= ex_read && store_read;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    if (top_->accum().read_resp_val_bnk[bank] != 0 &&
+        top_->accum().read_resp_bits_bnk[bank]->from_dma == 0 &&
+        top_->accum().read_resp_rdy_bnk[bank] == 0) {
+      ++ex_accum_response_stall_cycles_;
+    }
+  }
 }
 
 bool RsMemHarnessInstance::activityComplete() const {
@@ -142,6 +164,9 @@ bool RsMemHarnessInstance::passed() const {
       max_concurrent_spad_banks_ > test_.max_concurrent_spad_banks) {
     return false;
   }
+  if (ex_accum_reads_ < test_.min_ex_accum_reads ||
+      store_accum_reads_ < test_.min_store_accum_reads ||
+      (test_.require_concurrent_accum_reads && !concurrent_accum_reads_)) return false;
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);
@@ -188,6 +213,10 @@ void RsMemHarnessInstance::report() const {
   std::printf("  max_concurrent_spad_banks observed=%zu expected_min=%zu expected_max=%zu\n",
               max_concurrent_spad_banks_, test_.min_concurrent_spad_banks,
               test_.max_concurrent_spad_banks);
+  std::printf("  accum reads ex=%zu store=%zu concurrent=%u\n",
+              ex_accum_reads_, store_accum_reads_, concurrent_accum_reads_ ? 1u : 0u);
+  std::printf("  ExCtrl accumulator response stalled cycles=%zu\n",
+              ex_accum_response_stall_cycles_);
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);

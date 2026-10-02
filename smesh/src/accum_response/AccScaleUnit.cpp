@@ -23,50 +23,68 @@ MeshInputRow narrowAccumRow(const MeshAccumRow& row) {
 } // namespace
 
 AccScaleUnit::AccScaleUnit(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReady).writes(req_rdy);
-  UPDATE(updateOutView).writes(out_val, out_bits);
-  UPDATE(updateOutPop).reads(out_rdy_issue, out_rdy_exresp);
-  UPDATE(update).reads(req_val, req_bits);
+  out_valid_Q_ <= out_valid_D_;
+  out_entry_Q_ <= out_entry_D_;
+  UPDATE(updateView).reads(out_valid_Q_, out_entry_Q_)
+                    .writes(out_val, out_bits);
+  UPDATE(updateReady).reads(out_valid_Q_, out_entry_Q_, out_rdy_issue,
+                            out_rdy_exresp).writes(req_rdy);
+  UPDATE(updateBuffer).reads(out_valid_Q_, out_entry_Q_, out_rdy_issue,
+                             out_rdy_exresp, req_rdy, req_val, req_bits)
+                      .writes(out_valid_D_, out_entry_D_);
+}
+
+void AccScaleUnit::updateView() {
+  const bool occupied = *out_valid_Q_ == 1;
+  out_val             = bit(occupied);
+  out_bits            = occupied ? *out_entry_Q_ : AccScaleResp{};
 }
 
 void AccScaleUnit::updateReady() {
-  req_rdy = bit(!out_valid_);
+  const bool occupied       = *out_valid_Q_ == 1;
+  const auto current        = *out_entry_Q_;
+  const bool selected_ready = current.from_dma != 0 ? out_rdy_issue != 0 : out_rdy_exresp != 0;
+  const bool pop            = occupied && selected_ready;
+  req_rdy                   = bit(!occupied || pop);
 }
 
-void AccScaleUnit::updateOutView() {
-  out_val = bit(out_valid_);
-  out_bits = out_valid_ ? out_entry_ : AccScaleResp{};
-}
+void AccScaleUnit::updateBuffer() {
+  const bool occupied       = *out_valid_Q_ == 1;
+  const auto current        = *out_entry_Q_;
+  const bool selected_ready = current.from_dma != 0 ? out_rdy_issue != 0 : out_rdy_exresp != 0;
+  const bool pop            = occupied && selected_ready;
+  const bool push           = req_val == 1 && req_rdy == 1;
 
-void AccScaleUnit::updateOutPop() {
-  const bool selected_ready = out_entry_.from_dma != 0 ? out_rdy_issue != 0
-                                                       : out_rdy_exresp != 0;
-  if (out_valid_ && selected_ready) {
-    out_valid_ = false;
-    out_entry_ = AccScaleResp{};
+  bool next_valid = occupied;
+  AccScaleResp next_entry = current;
+  if (push) {
+    const auto acc         = req_bits->norm.acc_read_resp;
+    next_entry.full_data   = acc.data;
+    next_entry.data        = narrowAccumRow(acc.data);
+    next_entry.acc_bank_id = static_cast<u16>(acc.laddr.acc_bank());
+    next_entry.from_dma    = acc.from_dma;
+    next_valid             = true;
+    trace("acc_scale_unit: accepted acc_laddr=0x%x bank=%u len=%u cmd_id=%u",
+          static_cast<unsigned>(acc.laddr.raw),
+          static_cast<unsigned>(next_entry.acc_bank_id),
+          static_cast<unsigned>(acc.len),
+          static_cast<unsigned>(acc.cmd_id));
+  } else if (pop) {
+    next_valid = false;
+    next_entry = AccScaleResp{};
   }
+  out_valid_D_ = bit(next_valid);
+  out_entry_D_ = next_entry;
 }
 
-void AccScaleUnit::update() {
-  if (req_val == 0 || out_valid_) {
-    return;
-  }
-
-  const auto req = *req_bits;
-  const auto& acc = req.norm.acc_read_resp;
-  AccScaleResp resp{};
-  resp.full_data = acc.data;
-  resp.data = narrowAccumRow(acc.data);
-  resp.acc_bank_id = static_cast<u16>(acc.laddr.acc_bank());
-  resp.from_dma = acc.from_dma;
-  out_entry_ = resp;
-  out_valid_ = true;
-
-  trace("acc_scale_unit: accepted acc_laddr=0x%x bank=%u len=%u cmd_id=%u",
-        static_cast<unsigned>(acc.laddr.raw),
-        static_cast<unsigned>(resp.acc_bank_id),
-        static_cast<unsigned>(acc.len),
-        static_cast<unsigned>(acc.cmd_id));
+void AccScaleUnit::reset() {
+  out_valid_Q_.reset(0);
+  out_valid_D_.reset(0);
+  out_entry_Q_.reset(AccScaleResp{});
+  out_entry_D_.reset(AccScaleResp{});
+  req_rdy.reset(0);
+  out_val.reset(0);
+  out_bits.reset(AccScaleResp{});
 }
 
 } // namespace smesh

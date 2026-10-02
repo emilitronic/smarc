@@ -96,17 +96,13 @@ struct SmeshLocalAddr {
            (raw & kLocalAddrGarbageMask) != 0; // invalid/padding address
   }
   constexpr std::uint32_t sp_bank() const {
-    return kSpBankBits == 0
-               ? 0u
-               : (data() & kSpAddrMask) >> kSpBankRowBits; // SP bank number
+    return kSpBankBits == 0 ? 0u : (data() & kSpAddrMask) >> kSpBankRowBits; // SP bank number
   }
   constexpr std::uint32_t sp_row() const {
     return data() & kSpBankRowMask; // row within the selected SP bank
   }
   constexpr std::uint32_t acc_bank() const {
-    return kAccBankBits == 0
-               ? 0u
-               : (data() & kAccAddrMask) >> kAccBankRowBits;
+    return kAccBankBits == 0 ? 0u : (data() & kAccAddrMask) >> kAccBankRowBits;
   }
   constexpr std::uint32_t acc_row() const {
     return data() & kAccBankRowMask;

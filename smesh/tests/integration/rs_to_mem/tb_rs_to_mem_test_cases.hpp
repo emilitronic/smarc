@@ -67,6 +67,9 @@ struct RsMemTestCase {
   // "not checked" for either field -- most test cases leave these alone.
   std::size_t min_concurrent_spad_banks = 0; // require some cycle to fire at least this many banks at once
   std::size_t max_concurrent_spad_banks = 0; // require no cycle to ever fire more than this many banks at once
+  std::size_t min_ex_accum_reads = 0;
+  std::size_t min_store_accum_reads = 0;
+  bool require_concurrent_accum_reads = false;
 };
 
 RsMemTestCase makeBasicCase();

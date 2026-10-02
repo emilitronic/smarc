@@ -3,28 +3,14 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
-Store-path normalization-stage control implementation.  Controls the flow of write data (from accum read resp port) and write metadata (from DmaWriteNormQueue).
-Case 1: scratchpad or garbage
-  norm_deq_rdy        = scale_enq_rdy
-  scale_enq_val       = norm_deq_val
-  normalizer_cmd_val  = 0
-  accum_read_resp_rdy = 0
-
-Case 2/3: accumulator for this bank
-  norm_deq_rdy        = accum_read_resp_val && normalizer_cmd_rdy &&
-  scale_enq_rdy
-  normalizer_cmd_val  = norm_deq_val && accum_read_resp_val &&
-  scale_enq_rdy
-  accum_read_resp_rdy = norm_deq_val && normalizer_cmd_rdy &&
-  scale_enq_rdy
-  scale_enq_val       = full_accum_move && writes_to_main_memory
-
-Accumulator data always goes toward the normalizer, but metadata only advances to write_scale_q when norm_cmd writes to main memory.  It writes to main memory when 3b norm_cmd sub-field in laddr field is set to 0 (RESET).  Note that this subfield can be set to other values (SUM, MEAN, VARIANCE, INV_STDDEV, MAX, SUM_EXP, INV_SUM_EXP) to indicate that the normalizer should consume the data to update stats, but not send any store-to-DRAM metadata onward.  Why do you collect stats? For normalization and activation operations on accumluator data.  For example, layer normalization (need mean, need variance / inverse stddev) and softmax (need max, need sum of exp, need inverse sum of exp) require statistics to be collected from the entire accumulator row before the normalization operation can be performed.  The normalizer consumes the data to update stats in its internal registers, but does not send any store-to-DRAM metadata onward until the stats have been collected and the norm_cmd is set to RESET.
-
-The name is confusing because RESET here effectively means: this is not one of the stats-collection phases; after this, reset/finish the norm state and let data continue.
+Arbitrates accumulator responses into the shared normalizer. Store responses
+advance matching Store metadata; ExCtrl responses do not touch Store queues.
+Scratchpad and garbage Store metadata bypass the normalizer.
 */
 
 #include "StNormCtrl.hpp"
+
+TraceKey(st_norm_view);
 
 namespace smesh {
 
@@ -53,65 +39,60 @@ StNormCtrl::StNormCtrl(std::string /*name*/, IMPL_CTOR) {
 }
 
 void StNormCtrl::update() {
-  const auto req = *norm_deq_bits;
-  const auto laddr = req.laddr;
-  const auto acc_bank = laddr.acc_bank();
-  const auto acc_resp = *accum_read_resp_bits[acc_bank];
+  // *** Identify the Store metadata from write norm queue head ***
+  const auto req         = *norm_deq_bits;
+  const auto laddr       = req.laddr;
+  const bool store_accum = norm_deq_val != 0 && laddr.is_acc_addr() && !laddr.is_garbage(); // there is valid Store metadata and it describes a real accum addr
+  const auto store_bank  = laddr.acc_bank(); // accum bank for whose resp legit store metadata is waiting
 
-  const bool is_scratchpad = !laddr.is_acc_addr(); // metadata says we're writing from spad
-  const bool is_garbage    = laddr.is_garbage();   // metadata says this is not a real write
-  const bool bypass_normalizer = is_garbage || is_scratchpad; // not from accum, so bypass normalizer stage
-  const bool targets_this_accum_bank =
-      laddr.is_acc_addr() &&
-      !is_garbage; // metadata says this is write from accum
-  const bool writes_to_main_memory = normCmdWritesToMainMemory(laddr.norm_cmd()); // is subfield norm_cmd==RESET?
-
-  // just using next_* as a convenience (clear C++/Cascade separation)
-  bool next_norm_deq_rdy        = false;
-  bool next_scale_enq_val       = false;
-  bool next_normalizer_cmd_val  = false; // default skip normalizer
-  bool next_accum_read_resp_rdy = false; // default don't consume accum read resp
-  AccNormReq next_normalizer_req{};
-  next_normalizer_req.acc_read_resp = acc_resp;
-  next_normalizer_req.cmd.len       = req.len;
-  next_normalizer_req.cmd.stats_id  = req.acc_norm_stats_id;
-  next_normalizer_req.cmd.cmd = static_cast<u8>(laddr.norm_cmd());
-
-  // CASE 1: spad or garbage, bypass normalizer stage
-  if (bypass_normalizer) {
-    next_norm_deq_rdy = scale_enq_rdy != 0; // norm may pop if scale queue is ready
-    next_scale_enq_val = norm_deq_val != 0; // scale input is valid if norm says so
+  // *** Choose which Accum response to handle ***
+  // matching Store response has priority. Otherwise, take first ExCtrl resp.
+  std::size_t selected_bank = kAccBanks; // this preset indicates that no bank was selected
+  // look for resp that matches Store metadata, if any
+  if (store_accum && store_bank < kAccBanks && accum_read_resp_val[store_bank] != 0 && accum_read_resp_bits[store_bank]->from_dma != 0 && scale_enq_rdy != 0) {
+    selected_bank = store_bank; // select Store's bank
+  } else { // otherwise look for first ExCtrl resp (from_dma == 0) and select first such bank
+    for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+      if (accum_read_resp_val[bank] != 0 && accum_read_resp_bits[bank]->from_dma == 0) {
+        selected_bank = bank;
+        break;
+      }
+    }
   }
-  // CASE 2/3: accumulator for this bank 
-  else if (targets_this_accum_bank) {
-    // all relevant parts have valid data and room to consume
-    const bool accum_move = norm_deq_val != 0 &&
-                            accum_read_resp_val[acc_bank] != 0 &&
-                            normalizer_cmd_rdy != 0 &&
-                            scale_enq_rdy != 0;
-    // let valid norm metadata pop if there's valid accum data, normalizer is ready, and scale queue is ready
-    next_norm_deq_rdy = accum_read_resp_val[acc_bank] != 0 &&
-                        normalizer_cmd_rdy != 0 &&
-                        scale_enq_rdy != 0;
-    // let normalizer consume if there's valid norm medatdata, valid accum data, and scale queue is ready
-    // (note: we don't necessarily have to wait for scale queue if norm_cmd != RESET, but we're too dumb to add this nuance)
-    next_normalizer_cmd_val = norm_deq_val != 0 &&
-                              accum_read_resp_val[acc_bank] != 0 &&
-                              scale_enq_rdy != 0;
-    // let valid accum data pop if there's valid norm metadata, normalizer is ready, and scale queue is ready
-    next_accum_read_resp_rdy = norm_deq_val != 0 &&
-                               normalizer_cmd_rdy != 0 &&
-                               scale_enq_rdy != 0;
-    // let scalue queue consume if all relevant parts have valid data and room to consume and norm_cmd subfield is RESET
-    next_scale_enq_val = accum_move && writes_to_main_memory;
+
+  // *** Build Normalizer input ***
+  const bool selected_store = selected_bank < kAccBanks && accum_read_resp_bits[selected_bank]->from_dma != 0; // identifies if resp belongs to Store/DMA path
+  const bool selected_valid = selected_bank < kAccBanks; // checks whether a bank was selected
+  const bool selected_fire  = selected_valid && normalizer_cmd_rdy != 0; 
+
+  // prepare the payload
+  AccNormReq normalizer_req{};
+  if (selected_valid) {
+    normalizer_req.acc_read_resp = *accum_read_resp_bits[selected_bank];
+    normalizer_req.cmd.len       = selected_store ? req.len               : normalizer_req.acc_read_resp.len;
+    normalizer_req.cmd.stats_id  = selected_store ? req.acc_norm_stats_id : u16(0);
+    normalizer_req.cmd.cmd       = selected_store ? u8(laddr.norm_cmd())  : u8(kNormCmdReset);
   }
-  // turn C++ booleans into Cascade bit signals for output
-  norm_deq_rdy = bit(next_norm_deq_rdy);
-  scale_enq_val = bit(next_scale_enq_val);
-  normalizer_cmd_val = bit(next_normalizer_cmd_val);
-  normalizer_req_bits = next_normalizer_req;
+  // drive the handshakes that transfer the payload to the normalizer, two cases:
+  // (1) if Store metadata is garbage or describes a Spad addr, then bypass the normalizer 
+  // (2) if Store metadata describes an Accum read, then Store metadata and matching Accum resp move together
+  const bool bypass_store = norm_deq_val != 0 && (laddr.is_garbage() || !laddr.is_acc_addr()); // if Spad or garbage data corresponds to this metadata, bypass the Normalizer
+  norm_deq_rdy        = bit(bypass_store ? scale_enq_rdy != 0 : selected_store && selected_fire);
+  scale_enq_val       = bit(bypass_store || (selected_store && selected_fire && normCmdWritesToMainMemory(laddr.norm_cmd())));
+
+  normalizer_cmd_val  = bit(selected_valid);
+  normalizer_req_bits = normalizer_req;
+
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    accum_read_resp_rdy[bank] = bit(next_accum_read_resp_rdy && bank == acc_bank);
+    accum_read_resp_rdy[bank] = bit(selected_fire && bank == selected_bank);
+  }
+  if (selected_fire || (bypass_store && scale_enq_rdy == 1)) {
+    trace(st_norm_view, "norm=%u bank=%u selected=%u dma=%u nrdy=%u srdy=%u nval=%u nready=%u scale=%u\n",
+          static_cast<unsigned>(norm_deq_val), static_cast<unsigned>(store_bank),
+          static_cast<unsigned>(selected_bank), static_cast<unsigned>(selected_store),
+          static_cast<unsigned>(norm_deq_rdy), static_cast<unsigned>(scale_enq_rdy),
+          static_cast<unsigned>(normalizer_cmd_val), static_cast<unsigned>(normalizer_cmd_rdy),
+          static_cast<unsigned>(scale_enq_val));
   }
 }
 

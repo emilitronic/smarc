@@ -97,6 +97,10 @@ class RsMemHarnessInstance {
   std::unique_ptr<smem::Dram> dram_;
 
   std::size_t max_concurrent_spad_banks_ = 0;
+  std::size_t ex_accum_reads_ = 0;
+  std::size_t store_accum_reads_ = 0;
+  bool concurrent_accum_reads_ = false;
+  std::size_t ex_accum_response_stall_cycles_ = 0;
 };
 
 } // namespace tb

@@ -22,21 +22,24 @@ class Normalizer : public Component {
 
   Clock(clk);
 
-  Input(bit, req_val);
-  Output(bit, req_rdy);
-  Input(AccNormReq, req_bits);
-  Output(bit, resp_val);
-  Input(bit, resp_rdy);
+  Input(bit,         req_val);
+  Output(bit,        req_rdy);
+  Input(AccNormReq,  req_bits);
+
+  Output(bit,        resp_val);
+  Input(bit,         resp_rdy);
   Output(AccNormReq, resp_bits);
 
+  void updateView();
   void updateReady();
-  void updateRespView();
-  void updateRespPop();
-  void update();
+  void updateBuffer();
+  void reset() override;
 
  private:
-  bool resp_valid_ = false;
-  AccNormReq resp_entry_{};
+  Register(bit,        resp_valid_Q_);
+  Output(bit,          resp_valid_D_);
+  Register(AccNormReq, resp_entry_Q_);
+  Output(AccNormReq,   resp_entry_D_);
 };
 
 } // namespace smesh

@@ -343,6 +343,67 @@ RsMemTestCase makeSameBankSerializesCase() {
   return test;
 }
 
+// ExCtrl reads math D from Accum and StCtrl reads a different Accum tile
+// for a store. The two source tiles sit in different banks.
+RsMemTestCase makeSharedAccumReadCase() {
+  RsMemTestCase test{};
+  test.name = "shared_accum_read";
+  test.description = "ExCtrl D reads and Store reads traverse the shared Accum response path";
+  test.max_cycles = 400;
+  test.drain_cycles = 16;
+  test.min_ex_accum_reads = kDim;
+  test.min_store_accum_reads = kDim;
+
+  constexpr std::uint64_t d_dram = 0x8000a000;
+  constexpr std::uint64_t store_dram = 0x8000b000;
+  constexpr std::uint64_t output_dram = 0x8000c000;
+  const auto d_addr = makeAccAddr(0);
+  const auto store_addr = makeAccAddr(8);
+  const auto c_addr = makeAccAddr(12);
+  const auto b_addr = makeSpAddr(4);
+  const auto a_addr = makeSpAddr(8);
+
+  std::array<MeshInputRow, kDim> a{};
+  std::array<MeshInputRow, kDim> b{};
+  std::array<MeshInputRow, kDim> d{};
+  for (std::size_t r = 0; r < kDim; ++r) {
+    b[r][r] = 1;
+    MeshInputRow stored{};
+    for (std::size_t col = 0; col < kDim; ++col) {
+      a[r][col] = static_cast<Elem>(1 + r * kDim + col);
+      d[r][col] = static_cast<Elem>(2 + r);
+      stored[col] = static_cast<Elem>(40 + r * kDim + col);
+    }
+    test.spad_rows.push_back({b_addr + static_cast<std::uint32_t>(r), b[r]});
+    test.spad_rows.push_back({a_addr + static_cast<std::uint32_t>(r), a[r]});
+    test.dram_initial.push_back({d_dram + r * kDim, rowBytes(d[r])});
+    test.dram_initial.push_back({store_dram + r * kDim, rowBytes(stored)});
+    test.expected_dram.push_back({output_dram + r * kDim, rowBytes(stored)});
+  }
+
+  test.program = {
+      loopCommand(SmeshFunct::Config,
+                  packConfigLoadRs1(0, kDim, kMvinScaleIdentityBits, true), kDim),
+      loopCommand(SmeshFunct::Mvin, d_dram,
+                  packLocal(d_addr, MatrixShape{kDim, kDim})),
+      loopCommand(SmeshFunct::Mvin, store_dram,
+                  packLocal(store_addr, MatrixShape{kDim, kDim})),
+      configExCmd(),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                  (std::uint64_t{1} << 32) | kDim),
+      preloadCmd(b_addr, c_addr),
+      computeFlipCmd(a_addr, d_addr),
+      loopCommand(SmeshFunct::Mvout, output_dram,
+                  packLocal(store_addr, MatrixShape{kDim, kDim})),
+  };
+  test.expected_completion_tags = {1, 2, 3, 5, 6, 7};
+
+  std::vector<MeshAccumRow> c;
+  for (std::size_t r = 0; r < kDim; ++r) c.push_back(matmulRow(a, b, d, r));
+  test.expected_results = {ExpectedAccumResult{c_addr, c}};
+  return test;
+}
+
 // starts with data already in SPAD
 RsMemTestCase makeLoopWsCase() {
   RsMemTestCase test{};
@@ -755,6 +816,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase()};
+  if (kDim == 4) tests.push_back(makeSharedAccumReadCase());
   if (kDim == 8) tests.push_back(makeDim8LoadsCase());
   if (kMemBeatBytes == 4) {
     auto posted = makeLoopWsDmaCase();

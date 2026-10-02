@@ -32,6 +32,7 @@ The suite currently covers:
 - `loop_ws_dma_i2`: two output tiles with a shared B tile.
 - `loop_ws_dma_k2`: two products accumulated into one output tile.
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
+- `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
 - `dim8_loads`: separate `dim=8` build; full and partial SPAD/Accum row loads.
 
 The focused memory unit tests cover bank-local arbitration and simultaneous
@@ -61,6 +62,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_i2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load
+./build/smesh/tb_rs_to_mem_suite -test=shared_accum_read
 cmake --build build --target tb_rs_to_mem_suite_dim8 -j
 ./build/smesh/tb_rs_to_mem_suite_dim8 -test=dim8_loads
 ctest --test-dir build -L rs_to_mem --output-on-failure
