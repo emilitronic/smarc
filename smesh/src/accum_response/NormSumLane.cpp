@@ -17,14 +17,21 @@ NormSumLane::NormSumLane(std::string /*name*/, IMPL_CTOR) {
 void NormSumLane::update() {
   result_val = chunk_val;
   NormSumResult result{};
-  if (chunk_val == 1) {
+  if (chunk_val == 1) { // valid chunk is present
     const auto chunk  = *chunk_bits;
-    const auto len    = static_cast<std::size_t>(static_cast<std::uint16_t>(chunk.len));
+    const auto len    = static_cast<std::size_t>(static_cast<std::uint16_t>(chunk.len)); // number of valid lanes in the chunk
     assert(len <= kDim);
     result.slot       = chunk.slot;
     std::uint32_t sum = 0;
+    const auto cmd    = static_cast<NormCmd>(static_cast<std::uint8_t>(chunk.cmd));
     for (std::size_t lane = 0; lane < len; ++lane) {
-      sum += static_cast<std::uint32_t>(chunk.data[lane]);
+      if (cmd == NormCmd::Variance) { // 
+        const auto difference = static_cast<std::int64_t>(chunk.data[lane]) - chunk.mean;
+        const auto magnitude  = static_cast<std::uint64_t>(difference < 0 ? -difference : difference);
+        sum += static_cast<std::uint32_t>(magnitude * magnitude);
+      } else {
+        sum += static_cast<std::uint32_t>(chunk.data[lane]);
+      }
     }
     result.sum = u32(sum);
   }

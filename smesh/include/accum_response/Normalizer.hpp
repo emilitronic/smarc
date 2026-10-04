@@ -3,8 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
- Two-slot accumulator normalization shell with sum, max, and mean paths.
- Reset returns the saved row and current statistics. Sum, Max, and Mean
+ Two-slot accumulator normalization shell with sum, max, mean, and variance paths.
+ Reset returns the saved row and current statistics. Sum, Max, Mean, and Variance
  update the selected slot without producing an output row.
 */
 #pragma once

@@ -95,7 +95,8 @@ void NormStats::updateState() {
     const auto cmd = static_cast<NormCmd>(static_cast<std::uint8_t>(req.cmd.cmd));
     if (cmd == NormCmd::Reset) {
       next.elems_left[id] = 0;
-    } else if (cmd == NormCmd::Sum || cmd == NormCmd::Max || cmd == NormCmd::Mean) {
+    } else if (cmd == NormCmd::Sum || cmd == NormCmd::Max ||
+               cmd == NormCmd::Mean || cmd == NormCmd::Variance) {
       const auto len      = static_cast<std::uint16_t>(req.cmd.len);
       next.count[id]      = u16(static_cast<std::uint16_t>(next.count[id]) + len);
       next.elems_left[id] = u16(len);

@@ -65,7 +65,7 @@ void Driver::updateDrive() {
            : phase == 1 ? packet(1, 11, 110)
            : packet(0, 12, 120);
   if (phase == 6) {
-    req.cmd.cmd = static_cast<std::uint8_t>(smesh::NormCmd::Variance);
+    req.cmd.cmd = static_cast<std::uint8_t>(smesh::NormCmd::InvStddev);
   }
   if (phase == 7) req = packet(2, 13, 130);
   req_bits = req;

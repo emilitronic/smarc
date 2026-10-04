@@ -2,7 +2,7 @@
 // smesh/src/accum_response/Normalizer.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
-// Stores packets by stats slot and processes Reset, Sum, Max, and Mean commands.
+// Stores packets by stats slot and processes Reset, Sum, Max, Mean, and Variance commands.
 
 #include "Normalizer.hpp"
 #include "NormRowChunk.hpp"
@@ -119,7 +119,8 @@ Normalizer::~Normalizer() {
 void Normalizer::updateAdmission() {
   const auto cmd       = static_cast<NormCmd>(static_cast<std::uint8_t>(req_bits->cmd.cmd));
   const bool supported = cmd == NormCmd::Reset ||
-      ((cmd == NormCmd::Sum || cmd == NormCmd::Max || cmd == NormCmd::Mean) && req_bits->cmd.len <= kDim);
+      ((cmd == NormCmd::Sum || cmd == NormCmd::Max || cmd == NormCmd::Mean ||
+        cmd == NormCmd::Variance) && req_bits->cmd.len <= kDim);
   allowed_req_val_     = bit(req_val == 1 && supported);
   req_rdy              = bit(supported && state_req_rdy_ == 1);
 }

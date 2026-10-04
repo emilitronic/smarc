@@ -36,6 +36,8 @@ void NormRowChunk::update() {
     NormChunk chunk{};
     chunk.slot = u8(id);
     chunk.len  = u16(len);
+    chunk.cmd  = packets.packet[id].cmd.cmd;
+    chunk.mean = progress.mean[id];
     chunk.last = bit(start == 0);
     for (std::size_t lane = 0; lane < len; ++lane) {
       chunk.data[lane] = packets.packet[id].acc_read_resp.data[start + lane];
