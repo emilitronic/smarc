@@ -37,7 +37,11 @@ class StNormCtrl : public Component {
   Input(bit,                normalizer_cmd_rdy);
   Output(AccNormReq,        normalizer_req_bits);
 
-  void update();
+  void updateRequest();
+  void updateHandshake();
+
+ private:
+  Output(u8, selected_bank_);
 };
 
 } // namespace smesh

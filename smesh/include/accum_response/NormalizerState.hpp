@@ -19,7 +19,7 @@ constexpr std::size_t kNormStatsSlots = 2; // two stat slots
 
 // operations carried in input packet
 enum class NormCmd : std::uint8_t {
-  Reset,
+  Reset,      // 
   Sum,
   Mean,
   Variance,

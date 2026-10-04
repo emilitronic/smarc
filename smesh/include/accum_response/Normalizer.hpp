@@ -3,27 +3,33 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
-Accumulator normalization skeleton.
-
-Command and Slot Control (CSC): decides whther input can be accepted and selects stats(id).
-Advances each slot's state and directs its saved row to AccumulaitonLanes, MaxLanes, or output path.
-
-stats(id): 
+ Two-slot accumulator normalization shell. Arithmetic lanes are added separately.
+ Uses NormState to accept packets into two registered stats slots and return 
+ Reset packets.  A slot can accept a new packet in the same cycle its previous
+ output is consumed.  Commands that need arithmetic lanes are backpressured
+ until those lanes are implemented.
 */
-
 #pragma once
 
 #include <cascade/Cascade.hpp>
 
 #include "SmeshPorts.hpp"
+#include "NormalizerState.hpp"
+
+#include <array>
 
 namespace smesh {
+
+struct NormSavedPackets {
+  std::array<AccNormReq, kNormStatsSlots> packet{};
+};
 
 class Normalizer : public Component {
   DECLARE_COMPONENT(Normalizer);
 
  public:
   Normalizer(std::string name, COMPONENT_CTOR);
+  ~Normalizer() override;
 
   Clock(clk);
 
@@ -36,15 +42,26 @@ class Normalizer : public Component {
   Output(AccNormReq, resp_bits);
 
   void updateView();
-  void updateReady();
-  void updateBuffer();
+  void updateAdmission();
+  void updateSlotCmds();
+  void updateEvents();
+  void updateSlots();
   void reset() override;
 
  private:
-  Register(bit,        resp_valid_Q_);
-  Output(bit,          resp_valid_D_);
-  Register(AccNormReq, resp_entry_Q_);
-  Output(AccNormReq,   resp_entry_D_);
+  NormState* state_ = nullptr;
+
+  Output(bit,             allowed_req_val_);
+  Input(bit,              state_req_rdy_);
+  Input(bit,              state_accept_val_);
+  Input(u8,               state_accept_id_);
+  Input(bit,              state_out_val_);
+  Input(u8,               state_out_id_);
+  Output(NormSlotCmds,    slot_cmds_);
+  Output(NormStateEvents, events_);
+
+  Output(NormSavedPackets,   saved_Q_);
+  Register(NormSavedPackets, saved_D_);
 };
 
 } // namespace smesh

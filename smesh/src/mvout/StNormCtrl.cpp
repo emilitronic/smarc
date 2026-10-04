@@ -25,20 +25,16 @@ bool normCmdWritesToMainMemory(std::uint32_t norm_cmd) {
 } // namespace
 
 StNormCtrl::StNormCtrl(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(norm_deq_val,
-                       norm_deq_bits,
-                       accum_read_resp_val,
-                       accum_read_resp_bits,
-                       normalizer_cmd_rdy,
-                       scale_enq_rdy)
-                .writes(norm_deq_rdy,
-                        scale_enq_val,
-                        normalizer_cmd_val,
-                        normalizer_req_bits,
-                        accum_read_resp_rdy);
+  UPDATE(updateRequest).reads(norm_deq_val, norm_deq_bits, accum_read_resp_val,
+                              accum_read_resp_bits, scale_enq_rdy)
+                       .writes(selected_bank_, normalizer_cmd_val, normalizer_req_bits);
+  UPDATE(updateHandshake).reads(norm_deq_val, norm_deq_bits, scale_enq_rdy,
+                                selected_bank_, normalizer_cmd_val, normalizer_req_bits,
+                                normalizer_cmd_rdy)
+                         .writes(norm_deq_rdy, scale_enq_val, accum_read_resp_rdy);
 }
 
-void StNormCtrl::update() {
+void StNormCtrl::updateRequest() {
   // *** Identify the Store metadata from write norm queue head ***
   const auto req         = *norm_deq_bits;
   const auto laddr       = req.laddr;
@@ -61,27 +57,36 @@ void StNormCtrl::update() {
   }
 
   // *** Build Normalizer input ***
-  const bool selected_store = selected_bank < kAccBanks && accum_read_resp_bits[selected_bank]->from_dma != 0; // identifies if resp belongs to Store/DMA path
   const bool selected_valid = selected_bank < kAccBanks; // checks whether a bank was selected
-  const bool selected_fire  = selected_valid && normalizer_cmd_rdy != 0; 
+  selected_bank_ = u8(selected_bank);
 
   // prepare the payload
   AccNormReq normalizer_req{};
   if (selected_valid) {
+    const bool selected_store = accum_read_resp_bits[selected_bank]->from_dma == 1;
     normalizer_req.acc_read_resp = *accum_read_resp_bits[selected_bank];
     normalizer_req.cmd.len       = selected_store ? req.len               : normalizer_req.acc_read_resp.len;
     normalizer_req.cmd.stats_id  = selected_store ? req.acc_norm_stats_id : u16(0);
     normalizer_req.cmd.cmd       = selected_store ? u8(laddr.norm_cmd())  : u8(kNormCmdReset);
   }
+  normalizer_cmd_val  = bit(selected_valid);
+  normalizer_req_bits = normalizer_req;
+}
+
+void StNormCtrl::updateHandshake() {
+  const auto req = *norm_deq_bits;
+  const auto laddr = req.laddr;
+  const bool selected_valid = normalizer_cmd_val == 1;
+  const bool selected_store = selected_valid && normalizer_req_bits->acc_read_resp.from_dma == 1;
+  const bool selected_fire = selected_valid && normalizer_cmd_rdy == 1;
+  const auto selected_bank = static_cast<std::size_t>(static_cast<std::uint8_t>(*selected_bank_));
+  const auto store_bank = laddr.acc_bank();
   // drive the handshakes that transfer the payload to the normalizer, two cases:
   // (1) if Store metadata is garbage or describes a Spad addr, then bypass the normalizer 
   // (2) if Store metadata describes an Accum read, then Store metadata and matching Accum resp move together
   const bool bypass_store = norm_deq_val != 0 && (laddr.is_garbage() || !laddr.is_acc_addr()); // if Spad or garbage data corresponds to this metadata, bypass the Normalizer
   norm_deq_rdy        = bit(bypass_store ? scale_enq_rdy != 0 : selected_store && selected_fire);
   scale_enq_val       = bit(bypass_store || (selected_store && selected_fire && normCmdWritesToMainMemory(laddr.norm_cmd())));
-
-  normalizer_cmd_val  = bit(selected_valid);
-  normalizer_req_bits = normalizer_req;
 
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     accum_read_resp_rdy[bank] = bit(selected_fire && bank == selected_bank);
