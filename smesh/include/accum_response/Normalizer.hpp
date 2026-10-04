@@ -4,6 +4,11 @@
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
 Accumulator normalization skeleton.
+
+Command and Slot Control (CSC): decides whther input can be accepted and selects stats(id).
+Advances each slot's state and directs its saved row to AccumulaitonLanes, MaxLanes, or output path.
+
+stats(id): 
 */
 
 #pragma once

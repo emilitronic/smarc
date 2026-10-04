@@ -53,6 +53,7 @@ add_library(smesh_model
   src/mesh/MeshHull.cpp
   src/mesh/Mesher.cpp
   src/accum_response/Normalizer.cpp
+  src/accum_response/NormalizerState.cpp
   src/SmeshCmdQueues.cpp
   src/legacy/SmeshDevice.cpp
   src/SmeshRS.cpp
