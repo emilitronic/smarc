@@ -3,8 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
- Two-slot accumulator normalization shell with a sum reduction path.
- Reset packets return their saved row. Sum packets update the selected slot's
+ Two-slot accumulator normalization shell with sum and max reduction paths.
+ Reset packets return their saved row. Sum and Max update the selected slot's
  running statistics without producing an output row.
 */
 #pragma once
@@ -21,6 +21,7 @@ namespace smesh {
 
 class NormRowChunk;
 class NormSumLane;
+class NormMaxLane;
 class NormStats;
 
 class Normalizer : public Component {
@@ -51,7 +52,9 @@ class Normalizer : public Component {
  private:
   NormState*    state_    = nullptr;
   NormRowChunk* chunker_  = nullptr;
+  NormRowChunk* max_chunker_ = nullptr;
   NormSumLane*  sum_lane_ = nullptr;
+  NormMaxLane*  max_lane_ = nullptr;
   NormStats*    stats_    = nullptr;
 
   Output(bit,              allowed_req_val_);
@@ -63,6 +66,8 @@ class Normalizer : public Component {
   Input(NormStateRegs,     slot_states_);
   Input(bit,               chunk_val_);
   Input(NormChunk,         chunk_bits_);
+  Input(bit,               max_chunk_val_);
+  Input(NormChunk,         max_chunk_bits_);
   Output(NormSlotCmds,     slot_cmds_);
   Output(NormStateEvents,  events_);
 

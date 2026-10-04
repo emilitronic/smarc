@@ -14,7 +14,7 @@ Accumulates results separately for each stats slot.
 
 namespace smesh {
 
-// Holds each slot's running sum, element count, and remaining row elements.
+// Holds each slot's running sum, maximum, count, and remaining row elements.
 class NormStats : public Component {
   DECLARE_COMPONENT(NormStats);
 
@@ -27,10 +27,14 @@ class NormStats : public Component {
   Input(u8,            accept_id);
   Input(AccNormReq,    req_bits);
   Input(NormStateRegs, slot_states);
-  Input(bit,           chunk_val);
-  Input(NormChunk,     chunk_bits);
+  Input(bit,           sum_chunk_val);
+  Input(NormChunk,     sum_chunk_bits);
+  Input(bit,           max_chunk_val);
+  Input(NormChunk,     max_chunk_bits);
   Input(bit,           sum_val);
   Input(NormSumResult, sum_bits);
+  Input(bit,           max_val);
+  Input(NormMaxResult, max_bits);
 
   Output(NormStatsRegs, view);
 

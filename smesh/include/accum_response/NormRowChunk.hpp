@@ -16,12 +16,12 @@ Selects row chunks
 
 namespace smesh {
 
-// Selects one chunk from a slot currently performing a sum reduction.
+// Selects one chunk from a slot in the requested reduction state (sum or max).
 class NormRowChunk : public Component {
   DECLARE_COMPONENT(NormRowChunk);
 
  public:
-  NormRowChunk(std::string name, std::size_t lanes, COMPONENT_CTOR);
+  NormRowChunk(std::string name, std::size_t lanes, NormFsmState target_state, COMPONENT_CTOR);
 
   Clock(clk);
 
@@ -37,6 +37,7 @@ class NormRowChunk : public Component {
 
  private:
   std::size_t lanes_;
+  NormFsmState target_state_;
 };
 
 } // namespace smesh

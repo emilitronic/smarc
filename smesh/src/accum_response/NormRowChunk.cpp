@@ -10,9 +10,11 @@
 
 namespace smesh {
 
-NormRowChunk::NormRowChunk(std::string /*name*/, std::size_t lanes, IMPL_CTOR)
-    : lanes_(lanes) {
+NormRowChunk::NormRowChunk(std::string /*name*/, std::size_t lanes,
+                           NormFsmState target_state, IMPL_CTOR)
+    : lanes_(lanes), target_state_(target_state) {
   assert(lanes_ > 0 && lanes_ <= kDim && (lanes_ & (lanes_ - 1)) == 0);
+  assert(target_state_ == NormFsmState::GetSum || target_state_ == NormFsmState::GetMax);
   UPDATE(update).reads(saved, slot_states, stats).writes(chunk_val, chunk_bits);
 }
 
@@ -26,7 +28,7 @@ void NormRowChunk::update() {
   for (std::size_t id = 0; id < kNormStatsSlots; ++id) {
     const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
     const auto left  = static_cast<std::size_t>(static_cast<std::uint16_t>(progress.elems_left[id]));
-    if (state != NormFsmState::GetSum || left == 0) continue;
+    if (state != target_state_ || left == 0) continue;
 
     const auto start = ((left - 1) / lanes_) * lanes_;
     const auto len   = left - start;
