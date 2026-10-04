@@ -2,7 +2,9 @@
 // smesh/include/accum_response/NormMaxLane.hpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 4 2026
-
+/*
+Reduces each chunk to a single signed maximum value.
+*/
 #pragma once
 
 #include <cascade/Cascade.hpp>

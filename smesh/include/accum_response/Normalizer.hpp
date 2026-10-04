@@ -3,9 +3,9 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
- Two-slot accumulator normalization shell with sum and max reduction paths.
- Reset packets return their saved row. Sum and Max update the selected slot's
- running statistics without producing an output row.
+ Two-slot accumulator normalization shell with sum, max, and mean paths.
+ Reset returns the saved row and current statistics. Sum, Max, and Mean
+ update the selected slot without producing an output row.
 */
 #pragma once
 
@@ -22,6 +22,7 @@ namespace smesh {
 class NormRowChunk;
 class NormSumLane;
 class NormMaxLane;
+class NormMeanDivide;
 class NormStats;
 
 class Normalizer : public Component {
@@ -33,13 +34,13 @@ class Normalizer : public Component {
 
   Clock(clk);
 
-  Input(bit,         req_val);
-  Output(bit,        req_rdy);
-  Input(AccNormReq,  req_bits);
+  Input(bit,            req_val);
+  Output(bit,           req_rdy);
+  Input(AccNormReq,     req_bits);
 
-  Output(bit,        resp_val);
-  Input(bit,         resp_rdy);
-  Output(AccNormReq, resp_bits);
+  Output(bit,           resp_val);
+  Input(bit,            resp_rdy);
+  Output(AccNormReq,    resp_bits);
   Output(NormStatsRegs, stats_view);
 
   void updateView();
@@ -50,12 +51,13 @@ class Normalizer : public Component {
   void reset() override;
 
  private:
-  NormState*    state_    = nullptr;
-  NormRowChunk* chunker_  = nullptr;
-  NormRowChunk* max_chunker_ = nullptr;
-  NormSumLane*  sum_lane_ = nullptr;
-  NormMaxLane*  max_lane_ = nullptr;
-  NormStats*    stats_    = nullptr;
+  NormState*      state_       = nullptr;
+  NormRowChunk*   chunker_     = nullptr;
+  NormRowChunk*   max_chunker_ = nullptr;
+  NormSumLane*    sum_lane_    = nullptr;
+  NormMaxLane*    max_lane_    = nullptr;
+  NormMeanDivide* mean_divide_ = nullptr;
+  NormStats*      stats_       = nullptr;
 
   Output(bit,              allowed_req_val_);
   Input(bit,               state_req_rdy_);
@@ -68,6 +70,10 @@ class Normalizer : public Component {
   Input(NormChunk,         chunk_bits_);
   Input(bit,               max_chunk_val_);
   Input(NormChunk,         max_chunk_bits_);
+  Input(bit,               mean_started_);
+  Input(u8,                mean_start_id_);
+  Input(bit,               mean_finished_);
+  Input(u8,                mean_finish_id_);
   Output(NormSlotCmds,     slot_cmds_);
   Output(NormStateEvents,  events_);
 

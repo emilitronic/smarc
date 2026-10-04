@@ -184,6 +184,7 @@ struct AccNormCmd {
 struct AccNormReq {
   AccumReadResp acc_read_resp{};
   AccNormCmd cmd{};
+  Acc mean = 0; // Normalizer supplies the selected slot's mean on output
 };
 // accumulator data entering the accumulator scale stage
 struct AccScaleReq {

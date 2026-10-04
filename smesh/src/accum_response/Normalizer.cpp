@@ -2,12 +2,13 @@
 // smesh/src/accum_response/Normalizer.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
-// Stores packets by stats slot and processes Reset, Sum, and Max commands.
+// Stores packets by stats slot and processes Reset, Sum, Max, and Mean commands.
 
 #include "Normalizer.hpp"
 #include "NormRowChunk.hpp"
 #include "NormSumLane.hpp"
 #include "NormMaxLane.hpp"
+#include "NormMeanDivide.hpp"
 #include "NormStats.hpp"
 
 #include <cstdint>
@@ -15,17 +16,19 @@
 namespace smesh {
 
 Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR) {
-  state_ = new NormState("State");
-  chunker_ = new NormRowChunk("SumChunk", reduce_lanes, NormFsmState::GetSum);
+  state_       = new NormState("State");
+  chunker_     = new NormRowChunk("SumChunk", reduce_lanes, NormFsmState::GetSum);
   max_chunker_ = new NormRowChunk("MaxChunk", reduce_lanes, NormFsmState::GetMax);
-  sum_lane_ = new NormSumLane("SumLane");
-  max_lane_ = new NormMaxLane("MaxLane");
-  stats_ = new NormStats("Stats");
+  sum_lane_    = new NormSumLane("SumLane");
+  max_lane_    = new NormMaxLane("MaxLane");
+  mean_divide_ = new NormMeanDivide("MeanDivide");
+  stats_       = new NormStats("Stats");
   state_->clk       << clk;
   chunker_->clk     << clk;
   max_chunker_->clk << clk;
   sum_lane_->clk    << clk;
   max_lane_->clk    << clk;
+  mean_divide_->clk << clk;
   stats_->clk       << clk;
 
   state_->req_val   << allowed_req_val_;
@@ -57,6 +60,13 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   max_lane_->chunk_val  << max_chunker_->chunk_val;
   max_lane_->chunk_bits << max_chunker_->chunk_bits;
 
+  mean_divide_->slot_states << state_->slot_states;
+  mean_divide_->stats       << stats_->view;
+  mean_started_             << mean_divide_->started;
+  mean_start_id_            << mean_divide_->start_id;
+  mean_finished_            << mean_divide_->finished;
+  mean_finish_id_           << mean_divide_->finish_id;
+
   stats_->accept_val     << state_->accept_val;
   stats_->accept_id      << state_->accept_id;
   stats_->req_bits       << req_bits;
@@ -69,6 +79,11 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   stats_->sum_bits       << sum_lane_->result_bits;
   stats_->max_val        << max_lane_->result_val;
   stats_->max_bits       << max_lane_->result_bits;
+  stats_->mean_started   << mean_divide_->started;
+  stats_->mean_start_id  << mean_divide_->start_id;
+  stats_->mean_finished  << mean_divide_->finished;
+  stats_->mean_finish_id << mean_divide_->finish_id;
+  stats_->mean_result    << mean_divide_->result;
   stats_view             << stats_->view;
 
   saved_Q_ <= saved_D_;
@@ -79,10 +94,12 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   // Gives NormState saved cmd for each slot                   
   UPDATE(updateSlotCmds).reads(saved_Q_).writes(slot_cmds_);
   UPDATE(updateEvents).reads(slot_states_, stats_view, chunk_val_, chunk_bits_,
-                             max_chunk_val_, max_chunk_bits_)
+                             max_chunk_val_, max_chunk_bits_, mean_started_,
+                             mean_start_id_)
+                      .reads(mean_finished_, mean_finish_id_)
                       .writes(events_);
   // Uses NormState's selected output slot to present slot's saved packed on resp_bits
-  UPDATE(updateView).reads(saved_Q_, state_out_val_, state_out_id_)
+  UPDATE(updateView).reads(saved_Q_, state_out_val_, state_out_id_, stats_view)
                     .writes(resp_val, resp_bits);
   // Saves accepted packet into slot selected by accept_id.  Saved value becomes current at next clock edge.                  
   UPDATE(updateSlots).reads(saved_Q_, req_bits, state_accept_val_, state_accept_id_)
@@ -91,6 +108,7 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
 
 Normalizer::~Normalizer() {
   delete stats_;
+  delete mean_divide_;
   delete max_lane_;
   delete sum_lane_;
   delete max_chunker_;
@@ -100,7 +118,8 @@ Normalizer::~Normalizer() {
 
 void Normalizer::updateAdmission() {
   const auto cmd       = static_cast<NormCmd>(static_cast<std::uint8_t>(req_bits->cmd.cmd));
-  const bool supported = cmd == NormCmd::Reset || ((cmd == NormCmd::Sum || cmd == NormCmd::Max) && req_bits->cmd.len <= kDim);
+  const bool supported = cmd == NormCmd::Reset ||
+      ((cmd == NormCmd::Sum || cmd == NormCmd::Max || cmd == NormCmd::Mean) && req_bits->cmd.len <= kDim);
   allowed_req_val_     = bit(req_val == 1 && supported);
   req_rdy              = bit(supported && state_req_rdy_ == 1);
 }
@@ -130,6 +149,10 @@ void Normalizer::updateEvents() {
       const bool empty = progress.elems_left[id] == 0;
       const bool last_chunk = max_chunk_val_ == 1 && max_chunk.last == 1 && max_chunk.slot == id;
       next.slot[id].max_last_issued = bit(empty || last_chunk);
+    } else if (state == NormFsmState::GetMean) {
+      next.slot[id].divide_started = bit(mean_started_ == 1 && mean_start_id_ == id);
+    } else if (state == NormFsmState::WaitingForMean) {
+      next.slot[id].divide_finished = bit(mean_finished_ == 1 && mean_finish_id_ == id);
     }
   }
   events_ = next;
@@ -139,7 +162,12 @@ void Normalizer::updateView() {
   const auto id    = static_cast<std::size_t>(static_cast<std::uint8_t>(*state_out_id_));
   const bool valid = state_out_val_ == 1 && id < kNormStatsSlots;
   resp_val         = bit(valid);
-  resp_bits        = valid ? saved_Q_->packet[id] : AccNormReq{};
+  AccNormReq response{};
+  if (valid) {
+    response = saved_Q_->packet[id];
+    response.mean = stats_view->mean[id];
+  }
+  resp_bits = response;
 }
 
 void Normalizer::updateSlots() {
@@ -170,6 +198,10 @@ void Normalizer::reset() {
   chunk_bits_.reset(NormChunk{});
   max_chunk_val_.reset(0);
   max_chunk_bits_.reset(NormChunk{});
+  mean_started_.reset(0);
+  mean_start_id_.reset(0);
+  mean_finished_.reset(0);
+  mean_finish_id_.reset(0);
   req_rdy.reset(0);
   resp_val.reset(0);
   resp_bits.reset(AccNormReq{});

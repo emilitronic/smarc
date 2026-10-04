@@ -35,6 +35,11 @@ class NormStats : public Component {
   Input(NormSumResult, sum_bits);
   Input(bit,           max_val);
   Input(NormMaxResult, max_bits);
+  Input(bit,           mean_started);
+  Input(u8,            mean_start_id);
+  Input(bit,           mean_finished);
+  Input(u8,            mean_finish_id);
+  Input(Acc,           mean_result);
 
   Output(NormStatsRegs, view);
 

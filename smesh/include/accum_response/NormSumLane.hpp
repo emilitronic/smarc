@@ -3,7 +3,10 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 4 2026
 /*
-Reduces each chunk
+Reduces each chunk to a 32-bit partial sum.  
+Each chunk is selected from a slot currently performing a sum reduction.  
+The chunk is reduced to a single 32-bit sum, which is then sent to the 
+NormStats component for accumulation into the slot's running sum.
 */
 #pragma once
 

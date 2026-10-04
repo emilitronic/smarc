@@ -20,6 +20,7 @@ struct NormStatsRegs {
   std::array<u16, kNormStatsSlots> elems_left{};
   std::array<u16, kNormStatsSlots> count{};
   std::array<u32, kNormStatsSlots> sum{};
+  std::array<Acc, kNormStatsSlots> mean{};
   std::array<Acc, kNormStatsSlots> running_max{
       std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
   std::array<Acc, kNormStatsSlots> max{
@@ -41,6 +42,12 @@ struct NormSumResult {
 struct NormMaxResult {
   u8 slot = 0;
   Acc max = std::numeric_limits<Acc>::min();
+};
+
+struct NormMeanPending {
+  bit valid = 0;
+  u8  slot  = 0;
+  Acc value = 0;
 };
 
 } // namespace smesh
