@@ -54,6 +54,9 @@ add_library(smesh_model
   src/mesh/Mesher.cpp
   src/accum_response/Normalizer.cpp
   src/accum_response/NormalizerState.cpp
+  src/accum_response/NormRowChunk.cpp
+  src/accum_response/NormSumLane.cpp
+  src/accum_response/NormStats.cpp
   src/SmeshCmdQueues.cpp
   src/legacy/SmeshDevice.cpp
   src/SmeshRS.cpp

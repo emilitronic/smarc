@@ -2,15 +2,26 @@
 // smesh/src/accum_response/Normalizer.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
-// Stores accepted accumulator packets by stats slot and returns Reset packets.
+// Stores packets by stats slot and processes Reset and Sum commands.
 
 #include "Normalizer.hpp"
+#include "NormRowChunk.hpp"
+#include "NormSumLane.hpp"
+#include "NormStats.hpp"
+
+#include <cstdint>
 
 namespace smesh {
 
-Normalizer::Normalizer(std::string /*name*/, IMPL_CTOR) {
+Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR) {
   state_ = new NormState("State");
+  chunker_ = new NormRowChunk("RowChunk", reduce_lanes);
+  sum_lane_ = new NormSumLane("SumLane");
+  stats_ = new NormStats("Stats");
   state_->clk       << clk;
+  chunker_->clk     << clk;
+  sum_lane_->clk    << clk;
+  stats_->clk       << clk;
 
   state_->req_val   << allowed_req_val_;
   state_->req_bits  << req_bits;
@@ -22,6 +33,26 @@ Normalizer::Normalizer(std::string /*name*/, IMPL_CTOR) {
   state_accept_id_  << state_->accept_id;
   state_out_val_    << state_->out_val;
   state_out_id_     << state_->out_id;
+  slot_states_      << state_->slot_states;
+
+  chunker_->saved       << saved_Q_;
+  chunker_->slot_states << state_->slot_states;
+  chunker_->stats       << stats_->view;
+  chunk_val_            << chunker_->chunk_val;
+  chunk_bits_           << chunker_->chunk_bits;
+
+  sum_lane_->chunk_val  << chunker_->chunk_val;
+  sum_lane_->chunk_bits << chunker_->chunk_bits;
+
+  stats_->accept_val  << state_->accept_val;
+  stats_->accept_id   << state_->accept_id;
+  stats_->req_bits    << req_bits;
+  stats_->slot_states << state_->slot_states;
+  stats_->chunk_val   << chunker_->chunk_val;
+  stats_->chunk_bits  << chunker_->chunk_bits;
+  stats_->sum_val     << sum_lane_->result_val;
+  stats_->sum_bits    << sum_lane_->result_bits;
+  stats_view          << stats_->view;
 
   saved_Q_ <= saved_D_;
 
@@ -30,8 +61,8 @@ Normalizer::Normalizer(std::string /*name*/, IMPL_CTOR) {
                          .writes(allowed_req_val_, req_rdy);
   // Gives NormState saved cmd for each slot                   
   UPDATE(updateSlotCmds).reads(saved_Q_).writes(slot_cmds_);
-  // 
-  UPDATE(updateEvents).writes(events_);
+  UPDATE(updateEvents).reads(slot_states_, stats_view, chunk_val_, chunk_bits_)
+                      .writes(events_);
   // Uses NormState's selected output slot to present slot's saved packed on resp_bits
   UPDATE(updateView).reads(saved_Q_, state_out_val_, state_out_id_)
                     .writes(resp_val, resp_bits);
@@ -41,11 +72,16 @@ Normalizer::Normalizer(std::string /*name*/, IMPL_CTOR) {
 }
 
 Normalizer::~Normalizer() {
+  delete stats_;
+  delete sum_lane_;
+  delete chunker_;
   delete state_;
 }
 
 void Normalizer::updateAdmission() {
-  const bool supported = req_bits->cmd.cmd == static_cast<std::uint8_t>(NormCmd::Reset);
+  const auto cmd = static_cast<NormCmd>(static_cast<std::uint8_t>(req_bits->cmd.cmd));
+  const bool supported = cmd == NormCmd::Reset ||
+      (cmd == NormCmd::Sum && req_bits->cmd.len <= kDim);
   allowed_req_val_     = bit(req_val == 1 && supported);
   req_rdy              = bit(supported && state_req_rdy_ == 1);
 }
@@ -60,7 +96,19 @@ void Normalizer::updateSlotCmds() {
 }
 
 void Normalizer::updateEvents() {
-  events_ = NormStateEvents{};
+  NormStateEvents next{};
+  const auto states   = *slot_states_;
+  const auto progress = *stats_view;
+  const auto chunk    = *chunk_bits_;
+  for (std::size_t id = 0; id < kNormStatsSlots; ++id) {
+    const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+    if (state == NormFsmState::GetSum) {
+      const bool empty      = progress.elems_left[id] == 0;
+      const bool last_chunk = chunk_val_ == 1 && chunk.last == 1 && chunk.slot == id;
+      next.slot[id].sum_last_issued = bit(empty || last_chunk);
+    }
+  }
+  events_ = next;
 }
 
 void Normalizer::updateView() {
@@ -93,9 +141,13 @@ void Normalizer::reset() {
   state_out_id_.reset(0);
   slot_cmds_.reset(NormSlotCmds{});
   events_.reset(NormStateEvents{});
+  slot_states_.reset(NormStateRegs{});
+  chunk_val_.reset(0);
+  chunk_bits_.reset(NormChunk{});
   req_rdy.reset(0);
   resp_val.reset(0);
   resp_bits.reset(AccNormReq{});
+  stats_view.reset(NormStatsRegs{});
 }
 
 } // namespace smesh
