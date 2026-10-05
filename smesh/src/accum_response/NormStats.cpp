@@ -19,7 +19,8 @@ NormStats::NormStats(std::string /*name*/, IMPL_CTOR) {
                             sum_chunk_val, sum_chunk_bits, max_chunk_val)
                      .reads(max_chunk_bits, sum_val, sum_bits, max_val, max_bits,
                             divide_started, divide_start_id, divide_finished)
-                     .reads(divide_finish_id, divide_result)
+                     .reads(divide_finish_id, divide_result, sqrt_finished,
+                            sqrt_finish_id, sqrt_result)
                      .writes(regs_D_);
 }
 
@@ -78,6 +79,15 @@ void NormStats::updateState() {
     assert(state == NormFsmState::WaitingForMean || state == NormFsmState::WaitingForVariance);
     if (state == NormFsmState::WaitingForMean) next.mean[id] = *divide_result;
     else next.variance[id] = *divide_result;
+    changed = true;
+  }
+
+  if (sqrt_finished == 1) {
+    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*sqrt_finish_id));
+    assert(id < kNormStatsSlots);
+    const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+    assert(state == NormFsmState::WaitingForStddev);
+    next.stddev[id] = sqrt_result == 0 ? Acc{1} : *sqrt_result;
     changed = true;
   }
 

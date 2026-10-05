@@ -22,6 +22,7 @@ struct NormStatsRegs {
   std::array<u32, kNormStatsSlots> sum{};
   std::array<Acc, kNormStatsSlots> mean{};
   std::array<Acc, kNormStatsSlots> variance{};
+  std::array<Acc, kNormStatsSlots> stddev{};
   std::array<Acc, kNormStatsSlots> running_max{std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
   std::array<Acc, kNormStatsSlots> max{std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
 };
@@ -48,6 +49,12 @@ struct NormMaxResult {
 };
 
 struct NormMeanPending {
+  bit valid = 0;
+  u8  slot  = 0;
+  Acc value = 0;
+};
+
+struct NormSqrtPending {
   bit valid = 0;
   u8  slot  = 0;
   Acc value = 0;

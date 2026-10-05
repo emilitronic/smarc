@@ -40,6 +40,9 @@ class NormStats : public Component {
   Input(bit,           divide_finished);
   Input(u8,            divide_finish_id);
   Input(Acc,           divide_result);
+  Input(bit,           sqrt_finished);
+  Input(u8,            sqrt_finish_id);
+  Input(Acc,           sqrt_result);
 
   Output(NormStatsRegs, view);
 
