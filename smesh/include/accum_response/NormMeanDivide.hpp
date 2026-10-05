@@ -3,9 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 4 2026
 /*
-Accumulates Sum and Mean row chunks, divides the selected slot's signed sum by 
-its count with truncation toward zero, and carries the stored mean on a later
-Reset response.
+Divides the selected slot's signed sum by its count for Mean or GetVariance.
+The result is truncated toward zero.
 
 TODO: Currently models a one-cycle delay, not realistic multi-cycle divide.
 */
@@ -27,7 +26,7 @@ class NormMeanDivide : public Component {
 
   Clock(clk);
 
-  Input(NormStateRegs, slot_states);
+  Input(NormStateRegs, slot_states); // current FSM state for each stats slot
   Input(NormStatsRegs, stats);
 
   Output(bit, started);

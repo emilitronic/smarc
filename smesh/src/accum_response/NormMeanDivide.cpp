@@ -26,11 +26,14 @@ void NormMeanDivide::updateStart() {
     return;
   }
 
-  const auto states = *slot_states;
+  const auto states = *slot_states; // encoding of FSM state for each slot
   const auto values = *stats;
   for (std::size_t id = 0; id < kNormStatsSlots; ++id) {
-    if (static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id])) != NormFsmState::GetMean) continue;
-    const auto count = static_cast<std::uint16_t>(values.count[id]);
+    const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+
+    // you need to divide for mean or variance, but not for sum or max
+    if (state != NormFsmState::GetMean && state != NormFsmState::GetVariance) continue;
+    const auto count       = static_cast<std::uint16_t>(values.count[id]);
     assert(count > 0);
     const auto encoded_sum = static_cast<std::uint32_t>(values.sum[id]);
     Acc signed_sum         = 0;

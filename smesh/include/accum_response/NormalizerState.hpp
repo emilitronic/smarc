@@ -52,7 +52,7 @@ enum class NormFsmState : std::uint8_t {
 };
 
 struct NormStateRegs {
-  std::array<u8, kNormStatsSlots> state{}; // holds FSM state fore each of two slots
+  std::array<u8, kNormStatsSlots> state{}; // holds FSM state for each of two slots
 };
 
 struct NormSlotCmds {

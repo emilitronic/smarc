@@ -18,8 +18,8 @@ NormStats::NormStats(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateState).reads(regs_Q_, accept_val, accept_id, req_bits, slot_states,
                             sum_chunk_val, sum_chunk_bits, max_chunk_val)
                      .reads(max_chunk_bits, sum_val, sum_bits, max_val, max_bits,
-                            mean_started, mean_start_id, mean_finished)
-                     .reads(mean_finish_id, mean_result)
+                            divide_started, divide_start_id, divide_finished)
+                     .reads(divide_finish_id, divide_result)
                      .writes(regs_D_);
 }
 
@@ -61,8 +61,8 @@ void NormStats::updateState() {
     changed = true;
   }
 
-  if (mean_started == 1) {
-    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*mean_start_id));
+  if (divide_started == 1) {
+    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*divide_start_id));
     assert(id < kNormStatsSlots);
     next.sum[id] = 0;
     next.count[id] = 0;
@@ -70,14 +70,17 @@ void NormStats::updateState() {
     changed = true;
   }
 
-  if (mean_finished == 1) {
-    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*mean_finish_id));
+  const auto states = *slot_states;
+  if (divide_finished == 1) {
+    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*divide_finish_id));
     assert(id < kNormStatsSlots);
-    next.mean[id] = *mean_result;
+    const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+    assert(state == NormFsmState::WaitingForMean || state == NormFsmState::WaitingForVariance);
+    if (state == NormFsmState::WaitingForMean) next.mean[id] = *divide_result;
+    else next.variance[id] = *divide_result;
     changed = true;
   }
 
-  const auto states = *slot_states;
   for (std::size_t id = 0; id < kNormStatsSlots; ++id) {
     const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
     if (state == NormFsmState::Output) {

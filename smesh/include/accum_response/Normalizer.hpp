@@ -70,10 +70,10 @@ class Normalizer : public Component {
   Input(NormChunk,         chunk_bits_);
   Input(bit,               max_chunk_val_);
   Input(NormChunk,         max_chunk_bits_);
-  Input(bit,               mean_started_);
-  Input(u8,                mean_start_id_);
-  Input(bit,               mean_finished_);
-  Input(u8,                mean_finish_id_);
+  Input(bit,               divide_started_);
+  Input(u8,                divide_start_id_);
+  Input(bit,               divide_finished_);
+  Input(u8,                divide_finish_id_);
   Output(NormSlotCmds,     slot_cmds_);
   Output(NormStateEvents,  events_);
 

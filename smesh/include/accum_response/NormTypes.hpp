@@ -21,10 +21,9 @@ struct NormStatsRegs {
   std::array<u16, kNormStatsSlots> count{};
   std::array<u32, kNormStatsSlots> sum{};
   std::array<Acc, kNormStatsSlots> mean{};
-  std::array<Acc, kNormStatsSlots> running_max{
-      std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
-  std::array<Acc, kNormStatsSlots> max{
-      std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
+  std::array<Acc, kNormStatsSlots> variance{};
+  std::array<Acc, kNormStatsSlots> running_max{std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
+  std::array<Acc, kNormStatsSlots> max{std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
 };
 
 // bundle of fields carrying selected piece of row from NormRowChunk to NormSumLane or NormMaxLane

@@ -62,10 +62,10 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
 
   mean_divide_->slot_states << state_->slot_states;
   mean_divide_->stats       << stats_->view;
-  mean_started_             << mean_divide_->started;
-  mean_start_id_            << mean_divide_->start_id;
-  mean_finished_            << mean_divide_->finished;
-  mean_finish_id_           << mean_divide_->finish_id;
+  divide_started_           << mean_divide_->started;
+  divide_start_id_          << mean_divide_->start_id;
+  divide_finished_          << mean_divide_->finished;
+  divide_finish_id_         << mean_divide_->finish_id;
 
   stats_->accept_val     << state_->accept_val;
   stats_->accept_id      << state_->accept_id;
@@ -79,11 +79,11 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   stats_->sum_bits       << sum_lane_->result_bits;
   stats_->max_val        << max_lane_->result_val;
   stats_->max_bits       << max_lane_->result_bits;
-  stats_->mean_started   << mean_divide_->started;
-  stats_->mean_start_id  << mean_divide_->start_id;
-  stats_->mean_finished  << mean_divide_->finished;
-  stats_->mean_finish_id << mean_divide_->finish_id;
-  stats_->mean_result    << mean_divide_->result;
+  stats_->divide_started   << mean_divide_->started;
+  stats_->divide_start_id  << mean_divide_->start_id;
+  stats_->divide_finished  << mean_divide_->finished;
+  stats_->divide_finish_id << mean_divide_->finish_id;
+  stats_->divide_result    << mean_divide_->result;
   stats_view             << stats_->view;
 
   saved_Q_ <= saved_D_;
@@ -94,9 +94,9 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   // Gives NormState saved cmd for each slot                   
   UPDATE(updateSlotCmds).reads(saved_Q_).writes(slot_cmds_);
   UPDATE(updateEvents).reads(slot_states_, stats_view, chunk_val_, chunk_bits_,
-                             max_chunk_val_, max_chunk_bits_, mean_started_,
-                             mean_start_id_)
-                      .reads(mean_finished_, mean_finish_id_)
+                             max_chunk_val_, max_chunk_bits_, divide_started_,
+                             divide_start_id_)
+                      .reads(divide_finished_, divide_finish_id_)
                       .writes(events_);
   // Uses NormState's selected output slot to present slot's saved packed on resp_bits
   UPDATE(updateView).reads(saved_Q_, state_out_val_, state_out_id_, stats_view)
@@ -150,10 +150,10 @@ void Normalizer::updateEvents() {
       const bool empty = progress.elems_left[id] == 0;
       const bool last_chunk = max_chunk_val_ == 1 && max_chunk.last == 1 && max_chunk.slot == id;
       next.slot[id].max_last_issued = bit(empty || last_chunk);
-    } else if (state == NormFsmState::GetMean) {
-      next.slot[id].divide_started = bit(mean_started_ == 1 && mean_start_id_ == id);
-    } else if (state == NormFsmState::WaitingForMean) {
-      next.slot[id].divide_finished = bit(mean_finished_ == 1 && mean_finish_id_ == id);
+    } else if (state == NormFsmState::GetMean || state == NormFsmState::GetVariance) {
+      next.slot[id].divide_started = bit(divide_started_ == 1 && divide_start_id_ == id);
+    } else if (state == NormFsmState::WaitingForMean || state == NormFsmState::WaitingForVariance) {
+      next.slot[id].divide_finished = bit(divide_finished_ == 1 && divide_finish_id_ == id);
     }
   }
   events_ = next;
@@ -199,10 +199,10 @@ void Normalizer::reset() {
   chunk_bits_.reset(NormChunk{});
   max_chunk_val_.reset(0);
   max_chunk_bits_.reset(NormChunk{});
-  mean_started_.reset(0);
-  mean_start_id_.reset(0);
-  mean_finished_.reset(0);
-  mean_finish_id_.reset(0);
+  divide_started_.reset(0);
+  divide_start_id_.reset(0);
+  divide_finished_.reset(0);
+  divide_finish_id_.reset(0);
   req_rdy.reset(0);
   resp_val.reset(0);
   resp_bits.reset(AccNormReq{});
