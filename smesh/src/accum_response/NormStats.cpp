@@ -97,8 +97,9 @@ void NormStats::updateState() {
     const auto id       = static_cast<std::size_t>(static_cast<std::uint8_t>(*reciprocal_finish_id));
     assert(id < kNormStatsSlots);
     const auto state    = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
-    assert(state == NormFsmState::WaitingForInvStddev);
-    next.inv_stddev[id] = *reciprocal_result;
+    assert(state == NormFsmState::WaitingForInvStddev || state == NormFsmState::WaitingForInvSumExp);
+    if (state == NormFsmState::WaitingForInvSumExp) next.inv_sum_exp[id] = *reciprocal_result;
+    else next.inv_stddev[id] = *reciprocal_result;
     changed = true;
   }
 
@@ -106,8 +107,9 @@ void NormStats::updateState() {
     const auto id       = static_cast<std::size_t>(static_cast<std::uint8_t>(*scale_finish_id));
     assert(id < kNormStatsSlots);
     const auto state    = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
-    assert(state == NormFsmState::WaitingForScaledInvStddev);
-    next.inv_stddev[id] = *scale_result;
+    assert(state == NormFsmState::WaitingForScaledInvStddev || state == NormFsmState::WaitingForScaledInvSumExp);
+    if (state == NormFsmState::WaitingForScaledInvSumExp) next.inv_sum_exp[id] = *scale_result;
+    else next.inv_stddev[id] = *scale_result;
     changed = true;
   }
 
@@ -130,7 +132,8 @@ void NormStats::updateState() {
       next.elems_left[id] = 0;
     } else if (cmd == NormCmd::Sum || cmd == NormCmd::Max ||
                cmd == NormCmd::Mean || cmd == NormCmd::Variance ||
-               cmd == NormCmd::InvStddev || cmd == NormCmd::SumExp) {
+               cmd == NormCmd::InvStddev || cmd == NormCmd::SumExp ||
+               cmd == NormCmd::InvSumExp) {
       const auto len      = static_cast<std::uint16_t>(req.cmd.len);
       next.count[id]      = u16(static_cast<std::uint16_t>(next.count[id]) + len);
       next.elems_left[id] = u16(len);

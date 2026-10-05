@@ -167,10 +167,12 @@ void Normalizer::updateAdmission() {
   const auto cmd       = static_cast<NormCmd>(static_cast<std::uint8_t>(req_bits->cmd.cmd));
   const bool row_cmd = cmd == NormCmd::Sum || cmd == NormCmd::Max ||
                        cmd == NormCmd::Mean || cmd == NormCmd::Variance ||
-                       cmd == NormCmd::InvStddev || cmd == NormCmd::SumExp;
+                       cmd == NormCmd::InvStddev || cmd == NormCmd::SumExp ||
+                       cmd == NormCmd::InvSumExp;
   const bool valid_len = req_bits->cmd.len <= kDim &&
                          (req_bits->cmd.len > 0 ||
-                          (cmd != NormCmd::InvStddev && cmd != NormCmd::SumExp));
+                          (cmd != NormCmd::InvStddev && cmd != NormCmd::SumExp &&
+                           cmd != NormCmd::InvSumExp));
   const bool supported = cmd == NormCmd::Reset || (row_cmd && valid_len);
   allowed_req_val_     = bit(req_val == 1 && supported);
   req_rdy              = bit(supported && state_req_rdy_ == 1);
@@ -209,13 +211,15 @@ void Normalizer::updateEvents() {
       next.slot[id].sqrt_started = bit(sqrt_started_ == 1 && sqrt_start_id_ == id);
     } else if (state == NormFsmState::WaitingForStddev) {
       next.slot[id].sqrt_finished = bit(sqrt_finished_ == 1 && sqrt_finish_id_ == id);
-    } else if (state == NormFsmState::GetInvStddev) {
+    } else if (state == NormFsmState::GetInvStddev || state == NormFsmState::GetInvSumExp) {
       next.slot[id].reciprocal_started = bit(reciprocal_started_ == 1 && reciprocal_start_id_ == id);
-    } else if (state == NormFsmState::WaitingForInvStddev) {
+      next.slot[id].exp_divide_started = next.slot[id].reciprocal_started;
+    } else if (state == NormFsmState::WaitingForInvStddev || state == NormFsmState::WaitingForInvSumExp) {
       next.slot[id].reciprocal_finished = bit(reciprocal_finished_ == 1 && reciprocal_finish_id_ == id);
-    } else if (state == NormFsmState::GetScaledInvStddev) {
+      next.slot[id].exp_divide_finished = next.slot[id].reciprocal_finished;
+    } else if (state == NormFsmState::GetScaledInvStddev || state == NormFsmState::GetScaledInvSumExp) {
       next.slot[id].scale_started = bit(scale_started_ == 1 && scale_start_id_ == id);
-    } else if (state == NormFsmState::WaitingForScaledInvStddev) {
+    } else if (state == NormFsmState::WaitingForScaledInvStddev || state == NormFsmState::WaitingForScaledInvSumExp) {
       next.slot[id].scale_finished = bit(scale_finished_ == 1 && scale_finish_id_ == id);
     }
   }
@@ -231,6 +235,7 @@ void Normalizer::updateView() {
     response = saved_Q_->packet[id];
     response.mean = stats_view->mean[id];
     response.inv_stddev = stats_view->inv_stddev[id];
+    response.inv_sum_exp = stats_view->inv_sum_exp[id];
   }
   resp_bits = response;
 }

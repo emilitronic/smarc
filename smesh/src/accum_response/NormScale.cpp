@@ -49,8 +49,8 @@ void NormScale::updateStart() {
   const auto packets = *saved;
   for (std::size_t id = 0; id < kNormStatsSlots; ++id) {
     const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
-    if (state != NormFsmState::GetScaledInvStddev) continue;
-    const auto factor = fromBits(values.inv_stddev[id]);
+    if (state != NormFsmState::GetScaledInvStddev && state != NormFsmState::GetScaledInvSumExp) continue;
+    const auto factor = fromBits(state == NormFsmState::GetScaledInvSumExp ? values.inv_sum_exp[id] : values.inv_stddev[id]);
     const auto scale  = fromBits(packets.packet[id].acc_read_resp.scale);
     pending_D_        = NormScalePending{1, u8(id), toBits(factor * scale)};
     started           = 1;

@@ -3,8 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 4 2026
 /*
-Scales the inv_stddev statistic.  Multiply by command's scale factor and save the result in the selected slot.
-scaled_inv_stddev = (1 / stddev) * scale
+Scales inv_stddev or inv_sum_exp using the saved command's scale factor.
 */
 
 #pragma once
@@ -15,7 +14,7 @@ scaled_inv_stddev = (1 / stddev) * scale
 
 namespace smesh {
 
-// Multiplies a slot's reciprocal by its saved binary32 scale; result takes one cycle.
+// Multiplies a slot's selected reciprocal by its saved binary32 scale; result takes one cycle.
 class NormScale : public Component {
   DECLARE_COMPONENT(NormScale);
 

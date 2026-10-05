@@ -3,8 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 4 2026
 /*
-Computes 1/stddev, save the binary32 result in the selected stats slot, 
-and signals the FSM whet it finishes.
+Computes 1/stddev or 127/sum_exp and signals the FSM when it finishes.
 
 TODO: This models a one-cycle result.  Add iterative arithmetic timing.
 */
@@ -17,7 +16,7 @@ TODO: This models a one-cycle result.  Add iterative arithmetic timing.
 
 namespace smesh {
 
-// Computes 1/stddev and returns its binary32 bit pattern.
+// Returns the selected reciprocal as a binary32 bit pattern.
 class NormReciprocal : public Component {
   DECLARE_COMPONENT(NormReciprocal);
 

@@ -26,6 +26,7 @@ struct NormStatsRegs {
   std::array<Acc, kNormStatsSlots> variance{};
   std::array<Acc, kNormStatsSlots> stddev{};
   std::array<u32, kNormStatsSlots> inv_stddev{};
+  std::array<u32, kNormStatsSlots> inv_sum_exp{};
   std::array<Acc, kNormStatsSlots> running_max{std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
   std::array<Acc, kNormStatsSlots> max{std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
 };

@@ -55,7 +55,7 @@ void NormSumLane::update() {
         const auto difference = static_cast<std::int64_t>(chunk.data[lane]) - chunk.mean;
         const auto magnitude  = static_cast<std::uint64_t>(difference < 0 ? -difference : difference);
         sum += static_cast<std::uint32_t>(magnitude * magnitude);
-      } else if (cmd == NormCmd::SumExp) {
+      } else if (cmd == NormCmd::SumExp || cmd == NormCmd::InvSumExp) {
         sum += iexp(chunk.data[lane], chunk.max, chunk.igelu_qb, chunk.igelu_qc);
       } else {
         sum += static_cast<std::uint32_t>(chunk.data[lane]);

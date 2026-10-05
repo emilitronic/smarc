@@ -31,10 +31,15 @@ void NormReciprocal::updateStart() {
   const auto values = *stats;
   for (std::size_t id = 0; id < kNormStatsSlots; ++id) {
     const auto state       = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
-    if (state != NormFsmState::GetInvStddev) continue;
-    const auto stddev      = values.stddev[id];
-    assert(stddev > 0);
-    const float reciprocal = 1.0f / static_cast<float>(stddev);
+    if (state != NormFsmState::GetInvStddev && state != NormFsmState::GetInvSumExp) continue;
+    float reciprocal = 0;
+    if (state == NormFsmState::GetInvSumExp) {
+      reciprocal = 127.0f / static_cast<float>(static_cast<std::int32_t>(static_cast<std::uint32_t>(values.sum[id])));
+    } else {
+      const auto stddev = values.stddev[id];
+      assert(stddev > 0);
+      reciprocal = 1.0f / static_cast<float>(stddev);
+    }
     std::uint32_t bits     = 0;
     static_assert(sizeof(bits) == sizeof(reciprocal), "binary32 requires 32-bit float");
     static_assert(std::numeric_limits<float>::is_iec559, "binary32 requires IEEE float");
