@@ -3,8 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
- Two-slot accumulator normalization shell with sum, max, mean, and variance paths.
- Reset returns the saved row and current statistics. Sum, Max, Mean, and Variance
+ Two-slot accumulator normalizer with sum, max, mean, variance, and inverse-standard-deviation paths.
+ Reset returns the saved row and current statistics. Other supported commands
  update the selected slot without producing an output row.
 */
 #pragma once
@@ -25,6 +25,7 @@ class NormMaxLane;
 class NormMeanDivide;
 class NormSqrt;
 class NormReciprocal;
+class NormScale;
 class NormStats;
 
 class Normalizer : public Component {
@@ -61,6 +62,7 @@ class Normalizer : public Component {
   NormMeanDivide* mean_divide_ = nullptr;
   NormSqrt*       sqrt_        = nullptr;
   NormReciprocal* reciprocal_  = nullptr;
+  NormScale*      scale_       = nullptr;
   NormStats*      stats_       = nullptr;
 
   Output(bit,              allowed_req_val_);
@@ -86,6 +88,10 @@ class Normalizer : public Component {
   Input(u8,                reciprocal_start_id_);
   Input(bit,               reciprocal_finished_);
   Input(u8,                reciprocal_finish_id_);
+  Input(bit,               scale_started_);
+  Input(u8,                scale_start_id_);
+  Input(bit,               scale_finished_);
+  Input(u8,                scale_finish_id_);
   Output(NormSlotCmds,     slot_cmds_);
   Output(NormStateEvents,  events_);
 

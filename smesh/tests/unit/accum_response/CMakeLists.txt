@@ -4,8 +4,9 @@ add_executable(tb_normalizer_max tb_normalizer_max.cpp)
 add_executable(tb_normalizer_mean tb_normalizer_mean.cpp)
 add_executable(tb_normalizer_variance tb_normalizer_variance.cpp)
 add_executable(tb_norm_variance_divide tb_norm_variance_divide.cpp)
+add_executable(tb_normalizer_inv_stddev tb_normalizer_inv_stddev.cpp)
 
-foreach(test_target tb_normalizer_slots tb_normalizer_sum tb_normalizer_max tb_normalizer_mean tb_normalizer_variance tb_norm_variance_divide)
+foreach(test_target tb_normalizer_slots tb_normalizer_sum tb_normalizer_max tb_normalizer_mean tb_normalizer_variance tb_norm_variance_divide tb_normalizer_inv_stddev)
   target_link_libraries(${test_target}
     PRIVATE smesh_model cascade -lz -ltermcap -lpthread
   )
@@ -21,7 +22,8 @@ add_test(NAME smesh_unit_normalizer_max COMMAND tb_normalizer_max)
 add_test(NAME smesh_unit_normalizer_mean COMMAND tb_normalizer_mean)
 add_test(NAME smesh_unit_normalizer_variance COMMAND tb_normalizer_variance)
 add_test(NAME smesh_unit_norm_variance_divide COMMAND tb_norm_variance_divide)
-set_tests_properties(smesh_unit_normalizer_slots smesh_unit_normalizer_sum smesh_unit_normalizer_max smesh_unit_normalizer_mean smesh_unit_normalizer_variance smesh_unit_norm_variance_divide PROPERTIES
+add_test(NAME smesh_unit_normalizer_inv_stddev COMMAND tb_normalizer_inv_stddev)
+set_tests_properties(smesh_unit_normalizer_slots smesh_unit_normalizer_sum smesh_unit_normalizer_max smesh_unit_normalizer_mean smesh_unit_normalizer_variance smesh_unit_norm_variance_divide smesh_unit_normalizer_inv_stddev PROPERTIES
   LABELS "unit;accum_response"
   TIMEOUT 10
 )

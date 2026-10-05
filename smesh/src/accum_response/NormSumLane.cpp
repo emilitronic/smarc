@@ -25,7 +25,7 @@ void NormSumLane::update() {
     std::uint32_t sum = 0;
     const auto cmd    = static_cast<NormCmd>(static_cast<std::uint8_t>(chunk.cmd));
     for (std::size_t lane = 0; lane < len; ++lane) {
-      if (cmd == NormCmd::Variance) { // 
+      if (cmd == NormCmd::Variance || cmd == NormCmd::InvStddev) {
         const auto difference = static_cast<std::int64_t>(chunk.data[lane]) - chunk.mean;
         const auto magnitude  = static_cast<std::uint64_t>(difference < 0 ? -difference : difference);
         sum += static_cast<std::uint32_t>(magnitude * magnitude);

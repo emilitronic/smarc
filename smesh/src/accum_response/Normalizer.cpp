@@ -2,7 +2,7 @@
 // smesh/src/accum_response/Normalizer.cpp
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
-// Stores packets by stats slot and processes Reset, Sum, Max, Mean, and Variance commands.
+// Stores packets by stats slot and processes normalization commands.
 
 #include "Normalizer.hpp"
 #include "NormRowChunk.hpp"
@@ -11,6 +11,7 @@
 #include "NormMeanDivide.hpp"
 #include "NormSqrt.hpp"
 #include "NormReciprocal.hpp"
+#include "NormScale.hpp"
 #include "NormStats.hpp"
 
 #include <cstdint>
@@ -26,6 +27,7 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   mean_divide_ = new NormMeanDivide("MeanDivide");
   sqrt_        = new NormSqrt("Sqrt");
   reciprocal_  = new NormReciprocal("Reciprocal");
+  scale_       = new NormScale("Scale");
   stats_       = new NormStats("Stats");
   state_->clk       << clk;
   chunker_->clk     << clk;
@@ -35,6 +37,7 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   mean_divide_->clk << clk;
   sqrt_->clk        << clk;
   reciprocal_->clk  << clk;
+  scale_->clk       << clk;
   stats_->clk       << clk;
 
   state_->req_val   << allowed_req_val_;
@@ -87,6 +90,14 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   reciprocal_finished_     << reciprocal_->finished;
   reciprocal_finish_id_    << reciprocal_->finish_id;
 
+  scale_->slot_states << state_->slot_states;
+  scale_->stats       << stats_->view;
+  scale_->saved       << saved_Q_;
+  scale_started_      << scale_->started;
+  scale_start_id_     << scale_->start_id;
+  scale_finished_     << scale_->finished;
+  scale_finish_id_    << scale_->finish_id;
+
   stats_->accept_val     << state_->accept_val;
   stats_->accept_id      << state_->accept_id;
   stats_->req_bits       << req_bits;
@@ -110,6 +121,9 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
   stats_->reciprocal_finished  << reciprocal_->finished;
   stats_->reciprocal_finish_id << reciprocal_->finish_id;
   stats_->reciprocal_result    << reciprocal_->result;
+  stats_->scale_finished       << scale_->finished;
+  stats_->scale_finish_id      << scale_->finish_id;
+  stats_->scale_result         << scale_->result;
   stats_view             << stats_->view;
 
   saved_Q_ <= saved_D_;
@@ -125,7 +139,8 @@ Normalizer::Normalizer(std::string /*name*/, std::size_t reduce_lanes, IMPL_CTOR
                       .reads(divide_finished_, divide_finish_id_, sqrt_started_,
                              sqrt_start_id_, sqrt_finished_, sqrt_finish_id_,
                              reciprocal_started_, reciprocal_start_id_)
-                      .reads(reciprocal_finished_, reciprocal_finish_id_)
+                      .reads(reciprocal_finished_, reciprocal_finish_id_, scale_started_,
+                             scale_start_id_, scale_finished_, scale_finish_id_)
                       .writes(events_);
   // Uses NormState's selected output slot to present slot's saved packed on resp_bits
   UPDATE(updateView).reads(saved_Q_, state_out_val_, state_out_id_, stats_view)
@@ -140,6 +155,7 @@ Normalizer::~Normalizer() {
   delete mean_divide_;
   delete sqrt_;
   delete reciprocal_;
+  delete scale_;
   delete max_lane_;
   delete sum_lane_;
   delete max_chunker_;
@@ -151,7 +167,9 @@ void Normalizer::updateAdmission() {
   const auto cmd       = static_cast<NormCmd>(static_cast<std::uint8_t>(req_bits->cmd.cmd));
   const bool supported = cmd == NormCmd::Reset ||
       ((cmd == NormCmd::Sum || cmd == NormCmd::Max || cmd == NormCmd::Mean ||
-        cmd == NormCmd::Variance) && req_bits->cmd.len <= kDim);
+        cmd == NormCmd::Variance || cmd == NormCmd::InvStddev) &&
+       req_bits->cmd.len <= kDim &&
+       (cmd != NormCmd::InvStddev || req_bits->cmd.len > 0));
   allowed_req_val_     = bit(req_val == 1 && supported);
   req_rdy              = bit(supported && state_req_rdy_ == 1);
 }
@@ -193,6 +211,10 @@ void Normalizer::updateEvents() {
       next.slot[id].reciprocal_started = bit(reciprocal_started_ == 1 && reciprocal_start_id_ == id);
     } else if (state == NormFsmState::WaitingForInvStddev) {
       next.slot[id].reciprocal_finished = bit(reciprocal_finished_ == 1 && reciprocal_finish_id_ == id);
+    } else if (state == NormFsmState::GetScaledInvStddev) {
+      next.slot[id].scale_started = bit(scale_started_ == 1 && scale_start_id_ == id);
+    } else if (state == NormFsmState::WaitingForScaledInvStddev) {
+      next.slot[id].scale_finished = bit(scale_finished_ == 1 && scale_finish_id_ == id);
     }
   }
   events_ = next;
@@ -206,6 +228,7 @@ void Normalizer::updateView() {
   if (valid) {
     response = saved_Q_->packet[id];
     response.mean = stats_view->mean[id];
+    response.inv_stddev = stats_view->inv_stddev[id];
   }
   resp_bits = response;
 }
@@ -250,6 +273,10 @@ void Normalizer::reset() {
   reciprocal_start_id_.reset(0);
   reciprocal_finished_.reset(0);
   reciprocal_finish_id_.reset(0);
+  scale_started_.reset(0);
+  scale_start_id_.reset(0);
+  scale_finished_.reset(0);
+  scale_finish_id_.reset(0);
   req_rdy.reset(0);
   resp_val.reset(0);
   resp_bits.reset(AccNormReq{});

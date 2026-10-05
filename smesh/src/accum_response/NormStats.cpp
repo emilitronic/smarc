@@ -22,6 +22,7 @@ NormStats::NormStats(std::string /*name*/, IMPL_CTOR) {
                      .reads(divide_finish_id, divide_result, sqrt_finished,
                             sqrt_finish_id, sqrt_result, reciprocal_finished,
                             reciprocal_finish_id, reciprocal_result)
+                     .reads(scale_finished, scale_finish_id, scale_result)
                      .writes(regs_D_);
 }
 
@@ -49,27 +50,27 @@ void NormStats::updateState() {
     const auto result = *sum_bits;
     const auto id     = static_cast<std::size_t>(static_cast<std::uint8_t>(result.slot));
     assert(id < kNormStatsSlots);
-    next.sum[id] = u32(static_cast<std::uint32_t>(next.sum[id]) + static_cast<std::uint32_t>(result.sum));
+    next.sum[id]      = u32(static_cast<std::uint32_t>(next.sum[id]) + static_cast<std::uint32_t>(result.sum));
     changed = true;
   }
 
   if (max_val == 1) {
-    const auto result = *max_bits;
-    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(result.slot));
+    const auto result    = *max_bits;
+    const auto id        = static_cast<std::size_t>(static_cast<std::uint8_t>(result.slot));
     assert(id < kNormStatsSlots);
-    const auto maximum = std::max(next.running_max[id], result.max);
+    const auto maximum   = std::max(next.running_max[id], result.max);
     next.running_max[id] = maximum;
-    next.max[id] = maximum;
+    next.max[id]         = maximum;
     changed = true;
   }
 
   if (divide_started == 1) {
-    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*divide_start_id));
+    const auto id        = static_cast<std::size_t>(static_cast<std::uint8_t>(*divide_start_id));
     assert(id < kNormStatsSlots);
-    next.sum[id] = 0;
-    next.count[id] = 0;
+    next.sum[id]         = 0;
+    next.count[id]       = 0;
     next.running_max[id] = std::numeric_limits<Acc>::min();
-    changed = true;
+    changed              = true;
   }
 
   const auto states = *slot_states;
@@ -84,20 +85,29 @@ void NormStats::updateState() {
   }
 
   if (sqrt_finished == 1) {
-    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*sqrt_finish_id));
+    const auto id       = static_cast<std::size_t>(static_cast<std::uint8_t>(*sqrt_finish_id));
     assert(id < kNormStatsSlots);
-    const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+    const auto state    = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
     assert(state == NormFsmState::WaitingForStddev);
-    next.stddev[id] = sqrt_result == 0 ? Acc{1} : *sqrt_result;
+    next.stddev[id]     = sqrt_result == 0 ? Acc{1} : *sqrt_result;
     changed = true;
   }
 
   if (reciprocal_finished == 1) {
-    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*reciprocal_finish_id));
+    const auto id       = static_cast<std::size_t>(static_cast<std::uint8_t>(*reciprocal_finish_id));
     assert(id < kNormStatsSlots);
-    const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+    const auto state    = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
     assert(state == NormFsmState::WaitingForInvStddev);
     next.inv_stddev[id] = *reciprocal_result;
+    changed = true;
+  }
+
+  if (scale_finished == 1) {
+    const auto id       = static_cast<std::size_t>(static_cast<std::uint8_t>(*scale_finish_id));
+    assert(id < kNormStatsSlots);
+    const auto state    = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+    assert(state == NormFsmState::WaitingForScaledInvStddev);
+    next.inv_stddev[id] = *scale_result;
     changed = true;
   }
 
@@ -119,7 +129,8 @@ void NormStats::updateState() {
     if (cmd == NormCmd::Reset) {
       next.elems_left[id] = 0;
     } else if (cmd == NormCmd::Sum || cmd == NormCmd::Max ||
-               cmd == NormCmd::Mean || cmd == NormCmd::Variance) {
+               cmd == NormCmd::Mean || cmd == NormCmd::Variance ||
+               cmd == NormCmd::InvStddev) {
       const auto len      = static_cast<std::uint16_t>(req.cmd.len);
       next.count[id]      = u16(static_cast<std::uint16_t>(next.count[id]) + len);
       next.elems_left[id] = u16(len);

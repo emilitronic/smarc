@@ -185,6 +185,7 @@ struct AccNormReq {
   AccumReadResp acc_read_resp{};
   AccNormCmd cmd{};
   Acc mean = 0; // Normalizer supplies the selected slot's mean on output
+  u32 inv_stddev = 0; // binary32 result from the selected stats slot
 };
 // accumulator data entering the accumulator scale stage
 struct AccScaleReq {

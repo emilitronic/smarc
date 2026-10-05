@@ -12,10 +12,12 @@
 
 namespace smesh {
 
+// Holds the accepted input packet for each stats slot.
 struct NormSavedPackets {
   std::array<AccNormReq, kNormStatsSlots> packet{};
 };
 
+// Holds the running and completed statistics for each slot.
 struct NormStatsRegs {
   std::array<u16, kNormStatsSlots> elems_left{};
   std::array<u16, kNormStatsSlots> count{};
@@ -28,7 +30,7 @@ struct NormStatsRegs {
   std::array<Acc, kNormStatsSlots> max{std::numeric_limits<Acc>::min(), std::numeric_limits<Acc>::min()};
 };
 
-// bundle of fields carrying selected piece of row from NormRowChunk to NormSumLane or NormMaxLane
+// Carries one selected row chunk from NormRowChunk to a reduction lane.
 struct NormChunk {
   MeshAccumRow data{};   // selected row elements
   u16          len  = 0; // how many valid elements in chunk
@@ -38,30 +40,41 @@ struct NormChunk {
   bit          last = 0; // whether thisis the final chunk
 };
 
-// output of NormSumLane
+// Carries a sum-lane result and its stats slot.
 struct NormSumResult {
   u8  slot = 0;
   u32 sum  = 0;
 };
 
+// Carries a max-lane result and its stats slot.
 struct NormMaxResult {
   u8  slot = 0;
   Acc max  = std::numeric_limits<Acc>::min();
 };
 
+// Holds a mean-divider result until its output cycle.
 struct NormMeanPending {
   bit valid = 0;
   u8  slot  = 0;
   Acc value = 0;
 };
 
+// Holds a square-root result until its output cycle.
 struct NormSqrtPending {
   bit valid = 0;
   u8  slot  = 0;
   Acc value = 0;
 };
 
+// Holds a reciprocal result until its output cycle.
 struct NormReciprocalPending {
+  bit valid = 0;
+  u8  slot  = 0;
+  u32 value = 0;
+};
+
+// Holds a scaled reciprocal result until its output cycle.
+struct NormScalePending {
   bit valid = 0;
   u8  slot  = 0;
   u32 value = 0;

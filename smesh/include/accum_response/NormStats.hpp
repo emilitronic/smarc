@@ -46,6 +46,9 @@ class NormStats : public Component {
   Input(bit,           reciprocal_finished);
   Input(u8,            reciprocal_finish_id);
   Input(u32,           reciprocal_result);
+  Input(bit,           scale_finished);
+  Input(u8,            scale_finish_id);
+  Input(u32,           scale_result);
 
   Output(NormStatsRegs, view);
 
