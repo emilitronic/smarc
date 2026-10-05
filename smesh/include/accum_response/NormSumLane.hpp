@@ -3,9 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 4 2026
 /*
-Adds values for Sum and Mean commands.  For Variance command, sums squared 
-differences from the slot's saved mean.  NormStats adds the result to that slot's 
-running sum.
+Adds values for Sum and Mean. For Variance and InvStddev, adds squared
+differences from the saved mean. For SumExp, adds each element's iexp result.
 */
 #pragma once
 

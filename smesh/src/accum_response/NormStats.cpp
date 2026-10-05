@@ -130,7 +130,7 @@ void NormStats::updateState() {
       next.elems_left[id] = 0;
     } else if (cmd == NormCmd::Sum || cmd == NormCmd::Max ||
                cmd == NormCmd::Mean || cmd == NormCmd::Variance ||
-               cmd == NormCmd::InvStddev) {
+               cmd == NormCmd::InvStddev || cmd == NormCmd::SumExp) {
       const auto len      = static_cast<std::uint16_t>(req.cmd.len);
       next.count[id]      = u16(static_cast<std::uint16_t>(next.count[id]) + len);
       next.elems_left[id] = u16(len);

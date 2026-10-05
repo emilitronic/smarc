@@ -170,6 +170,10 @@ struct AccumReadResp {
   u16 len = 0; // number of row elements being read from accum (not bytes)
   u8  act = 0;
   u32 scale = 0;
+  u32 igelu_qb = 0;
+  u32 igelu_qc = 0;
+  u32 iexp_qln2 = 0;
+  u32 iexp_qln2_inv = 0;
   bit full = false;
   u16 cmd_id = 0;
   bit from_dma = true;

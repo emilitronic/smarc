@@ -3,7 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 4 2026
 /*
-Multiply by command's scale factor and save the result in the selected slot.
+Scales the inv_stddev statistic.  Multiply by command's scale factor and save the result in the selected slot.
+scaled_inv_stddev = (1 / stddev) * scale
 */
 
 #pragma once

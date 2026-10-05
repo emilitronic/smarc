@@ -165,11 +165,13 @@ Normalizer::~Normalizer() {
 
 void Normalizer::updateAdmission() {
   const auto cmd       = static_cast<NormCmd>(static_cast<std::uint8_t>(req_bits->cmd.cmd));
-  const bool supported = cmd == NormCmd::Reset ||
-      ((cmd == NormCmd::Sum || cmd == NormCmd::Max || cmd == NormCmd::Mean ||
-        cmd == NormCmd::Variance || cmd == NormCmd::InvStddev) &&
-       req_bits->cmd.len <= kDim &&
-       (cmd != NormCmd::InvStddev || req_bits->cmd.len > 0));
+  const bool row_cmd = cmd == NormCmd::Sum || cmd == NormCmd::Max ||
+                       cmd == NormCmd::Mean || cmd == NormCmd::Variance ||
+                       cmd == NormCmd::InvStddev || cmd == NormCmd::SumExp;
+  const bool valid_len = req_bits->cmd.len <= kDim &&
+                         (req_bits->cmd.len > 0 ||
+                          (cmd != NormCmd::InvStddev && cmd != NormCmd::SumExp));
+  const bool supported = cmd == NormCmd::Reset || (row_cmd && valid_len);
   allowed_req_val_     = bit(req_val == 1 && supported);
   req_rdy              = bit(supported && state_req_rdy_ == 1);
 }

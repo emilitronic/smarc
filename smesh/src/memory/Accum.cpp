@@ -142,6 +142,10 @@ void Accum::updateRead() {
       resp.len = req.len;
       resp.act = req.act;
       resp.scale = req.scale;
+      resp.igelu_qb = req.igelu_qb;
+      resp.igelu_qc = req.igelu_qc;
+      resp.iexp_qln2 = req.iexp_qln2;
+      resp.iexp_qln2_inv = req.iexp_qln2_inv;
       resp.full = req.full;
       resp.cmd_id = req.cmd_id;
       resp.from_dma = req.from_dma;

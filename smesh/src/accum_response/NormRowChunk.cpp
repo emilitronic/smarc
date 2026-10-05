@@ -38,6 +38,9 @@ void NormRowChunk::update() {
     chunk.len  = u16(len);
     chunk.cmd  = packets.packet[id].cmd.cmd;
     chunk.mean = progress.mean[id];
+    chunk.max = progress.max[id];
+    chunk.igelu_qb = packets.packet[id].acc_read_resp.igelu_qb;
+    chunk.igelu_qc = packets.packet[id].acc_read_resp.igelu_qc;
     chunk.last = bit(start == 0);
     for (std::size_t lane = 0; lane < len; ++lane) {
       chunk.data[lane] = packets.packet[id].acc_read_resp.data[start + lane];

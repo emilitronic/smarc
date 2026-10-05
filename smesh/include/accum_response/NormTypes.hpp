@@ -37,6 +37,9 @@ struct NormChunk {
   u8           slot = 0; // which stat slot elements belong to
   u8           cmd  = 0; // which op lane should perform; norm cmd attached to packet for that stats slot (Sum, Mean, Variance, Max, Reset, etc.)
   Acc          mean = 0; // for Variance, the selected slot's mean is carried with the chunk
+  Acc          max = 0;
+  u32          igelu_qb = 0;
+  u32          igelu_qc = 0;
   bit          last = 0; // whether thisis the final chunk
 };
 

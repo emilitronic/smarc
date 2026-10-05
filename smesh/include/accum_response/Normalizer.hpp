@@ -3,7 +3,8 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 12 2026
 /*
- Two-slot accumulator normalizer with sum, max, mean, variance, and inverse-standard-deviation paths.
+ Two-slot accumulator normalizer with sum, max, mean, variance, SumExp,
+ and inverse-standard-deviation paths.
  Reset returns the saved row and current statistics. Other supported commands
  update the selected slot without producing an output row.
 */
