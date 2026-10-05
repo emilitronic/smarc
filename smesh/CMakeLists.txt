@@ -59,6 +59,7 @@ add_library(smesh_model
   src/accum_response/NormMaxLane.cpp
   src/accum_response/NormMeanDivide.cpp
   src/accum_response/NormSqrt.cpp
+  src/accum_response/NormReciprocal.cpp
   src/accum_response/NormStats.cpp
   src/SmeshCmdQueues.cpp
   src/legacy/SmeshDevice.cpp

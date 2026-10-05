@@ -20,7 +20,8 @@ NormStats::NormStats(std::string /*name*/, IMPL_CTOR) {
                      .reads(max_chunk_bits, sum_val, sum_bits, max_val, max_bits,
                             divide_started, divide_start_id, divide_finished)
                      .reads(divide_finish_id, divide_result, sqrt_finished,
-                            sqrt_finish_id, sqrt_result)
+                            sqrt_finish_id, sqrt_result, reciprocal_finished,
+                            reciprocal_finish_id, reciprocal_result)
                      .writes(regs_D_);
 }
 
@@ -88,6 +89,15 @@ void NormStats::updateState() {
     const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
     assert(state == NormFsmState::WaitingForStddev);
     next.stddev[id] = sqrt_result == 0 ? Acc{1} : *sqrt_result;
+    changed = true;
+  }
+
+  if (reciprocal_finished == 1) {
+    const auto id = static_cast<std::size_t>(static_cast<std::uint8_t>(*reciprocal_finish_id));
+    assert(id < kNormStatsSlots);
+    const auto state = static_cast<NormFsmState>(static_cast<std::uint8_t>(states.state[id]));
+    assert(state == NormFsmState::WaitingForInvStddev);
+    next.inv_stddev[id] = *reciprocal_result;
     changed = true;
   }
 

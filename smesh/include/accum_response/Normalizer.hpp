@@ -24,6 +24,7 @@ class NormSumLane;
 class NormMaxLane;
 class NormMeanDivide;
 class NormSqrt;
+class NormReciprocal;
 class NormStats;
 
 class Normalizer : public Component {
@@ -59,6 +60,7 @@ class Normalizer : public Component {
   NormMaxLane*    max_lane_    = nullptr;
   NormMeanDivide* mean_divide_ = nullptr;
   NormSqrt*       sqrt_        = nullptr;
+  NormReciprocal* reciprocal_  = nullptr;
   NormStats*      stats_       = nullptr;
 
   Output(bit,              allowed_req_val_);
@@ -80,6 +82,10 @@ class Normalizer : public Component {
   Input(u8,                sqrt_start_id_);
   Input(bit,               sqrt_finished_);
   Input(u8,                sqrt_finish_id_);
+  Input(bit,               reciprocal_started_);
+  Input(u8,                reciprocal_start_id_);
+  Input(bit,               reciprocal_finished_);
+  Input(u8,                reciprocal_finish_id_);
   Output(NormSlotCmds,     slot_cmds_);
   Output(NormStateEvents,  events_);
 
