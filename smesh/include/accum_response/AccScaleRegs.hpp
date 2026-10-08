@@ -3,9 +3,11 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
-Original's three input regs slots. Each holds one AccScaleReq packet, including
-all kWidth accumulator elements and the accompanying settings/statistics.
-This first increment captures inputs only; occupied slots remain held until reset.
+Original's three input regs slots and their three matching out_regs slots.
+Each input slot holds a complete AccScaleReq packet with kWidth accumulator
+elements. Each output slot has space for kWidth full-width results and kWidth
+narrowed results, plus the row's source and bank metadata.
+Input acceptance captures the packet and output metadata; slots hold until reset.
 */
 #pragma once
 
@@ -34,15 +36,19 @@ class AccScaleRegs : public Component {
   OutputArray(bit,         regs_val_Q_,  kEntries);
   OutputArray(AccScaleReq, regs_bits_Q_, kEntries);
 
+  // Original out_regs[s]: full_data, narrowed data, from_dma and acc_bank_id.
+  OutputArray(AccScaleResp, out_regs_Q_, kEntries);
+
   void updateReady();
   void updateRegs();
   void reset() override;
 
  private:
-  RegisterArray(bit,         regs_val_D_, kEntries);
-  RegisterArray(AccScaleReq, regs_bits_D_, kEntries);
-  Output(u3,                 tail_oh_Q_); // one set bit selects the next input slot
-  Register(u3,               tail_oh_D_);
+  RegisterArray(bit,          regs_val_D_,  kEntries);
+  RegisterArray(AccScaleReq,  regs_bits_D_, kEntries);
+  RegisterArray(AccScaleResp, out_regs_D_,  kEntries);
+  Output(u3,                  tail_oh_Q_); // pointer telling us which slot to fill w/ input next
+  Register(u3,                tail_oh_D_);
 };
 
 } // namespace smesh

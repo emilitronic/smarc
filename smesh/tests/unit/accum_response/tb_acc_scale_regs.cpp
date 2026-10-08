@@ -5,7 +5,8 @@
 /*
 Fill Original's three input regs slots, with an idle cycle between packets.
 Check next-cycle visibility, complete packet retention, full-bank backpressure,
-and reset while all slots are occupied. Also compiled for DIM=8.
+matching out_regs source/bank metadata, and reset while all slots are occupied.
+Also compiled for DIM=8.
 */
 
 #include <cascade/Cascade.hpp>
@@ -23,7 +24,7 @@ smesh::AccScaleReq packet(unsigned id) {
   for (std::size_t element = 0; element < smesh::AccScaleRegs::kWidth; ++element) {
     row.data[element] = -static_cast<smesh::Acc>(100 * (id + 1) + element);
   }
-  row.laddr = smesh::makeAccAddr(id);
+  row.laddr = smesh::makeAccAddr((id % smesh::kAccBanks) * smesh::kAccBankRows + id);
   row.mask = 5 + id;
   row.len = smesh::AccScaleRegs::kWidth;
   row.act = 1 + id;
@@ -69,6 +70,7 @@ class Driver : public Component {
   Input(bit, req_rdy);
   InputArray(bit, regs_val, smesh::AccScaleRegs::kEntries);
   InputArray(smesh::AccScaleReq, regs_bits, smesh::AccScaleRegs::kEntries);
+  InputArray(smesh::AccScaleResp, out_regs, smesh::AccScaleRegs::kEntries);
   void update();
   void reset() override;
   bool passed = true;
@@ -79,7 +81,7 @@ class Driver : public Component {
 
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   cycle_Q_ <= cycle_D_;
-  UPDATE(update).reads(cycle_Q_, req_rdy, regs_val, regs_bits)
+  UPDATE(update).reads(cycle_Q_, req_rdy, regs_val, regs_bits, out_regs)
                 .writes(req_val, req_bits, cycle_D_);
 }
 
@@ -95,6 +97,16 @@ void Driver::update() {
   for (std::size_t slot = 0; slot < smesh::AccScaleRegs::kEntries; ++slot) {
     good = good && (regs_val[slot] == 1) == (slot < occupied);
     good = good && samePacket(*regs_bits[slot], slot < occupied ? packet(slot) : smesh::AccScaleReq{});
+    smesh::AccScaleResp expected_output{};
+    if (slot < occupied) {
+      const auto input = packet(slot).norm.acc_read_resp;
+      expected_output.from_dma = input.from_dma;
+      expected_output.acc_bank_id = u16(input.laddr.acc_bank());
+    }
+    good = good && out_regs[slot]->from_dma == expected_output.from_dma &&
+           out_regs[slot]->acc_bank_id == expected_output.acc_bank_id &&
+           out_regs[slot]->full_data == expected_output.full_data &&
+           out_regs[slot]->data == expected_output.data;
   }
   if (!good) {
     std::printf("[ACC_SCALE_REGS] mismatch cycle=%u occupied=%u ready=%u\n",
@@ -126,6 +138,7 @@ int main(int argc, char* argv[]) {
   for (std::size_t slot = 0; slot < smesh::AccScaleRegs::kEntries; ++slot) {
     driver.regs_val[slot] << regs.regs_val_Q_[slot];
     driver.regs_bits[slot] << regs.regs_bits_Q_[slot];
+    driver.out_regs[slot] << regs.out_regs_Q_[slot];
   }
   Clock clk;
   regs.clk << clk;
