@@ -7,7 +7,7 @@ Original's three input regs slots and their three matching out_regs slots.
 Each input slot holds a complete AccScaleReq packet with kWidth accumulator
 elements. Each output slot has space for kWidth full-width results and kWidth
 narrowed results, plus the row's source and bank metadata.
-Input acceptance captures the packet and output metadata; slots hold until reset.
+Slot control supplies store/release enables and the selected input/output slots.
 */
 #pragma once
 
@@ -27,9 +27,12 @@ class AccScaleRegs : public Component {
   static constexpr std::size_t kWidth   = std::tuple_size<MeshAccumRow>::value;
 
   Clock(clk);
-  Input(bit,         req_val);
-  Output(bit,        req_rdy);
-  Input(AccScaleReq, req_bits);
+  Input(bit,           req_fire); // store enable from slot control
+  Input(AccScaleReq,   req_bits);
+  Input(u3,            tail_oh);  // slot selected for the accepted input
+  Input(bit,           out_fire); // release enable from slot control
+  Input(u3,            head_oh);  // slot selected for output and release
+  Output(AccScaleResp, out_bits);
 
   // Original regs[s].valid and regs[s].bits, visible after the clock edge.
   // Element e of slot s is regs_bits_Q_[s]->norm.acc_read_resp.data[e].
@@ -39,7 +42,7 @@ class AccScaleRegs : public Component {
   // Original out_regs[s]: full_data, narrowed data, from_dma and acc_bank_id.
   OutputArray(AccScaleResp, out_regs_Q_, kEntries);
 
-  void updateReady();
+  void updateOutput();
   void updateRegs();
   void reset() override;
 
@@ -47,8 +50,6 @@ class AccScaleRegs : public Component {
   RegisterArray(bit,          regs_val_D_,  kEntries);
   RegisterArray(AccScaleReq,  regs_bits_D_, kEntries);
   RegisterArray(AccScaleResp, out_regs_D_,  kEntries);
-  Output(u3,                  tail_oh_Q_); // pointer telling us which slot to fill w/ input next
-  Register(u3,                tail_oh_D_);
 };
 
 } // namespace smesh

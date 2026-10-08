@@ -1,6 +1,7 @@
 add_library(smesh_model
   src/accum_response/AccScaleUnit.cpp
   src/accum_response/AccScaleRegs.cpp
+  src/accum_response/AccScaleSlotCtrl.cpp
   src/memory/Accum.cpp
   src/ArbComplete.cpp
   src/memory/ArbReadLocal.cpp

@@ -18,30 +18,32 @@ AccScaleRegs::AccScaleRegs(std::string /*name*/, IMPL_CTOR) {
     regs_bits_Q_[slot] <= regs_bits_D_[slot];
     out_regs_Q_[slot]  <= out_regs_D_[slot];
   }
-  tail_oh_Q_ <= tail_oh_D_;
-  UPDATE(updateReady).reads(regs_val_Q_, tail_oh_Q_).writes(req_rdy);
-  UPDATE(updateRegs).reads(req_val, req_rdy, req_bits, tail_oh_Q_, out_regs_Q_)
-                    .writes(regs_val_D_, regs_bits_D_, out_regs_D_, tail_oh_D_);
+  UPDATE(updateOutput).reads(head_oh, out_regs_Q_).writes(out_bits);
+  UPDATE(updateRegs).reads(req_fire, req_bits, tail_oh, out_fire, head_oh, out_regs_Q_)
+                    .writes(regs_val_D_, regs_bits_D_, out_regs_D_);
 }
 
-// Accept an input only while the slot selected by tail_oh is empty.
-void AccScaleRegs::updateReady() {
-  const auto tail = static_cast<std::uint8_t>(*tail_oh_Q_);
-  req_rdy         = 0;
+// Present the output slot selected by control; control also supplies out_val.
+void AccScaleRegs::updateOutput() {
+  const auto head = static_cast<std::uint8_t>(*head_oh);
+  out_bits = AccScaleResp{};
   for (std::size_t slot = 0; slot < kEntries; ++slot) {
-    if ((tail & (1u << slot)) != 0) {
-      req_rdy = bit(regs_val_Q_[slot] == 0);
+    if ((head & (1u << slot)) != 0) {
+      out_bits = *out_regs_Q_[slot];
     }
   }
 }
 
-// On input acceptance, save the packet and its matching output slot's source/bank.
+// Release the selected slot, then store an accepted packet. Store wins on reuse.
 void AccScaleRegs::updateRegs() {
-  if (!(req_val == 1 && req_rdy == 1)) return;
-
-  const auto tail = static_cast<std::uint8_t>(*tail_oh_Q_);
+  const auto head = static_cast<std::uint8_t>(*head_oh);
+  const auto tail = static_cast<std::uint8_t>(*tail_oh);
   for (std::size_t slot = 0; slot < kEntries; ++slot) {
-    if ((tail & (1u << slot)) != 0) {
+    if (out_fire == 1 && (head & (1u << slot)) != 0) {
+      regs_val_D_[slot] = 0;
+      trace(acc_scale_regs_, "release slot=%u\n", static_cast<unsigned>(slot));
+    }
+    if (req_fire == 1 && (tail & (1u << slot)) != 0) {
       regs_bits_D_[slot] = *req_bits;
       regs_val_D_[slot]  = 1;
       auto output = *out_regs_Q_[slot];
@@ -54,8 +56,6 @@ void AccScaleRegs::updateRegs() {
             static_cast<unsigned>(output.acc_bank_id), static_cast<unsigned>(output.from_dma));
     }
   }
-  // Rotate the one-hot selection 001 -> 010 -> 100 -> 001; u3 keeps three bits.
-  tail_oh_D_ = u3((tail << 1) | (tail >> (kEntries - 1)));
 }
 
 void AccScaleRegs::reset() {
@@ -67,9 +67,7 @@ void AccScaleRegs::reset() {
     out_regs_Q_[slot].reset(AccScaleResp{});
     out_regs_D_[slot].reset(AccScaleResp{});
   }
-  tail_oh_Q_.reset(1);
-  tail_oh_D_.reset(1);
-  req_rdy.reset(0);
+  out_bits.reset(AccScaleResp{});
 }
 
 } // namespace smesh
