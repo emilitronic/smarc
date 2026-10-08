@@ -189,6 +189,7 @@ struct AccNormReq {
   AccumReadResp acc_read_resp{};
   AccNormCmd cmd{};
   Acc mean = 0; // Normalizer supplies the selected slot's mean on output
+  Acc max = 0; // Normalizer supplies the selected slot's saved maximum on output
   u32 inv_stddev = 0; // binary32 result from the selected stats slot
   u32 inv_sum_exp = 0; // binary32 scaled inverse sum of exponentials
 };

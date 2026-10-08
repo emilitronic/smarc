@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
-Fill Gemmini's three input regs slots, with an idle cycle between packets.
+Fill Original's three input regs slots, with an idle cycle between packets.
 Check next-cycle visibility, complete packet retention, full-bank backpressure,
 and reset while all slots are occupied. Also compiled for DIM=8.
 */
@@ -37,6 +37,7 @@ smesh::AccScaleReq packet(unsigned id) {
   row.cmd_id = 100 + id;
   req.norm.cmd = {u16(2 + id), u16(id % 2), u8(1 + id)};
   req.norm.mean = -10 - static_cast<smesh::Acc>(id);
+  req.norm.max = id == 1 ? 27 : -20 - static_cast<smesh::Acc>(id);
   req.norm.inv_stddev = 0x3f000000u + id;
   req.norm.inv_sum_exp = 0x3e800000u + id;
   return req;
@@ -53,6 +54,7 @@ bool samePacket(const smesh::AccScaleReq& actual, const smesh::AccScaleReq& expe
          actual.norm.cmd.len == expected.norm.cmd.len &&
          actual.norm.cmd.stats_id == expected.norm.cmd.stats_id &&
          actual.norm.cmd.cmd == expected.norm.cmd.cmd && actual.norm.mean == expected.norm.mean &&
+         actual.norm.max == expected.norm.max &&
          actual.norm.inv_stddev == expected.norm.inv_stddev &&
          actual.norm.inv_sum_exp == expected.norm.inv_sum_exp;
 }

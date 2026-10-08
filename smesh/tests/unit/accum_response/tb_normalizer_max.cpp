@@ -99,8 +99,8 @@ void Driver::updateCheck() {
     case 5: good = req_rdy == 0 && left0 == 2 && max0 == -4; break;
     case 6: good = req_rdy == 1 && left0 == 0 && max0 == -4; break;
     case 7: good = resp_val == 1 && resp_bits->acc_read_resp.cmd_id == 23 &&
-                   running0 == -4 && max0 == -4; break;
-    case 8: good = resp_val == 1 && running0 == min && max0 == -4; break;
+                   resp_bits->max == -4 && running0 == -4 && max0 == -4; break;
+    case 8: good = resp_val == 1 && resp_bits->max == -4 && running0 == min && max0 == -4; break;
     case 9: good = resp_val == 0 && max0 == -4; done_ = true; break;
     default: break;
   }

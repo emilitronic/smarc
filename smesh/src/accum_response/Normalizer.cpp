@@ -234,6 +234,7 @@ void Normalizer::updateView() {
   if (valid) {
     response = saved_Q_->packet[id];
     response.mean = stats_view->mean[id];
+    response.max = stats_view->max[id];
     response.inv_stddev = stats_view->inv_stddev[id];
     response.inv_sum_exp = stats_view->inv_sum_exp[id];
   }
