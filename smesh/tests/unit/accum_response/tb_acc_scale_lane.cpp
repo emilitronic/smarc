@@ -3,25 +3,34 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
-Connect one normalization lane to the three input slots. Check its fixed
+Connect one or two normalization lanes to the three input slots. Check their fixed
 element connections, policy gating, round-robin order, one-cycle arbOut,
 parameter retention, fired masks, slot replacement, and reset during activity.
 The driver supplies slot acceptance and current_policy; no arithmetic yet.
 */
 // cmake --build build --target tb_acc_scale_lane tb_acc_scale_lane_dim8 -j 4
 // ./build/smesh/tb_acc_scale_lane -trace '*'/acc_scale_lane_
+// cmake --build build --target tb_acc_scale_two_lanes tb_acc_scale_two_lanes_dim8 -j 4
+// ./build/smesh/tb_acc_scale_two_lanes -trace '*'/acc_scale_lane_view_
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
 #include "AccScaleLane.hpp"
 
 #include <cstdio>
+#include <memory>
 #include <utility>
 #include <vector>
 
 TraceKey(acc_scale_lane_view_);
 
 namespace {
+
+#ifndef SMESH_ACC_SCALE_TEST_LANES
+#define SMESH_ACC_SCALE_TEST_LANES 1
+#endif
+constexpr unsigned kLanes = SMESH_ACC_SCALE_TEST_LANES;
+static_assert(kLanes == 1 || kLanes == 2, "This test uses one or two of the four lanes");
 
 smesh::AccScaleReq packet(unsigned seed) {
   smesh::AccScaleReq p{};
@@ -64,36 +73,44 @@ class Driver : public Component {
   Output(u3, tail_oh);
   Output(bit, out_fire);
   Output(u3, head_oh);
-  Output(u3, current_policy);
-  Input(bit, arb_val);
-  Input(smesh::AccScaleElem, arb_bits);
-  Input(bit, arb_out_val);
-  Input(smesh::AccScaleElem, arb_out_bits);
-  InputArray(smesh::AccScaleLane::FiredMask, fired_masks, 3);
+  OutputArray(u3, current_policy, kLanes);
+  InputArray(bit, arb_val, kLanes);
+  InputArray(smesh::AccScaleElem, arb_bits, kLanes);
+  InputArray(bit, arb_out_val, kLanes);
+  InputArray(smesh::AccScaleElem, arb_out_bits, kLanes);
+  InputArray(smesh::AccScaleLane::FiredMask, fired_masks, kLanes * 3);
   void updateDrive();
   void updateCheck();
   void reset() override;
   bool passed = true;
-  unsigned issued = 0;
-  unsigned expectedCount() const { return sequence_.size(); }
+  std::array<unsigned, kLanes> issued{};
+  unsigned simultaneous = 0;
+  unsigned expectedCount(unsigned lane) const { return sequence_[lane].size(); }
  private:
   Output(u8, cycle_Q_);
   Register(u8, cycle_D_);
-  std::vector<std::pair<unsigned, unsigned>> sequence_;
-  std::array<smesh::AccScaleLane::FiredMask, 3> expected_masks_{};
-  bool previous_valid_ = false;
-  unsigned previous_slot_ = 0;
-  unsigned previous_element_ = 0;
-  unsigned previous_seed_ = 0;
+  std::array<std::vector<std::pair<unsigned, unsigned>>, kLanes> sequence_;
+  std::array<std::array<smesh::AccScaleLane::FiredMask, 3>, kLanes> expected_masks_{};
+  std::array<bool, kLanes> previous_valid_{};
+  std::array<unsigned, kLanes> previous_slot_{};
+  std::array<unsigned, kLanes> previous_element_{};
+  std::array<unsigned, kLanes> previous_seed_{};
 };
 
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
-  // Slot 1 is enabled first. Each lane-0 connection is then chosen exactly once.
-  if (smesh::AccScaleLane::kWidth == 4) {
-    sequence_ = {{1, 0}, {2, 0}, {0, 0}, {1, 0}};
-  } else {
-    assert_always(smesh::AccScaleLane::kWidth == 8, "This test expects DIM=4 or DIM=8");
-    sequence_ = {{1, 0}, {1, 4}, {2, 0}, {2, 4}, {0, 0}, {0, 4}, {1, 0}, {1, 4}};
+  assert_always(smesh::AccScaleLane::kWidth == 4 || smesh::AccScaleLane::kWidth == 8,
+                "This test expects DIM=4 or DIM=8");
+  for (unsigned lane = 0; lane < kLanes; ++lane) {
+    // Enable slot 1 first for lane 0 and slot 2 first for lane 1, then all slots.
+    // Different winners check that the lanes keep separate round-robin memories.
+    const unsigned first = lane == 0 ? 1 : 2;
+    for (unsigned turn = 0; turn < 3; ++turn) {
+      const unsigned slot = (first + turn) % 3;
+      sequence_[lane].emplace_back(slot, lane);
+      if (smesh::AccScaleLane::kWidth == 8) sequence_[lane].emplace_back(slot, lane + 4);
+    }
+    sequence_[lane].emplace_back(1, lane);
+    if (smesh::AccScaleLane::kWidth == 8) sequence_[lane].emplace_back(1, lane + 4);
   }
   cycle_Q_ <= cycle_D_;
   UPDATE(updateDrive).reads(cycle_Q_)
@@ -110,50 +127,59 @@ void Driver::updateDrive() {
   req_bits = packet(c == 14 ? 9 : c + 1);
   out_fire = bit(c == 14);
   head_oh = 2;
-  current_policy = u3(c < 4 ? 0 : c < 6 ? 2 : 7);
+  for (unsigned lane = 0; lane < kLanes; ++lane) {
+    current_policy[lane] = u3(c < 4 ? 0 : c < 6 ? (lane == 0 ? 2 : 4) : 7);
+  }
 }
 
 // Compare current registered outputs with the preceding cycle's accepted element.
 void Driver::updateCheck() {
   const unsigned c = static_cast<std::uint8_t>(*cycle_Q_);
-  bool good = (arb_out_val == 1) == previous_valid_;
-  if (previous_valid_) {
-    good = good && matches(*arb_out_bits, packet(previous_seed_),
-                           previous_slot_, previous_element_);
-  }
-  for (unsigned slot = 0; slot < 3; ++slot) {
-    const auto actual = *fired_masks[slot];
-    for (std::size_t e = 0; e < smesh::AccScaleLane::kWidth; ++e) {
-      good = good && actual[e] == expected_masks_[slot][e];
+  bool good = true;
+  bool all_accepted = true;
+  for (unsigned lane = 0; lane < kLanes; ++lane) {
+    good = good && (arb_out_val[lane] == 1) == previous_valid_[lane];
+    if (previous_valid_[lane]) {
+      good = good && matches(*arb_out_bits[lane], packet(previous_seed_[lane]),
+                             previous_slot_[lane], previous_element_[lane]);
     }
-  }
-  const bool accepted = arb_val == 1;
-  if (accepted) {
-    const auto selected = *arb_bits;
-    const unsigned slot = static_cast<std::uint8_t>(selected.slot);
-    const unsigned e = static_cast<std::uint16_t>(selected.element);
-    const unsigned seed = c >= 15 ? 9 : slot + 1;
-    good = good && issued < sequence_.size();
-    if (issued < sequence_.size()) {
-      good = good && slot == sequence_[issued].first && e == sequence_[issued].second;
+    for (unsigned slot = 0; slot < 3; ++slot) {
+      const auto actual = *fired_masks[lane * 3 + slot];
+      for (std::size_t e = 0; e < smesh::AccScaleLane::kWidth; ++e) {
+        good = good && actual[e] == expected_masks_[lane][slot][e];
+      }
     }
-    good = good && slot < 3 && e < smesh::AccScaleLane::kWidth;
-    if (slot < 3 && e < smesh::AccScaleLane::kWidth) {
-      good = good && expected_masks_[slot][e] == 0 &&
-             matches(selected, packet(seed), slot, e);
-      expected_masks_[slot][e] = 1;
+    const bool accepted = arb_val[lane] == 1;
+    all_accepted = all_accepted && accepted;
+    if (accepted) {
+      const auto selected = *arb_bits[lane];
+      const unsigned slot = static_cast<std::uint8_t>(selected.slot);
+      const unsigned e = static_cast<std::uint16_t>(selected.element);
+      const unsigned seed = c >= 15 ? 9 : slot + 1;
+      good = good && issued[lane] < sequence_[lane].size();
+      if (issued[lane] < sequence_[lane].size()) {
+        good = good && slot == sequence_[lane][issued[lane]].first &&
+               e == sequence_[lane][issued[lane]].second;
+      }
+      good = good && slot < 3 && e < smesh::AccScaleLane::kWidth;
+      if (slot < 3 && e < smesh::AccScaleLane::kWidth) {
+        good = good && expected_masks_[lane][slot][e] == 0 &&
+               matches(selected, packet(seed), slot, e);
+        expected_masks_[lane][slot][e] = 1;
+      }
+      previous_slot_[lane] = slot;
+      previous_element_[lane] = e;
+      previous_seed_[lane] = seed;
+      ++issued[lane];
+      trace(acc_scale_lane_view_, "cycle=%02u lane=%u accept slot=%u element=%u value=%d\n",
+            c, lane, slot, e, static_cast<int>(selected.data));
     }
-    previous_slot_ = slot;
-    previous_element_ = e;
-    previous_seed_ = seed;
-    ++issued;
-    trace(acc_scale_lane_view_, "cycle=%02u accept slot=%u element=%u value=%d\n",
-          c, slot, e, static_cast<int>(selected.data));
+    // These input handshakes clear fired masks at the next edge, just like regs capture.
+    if (c < 3) expected_masks_[lane][c] = {};
+    if (c == 14) expected_masks_[lane][1] = {};
+    previous_valid_[lane] = accepted;
   }
-  // These input handshakes clear fired masks at the next edge, just like regs capture.
-  if (c < 3) expected_masks_[c] = {};
-  if (c == 14) expected_masks_[1] = {};
-  previous_valid_ = accepted;
+  if (all_accepted) ++simultaneous;
   if (!good) std::printf("[ACC_SCALE_LANE] mismatch cycle=%u\n", c);
   passed = passed && good;
   cycle_D_ = u8(c + 1);
@@ -167,10 +193,11 @@ void Driver::reset() {
   tail_oh.reset(1);
   out_fire.reset(0);
   head_oh.reset(1);
-  current_policy.reset(0);
+  for (unsigned lane = 0; lane < kLanes; ++lane) current_policy[lane].reset(0);
   expected_masks_ = {};
-  previous_valid_ = false;
-  issued = 0;
+  previous_valid_ = {};
+  issued = {};
+  simultaneous = 0;
   passed = true;
 }
 
@@ -181,29 +208,33 @@ int main(int argc, char* argv[]) {
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
   smesh::AccScaleRegs regs("Regs");
-  smesh::AccScaleLane lane("NormLane0", 0, 4, true);
+  std::array<std::unique_ptr<smesh::AccScaleLane>, kLanes> lanes;
   Driver driver("Driver");
   regs.req_fire << driver.req_fire;
   regs.req_bits << driver.req_bits;
   regs.tail_oh << driver.tail_oh;
   regs.out_fire << driver.out_fire;
   regs.head_oh << driver.head_oh;
-  lane.req_fire << driver.req_fire;
-  lane.tail_oh << driver.tail_oh;
-  lane.current_policy << driver.current_policy;
-  driver.arb_val << lane.arb_val;
-  driver.arb_bits << lane.arb_bits;
-  driver.arb_out_val << lane.arb_out_val_Q_;
-  driver.arb_out_bits << lane.arb_out_bits_Q_;
-  for (unsigned slot = 0; slot < 3; ++slot) {
-    lane.regs_val[slot] << regs.regs_val_Q_[slot];
-    lane.regs_bits[slot] << regs.regs_bits_Q_[slot];
-    driver.fired_masks[slot] << lane.fired_masks_Q_[slot];
+  for (unsigned i = 0; i < kLanes; ++i) {
+    lanes[i].reset(new smesh::AccScaleLane("NormLane" + std::to_string(i), i, 4, true));
+    auto& lane = *lanes[i];
+    lane.req_fire << driver.req_fire;
+    lane.tail_oh << driver.tail_oh;
+    lane.current_policy << driver.current_policy[i];
+    driver.arb_val[i] << lane.arb_val;
+    driver.arb_bits[i] << lane.arb_bits;
+    driver.arb_out_val[i] << lane.arb_out_val_Q_;
+    driver.arb_out_bits[i] << lane.arb_out_bits_Q_;
+    for (unsigned slot = 0; slot < 3; ++slot) {
+      lane.regs_val[slot] << regs.regs_val_Q_[slot];
+      lane.regs_bits[slot] << regs.regs_bits_Q_[slot];
+      driver.fired_masks[i * 3 + slot] << lane.fired_masks_Q_[slot];
+    }
   }
   Clock clk;
   driver.clk << clk;
   regs.clk << clk;
-  lane.clk << clk;
+  for (auto& lane : lanes) lane->clk << clk;
   clk.generateClock();
   Sim::init();
   Sim::reset();
@@ -211,9 +242,15 @@ int main(int argc, char* argv[]) {
   bool good = driver.passed;
   Sim::reset();
   for (int c = 0; c < 21; ++c) Sim::run();
-  good = good && driver.passed && driver.issued == driver.expectedCount();
-  std::printf("[ACC_SCALE_LANE] width=%u issued=%u %s\n",
-              static_cast<unsigned>(smesh::AccScaleLane::kWidth), driver.issued,
+  good = good && driver.passed && driver.simultaneous > 0;
+  unsigned total_issued = 0;
+  for (unsigned lane = 0; lane < kLanes; ++lane) {
+    good = good && driver.issued[lane] == driver.expectedCount(lane);
+    total_issued += driver.issued[lane];
+  }
+  std::printf("[ACC_SCALE_LANE] lanes=%u width=%u issued=%u simultaneous=%u %s\n",
+              kLanes, static_cast<unsigned>(smesh::AccScaleLane::kWidth), total_issued,
+              driver.simultaneous,
               good ? "PASS" : "FAIL");
   descore::flushLog();
   return good ? 0 : 1;
