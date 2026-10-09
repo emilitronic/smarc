@@ -12,19 +12,18 @@ namespace smesh {
 constexpr std::size_t AccScaleLane::kEntries;
 constexpr std::size_t AccScaleLane::kWidth;
 
+// Implementation constructor
 AccScaleLane::AccScaleLane(std::string /*name*/, unsigned lane_index, unsigned group_lanes, bool normalization_lane, IMPL_CTOR)
     : lane_index_(lane_index), group_lanes_(group_lanes), normalization_lane_(normalization_lane) {
   assert_always(group_lanes > 0 && lane_index < group_lanes && lane_index < kEntries * kWidth, "Invalid AccScaleLane connection map");
-  last_grant_Q_   <= last_grant_D_;
-  arb_out_val_Q_  <= arb_out_val_D_;
-  arb_out_bits_Q_ <= arb_out_bits_D_;
+  last_grant_Q_   <= last_grant_D_;   // current and next state for round-robin pointer
+  arb_out_val_Q_  <= arb_out_val_D_;  // one-cycle output register for arb-selected element valid
+  arb_out_bits_Q_ <= arb_out_bits_D_; // one-cycle output register for arb-selected element data
   for (std::size_t slot = 0; slot < kEntries; ++slot) {
     fired_masks_Q_[slot] <= fired_masks_D_[slot];
   }
-  UPDATE(updateArbiter).reads(regs_val, regs_bits, current_policy, fired_masks_Q_, last_grant_Q_)
-                       .writes(arb_val, arb_bits);
-  UPDATE(updateRegisters).reads(arb_val, arb_bits, req_fire, tail_oh, fired_masks_Q_)
-                         .writes(arb_out_val_D_, arb_out_bits_D_, last_grant_D_, fired_masks_D_);
+  UPDATE(updateArbiter).reads(regs_val, regs_bits, current_policy, fired_masks_Q_, last_grant_Q_).writes(arb_val, arb_bits);
+  UPDATE(updateRegisters).reads(arb_val, arb_bits, req_fire, tail_oh, fired_masks_Q_).writes(arb_out_val_D_, arb_out_bits_D_, last_grant_D_, fired_masks_D_);
 }
 
 // Select one connected element that has not already entered this lane.
@@ -42,8 +41,8 @@ void AccScaleLane::updateArbiter() {
     const auto slot             = flat / kWidth;
     const auto element          = flat % kWidth;
     const bool assigned_to_norm = (policy & (1u << slot)) != 0;
-    if (regs_val[slot] == 0 || assigned_to_norm != normalization_lane_ ||
-        (*fired_masks_Q_[slot])[element] == 1) continue;
+
+    if (regs_val[slot] == 0 || assigned_to_norm != normalization_lane_ || (*fired_masks_Q_[slot])[element] == 1) continue;
 
     const auto packet  = *regs_bits[slot];
     const auto& row    = packet.norm.acc_read_resp;
@@ -62,25 +61,23 @@ void AccScaleLane::updateArbiter() {
       selected.inv_stddev    = packet.norm.inv_stddev;
       selected.inv_sum_exp   = packet.norm.inv_sum_exp;
     }
-    selected.slot    = u8(slot);
-    selected.element = u16(element);
-    arb_bits         = selected;
-    arb_val          = 1;
+    selected.slot            = u8(slot);
+    selected.element         = u16(element);
+    arb_bits                 = selected;
+    arb_val                  = 1;
     break;
   }
 }
 
 // Register the accepted element and mark it sent; clear masks for new input packets.
 void AccScaleLane::updateRegisters() {
-  arb_out_val_D_ = *arb_val; // arbOut is replaced each cycle, including invalid cycles
+  arb_out_val_D_      = *arb_val;     // arbOut is replaced each cycle, including invalid cycles
   const bool accepted = arb_val == 1; // Original arbiter ready is tied high
   const auto selected = *arb_bits;
   if (accepted) {
     arb_out_bits_D_ = selected;
     last_grant_D_   = u16(static_cast<unsigned>(selected.slot) * kWidth + static_cast<unsigned>(selected.element));
-    trace(acc_scale_lane_, "accept slot=%u element=%u value=%d\n",
-          static_cast<unsigned>(selected.slot), static_cast<unsigned>(selected.element),
-          static_cast<int>(selected.data));
+    trace(acc_scale_lane_, "accept slot=%u element=%u value=%d\n", static_cast<unsigned>(selected.slot), static_cast<unsigned>(selected.element), static_cast<int>(selected.data));
   }
   const auto tail = static_cast<std::uint8_t>(*tail_oh);
   for (std::size_t slot = 0; slot < kEntries; ++slot) {
