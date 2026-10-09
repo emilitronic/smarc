@@ -12,7 +12,7 @@ namespace smesh {
 constexpr std::size_t AccScaleLane::kEntries;
 constexpr std::size_t AccScaleLane::kWidth;
 
-// Implementation constructor
+// Implementation constructor identify which lane this instance is in and which elements connect to it.
 AccScaleLane::AccScaleLane(std::string /*name*/, unsigned lane_index, unsigned group_lanes, bool normalization_lane, IMPL_CTOR)
     : lane_index_(lane_index), group_lanes_(group_lanes), normalization_lane_(normalization_lane) {
   assert_always(group_lanes > 0 && lane_index < group_lanes && lane_index < kEntries * kWidth, "Invalid AccScaleLane connection map");
@@ -47,10 +47,10 @@ void AccScaleLane::updateArbiter() {
     const auto packet  = *regs_bits[slot];
     const auto& row    = packet.norm.acc_read_resp;
     AccScaleElem selected{};
-    selected.data      = row.data[element];
-    selected.full_data = row.data[element];
-    selected.scale     = row.scale;
-    selected.act       = row.act;
+    selected.data            = row.data[element];
+    selected.full_data       = row.data[element];
+    selected.scale           = row.scale;
+    selected.act             = row.act;
     if (normalization_lane_) {
       selected.igelu_qb      = row.igelu_qb;
       selected.igelu_qc      = row.igelu_qc;
