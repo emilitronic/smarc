@@ -70,6 +70,8 @@ class Driver : public Component {
   Clock(clk);
   Output(bit, req_val);
   Output(smesh::AccScaleReq, req_bits);
+  Output(bit, no_result_val);
+  Output(smesh::AccScaleResult, no_result_bits);
   Input(bit, req_rdy);
   InputArray(bit, regs_val, smesh::AccScaleRegs::kEntries);
   InputArray(smesh::AccScaleReq, regs_bits, smesh::AccScaleRegs::kEntries);
@@ -93,13 +95,16 @@ class Driver : public Component {
 
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   cycle_Q_ <= cycle_D_;
-  UPDATE(updateDrive).reads(cycle_Q_).writes(req_val, req_bits, out_rdy, completed_masks);
+  UPDATE(updateDrive).reads(cycle_Q_).writes(req_val, req_bits, out_rdy, completed_masks)
+                     .writes(no_result_val, no_result_bits);
   UPDATE(updateCheck).reads(cycle_Q_, req_rdy, regs_val, regs_bits, out_regs)
                      .reads(req_fire, out_val, out_fire, out_bits, head_oh, tail_oh)
                      .writes(cycle_D_);
 }
 
 void Driver::updateDrive() {
+  no_result_val = 0;
+  no_result_bits = smesh::AccScaleResult{};
   const auto cycle = static_cast<std::uint8_t>(*cycle_Q_);
   // Fill three slots. Packet 3 waits until cycle 8; packet 4 enters at cycle 11.
   req_val = bit(cycle == 1 || cycle == 2 || cycle == 4 || (cycle >= 5 && cycle <= 8) || cycle == 11);
@@ -184,6 +189,8 @@ void Driver::reset() {
   cycle_D_.reset(0);
   req_val.reset(0);
   req_bits.reset(smesh::AccScaleReq{});
+  no_result_val.reset(0);
+  no_result_bits.reset(smesh::AccScaleResult{});
   out_rdy.reset(0);
   for (std::size_t slot = 0; slot < smesh::AccScaleRegs::kEntries; ++slot) {
     completed_masks[slot].reset(smesh::AccScaleSlotCtrl::CompletedMask{});
@@ -207,6 +214,10 @@ int main(int argc, char* argv[]) {
   regs.tail_oh << ctrl.tail_oh_Q_;
   regs.out_fire << ctrl.out_fire;
   regs.head_oh << ctrl.head_oh_Q_;
+  for (std::size_t lane = 0; lane < smesh::AccScaleRegs::kReturnLanes; ++lane) {
+    regs.result_val[lane] << driver.no_result_val;
+    regs.result_bits[lane] << driver.no_result_bits;
+  }
   driver.req_rdy << ctrl.req_rdy;
   driver.req_fire << ctrl.req_fire;
   driver.out_val << ctrl.out_val;

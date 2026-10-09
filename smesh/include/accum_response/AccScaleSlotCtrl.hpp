@@ -6,7 +6,7 @@
 Original's ordered slot control. tail_oh selects the next input slot; head_oh
 selects the oldest output slot. Only a complete head slot can leave. Its release
 can make room for an input in the same cycle, including when all slots are full.
-Completion masks come from the element-progress registers, to be added next.
+Completion masks come from AccScaleRegs, where returning results update them.
 */
 #pragma once
 
@@ -24,7 +24,7 @@ class AccScaleSlotCtrl : public Component {
 
   static constexpr std::size_t kEntries = AccScaleRegs::kEntries;
   static constexpr std::size_t kWidth   = AccScaleRegs::kWidth;
-  using CompletedMask = std::array<bit, kWidth>; // which elements of a given slot have completed
+  using CompletedMask                   = AccScaleRegs::CompletedMask; // which elements of given slot have completed
 
   Clock(clk);
   Input(bit,  req_val);  // upstream normalizer is offering a packet

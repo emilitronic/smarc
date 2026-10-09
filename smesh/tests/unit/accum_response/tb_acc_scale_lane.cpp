@@ -73,6 +73,8 @@ class Driver : public Component {
   Clock(clk);
   Output(bit, req_fire);
   Output(smesh::AccScaleReq, req_bits);
+  Output(bit, no_result_val);
+  Output(smesh::AccScaleResult, no_result_bits);
   Output(u3, tail_oh);
   Output(bit, out_fire);
   Output(u3, head_oh);
@@ -117,13 +119,16 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   }
   cycle_Q_ <= cycle_D_;
   UPDATE(updateDrive).reads(cycle_Q_)
-                     .writes(req_fire, req_bits, tail_oh, out_fire, head_oh, current_policy);
+                     .writes(req_fire, req_bits, tail_oh, out_fire, head_oh, current_policy)
+                     .writes(no_result_val, no_result_bits);
   UPDATE(updateCheck).reads(cycle_Q_, arb_val, arb_bits, arb_out_val, arb_out_bits, fired_masks)
                      .writes(cycle_D_);
 }
 
 // Fill all slots, enable dispatch, then replace slot 1 with a new packet.
 void Driver::updateDrive() {
+  no_result_val = 0;
+  no_result_bits = smesh::AccScaleResult{};
   const unsigned c = static_cast<std::uint8_t>(*cycle_Q_);
   req_fire = bit(c < 3 || c == 14);
   tail_oh = u3(c < 3 ? 1u << c : 2u);
@@ -206,6 +211,8 @@ void Driver::reset() {
   cycle_D_.reset(0);
   req_fire.reset(0);
   req_bits.reset(smesh::AccScaleReq{});
+  no_result_val.reset(0);
+  no_result_bits.reset(smesh::AccScaleResult{});
   tail_oh.reset(1);
   out_fire.reset(0);
   head_oh.reset(1);
@@ -231,6 +238,10 @@ int main(int argc, char* argv[]) {
   regs.tail_oh << driver.tail_oh;
   regs.out_fire << driver.out_fire;
   regs.head_oh << driver.head_oh;
+  for (std::size_t i = 0; i < smesh::AccScaleRegs::kReturnLanes; ++i) {
+    regs.result_val[i] << driver.no_result_val;
+    regs.result_bits[i] << driver.no_result_bits;
+  }
   for (unsigned i = 0; i < kLanes; ++i) {
     lanes[i].reset(new smesh::AccScaleLane("NormLane" + std::to_string(i), i, 4, true));
     auto& lane = *lanes[i];
