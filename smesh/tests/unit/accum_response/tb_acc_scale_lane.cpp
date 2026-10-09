@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
-Connect one or two normalization lanes to the three input slots. Check their fixed
+Connect one, two, or four normalization lanes to the three input slots. Check their fixed
 element connections, policy gating, round-robin order, one-cycle arbOut,
 parameter retention, fired masks, slot replacement, and reset during activity.
 The driver supplies slot acceptance and current_policy; no arithmetic yet.
@@ -12,6 +12,8 @@ The driver supplies slot acceptance and current_policy; no arithmetic yet.
 // ./build/smesh/tb_acc_scale_lane -trace '*'/acc_scale_lane_
 // cmake --build build --target tb_acc_scale_two_lanes tb_acc_scale_two_lanes_dim8 -j 4
 // ./build/smesh/tb_acc_scale_two_lanes -trace '*'/acc_scale_lane_view_
+// cmake --build build --target tb_acc_scale_four_lanes tb_acc_scale_four_lanes_dim8 -j 4
+// ./build/smesh/tb_acc_scale_four_lanes -trace '*'/acc_scale_lane_view_
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
@@ -30,7 +32,8 @@ namespace {
 #define SMESH_ACC_SCALE_TEST_LANES 1
 #endif
 constexpr unsigned kLanes = SMESH_ACC_SCALE_TEST_LANES;
-static_assert(kLanes == 1 || kLanes == 2, "This test uses one or two of the four lanes");
+static_assert(kLanes == 1 || kLanes == 2 || kLanes == 4,
+              "This test uses one, two, or all four lanes");
 
 smesh::AccScaleReq packet(unsigned seed) {
   smesh::AccScaleReq p{};
@@ -101,7 +104,7 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   assert_always(smesh::AccScaleLane::kWidth == 4 || smesh::AccScaleLane::kWidth == 8,
                 "This test expects DIM=4 or DIM=8");
   for (unsigned lane = 0; lane < kLanes; ++lane) {
-    // Enable slot 1 first for lane 0 and slot 2 first for lane 1, then all slots.
+    // Enable slot 1 first for lane 0 and slot 2 first for the other lanes, then all slots.
     // Different winners check that the lanes keep separate round-robin memories.
     const unsigned first = lane == 0 ? 1 : 2;
     for (unsigned turn = 0; turn < 3; ++turn) {
@@ -178,6 +181,19 @@ void Driver::updateCheck() {
     if (c < 3) expected_masks_[lane][c] = {};
     if (c == 14) expected_masks_[lane][1] = {};
     previous_valid_[lane] = accepted;
+  }
+  // With all four lanes, every element must have been sent by exactly one lane.
+  // Check the original rows and again after slot 1 has received a replacement.
+  if (kLanes == 4 && (c == 13 || c == 20)) {
+    for (unsigned slot = 0; slot < 3; ++slot) {
+      for (std::size_t e = 0; e < smesh::AccScaleLane::kWidth; ++e) {
+        unsigned senders = 0;
+        for (unsigned lane = 0; lane < kLanes; ++lane) {
+          senders += (*fired_masks[lane * 3 + slot])[e] == 1 ? 1 : 0;
+        }
+        good = good && senders == 1;
+      }
+    }
   }
   if (all_accepted) ++simultaneous;
   if (!good) std::printf("[ACC_SCALE_LANE] mismatch cycle=%u\n", c);
