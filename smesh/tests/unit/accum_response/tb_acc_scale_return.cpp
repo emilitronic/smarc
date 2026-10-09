@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
-Four lanes return identity-scaled elements to out_regs. Check assembled rows
+Four lanes and their two-cycle scale pipes return scaled elements to out_regs. Check assembled rows
 and completion masks, younger rows finishing first, output stalls, simultaneous
 output/input into a full slot bank, slot reuse, and reset during activity.
 */
@@ -12,7 +12,7 @@ output/input into a full slot bank, slot reuse, and reset during activity.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
-#include "AccScaleMath.hpp"
+#include "AccScalePipe.hpp"
 #include "AccScaleLane.hpp"
 #include "AccScaleSlotCtrl.hpp"
 
@@ -30,10 +30,17 @@ constexpr std::uint32_t kScaleOne = 0x3f800000u;
 smesh::AccScaleReq packet(unsigned id) {
   smesh::AccScaleReq p{};
   auto& row = p.norm.acc_read_resp;
-  row.scale = kScaleOne;
+  row.scale = id == 0 ? 0x3f000000u : id == 1 ? 0x40000000u : kScaleOne;
   for (std::size_t e = 0; e < smesh::AccScaleRegs::kWidth; ++e) {
     const int magnitude = (id + 1) * 10 + e;
     row.data[e] = id % 2 == 0 ? magnitude : -magnitude;
+    if (id == 0) {
+      constexpr int values[] = {3, 5, -3, -5};
+      row.data[e] = values[e % 4];
+    } else if (id == 1) {
+      constexpr int values[] = {100, -65, 63, -64};
+      row.data[e] = values[e % 4];
+    }
   }
   row.laddr = smesh::makeAccAddr((id % smesh::kAccBanks) * smesh::kAccBankRows + id);
   row.from_dma = bit(id % 2);
@@ -44,7 +51,10 @@ bool matches(const smesh::AccScaleResp& row, unsigned id) {
   const auto expected = packet(id).norm.acc_read_resp;
   if (row.from_dma != expected.from_dma || row.acc_bank_id != expected.laddr.acc_bank()) return false;
   for (std::size_t e = 0; e < smesh::AccScaleRegs::kWidth; ++e) {
-    if (row.full_data[e] != expected.data[e] || row.data[e] != expected.data[e]) return false;
+    constexpr int half[] = {2, 2, -2, -2};
+    constexpr int twice[] = {127, -128, 126, -128};
+    const int scaled = id == 0 ? half[e % 4] : id == 1 ? twice[e % 4] : expected.data[e];
+    if (row.full_data[e] != expected.data[e] || row.data[e] != scaled) return false;
   }
   return true;
 }
@@ -58,10 +68,8 @@ class Driver : public Component {
   Output(smesh::AccScaleReq, req_bits);
   Output(bit, out_rdy);
   OutputArray(u3, current_policy, kLanes);
-  InputArray(bit, lane_val, kLanes);
-  InputArray(smesh::AccScaleElem, lane_bits, kLanes);
-  OutputArray(bit, result_val, kLanes);
-  OutputArray(smesh::AccScaleResult, result_bits, kLanes);
+  InputArray(bit, result_val, kLanes);
+  InputArray(smesh::AccScaleResult, result_bits, kLanes);
   Input(bit, req_rdy);
   Input(bit, req_fire);
   Input(bit, out_val);
@@ -71,7 +79,6 @@ class Driver : public Component {
   Input(u3, tail_oh);
   InputArray(smesh::AccScaleRegs::CompletedMask, completed_masks, 3);
   void updateDrive();
-  void updateReturn();
   void updateCheck();
   void reset() override;
   bool passed = true;
@@ -93,7 +100,6 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   cycle_Q_ <= cycle_D_;
   sent_Q_ <= sent_D_;
   UPDATE(updateDrive).reads(cycle_Q_, sent_Q_).writes(req_val, req_bits, out_rdy, current_policy);
-  UPDATE(updateReturn).reads(lane_val, lane_bits).writes(result_val, result_bits);
   UPDATE(updateCheck).reads(cycle_Q_, sent_Q_, req_rdy, req_fire, out_val, out_rdy, out_fire)
                      .reads(out_bits, head_oh, tail_oh, completed_masks, result_val, result_bits)
                      .writes(cycle_D_, sent_D_);
@@ -105,21 +111,9 @@ void Driver::updateDrive() {
   const unsigned sent = static_cast<std::uint8_t>(*sent_Q_);
   req_val = bit(sent < 4);
   req_bits = packet(sent < 4 ? sent : 0);
-  out_rdy = bit(c >= 17 && c != 20 && c != 21);
+  out_rdy = bit(c >= 19 && c != 20 && c != 21);
   for (unsigned lane = 0; lane < kLanes; ++lane) {
     current_policy[lane] = u3(c >= (lane == 0 ? 8 : 4) ? 7 : 0);
-  }
-}
-
-// Test-only scale-pipe stand-in: return the registered element without changing its value.
-void Driver::updateReturn() {
-  for (unsigned lane = 0; lane < kLanes; ++lane) {
-    result_val[lane] = *lane_val[lane];
-    smesh::AccScaleResult result{};
-    if (lane_val[lane] == 1) {
-      result = smesh::scaleAccumulatorElement(*lane_bits[lane]);
-    }
-    result_bits[lane] = result;
   }
 }
 
@@ -172,8 +166,8 @@ void Driver::updateCheck() {
       expected_masks_[slot][e] = 1;
     }
     ++returns;
-    trace(acc_scale_return_view_, "cycle=%02u return lane=%u slot=%u element=%u value=%d\n",
-          c, lane, slot, e, static_cast<int>(result.full_data));
+    trace(acc_scale_return_view_, "cycle=%02u return lane=%u slot=%u element=%u full=%d scaled=%d\n",
+          c, lane, slot, e, static_cast<int>(result.full_data), static_cast<int>(result.data));
   }
   if (!good) std::printf("[ACC_SCALE_RETURN] mismatch cycle=%u\n", c);
   passed = passed && good;
@@ -190,8 +184,6 @@ void Driver::reset() {
   out_rdy.reset(0);
   for (unsigned lane = 0; lane < kLanes; ++lane) {
     current_policy[lane].reset(0);
-    result_val[lane].reset(0);
-    result_bits[lane].reset(smesh::AccScaleResult{});
   }
   expected_masks_ = {};
   passed = true;
@@ -209,21 +201,22 @@ int main(int argc, char* argv[]) {
   smesh::AccScaleRegs regs("Regs");
   smesh::AccScaleSlotCtrl ctrl("SlotCtrl");
   std::array<std::unique_ptr<smesh::AccScaleLane>, kLanes> lanes;
+  std::array<std::unique_ptr<smesh::AccScalePipe>, kLanes> pipes;
   Driver driver("Driver");
-  ctrl.req_val << driver.req_val;
-  ctrl.out_rdy << driver.out_rdy;
-  regs.req_bits << driver.req_bits;
-  regs.req_fire << ctrl.req_fire;
-  regs.tail_oh << ctrl.tail_oh_Q_;
-  regs.out_fire << ctrl.out_fire;
-  regs.head_oh << ctrl.head_oh_Q_;
-  driver.req_rdy << ctrl.req_rdy;
+  ctrl.req_val    << driver.req_val;
+  ctrl.out_rdy    << driver.out_rdy;
+  regs.req_bits   << driver.req_bits;
+  regs.req_fire   << ctrl.req_fire;
+  regs.tail_oh    << ctrl.tail_oh_Q_;
+  regs.out_fire   << ctrl.out_fire;
+  regs.head_oh    << ctrl.head_oh_Q_;
+  driver.req_rdy  << ctrl.req_rdy;
   driver.req_fire << ctrl.req_fire;
-  driver.out_val << ctrl.out_val;
+  driver.out_val  << ctrl.out_val;
   driver.out_fire << ctrl.out_fire;
   driver.out_bits << regs.out_bits;
-  driver.head_oh << ctrl.head_oh_Q_;
-  driver.tail_oh << ctrl.tail_oh_Q_;
+  driver.head_oh  << ctrl.head_oh_Q_;
+  driver.tail_oh  << ctrl.tail_oh_Q_;
   for (unsigned slot = 0; slot < 3; ++slot) {
     ctrl.regs_val[slot] << regs.regs_val_Q_[slot];
     ctrl.completed_masks[slot] << regs.completed_masks_Q_[slot];
@@ -244,10 +237,15 @@ int main(int argc, char* argv[]) {
       lane.regs_val[slot] << regs.regs_val_Q_[slot];
       lane.regs_bits[slot] << regs.regs_bits_Q_[slot];
     }
-    driver.lane_val[i] << lane.arb_out_val_Q_;
-    driver.lane_bits[i] << lane.arb_out_bits_Q_;
-    regs.result_val[i] << driver.result_val[i];
-    regs.result_bits[i] << driver.result_bits[i];
+    pipes[i].reset(new smesh::AccScalePipe("ScalePipe" + std::to_string(i), 2));
+    auto& pipe = *pipes[i];
+    pipe.clk << clk;
+    pipe.in_val << lane.arb_out_val_Q_;
+    pipe.in_bits << lane.arb_out_bits_Q_;
+    regs.result_val[i] << pipe.out_val;
+    regs.result_bits[i] << pipe.out_bits;
+    driver.result_val[i] << pipe.out_val;
+    driver.result_bits[i] << pipe.out_bits;
   }
   clk.generateClock();
   Sim::init();
@@ -259,6 +257,11 @@ int main(int argc, char* argv[]) {
   good = good && driver.passed && driver.outputs == 4 &&
          driver.returns == 4 * smesh::AccScaleRegs::kWidth && driver.saw_partial_head &&
          driver.saw_younger_ready && driver.saw_stall && driver.saw_reuse;
+  if (!good) {
+    std::printf("[ACC_SCALE_RETURN] checks=%u partial=%u younger=%u stalled=%u reused=%u\n",
+                driver.passed, driver.saw_partial_head, driver.saw_younger_ready,
+                driver.saw_stall, driver.saw_reuse);
+  }
   std::printf("[ACC_SCALE_RETURN] width=%u rows=%u elements=%u %s\n",
               static_cast<unsigned>(smesh::AccScaleRegs::kWidth), driver.outputs,
               driver.returns, good ? "PASS" : "FAIL");

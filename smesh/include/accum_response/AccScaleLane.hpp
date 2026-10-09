@@ -4,12 +4,13 @@
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
 One lane's connections from the three regs slots, round-robin arbiter, and
-arbOut register. No scaling arithmetic yet. Original connects a candidate
-when (slot * row_width + element) % group_lanes == lane_index.
+arbOut register. AccScalePipe follows this register and applies scaling.
+Original connects a candidate when 
+(slot * row_width + element) % group_lanes == lane_index.
 current_policy selects which slots use normalization lanes. The policy itself
 is supplied externally until we build work classification.
 Original always accepts the arbiter output; arbOut is a valid-only register
-that presents the selected element one cycle later, for the future scale pipe.
+that presents the selected element one cycle later to the scale pipe.
 This lane owns fired_masks for its connected elements. Other bits stay zero.
 */
 #pragma once

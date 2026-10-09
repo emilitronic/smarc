@@ -11,8 +11,9 @@ add_executable(tb_acc_scale_regs tb_acc_scale_regs.cpp)
 add_executable(tb_acc_scale_lane tb_acc_scale_lane.cpp)
 add_executable(tb_acc_scale_math tb_acc_scale_math.cpp)
 add_executable(tb_acc_scale_unit tb_acc_scale_unit.cpp)
+add_executable(tb_acc_scale_pipe tb_acc_scale_pipe.cpp)
 
-foreach(test_target tb_normalizer_slots tb_normalizer_sum tb_normalizer_max tb_normalizer_mean tb_normalizer_variance tb_norm_variance_divide tb_normalizer_inv_stddev tb_normalizer_sum_exp tb_normalizer_inv_sum_exp tb_acc_scale_regs tb_acc_scale_lane tb_acc_scale_math tb_acc_scale_unit)
+foreach(test_target tb_normalizer_slots tb_normalizer_sum tb_normalizer_max tb_normalizer_mean tb_normalizer_variance tb_norm_variance_divide tb_normalizer_inv_stddev tb_normalizer_sum_exp tb_normalizer_inv_sum_exp tb_acc_scale_regs tb_acc_scale_lane tb_acc_scale_math tb_acc_scale_unit tb_acc_scale_pipe)
   target_link_libraries(${test_target}
     PRIVATE smesh_model cascade -lz -ltermcap -lpthread
   )
@@ -34,11 +35,12 @@ add_test(NAME smesh_unit_normalizer_inv_sum_exp COMMAND tb_normalizer_inv_sum_ex
 add_test(NAME smesh_unit_acc_scale_regs COMMAND tb_acc_scale_regs)
 add_test(NAME smesh_unit_acc_scale_math COMMAND tb_acc_scale_math)
 add_test(NAME smesh_unit_acc_scale_unit COMMAND tb_acc_scale_unit)
+add_test(NAME smesh_unit_acc_scale_pipe COMMAND tb_acc_scale_pipe)
 set_tests_properties(smesh_unit_normalizer_slots smesh_unit_normalizer_sum smesh_unit_normalizer_max smesh_unit_normalizer_mean smesh_unit_normalizer_variance smesh_unit_norm_variance_divide smesh_unit_normalizer_inv_stddev smesh_unit_normalizer_sum_exp smesh_unit_normalizer_inv_sum_exp smesh_unit_acc_scale_regs PROPERTIES
   LABELS "unit;accum_response"
   TIMEOUT 10
 )
-set_tests_properties(smesh_unit_acc_scale_math smesh_unit_acc_scale_unit PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
+set_tests_properties(smesh_unit_acc_scale_math smesh_unit_acc_scale_unit smesh_unit_acc_scale_pipe PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
 
 add_executable(tb_acc_scale_unit_dim8 tb_acc_scale_unit.cpp)
 target_link_libraries(tb_acc_scale_unit_dim8 PRIVATE smesh_model_dim8 cascade -lz -ltermcap -lpthread)

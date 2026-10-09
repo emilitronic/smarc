@@ -56,16 +56,16 @@ Elem clipToElem(Acc value) {
 Elem scaleAccumValue(Acc value, u32 scale_bits) {
   assert_always(std::fegetround() == FE_TONEAREST, "Accumulator scaling requires round-to-nearest host arithmetic");
   const float product = static_cast<float>(value) * scaleFromBits(scale_bits);
-  const Acc scaled = convertToAcc(product);
+  const Acc scaled    = convertToAcc(product);
   return clipToElem(scaled);
 }
 
 AccScaleResult scaleAccumulatorElement(const AccScaleElem& input) {
   AccScaleResult result{};
   result.full_data = input.full_data;
-  result.data = scaleAccumValue(input.data, input.scale);
-  result.slot = input.slot;
-  result.element = input.element;
+  result.data      = scaleAccumValue(input.data, input.scale);
+  result.slot      = input.slot;
+  result.element   = input.element;
   return result;
 }
 
