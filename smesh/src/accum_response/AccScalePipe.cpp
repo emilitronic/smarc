@@ -10,8 +10,9 @@ TraceKey(acc_scale_pipe_);
 
 namespace smesh {
 
-AccScalePipe::AccScalePipe(std::string /*name*/, int latency, IMPL_CTOR)
-    : stages_Q_(latency > 0 ? latency : 0),
+AccScalePipe::AccScalePipe(std::string /*name*/, int latency, bool has_nonlinear_activations, IMPL_CTOR)
+    : has_nonlinear_activations_(has_nonlinear_activations),
+      stages_Q_(latency > 0 ? latency : 0),
       stages_D_(latency > 0 ? latency : 0) {
   assert_always(latency >= 1, "AccScalePipe latency must be at least one cycle");
   for (int stage = 0; stage < stages_Q_.size(); ++stage) {
@@ -26,8 +27,12 @@ void AccScalePipe::updateStages() {
   AccScalePipeEntry incoming{};
   incoming.valid = *in_val;
   if (in_val == 1) {
-    const auto element = *in_bits;
-    assert_always(element.act == 0, "AccScalePipe activation math is not implemented");
+    auto element = *in_bits;
+    assert_always(element.act == 0 || element.act == 1, "AccScalePipe supports only NONE and RELU");
+    // Original act=1: clamp negative input to zero before scaling; full_data stays unchanged.
+    if (has_nonlinear_activations_ && element.act == 1 && element.data < 0) { // ReLU
+      element.data = 0;                                                       // ReLU
+    }                                                                         // ReLU
     incoming.bits      = scaleAccumulatorElement(element);
     trace(acc_scale_pipe_, "accept slot=%u element=%u full=%d scaled=%d\n",
           static_cast<unsigned>(incoming.bits.slot),

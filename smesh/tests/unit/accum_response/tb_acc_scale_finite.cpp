@@ -6,7 +6,8 @@
 Exercise the finite scaler through its external row ports. Seven rows wrap the
 three slots twice. Check scaled rows in input order, source/bank metadata,
 backpressure from the selected consumer, full-slot simultaneous pop/push,
-unchanged full_data, and reset while rows and elements are in flight.
+unchanged full_data, alternating ordinary/ReLU rows, the activation capability
+flag, and reset while rows and elements are in flight.
 */
 // cmake --build build --target tb_acc_scale_finite tb_acc_scale_finite_dim8 -j 4
 // ./build/smesh/tb_acc_scale_finite -trace '*'/acc_scale_finite_view_
@@ -21,12 +22,14 @@ TraceKey(acc_scale_finite_view_);
 
 namespace {
 
+BoolParameter(nonlinear, true, "Enable ReLU in scale pipes");
 constexpr unsigned kRows = 7;
 
 smesh::AccScaleReq packet(unsigned id) {
   smesh::AccScaleReq p{};
   auto& row = p.norm.acc_read_resp;
   row.scale = id % 3 == 0 ? 0x3f000000u : id % 3 == 1 ? 0x40000000u : 0x3f800000u;
+  row.act = u8(id % 2); // alternate ordinary scaling and ReLU
   const int n = static_cast<int>(id);
   const int half[] = {8 * n + 3, 8 * n + 5, -8 * n - 3, -8 * n - 5};
   const int twice[] = {100 + n, -65 - n, 63 - n, -64 + n};
@@ -47,7 +50,8 @@ bool matches(const smesh::AccScaleResp& actual, unsigned id) {
   const int identity[] = {127, -128, 127 - n, -128 + n};
   if (actual.from_dma != source.from_dma || actual.acc_bank_id != source.laddr.acc_bank()) return false;
   for (std::size_t e = 0; e < smesh::kDim; ++e) {
-    const int scaled = id % 3 == 0 ? half[e % 4] : id % 3 == 1 ? twice[e % 4] : identity[e % 4];
+    int scaled = id % 3 == 0 ? half[e % 4] : id % 3 == 1 ? twice[e % 4] : identity[e % 4];
+    if (nonlinear && source.act == 1 && source.data[e] < 0) scaled = 0;
     if (actual.full_data[e] != source.data[e] || actual.data[e] != scaled) return false;
   }
   return true;
@@ -166,7 +170,7 @@ int main(int argc, char* argv[]) {
   descore::parseTraces(argc, argv);
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
-  smesh::AccScaleFinite scale("FiniteScale", 4);
+  smesh::AccScaleFinite scale("FiniteScale", 4, nonlinear);
   Driver driver("Driver");
   Clock clk;
   scale.clk << clk;
@@ -193,8 +197,8 @@ int main(int argc, char* argv[]) {
                 driver.passed, driver.saw_full, driver.saw_reuse,
                 driver.saw_store_stall, driver.saw_ex_stall);
   }
-  std::printf("[ACC_SCALE_FINITE] width=%u accepted=%u returned=%u %s\n",
-              static_cast<unsigned>(smesh::kDim), driver.accepted, driver.returned,
+  std::printf("[ACC_SCALE_FINITE] width=%u activation=%u accepted=%u returned=%u %s\n",
+              static_cast<unsigned>(smesh::kDim), static_cast<unsigned>(nonlinear), driver.accepted, driver.returned,
               good ? "PASS" : "FAIL");
   descore::flushLog();
   return good ? 0 : 1;

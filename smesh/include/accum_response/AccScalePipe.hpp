@@ -9,10 +9,12 @@ Accepts one element whenever in_val is asserted; no ready or output stalls.
 The scaled, clipped result reaches out_regs after the configured latency.
 Full-width data and destination slot/element travel with the result.
 
-Original uses a Valid-only Pipe here. This model computes ordinary scaling
+Original uses a Valid-only Pipe here. This model computes optional ReLU and scaling
 at the pipeline entrance and delays the result through explicit registers;
 it does not model the internal floating-point arithmetic stages.
-Activation and normalization operations will be added separately.
+act == 1 selects ReLU before scaling when has_nonlinear_activations is true.
+full_data keeps the original value. Other activation/normalization operations
+will be added separately.
 */
 #pragma once
 
@@ -32,7 +34,7 @@ class AccScalePipe : public Component {
  public:
   // Latency (how many clocked stages work passes through before result comes out) 
   // starts at in_val, after the lane's separate arbOut register.
-  AccScalePipe(std::string name, int latency = 1, COMPONENT_CTOR);
+  AccScalePipe(std::string name, int latency = 1, bool has_nonlinear_activations = true, COMPONENT_CTOR);
 
   Clock(clk);
 
@@ -47,6 +49,7 @@ class AccScalePipe : public Component {
   void reset() override;
 
  private:
+  const bool has_nonlinear_activations_;
   OutputArray(AccScalePipeEntry,   stages_Q_);
   RegisterArray(AccScalePipeEntry, stages_D_);
 };

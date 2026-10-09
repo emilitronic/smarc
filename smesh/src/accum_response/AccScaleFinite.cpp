@@ -12,7 +12,7 @@ namespace smesh {
 
 constexpr std::size_t AccScaleFinite::kLanes;
 
-AccScaleFinite::AccScaleFinite(std::string /*name*/, int pipe_latency, IMPL_CTOR) {
+AccScaleFinite::AccScaleFinite(std::string /*name*/, int pipe_latency, bool has_nonlinear_activations, IMPL_CTOR) {
   ctrl_ = new AccScaleSlotCtrl("SlotCtrl");
   regs_ = new AccScaleRegs("Regs");
 
@@ -40,7 +40,7 @@ AccScaleFinite::AccScaleFinite(std::string /*name*/, int pipe_latency, IMPL_CTOR
   // Each arbiter sends one selected element through its own functional pipe.
   for (std::size_t lane = 0; lane < kLanes; ++lane) {
     lanes_[lane] = new AccScaleLane("Lane" + std::to_string(lane), lane, kLanes, false); // interconnect component for current lane
-    pipes_[lane] = new AccScalePipe("Pipe" + std::to_string(lane), pipe_latency);        // functional component for current lane
+    pipes_[lane] = new AccScalePipe("Pipe" + std::to_string(lane), pipe_latency, has_nonlinear_activations); // functional component for current lane
     auto& arbiter = *lanes_[lane]; // pointer to current lane's arbiter and its arbOut register
     auto& pipe    = *pipes_[lane]; // pointer to current lane's functional pipe
 

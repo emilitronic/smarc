@@ -106,3 +106,9 @@ foreach(variant finite finite_dim8)
   set_tests_properties(smesh_unit_acc_scale_${variant} PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
 endforeach()
 set_tests_properties(smesh_unit_acc_scale_finite_dim8 PROPERTIES LABELS "unit;accum_response;dim8")
+
+add_test(NAME smesh_unit_acc_scale_finite_no_activation COMMAND tb_acc_scale_finite -nonlinear=0)
+add_test(NAME smesh_unit_acc_scale_finite_dim8_no_activation COMMAND tb_acc_scale_finite_dim8 -nonlinear=0)
+set_tests_properties(smesh_unit_acc_scale_finite_no_activation smesh_unit_acc_scale_finite_dim8_no_activation
+  PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
+set_tests_properties(smesh_unit_acc_scale_finite_dim8_no_activation PROPERTIES LABELS "unit;accum_response;dim8")
