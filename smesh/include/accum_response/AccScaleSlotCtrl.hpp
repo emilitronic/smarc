@@ -23,21 +23,22 @@ class AccScaleSlotCtrl : public Component {
   AccScaleSlotCtrl(std::string name, COMPONENT_CTOR);
 
   static constexpr std::size_t kEntries = AccScaleRegs::kEntries;
-  static constexpr std::size_t kWidth = AccScaleRegs::kWidth;
-  using CompletedMask = std::array<bit, kWidth>; // one bit per element of a slot
+  static constexpr std::size_t kWidth   = AccScaleRegs::kWidth;
+  using CompletedMask = std::array<bit, kWidth>; // which elements of a given slot have completed
 
   Clock(clk);
-  Input(bit, req_val);
-  Output(bit, req_rdy);
+  Input(bit,  req_val);  // upstream normalizer is offering a packet
+  Output(bit, req_rdy);  // let normalizer know if the tail slot is available for input
   Output(bit, req_fire); // store the input packet in the tail slot
-  Input(bit, out_rdy);
+
   Output(bit, out_val);
+  Input(bit,  out_rdy);
   Output(bit, out_fire); // release the head slot
 
-  InputArray(bit, regs_val, kEntries);
-  InputArray(CompletedMask, completed_masks, kEntries);
-  Output(u3, head_oh_Q_); // one set bit selects the output slot
-  Output(u3, tail_oh_Q_); // one set bit selects the input slot
+  InputArray(bit,           regs_val,        kEntries); // what slots are occupied
+  InputArray(CompletedMask, completed_masks, kEntries); // which elements of each slot have completed (for all slots)
+  Output(u3,                head_oh_Q_); // one set bit selects the output slot
+  Output(u3,                tail_oh_Q_); // one set bit selects the input slot
 
   void updateOutValid();
   void updateOutTransfer();
