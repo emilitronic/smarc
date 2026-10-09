@@ -4,6 +4,7 @@
 // Sebastian Claudiusz Magierowski Oct 9 2026
 /*
 One lane's functional scale pipeline, following its arbOut register.
+That is, the thing that does actual computation on elemen data.
 Accepts one element whenever in_val is asserted; no ready or output stalls.
 The scaled, clipped result reaches out_regs after the configured latency.
 Full-width data and destination slot/element travel with the result.
@@ -29,14 +30,15 @@ class AccScalePipe : public Component {
   DECLARE_COMPONENT(AccScalePipe);
 
  public:
-  // Latency starts at in_val, after the lane's separate arbOut register.
+  // Latency (how many clocked stages work passes through before result comes out) 
+  // starts at in_val, after the lane's separate arbOut register.
   AccScalePipe(std::string name, int latency = 1, COMPONENT_CTOR);
 
   Clock(clk);
 
   Input(bit,             in_val);
   Input(AccScaleElem,    in_bits);
-  
+
   Output(bit,            out_val);
   Output(AccScaleResult, out_bits);
 

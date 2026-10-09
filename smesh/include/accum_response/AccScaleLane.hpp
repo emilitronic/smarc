@@ -3,9 +3,15 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
-One lane's connections from the three regs slots, round-robin arbiter, and
-arbOut register. AccScalePipe follows this register and applies scaling.
-Original connects a candidate when 
+Models interconnect from input regs (i.e., where our input packet is stored) to
+computation lane arbiters.  That is, the number of slots and number of elements per slot
+does not necessarily match the number of lanes (that operate on one element at a time). So
+you need to arbitrate which element from which slot is sent to the lane's scale pipe.
+
+Each lane connects to the input regs via a round-robin arbiter and that arbiter's output is 
+registered in arbOut register. 
+
+AccScalePipe follows this register and applies scaling. Original connects a candidate when 
 (slot * row_width + element) % group_lanes == lane_index.
 current_policy selects which slots use normalization lanes. The policy itself
 is supplied externally until we build work classification.
