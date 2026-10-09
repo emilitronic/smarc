@@ -3,34 +3,20 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 13 2026
 /*
-Accumulator scale-stage skeleton implementation.
+Ordinary accumulator scaling and response buffering.
 */
 
 #include "AccScaleUnit.hpp"
+#include "AccScaleMath.hpp"
 
 namespace smesh {
-
-namespace {
-
-MeshInputRow narrowAccumRow(const MeshAccumRow& row) {
-  MeshInputRow narrow{};
-  for (std::size_t lane = 0; lane < kDim; ++lane) {
-    narrow[lane] = static_cast<Elem>(row[lane]);
-  }
-  return narrow;
-}
-
-} // namespace
 
 AccScaleUnit::AccScaleUnit(std::string /*name*/, IMPL_CTOR) {
   out_valid_Q_ <= out_valid_D_;
   out_entry_Q_ <= out_entry_D_;
-  UPDATE(updateView).reads(out_valid_Q_, out_entry_Q_)
-                    .writes(out_val, out_bits);
-  UPDATE(updateReady).reads(out_valid_Q_, out_entry_Q_, out_rdy_issue,
-                            out_rdy_exresp).writes(req_rdy);
-  UPDATE(updateBuffer).reads(out_valid_Q_, out_entry_Q_, out_rdy_issue,
-                             out_rdy_exresp, req_rdy, req_val, req_bits)
+  UPDATE(updateView).reads(out_valid_Q_, out_entry_Q_).writes(out_val, out_bits);
+  UPDATE(updateReady).reads(out_valid_Q_, out_entry_Q_, out_rdy_issue,out_rdy_exresp).writes(req_rdy);
+  UPDATE(updateBuffer).reads(out_valid_Q_, out_entry_Q_, out_rdy_issue, out_rdy_exresp, req_rdy, req_val, req_bits)
                       .writes(out_valid_D_, out_entry_D_);
 }
 
@@ -59,8 +45,11 @@ void AccScaleUnit::updateBuffer() {
   AccScaleResp next_entry = current;
   if (push) {
     const auto acc         = req_bits->norm.acc_read_resp;
+    assert_always(acc.act == 0, "AccScaleUnit activation math is not implemented");
     next_entry.full_data   = acc.data;
-    next_entry.data        = narrowAccumRow(acc.data);
+    for (std::size_t lane = 0; lane < kDim; ++lane) {
+      next_entry.data[lane] = scaleAccumValue(acc.data[lane], acc.scale);
+    }
     next_entry.acc_bank_id = static_cast<u16>(acc.laddr.acc_bank());
     next_entry.from_dma    = acc.from_dma;
     next_valid             = true;

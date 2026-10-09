@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 13 2026
 /*
-Accumulator scale-stage skeleton.
+Buffers one accumulator row after ordinary scale-and-clip arithmetic.
 */
 
 #pragma once

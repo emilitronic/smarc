@@ -82,6 +82,7 @@ constexpr std::uint32_t kConfigStateIdShift             =  3;
 constexpr std::uint32_t kConfigLoadBlockStrideShift     = 16;
 constexpr std::uint64_t kConfigLoadBlockStrideMask      = 0xffffull;
 constexpr std::uint32_t kMvinScaleIdentityBits          = 0x3f800000u; // IEEE-754 pattern
+constexpr std::uint32_t kAccScaleIdentityBits           = 0x3f800000u; // binary32 1.0
 constexpr std::uint32_t kConfigExecuteDataflowBit       =  2;
 constexpr std::uint32_t kConfigExecuteActivationShift   =  3;
 constexpr std::uint32_t kConfigExecuteSetOnlyStridesBit =  7;
@@ -123,7 +124,7 @@ inline std::uint64_t packConfigExRs1(std::uint32_t a_stride,
                                           std::uint32_t dataflow   = 0,
                                           bool set_only_strides    = false,
                                           std::uint32_t activation = 0,
-                                          std::uint32_t acc_scale  = 0) {
+                                          std::uint32_t acc_scale  = kAccScaleIdentityBits) {
   return static_cast<std::uint64_t>(ConfigKind::Execute) |
          (static_cast<std::uint64_t>(dataflow & 0x1u) << kConfigExecuteDataflowBit) |
          (static_cast<std::uint64_t>(activation & 0x3u) << kConfigExecuteActivationShift) |

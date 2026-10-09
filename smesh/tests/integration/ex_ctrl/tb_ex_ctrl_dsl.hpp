@@ -76,7 +76,7 @@ struct ConfigExSettings {
   std::uint32_t c_stride = 1;
   std::uint32_t dataflow = kExDataflowWS;
   std::uint32_t activation = 0;
-  std::uint32_t acc_scale = 0;
+  std::uint32_t acc_scale = kAccScaleIdentityBits;
   std::uint32_t in_shift = 0;
   std::uint32_t relu6_shift = 0;
   bool a_transpose = false;

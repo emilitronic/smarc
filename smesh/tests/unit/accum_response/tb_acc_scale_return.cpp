@@ -3,21 +3,21 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 8 2026
 /*
-Four lanes return unchanged elements to out_regs. Check assembled rows and
-completion masks, younger rows finishing first, output stalls, simultaneous
+Four lanes return identity-scaled elements to out_regs. Check assembled rows
+and completion masks, younger rows finishing first, output stalls, simultaneous
 output/input into a full slot bank, slot reuse, and reset during activity.
-The test bridge below stands in for the future scale pipes. Values fit int8,
-so full_data and narrowed data represent the same numbers without arithmetic.
 */
 // cmake --build build --target tb_acc_scale_return tb_acc_scale_return_dim8 -j 4
 // ./build/smesh/tb_acc_scale_return -trace '*'/acc_scale_return_view_
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
+#include "AccScaleMath.hpp"
 #include "AccScaleLane.hpp"
 #include "AccScaleSlotCtrl.hpp"
 
 #include <cstdio>
+#include <cstdint>
 #include <memory>
 
 TraceKey(acc_scale_return_view_);
@@ -25,10 +25,12 @@ TraceKey(acc_scale_return_view_);
 namespace {
 
 constexpr unsigned kLanes = smesh::AccScaleRegs::kReturnLanes;
+constexpr std::uint32_t kScaleOne = 0x3f800000u;
 
 smesh::AccScaleReq packet(unsigned id) {
   smesh::AccScaleReq p{};
   auto& row = p.norm.acc_read_resp;
+  row.scale = kScaleOne;
   for (std::size_t e = 0; e < smesh::AccScaleRegs::kWidth; ++e) {
     const int magnitude = (id + 1) * 10 + e;
     row.data[e] = id % 2 == 0 ? magnitude : -magnitude;
@@ -115,11 +117,7 @@ void Driver::updateReturn() {
     result_val[lane] = *lane_val[lane];
     smesh::AccScaleResult result{};
     if (lane_val[lane] == 1) {
-      const auto element = *lane_bits[lane];
-      result.slot = element.slot;
-      result.element = element.element;
-      result.full_data = element.full_data;
-      result.data = static_cast<smesh::Elem>(element.data);
+      result = smesh::scaleAccumulatorElement(*lane_bits[lane]);
     }
     result_bits[lane] = result;
   }
