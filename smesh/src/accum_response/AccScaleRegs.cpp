@@ -13,7 +13,12 @@ constexpr std::size_t AccScaleRegs::kEntries; // number of input/output slots in
 constexpr std::size_t AccScaleRegs::kWidth;   // number of data elements in each packet being handled by a slot
 constexpr std::size_t AccScaleRegs::kReturnLanes;
 
-AccScaleRegs::AccScaleRegs(std::string /*name*/, IMPL_CTOR) {
+AccScaleRegs::AccScaleRegs(std::string /*name*/, unsigned normalization_lanes,
+                         unsigned ordinary_lanes, IMPL_CTOR)
+    : result_val(normalization_lanes + ordinary_lanes),
+      result_bits(normalization_lanes + ordinary_lanes),
+      normalization_lanes_(normalization_lanes), ordinary_lanes_(ordinary_lanes) {
+  assert_always(result_val.size() > 0, "AccScaleRegs requires at least one returning lane");
   for (std::size_t slot = 0; slot < kEntries; ++slot) {
     regs_val_Q_[slot]        <= regs_val_D_[slot];
     regs_bits_Q_[slot]       <= regs_bits_D_[slot];
@@ -34,13 +39,16 @@ void AccScaleRegs::updateRegs() {
   const auto tail = static_cast<std::uint8_t>(*tail_oh); // which slot accepts next i/p
 
   // simulation correctness check
-  for (std::size_t lane = 0; lane < kReturnLanes; ++lane) {
+  for (unsigned lane = 0; lane < normalization_lanes_ + ordinary_lanes_; ++lane) {
     if (result_val[lane] == 1) {
       const auto result = *result_bits[lane];
       assert_always(result.slot < kEntries && result.element < kWidth, "AccScale result names an invalid output slot or element");
-      // Original's fixed return connections for the current four-lane group.
+      // Return wiring uses the lane's index within its own group, not the global ID.
       const auto flat = static_cast<unsigned>(result.slot) * kWidth + static_cast<unsigned>(result.element);
-      assert_always(flat % kReturnLanes == lane, "AccScale result names an element not connected to this lane");
+      const bool norm_lane = lane < normalization_lanes_;
+      const auto group_size = norm_lane ? normalization_lanes_ : ordinary_lanes_;
+      const auto group_index = norm_lane ? lane : lane - normalization_lanes_;
+      assert_always(flat % group_size == group_index, "AccScale result names an element not connected to this lane");
     }
   }
 
@@ -69,7 +77,7 @@ void AccScaleRegs::updateRegs() {
             static_cast<unsigned>(output.acc_bank_id), static_cast<unsigned>(output.from_dma));
     }
     // Different lanes can write different elements of the same output row together.
-    for (std::size_t lane = 0; lane < kReturnLanes; ++lane) {
+    for (unsigned lane = 0; lane < normalization_lanes_ + ordinary_lanes_; ++lane) {
       if (result_val[lane] == 0) continue; 
       const auto result = *result_bits[lane];                          // a valid lane result...
       if (result.slot != slot) continue;

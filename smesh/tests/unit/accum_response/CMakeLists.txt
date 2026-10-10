@@ -120,3 +120,9 @@ add_test(NAME smesh_unit_acc_scale_finite_dim8_no_normalization COMMAND tb_acc_s
 set_tests_properties(smesh_unit_acc_scale_finite_no_normalization smesh_unit_acc_scale_finite_dim8_no_normalization
   PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
 set_tests_properties(smesh_unit_acc_scale_finite_dim8_no_normalization PROPERTIES LABELS "unit;accum_response;dim8")
+
+add_test(NAME smesh_unit_acc_scale_finite_mixed COMMAND tb_acc_scale_finite -mixed=1)
+add_test(NAME smesh_unit_acc_scale_finite_dim8_mixed COMMAND tb_acc_scale_finite_dim8 -mixed=1)
+set_tests_properties(smesh_unit_acc_scale_finite_mixed smesh_unit_acc_scale_finite_dim8_mixed
+  PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
+set_tests_properties(smesh_unit_acc_scale_finite_dim8_mixed PROPERTIES LABELS "unit;accum_response;dim8")

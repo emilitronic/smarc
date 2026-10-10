@@ -8,9 +8,14 @@ three slots twice. Check scaled rows in input order, source/bank metadata,
 backpressure from the selected consumer, full-slot simultaneous pop/push,
 unchanged full_data, mixed ordinary/ReLU/LayerNorm/IGELU rows, the capability
 flag, and reset while rows and elements are in flight.
+With -mixed=1, use four normalization lanes plus four ordinary lanes. Start
+with three ordinary/ReLU rows, then introduce normalization rows on slot reuse.
+That changes policy for rows still occupying other slots, exercising the shared
+dispatch record as well as both groups' return connections.
 */
 // cmake --build build --target tb_acc_scale_finite tb_acc_scale_finite_dim8 -j 4
 // ./build/smesh/tb_acc_scale_finite -trace '*'/acc_scale_finite_view_
+// ./build/smesh/tb_acc_scale_finite -mixed=1 -trace '*'/acc_scale_dispatch_
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
@@ -24,7 +29,14 @@ namespace {
 
 BoolParameter(nonlinear, true, "Enable element activation functions");
 BoolParameter(normalizations, true, "Enable normalization-capable lanes");
+BoolParameter(mixed, false, "Use four normalization lanes plus four ordinary lanes");
 constexpr unsigned kRows = 7;
+
+// Start the mixed test with ordinary work in both groups, then change the policy.
+unsigned sourceId(unsigned id) {
+  constexpr unsigned order[] = {0, 3, 6, 1, 2, 4, 5};
+  return mixed && id < kRows ? order[id] : id;
+}
 
 smesh::AccScaleReq packet(unsigned id) {
   smesh::AccScaleReq p{};
@@ -134,7 +146,7 @@ void Driver::updateDrive() {
   const unsigned c = static_cast<std::uint8_t>(*cycle_Q_);
   const unsigned sent = static_cast<std::uint8_t>(*sent_Q_);
   req_val = bit(sent < kRows);
-  req_bits = packet(sent < kRows ? sent : 0);
+  req_bits = packet(sourceId(sent < kRows ? sent : 0));
   // Initially execute is ready but store is blocked; later reverse the situation.
   out_rdy_issue = bit(c >= 20 && c != 22 && c != 23);
   out_rdy_exresp = bit(c != 21 && c != 22);
@@ -152,7 +164,7 @@ void Driver::updateCheck() {
   if (c < 7) good = good && out_val == 0; // four pipe cycles plus the row/arbOut/output registers
   if (was_stalled_) good = good && out_val == 1;
   if (out_val == 1) {
-    good = good && seen < kRows && matches(*out_bits, seen);
+    good = good && seen < kRows && matches(*out_bits, sourceId(seen));
     if (!selected_ready) {
       if (is_store && out_rdy_exresp == 1) saw_store_stall = true;
       if (!is_store && out_rdy_issue == 1) saw_ex_stall = true;
@@ -200,7 +212,7 @@ int main(int argc, char* argv[]) {
   descore::parseTraces(argc, argv);
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
-  smesh::AccScaleFinite scale("FiniteScale", 4, nonlinear, normalizations);
+  smesh::AccScaleFinite scale("FiniteScale", 4, nonlinear, normalizations, mixed ? 8 : 4);
   Driver driver("Driver");
   Clock clk;
   scale.clk << clk;
@@ -227,9 +239,9 @@ int main(int argc, char* argv[]) {
                 driver.passed, driver.saw_full, driver.saw_reuse,
                 driver.saw_store_stall, driver.saw_ex_stall);
   }
-  std::printf("[ACC_SCALE_FINITE] width=%u activation=%u normalization=%u accepted=%u returned=%u %s\n",
+  std::printf("[ACC_SCALE_FINITE] width=%u activation=%u normalization=%u lanes=%u accepted=%u returned=%u %s\n",
               static_cast<unsigned>(smesh::kDim), static_cast<unsigned>(nonlinear),
-              static_cast<unsigned>(normalizations), driver.accepted, driver.returned,
+              static_cast<unsigned>(normalizations), mixed ? 8u : 4u, driver.accepted, driver.returned,
               good ? "PASS" : "FAIL");
   descore::flushLog();
   return good ? 0 : 1;

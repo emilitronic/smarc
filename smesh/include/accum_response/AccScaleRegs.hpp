@@ -29,11 +29,11 @@ class AccScaleRegs : public Component {
   DECLARE_COMPONENT(AccScaleRegs);
 
  public:
-  AccScaleRegs(std::string name, COMPONENT_CTOR);
+  AccScaleRegs(std::string name, unsigned normalization_lanes = 4, unsigned ordinary_lanes = 0, COMPONENT_CTOR);
 
   static constexpr std::size_t kEntries     = 3;
   static constexpr std::size_t kWidth       = std::tuple_size<MeshAccumRow>::value;
-  static constexpr std::size_t kReturnLanes = 4; // four lanes in the current construction
+  static constexpr std::size_t kReturnLanes = 4; // default construction; return ports can be larger
   using CompletedMask                       = std::array<bit, kWidth>;
 
   Clock(clk);
@@ -46,8 +46,8 @@ class AccScaleRegs : public Component {
   Input(u3,            head_oh);  // slot selected for output and release
   Output(AccScaleResp, out_bits);
 
-  InputArray(bit,            result_val,  kReturnLanes); // each asserted lane writes one element this cycle
-  InputArray(AccScaleResult, result_bits, kReturnLanes);
+  InputArray(bit,            result_val); // each asserted lane writes one element this cycle
+  InputArray(AccScaleResult, result_bits);
 
   // Original regs[s].valid and regs[s].bits, visible after the clock edge.
   // Element e of slot s is regs_bits_Q_[s]->norm.acc_read_resp.data[e].
@@ -63,6 +63,8 @@ class AccScaleRegs : public Component {
   void reset() override;
 
  private:
+  const unsigned normalization_lanes_;
+  const unsigned ordinary_lanes_;
   RegisterArray(bit,           regs_val_D_,        kEntries);
   RegisterArray(AccScaleReq,   regs_bits_D_,       kEntries);
   RegisterArray(AccScaleResp,  out_regs_D_,        kEntries);

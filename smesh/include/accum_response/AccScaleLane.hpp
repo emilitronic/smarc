@@ -17,7 +17,9 @@ current_policy selects which slots use normalization lanes. The policy itself
 is supplied by AccScaleWorkClass in the parent component.
 Original always accepts the arbiter output; arbOut is a valid-only register
 that presents the selected element one cycle later to the scale pipe.
-This lane owns fired_masks for its connected elements. Other bits stay zero.
+This lane records its own dispatches in fired_masks. In a mixed construction,
+the parent also supplies shared_fired_masks covering dispatches by either group,
+so policy changes cannot send an already-dispatched element through a new group.
 */
 #pragma once
 
@@ -47,7 +49,8 @@ class AccScaleLane : public Component {
   DECLARE_COMPONENT(AccScaleLane);
  public:
   // lane_index is within the normalization or ordinary group, not a global lane ID.
-  AccScaleLane(std::string name, unsigned lane_index = 0, unsigned group_lanes = 4, bool normalization_lane = true, COMPONENT_CTOR);
+  AccScaleLane(std::string name, unsigned lane_index = 0, unsigned group_lanes = 4,
+               bool normalization_lane = true, bool use_shared_fired_masks = false, COMPONENT_CTOR);
   static constexpr std::size_t kEntries = AccScaleRegs::kEntries;
   static constexpr std::size_t kWidth   = AccScaleRegs::kWidth;
   using FiredMask                       = std::array<bit, kWidth>;
@@ -58,6 +61,7 @@ class AccScaleLane : public Component {
   Input(u3,               current_policy); // bit s: slot s uses normalization-capable lanes
   Input(bit,              req_fire); // new packet enters the regs slot selected by tail_oh
   Input(u3,               tail_oh);
+  InputArray(FiredMask,   shared_fired_masks, kEntries);
 
   Output(bit,             arb_val); // selected element is accepted into arbOut this cycle
   Output(AccScaleElem,    arb_bits);
@@ -73,6 +77,7 @@ class AccScaleLane : public Component {
   const unsigned lane_index_;
   const unsigned group_lanes_;
   const bool normalization_lane_;
+  const bool use_shared_fired_masks_;
   Output(u16,              last_grant_Q_); // flattened index last accepted by the arbiter
   Register(u16,            last_grant_D_);
   Register(bit,            arb_out_val_D_);

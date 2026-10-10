@@ -3,7 +3,10 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 9 2026
 /*
-Finite-lane accumulator scaler: three row slots and four element scale pipes.
+Finite-lane accumulator scaler: 
+Three packet rows slots and configurable number of computational element pipes.
+Packets are inputs from upstream normalizer consisting of a full row of kWidth
+accumulator elements, a scale factor, and optional activation parameters.
 SlotCtrl accepts rows, selects the oldest completed output, and releases slots.
 Regs stores incoming rows and assembles the element results into output rows.
 Each Lane arbitrates its connected elements into arbOut; its Pipe scales them.
@@ -13,20 +16,20 @@ accepts the completed row. Every input row produces all kWidth output elements.
 pipe_latency counts cycles after arbOut; slot capture, arbOut, and out_regs each
 have their own clock boundary.
 
-Current construction uses one group of four normalization-capable lanes, matching
-Original's four normalization units when there are four total lanes. Every slot
-uses this group, which supports ordinary scaling, ReLU, LayerNorm, and IGELU.
-has_normalizations=false selects four ordinary lanes and rejects LayerNorm/IGELU.
+With normalization enabled, the first four lanes support normalization, matching
+Original. Additional lanes form an ordinary scaling/ReLU group. The default
+four-lane construction uses just the normalization group; eight lanes give 4+4.
+has_normalizations=false selects only ordinary lanes and rejects LayerNorm/IGELU.
 has_nonlinear_activations=false bypasses activation and uses the ordinary scale.
 WorkClass derives the lane-group policy from the saved rows' activations.
-TODO: Add mixed lane groups when the total lane count exceeds the
-normalization-capable lane count; WorkClass already supports that split.
+Shared fired masks remember every dispatched element across policy changes.
 */
 #pragma once
 
 #include "AccScaleRegs.hpp"
 
-#include <array>
+#include "AccScaleLane.hpp"
+#include <vector>
 
 namespace smesh {
 
@@ -38,10 +41,11 @@ class AccScaleWorkClass;
 class AccScaleFinite : public Component {
   DECLARE_COMPONENT(AccScaleFinite);
 
+ // 
  public:
-  AccScaleFinite(std::string name, int pipe_latency = 1, bool has_nonlinear_activations = true, bool has_normalizations = true, COMPONENT_CTOR);
+  AccScaleFinite(std::string name, int pipe_latency = 1, bool has_nonlinear_activations = true, bool has_normalizations = true, unsigned total_lanes = 4, COMPONENT_CTOR);
   ~AccScaleFinite() override;
-  static constexpr std::size_t kLanes = AccScaleRegs::kReturnLanes;
+  static constexpr std::size_t kDefaultLanes = AccScaleRegs::kReturnLanes;
 
   Clock(clk);
   
@@ -56,15 +60,22 @@ class AccScaleFinite : public Component {
   Input(bit,           out_rdy_exresp);
 
   void updateReady();
+  void updateDispatch();
   void reset() override;
 
  private:
-  AccScaleSlotCtrl* ctrl_ = nullptr;
-  AccScaleRegs*     regs_ = nullptr;
-  AccScaleWorkClass* work_class_ = nullptr;
-  std::array<AccScaleLane*, kLanes> lanes_{};
-  std::array<AccScalePipe*, kLanes> pipes_{};
-  Output(bit, selected_out_rdy_);
+  AccScaleSlotCtrl*                      ctrl_       = nullptr;
+  AccScaleRegs*                          regs_       = nullptr;
+  AccScaleWorkClass*                     work_class_ = nullptr;
+  std::vector<AccScaleLane*>             lanes_;
+  std::vector<AccScalePipe*>             pipes_;
+  InputArray(bit,                        dispatch_val_);  // for observing what each lane accepted this ...
+  InputArray(AccScaleElem,               dispatch_bits_); // ... cycle, to record which slot/element was dispatched
+  OutputArray(AccScaleLane::FiredMask,   fired_masks_Q_, AccScaleRegs::kEntries);
+  RegisterArray(AccScaleLane::FiredMask, fired_masks_D_, AccScaleRegs::kEntries);
+  Input(bit,                             req_fire_);
+  Input(u3,                              tail_oh_);
+  Output(bit,                            selected_out_rdy_); // which consumer rdy sig controls o/p handshake (DMA or Ex)
 };
 
 } // namespace smesh

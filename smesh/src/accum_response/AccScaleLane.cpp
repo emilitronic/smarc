@@ -13,16 +13,19 @@ constexpr std::size_t AccScaleLane::kEntries;
 constexpr std::size_t AccScaleLane::kWidth;
 
 // Implementation constructor identify which lane this instance is in and which elements connect to it.
-AccScaleLane::AccScaleLane(std::string /*name*/, unsigned lane_index, unsigned group_lanes, bool normalization_lane, IMPL_CTOR)
-    : lane_index_(lane_index), group_lanes_(group_lanes), normalization_lane_(normalization_lane) {
+AccScaleLane::AccScaleLane(std::string /*name*/, unsigned lane_index, unsigned group_lanes,
+                         bool normalization_lane, bool use_shared_fired_masks, IMPL_CTOR)
+    : lane_index_(lane_index), group_lanes_(group_lanes), normalization_lane_(normalization_lane),
+      use_shared_fired_masks_(use_shared_fired_masks) {
   assert_always(group_lanes > 0 && lane_index < group_lanes && lane_index < kEntries * kWidth, "Invalid AccScaleLane connection map");
   last_grant_Q_   <= last_grant_D_;   // current and next state for round-robin pointer
   arb_out_val_Q_  <= arb_out_val_D_;  // one-cycle output register for arb-selected element valid
   arb_out_bits_Q_ <= arb_out_bits_D_; // one-cycle output register for arb-selected element data
   for (std::size_t slot = 0; slot < kEntries; ++slot) {
     fired_masks_Q_[slot] <= fired_masks_D_[slot];
+    if (!use_shared_fired_masks_) shared_fired_masks[slot].wireToConst(FiredMask{});
   }
-  UPDATE(updateArbiter).reads(regs_val, regs_bits, current_policy, fired_masks_Q_, last_grant_Q_).writes(arb_val, arb_bits);
+  UPDATE(updateArbiter).reads(regs_val, regs_bits, current_policy, fired_masks_Q_, shared_fired_masks, last_grant_Q_).writes(arb_val, arb_bits);
   UPDATE(updateRegisters).reads(arb_val, arb_bits, req_fire, tail_oh, fired_masks_Q_).writes(arb_out_val_D_, arb_out_bits_D_, last_grant_D_, fired_masks_D_);
 }
 
@@ -42,7 +45,8 @@ void AccScaleLane::updateArbiter() {
     const auto element          = flat % kWidth;
     const bool assigned_to_norm = (policy & (1u << slot)) != 0;
 
-    if (regs_val[slot] == 0 || assigned_to_norm != normalization_lane_ || (*fired_masks_Q_[slot])[element] == 1) continue;
+    const auto fired = use_shared_fired_masks_ ? *shared_fired_masks[slot] : *fired_masks_Q_[slot];
+    if (regs_val[slot] == 0 || assigned_to_norm != normalization_lane_ || fired[element] == 1) continue;
 
     const auto packet  = *regs_bits[slot];
     const auto& row    = packet.norm.acc_read_resp;
