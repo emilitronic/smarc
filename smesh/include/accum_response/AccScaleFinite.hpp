@@ -13,11 +13,13 @@ accepts the completed row. Every input row produces all kWidth output elements.
 pipe_latency counts cycles after arbOut; slot capture, arbOut, and out_regs each
 have their own clock boundary.
 
-Current construction uses one group of four ordinary scale lanes (act == 0 or 1).
-The has_nonlinear_activations parameter enables ReLU in each pipe; when disabled,
-a ReLU request receives ordinary scaling without activation, as in Original.
-TODO: Add work classification and normalization-capable lane groups when the
-per-element activation/normalization operations are implemented.
+Current construction uses one group of four normalization-capable lanes, matching
+Original's four normalization units when there are four total lanes. Every slot
+uses this group, which supports ordinary scaling, ReLU, and LayerNorm.
+has_normalizations=false selects four ordinary lanes and rejects LayerNorm.
+has_nonlinear_activations=false bypasses activation and uses the ordinary scale.
+TODO: Add mixed lane groups and work classification when the total lane count
+exceeds the normalization-capable lane count.
 */
 #pragma once
 
@@ -35,7 +37,7 @@ class AccScaleFinite : public Component {
   DECLARE_COMPONENT(AccScaleFinite);
 
  public:
-  AccScaleFinite(std::string name, int pipe_latency = 1, bool has_nonlinear_activations = true, COMPONENT_CTOR);
+  AccScaleFinite(std::string name, int pipe_latency = 1, bool has_nonlinear_activations = true, bool has_normalizations = true, COMPONENT_CTOR);
   ~AccScaleFinite() override;
   static constexpr std::size_t kLanes = AccScaleRegs::kReturnLanes;
 

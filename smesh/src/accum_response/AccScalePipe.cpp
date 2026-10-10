@@ -6,12 +6,16 @@
 #include "AccScalePipe.hpp"
 #include "AccScaleMath.hpp"
 
+#include <cstdint>
+#include <cstring>
+
 TraceKey(acc_scale_pipe_);
 
 namespace smesh {
 
-AccScalePipe::AccScalePipe(std::string /*name*/, int latency, bool has_nonlinear_activations, IMPL_CTOR)
+AccScalePipe::AccScalePipe(std::string /*name*/, int latency, bool has_nonlinear_activations, bool has_normalizations, IMPL_CTOR)
     : has_nonlinear_activations_(has_nonlinear_activations),
+      has_normalizations_(has_normalizations),
       stages_Q_(latency > 0 ? latency : 0),
       stages_D_(latency > 0 ? latency : 0) {
   assert_always(latency >= 1, "AccScalePipe latency must be at least one cycle");
@@ -28,11 +32,20 @@ void AccScalePipe::updateStages() {
   incoming.valid = *in_val;
   if (in_val == 1) {
     auto element = *in_bits;
-    assert_always(element.act == 0 || element.act == 1, "AccScalePipe supports only NONE and RELU");
+    assert_always(element.act == 0 || element.act == 1 || element.act == 2, "AccScalePipe supports only NONE, RELU, and LAYERNORM");
+    assert_always(has_normalizations_ || element.act != 2, "Layer normalization requires a normalization-capable scale pipe");
     // Original act=1: clamp negative input to zero before scaling; full_data stays unchanged.
     if (has_nonlinear_activations_ && element.act == 1 && element.data < 0) { // ReLU
       element.data = 0;                                                       // ReLU
     }                                                                         // ReLU
+    if (has_nonlinear_activations_ && has_normalizations_ && element.act == 2) {
+      // LayerNorm: signed accumulator-width subtraction wraps on overflow in Original.
+      const std::uint32_t centered = static_cast<std::uint32_t>(element.data) - static_cast<std::uint32_t>(element.mean);
+      static_assert(sizeof(element.data) == sizeof(centered), "Accumulator subtraction requires 32 bits");
+      std::memcpy(&element.data, &centered, sizeof(centered));
+      // inv_stddev is a binary32 factor that already includes the ordinary row scale.
+      element.scale = element.inv_stddev;
+    }
     incoming.bits      = scaleAccumulatorElement(element);
     trace(acc_scale_pipe_, "accept slot=%u element=%u full=%d scaled=%d\n",
           static_cast<unsigned>(incoming.bits.slot),

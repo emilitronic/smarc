@@ -12,7 +12,7 @@ namespace smesh {
 
 constexpr std::size_t AccScaleFinite::kLanes;
 
-AccScaleFinite::AccScaleFinite(std::string /*name*/, int pipe_latency, bool has_nonlinear_activations, IMPL_CTOR) {
+AccScaleFinite::AccScaleFinite(std::string /*name*/, int pipe_latency, bool has_nonlinear_activations, bool has_normalizations, IMPL_CTOR) {
   ctrl_ = new AccScaleSlotCtrl("SlotCtrl");
   regs_ = new AccScaleRegs("Regs");
 
@@ -39,8 +39,9 @@ AccScaleFinite::AccScaleFinite(std::string /*name*/, int pipe_latency, bool has_
 
   // Each arbiter sends one selected element through its own functional pipe.
   for (std::size_t lane = 0; lane < kLanes; ++lane) {
-    lanes_[lane] = new AccScaleLane("Lane" + std::to_string(lane), lane, kLanes, false); // interconnect component for current lane
-    pipes_[lane] = new AccScalePipe("Pipe" + std::to_string(lane), pipe_latency, has_nonlinear_activations); // functional component for current lane
+    lanes_[lane] = new AccScaleLane("Lane" + std::to_string(lane), lane, kLanes, has_normalizations); // interconnect component for current lane
+    pipes_[lane] = new AccScalePipe("Pipe" + std::to_string(lane), pipe_latency,
+                                   has_nonlinear_activations, has_normalizations); // functional component for current lane
     auto& arbiter = *lanes_[lane]; // pointer to current lane's arbiter and its arbOut register
     auto& pipe    = *pipes_[lane]; // pointer to current lane's functional pipe
 
@@ -50,7 +51,8 @@ AccScaleFinite::AccScaleFinite(std::string /*name*/, int pipe_latency, bool has_
     arbiter.req_fire << ctrl_->req_fire;   // tell lane when new row is accepted into input scaler's input regs
     arbiter.tail_oh  << ctrl_->tail_oh_Q_; // tell lane which input slot is accepting the new row (so completed marks can be cleared)
 
-    arbiter.current_policy.wireToConst(u3(0)); // 000, nobody is using normalization lanes yet (temp zero policy assigns every slot to current orginary-lane group)
+    // All four lanes belong to one group: 111 for normalization-capable, 000 for ordinary.
+    arbiter.current_policy.wireToConst(u3(has_normalizations ? 7 : 0));
     for (std::size_t slot = 0; slot < AccScaleRegs::kEntries; ++slot) {
       arbiter.regs_val[slot]  << regs_->regs_val_Q_[slot];
       arbiter.regs_bits[slot] << regs_->regs_bits_Q_[slot];

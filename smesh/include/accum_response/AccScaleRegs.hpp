@@ -39,7 +39,9 @@ class AccScaleRegs : public Component {
   Clock(clk);
   Input(bit,           req_fire); // store enable from slot control
   Input(AccScaleReq,   req_bits);
+
   Input(u3,            tail_oh);  // slot selected for the accepted input
+  
   Input(bit,           out_fire); // release enable from slot control
   Input(u3,            head_oh);  // slot selected for output and release
   Output(AccScaleResp, out_bits);

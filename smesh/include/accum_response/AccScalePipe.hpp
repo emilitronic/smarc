@@ -13,6 +13,9 @@ Original uses a Valid-only Pipe here. This model computes optional ReLU and scal
 at the pipeline entrance and delays the result through explicit registers;
 it does not model the internal floating-point arithmetic stages.
 act == 1 selects ReLU before scaling when has_nonlinear_activations is true.
+act == 2 selects layer normalization when both capability flags are true:
+subtract mean at accumulator width, then use binary32 inv_stddev as the scale.
+Normalizer has already included the ordinary row scale in inv_stddev.
 full_data keeps the original value. Other activation/normalization operations
 will be added separately.
 */
@@ -34,7 +37,8 @@ class AccScalePipe : public Component {
  public:
   // Latency (how many clocked stages work passes through before result comes out) 
   // starts at in_val, after the lane's separate arbOut register.
-  AccScalePipe(std::string name, int latency = 1, bool has_nonlinear_activations = true, COMPONENT_CTOR);
+  AccScalePipe(std::string name, int latency = 1, bool has_nonlinear_activations = true,
+               bool has_normalizations = true, COMPONENT_CTOR);
 
   Clock(clk);
 
@@ -50,6 +54,7 @@ class AccScalePipe : public Component {
 
  private:
   const bool has_nonlinear_activations_;
+  const bool has_normalizations_;
   OutputArray(AccScalePipeEntry,   stages_Q_);
   RegisterArray(AccScalePipeEntry, stages_D_);
 };

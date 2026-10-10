@@ -112,3 +112,9 @@ add_test(NAME smesh_unit_acc_scale_finite_dim8_no_activation COMMAND tb_acc_scal
 set_tests_properties(smesh_unit_acc_scale_finite_no_activation smesh_unit_acc_scale_finite_dim8_no_activation
   PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
 set_tests_properties(smesh_unit_acc_scale_finite_dim8_no_activation PROPERTIES LABELS "unit;accum_response;dim8")
+
+add_test(NAME smesh_unit_acc_scale_finite_no_normalization COMMAND tb_acc_scale_finite -normalizations=0)
+add_test(NAME smesh_unit_acc_scale_finite_dim8_no_normalization COMMAND tb_acc_scale_finite_dim8 -normalizations=0)
+set_tests_properties(smesh_unit_acc_scale_finite_no_normalization smesh_unit_acc_scale_finite_dim8_no_normalization
+  PROPERTIES LABELS "unit;accum_response" TIMEOUT 10)
+set_tests_properties(smesh_unit_acc_scale_finite_dim8_no_normalization PROPERTIES LABELS "unit;accum_response;dim8")
