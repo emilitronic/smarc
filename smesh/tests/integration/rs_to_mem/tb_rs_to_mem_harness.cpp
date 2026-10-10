@@ -140,6 +140,9 @@ void RsMemHarnessInstance::sampleBankConcurrency() {
 
 bool RsMemHarnessInstance::activityComplete() const {
   if (!cmd_driver_->done() || !top_->rs().empty()) return false;
+  // Store completion can precede the scaler and writer finishing their rows.
+  // Start the final drain countdown only after the expected DRAM writes appear.
+  if (!dramResultsMatch() || !mem_->writes_empty()) return false;
   return !test_.expect_loop_release ||
       (top_->loopMatmul().loop0->configured == 0 &&
        top_->loopMatmul().loop1->configured == 0);
@@ -182,6 +185,10 @@ bool RsMemHarnessInstance::passed() const {
     const auto& actual = top_->spad().row(expected.laddr);
     if (actual != expected.data) return false;
   }
+  return dramResultsMatch();
+}
+
+bool RsMemHarnessInstance::dramResultsMatch() const {
   for (const auto& expected : test_.expected_dram) {
     std::vector<std::uint8_t> actual(expected.bytes.size());
     dram_->read(expected.addr, actual.data(), actual.size());

@@ -29,7 +29,9 @@ set_target_properties(tb_rs_to_mem_suite_dim8 PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
 add_test(NAME smesh_rs_to_mem_dim8_loads
   COMMAND tb_rs_to_mem_suite_dim8 -test=dim8_loads)
-set_tests_properties(smesh_rs_to_mem_dim8_loads PROPERTIES
+add_test(NAME smesh_rs_to_mem_dim8_accum_scale_store
+  COMMAND tb_rs_to_mem_suite_dim8 -test=accum_scale_store)
+set_tests_properties(smesh_rs_to_mem_dim8_loads smesh_rs_to_mem_dim8_accum_scale_store PROPERTIES
   LABELS "integration;rs_to_mem;dim8" TIMEOUT 30)
 
 add_executable(tb_rs_to_mem_suite_beat4
@@ -49,8 +51,10 @@ add_test(NAME smesh_rs_to_mem_beat4_posted_loop_ws_dma
   COMMAND tb_rs_to_mem_suite_beat4 -test=beat4_posted_loop_ws_dma)
 add_test(NAME smesh_rs_to_mem_beat4_tail
   COMMAND tb_rs_to_mem_suite_beat4 -test=beat4_tail)
+add_test(NAME smesh_rs_to_mem_beat4_accum_scale_store
+  COMMAND tb_rs_to_mem_suite_beat4 -test=accum_scale_store)
 set_tests_properties(smesh_rs_to_mem_beat4_accum_load smesh_rs_to_mem_beat4_loop_ws_dma
-  smesh_rs_to_mem_beat4_posted_loop_ws_dma smesh_rs_to_mem_beat4_tail
+  smesh_rs_to_mem_beat4_posted_loop_ws_dma smesh_rs_to_mem_beat4_tail smesh_rs_to_mem_beat4_accum_scale_store
   PROPERTIES LABELS "integration;rs_to_mem;beat4" TIMEOUT 30)
 
 add_test(NAME smesh_rs_to_mem_basic COMMAND tb_rs_to_mem_suite -test=basic)
@@ -65,6 +69,7 @@ add_test(NAME smesh_rs_to_mem_full_width_accum_load COMMAND tb_rs_to_mem_suite -
 add_test(NAME smesh_rs_to_mem_repeated_loads COMMAND tb_rs_to_mem_suite -test=repeated_loads)
 add_test(NAME smesh_rs_to_mem_scaled_shrink_load COMMAND tb_rs_to_mem_suite -test=scaled_shrink_load)
 add_test(NAME smesh_rs_to_mem_shared_accum_read COMMAND tb_rs_to_mem_suite -test=shared_accum_read)
+add_test(NAME smesh_rs_to_mem_accum_scale_store COMMAND tb_rs_to_mem_suite -test=accum_scale_store)
 
 set_tests_properties(
   smesh_rs_to_mem_basic
@@ -79,6 +84,7 @@ set_tests_properties(
   smesh_rs_to_mem_repeated_loads
   smesh_rs_to_mem_scaled_shrink_load
   smesh_rs_to_mem_shared_accum_read
+  smesh_rs_to_mem_accum_scale_store
   PROPERTIES
     LABELS "integration;rs_to_mem"
     TIMEOUT 30

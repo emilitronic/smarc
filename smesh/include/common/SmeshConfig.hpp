@@ -26,14 +26,16 @@ namespace smesh {
 struct SmeshConfig {
   std::size_t dim = SMESH_DIM;
 
-  std::size_t sp_banks       =  4;
-  std::size_t sp_bank_rows   =  4;
-  std::size_t spad_read_delay = 4; // cycles from an accepted SPAD read to its response
-  bool sp_singleported = true; // same-bank writes take priority over reads
+  std::size_t sp_banks        =  4;
+  std::size_t sp_bank_rows    =  4;
+  std::size_t spad_read_delay =  4;   // cycles from an accepted SPAD read to its response
+  bool sp_singleported        = true; // same-bank writes take priority over reads
 
-  std::size_t acc_banks     =  2;
-  std::size_t acc_bank_rows =  8;
-  bool acc_singleported = true; // same-bank writes take priority over reads
+  std::size_t acc_banks       =  2;
+  std::size_t acc_bank_rows   =  8;
+  bool acc_singleported       = true; // same-bank writes take priority over reads
+  std::size_t acc_scale_lanes =  8;   // first four normalize; remaining lanes scale ordinary rows
+  int acc_scale_latency       =  4;   // clocked pipe stages after each lane's arbOut register
 
   std::size_t load_states   =  3;
   bool has_first_layer_optimizations = false;

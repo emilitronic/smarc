@@ -84,7 +84,8 @@ StIssueCtrl::StIssueCtrl(std::string /*name*/, IMPL_CTOR) {
                                     dma_writer_req_rdy,
                                     spad_writer_req_rdy,
                                     spad_data_val,
-                                    acc_data_val)
+                                    acc_data_val,
+                                    acc_data_bits)
                              .writes(dma_writer_req_val,
                                      spad_writer_req_val,
                                      issue_deq_rdy,
@@ -96,7 +97,9 @@ void StIssueCtrl::updateDataOutputs() {
   const auto spad_bank = issue.laddr.sp_bank();
   const bool selected_spad_data_val = spad_data_val[spad_bank] != 0;
   // compute a bundle of useful booleans
-  const auto d = classifyIssue(issue, issue_deq_val != 0,selected_spad_data_val,acc_data_val != 0,dma_writer_req_rdy != 0,spad_writer_req_rdy != 0);
+  // ExCtrl rows share this output port but must not consume Store metadata.
+  const bool store_acc_data_val = acc_data_val == 1 && acc_data_bits->from_dma == 1;
+  const auto d = classifyIssue(issue, issue_deq_val != 0,selected_spad_data_val,store_acc_data_val,dma_writer_req_rdy != 0,spad_writer_req_rdy != 0);
   // default scenario A) a zero-data write
   std::uint8_t next_data_source = kDataSourceZero;
   std::uint8_t next_final_data  = kFinalDataZero;
@@ -123,7 +126,8 @@ void StIssueCtrl::updateWriterOutputs() {
   const DmaWriteReq issue = *issue_deq_bits;
   const auto spad_bank = issue.laddr.sp_bank();
   const bool selected_spad_data_val = spad_data_val[spad_bank] != 0;
-  const auto d = classifyIssue(issue,issue_deq_val != 0,selected_spad_data_val,acc_data_val != 0,dma_writer_req_rdy != 0,spad_writer_req_rdy != 0);
+  const bool store_acc_data_val = acc_data_val == 1 && acc_data_bits->from_dma == 1;
+  const auto d = classifyIssue(issue,issue_deq_val != 0,selected_spad_data_val,store_acc_data_val,dma_writer_req_rdy != 0,spad_writer_req_rdy != 0);
 
   const bool issue_fire   = d.wi_valid && d.data_available && d.writer_ready;
   dma_writer_req_val      = bit(d.wi_valid && d.data_available && !d.dest_spad); // tell DMA writer is has valid req

@@ -40,7 +40,8 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   write_norm_queue_     = new DmaWriteNormQueue("DmaWriteNormQueue");
   st_norm_ctrl_         = new StNormCtrl("StNormCtrl");
   normalizer_           = new Normalizer("Normalizer");
-  acc_scale_unit_       = new AccScaleUnit("AccScaleUnit");
+  acc_scale_unit_       = new AccScaleFinite("AccScaleFinite", kDefaultConfig.acc_scale_latency,
+                                           true, true, kDefaultConfig.acc_scale_lanes);
   accum_ex_resp_        = new AccumExResp("AccumExResp");
   st_scale_ctrl_        = new StScaleCtrl("StScaleCtrl");
   write_scale_queue_    = new DmaWriteScaleQueue("DmaWriteScaleQueue");

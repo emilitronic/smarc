@@ -658,6 +658,65 @@ RsMemTestCase makeFullWidthAccumLoadCase() {
   return test;
 }
 
+// Load signed accumulator rows, then store scaled, ReLU, and original full-width
+// values through the production finite scaler and DMA writer.
+RsMemTestCase makeAccumScaleStoreCase() {
+  RsMemTestCase test{};
+  test.name = "accum_scale_store";
+  test.description = "Finite Accum scaler stores rounded/clipped, ReLU, and preserved full-width rows";
+  test.max_cycles = 600;
+  test.min_store_accum_reads = 3 * kDim;
+
+  constexpr std::uint64_t input_dram = 0x80010000;
+  constexpr std::uint64_t scaled_dram = 0x80011000;
+  constexpr std::uint64_t relu_dram = 0x80012000;
+  constexpr std::uint64_t full_dram = 0x80013000;
+  constexpr std::uint32_t half_scale = 0x3f000000u;
+  const auto source = makeAccAddr(0);
+  const auto full_source = makeAccAddr(0, false, true);
+  constexpr Acc inputs[] = {3, 5, -3, -5, 255, -257, 256, -256};
+  // Half-scale ties round to even; the remaining cases saturate to int8.
+  constexpr int scaled[] = {2, 2, -2, -2, 127, -128, 127, -128};
+  std::vector<MeshAccumRow> rows;
+  for (std::size_t r = 0; r < kDim; ++r) {
+    MeshAccumRow row{};
+    std::vector<std::uint8_t> full_bytes;
+    std::vector<std::uint8_t> scaled_bytes;
+    std::vector<std::uint8_t> relu_bytes;
+    for (std::size_t col = 0; col < kDim; ++col) {
+      const auto index = (r * kDim + col) % 8;
+      row[col] = inputs[index];
+      const auto word = static_cast<std::uint32_t>(row[col]);
+      for (std::size_t byte = 0; byte < sizeof(Acc); ++byte) {
+        full_bytes.push_back(static_cast<std::uint8_t>(word >> (8 * byte)));
+      }
+      scaled_bytes.push_back(static_cast<std::uint8_t>(scaled[index]));
+      relu_bytes.push_back(static_cast<std::uint8_t>(inputs[index] < 0 ? 0 : scaled[index]));
+    }
+    rows.push_back(row);
+    test.dram_initial.push_back({input_dram + r * kDim * sizeof(Acc), full_bytes});
+    test.expected_dram.push_back({scaled_dram + r * kDim, scaled_bytes});
+    test.expected_dram.push_back({relu_dram + r * kDim, relu_bytes});
+    test.expected_dram.push_back({full_dram + r * kDim * sizeof(Acc), full_bytes});
+  }
+  test.program = {
+      loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, kDim), kDim * sizeof(Acc)),
+      loopCommand(SmeshFunct::Mvin, input_dram, packLocal(source, MatrixShape{kDim, kDim})),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                  (std::uint64_t{half_scale} << 32) | kDim),
+      loopCommand(SmeshFunct::Mvout, scaled_dram, packLocal(source, MatrixShape{kDim, kDim})),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store) | (1ull << 2),
+                  (std::uint64_t{half_scale} << 32) | kDim),
+      loopCommand(SmeshFunct::Mvout, relu_dram, packLocal(source, MatrixShape{kDim, kDim})),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store) | (1ull << 2),
+                  (std::uint64_t{half_scale} << 32) | (kDim * sizeof(Acc))),
+      loopCommand(SmeshFunct::Mvout, full_dram, packLocal(full_source, MatrixShape{kDim, kDim})),
+  };
+  test.expected_completion_tags = {1, 3, 5, 7};
+  test.expected_results = {ExpectedAccumResult{source, rows}};
+  return test;
+}
+
 // Zero DRAM stride reads one row, then writes it to three local rows.
 RsMemTestCase makeRepeatedLoadsCase() {
   RsMemTestCase test{};
@@ -815,7 +874,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
-      makeRepeatedLoadsCase(), makeScaledShrinkLoadCase()};
+      makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase()};
   if (kDim == 4) tests.push_back(makeSharedAccumReadCase());
   if (kDim == 8) tests.push_back(makeDim8LoadsCase());
   if (kMemBeatBytes == 4) {

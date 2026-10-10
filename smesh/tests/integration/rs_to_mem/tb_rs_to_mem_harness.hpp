@@ -88,6 +88,7 @@ class RsMemHarnessInstance {
   void sampleBankConcurrency();
 
  private:
+  bool dramResultsMatch() const;
   const RsMemTestCase& test_;
 
   std::unique_ptr<RsMemCmdDriver> cmd_driver_;

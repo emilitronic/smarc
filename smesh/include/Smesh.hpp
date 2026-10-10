@@ -15,7 +15,7 @@ smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 #include <array>
 
 #include "Accum.hpp"
-#include "AccScaleUnit.hpp"
+#include "AccScaleFinite.hpp"
 #include "ArbComplete.hpp"
 #include "ArbReadLocal.hpp"
 #include "ArbWriteLocal.hpp"
@@ -129,7 +129,7 @@ class Smesh : public Component {
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
   StNormCtrl*              st_norm_ctrl_ = nullptr;
   Normalizer*              normalizer_ = nullptr;
-  AccScaleUnit*            acc_scale_unit_ = nullptr;
+  AccScaleFinite*          acc_scale_unit_ = nullptr;
   AccumExResp*             accum_ex_resp_ = nullptr;
   StScaleCtrl*             st_scale_ctrl_ = nullptr;
   DmaWriteScaleQueue*      write_scale_queue_ = nullptr;

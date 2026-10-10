@@ -33,11 +33,20 @@ The suite currently covers:
 - `loop_ws_dma_k2`: two products accumulated into one output tile.
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
 - `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
+- `accum_scale_store`: loads signed full-width accumulator rows and stores half-scaled, ReLU, and original full-width values. Checks rounding, clipping, completion tags, and DRAM bytes in DIM4, DIM8, and four-byte memory builds.
 - `dim8_loads`: separate `dim=8` build; full and partial SPAD/Accum row loads.
 
 The focused memory unit tests cover bank-local arbitration and simultaneous
 operations independently. This suite also checks Spad read concurrency and
 same-bank serialization through the full command-to-memory composition.
+
+Accumulator responses use `AccScaleFinite` after Normalizer and StScaleCtrl.
+`SmeshConfig::acc_scale_lanes` selects the total lanes (currently eight: four
+normalization-capable and four ordinary); `acc_scale_latency` selects pipe
+stages after arbOut (currently four). Completed rows go to StIssueCtrl for
+stores or AccumExResp for ExCtrl, according to `from_dma`. Softmax remains deferred.
+The runner waits for expected DRAM bytes as well as RS completion before its
+final drain countdown: Store completion can precede scaling and memory writes.
 
 ## Current size contract
 
@@ -63,6 +72,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load
 ./build/smesh/tb_rs_to_mem_suite -test=shared_accum_read
+./build/smesh/tb_rs_to_mem_suite -test=accum_scale_store
 cmake --build build --target tb_rs_to_mem_suite_dim8 -j
 ./build/smesh/tb_rs_to_mem_suite_dim8 -test=dim8_loads
 ctest --test-dir build -L rs_to_mem --output-on-failure
