@@ -2,6 +2,7 @@ add_library(smesh_model
   src/accum_response/AccScaleUnit.cpp
   src/accum_response/AccScaleRegs.cpp
   src/accum_response/AccScaleSlotCtrl.cpp
+  src/accum_response/AccScaleWorkClass.cpp
   src/accum_response/AccScaleLane.cpp
   src/accum_response/AccScaleMath.cpp
   src/accum_response/AccScalePipe.cpp

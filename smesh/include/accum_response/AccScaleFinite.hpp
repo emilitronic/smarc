@@ -18,8 +18,9 @@ Original's four normalization units when there are four total lanes. Every slot
 uses this group, which supports ordinary scaling, ReLU, LayerNorm, and IGELU.
 has_normalizations=false selects four ordinary lanes and rejects LayerNorm/IGELU.
 has_nonlinear_activations=false bypasses activation and uses the ordinary scale.
-TODO: Add mixed lane groups and work classification when the total lane count
-exceeds the normalization-capable lane count.
+WorkClass derives the lane-group policy from the saved rows' activations.
+TODO: Add mixed lane groups when the total lane count exceeds the
+normalization-capable lane count; WorkClass already supports that split.
 */
 #pragma once
 
@@ -32,6 +33,7 @@ namespace smesh {
 class AccScaleSlotCtrl;
 class AccScaleLane;
 class AccScalePipe;
+class AccScaleWorkClass;
 
 class AccScaleFinite : public Component {
   DECLARE_COMPONENT(AccScaleFinite);
@@ -59,6 +61,7 @@ class AccScaleFinite : public Component {
  private:
   AccScaleSlotCtrl* ctrl_ = nullptr;
   AccScaleRegs*     regs_ = nullptr;
+  AccScaleWorkClass* work_class_ = nullptr;
   std::array<AccScaleLane*, kLanes> lanes_{};
   std::array<AccScalePipe*, kLanes> pipes_{};
   Output(bit, selected_out_rdy_);
