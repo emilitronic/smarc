@@ -9,13 +9,15 @@ Accepts one element whenever in_val is asserted; no ready or output stalls.
 The scaled, clipped result reaches out_regs after the configured latency.
 Full-width data and destination slot/element travel with the result.
 
-Original uses a Valid-only Pipe here. This model computes optional ReLU and scaling
+Original uses a Valid-only Pipe here. This model computes activation and scaling
 at the pipeline entrance and delays the result through explicit registers;
 it does not model the internal floating-point arithmetic stages.
 act == 1 selects ReLU before scaling when has_nonlinear_activations is true.
 act == 2 selects layer normalization when both capability flags are true:
 subtract mean at accumulator width, then use binary32 inv_stddev as the scale.
 Normalizer has already included the ordinary row scale in inv_stddev.
+act == 3 selects Original's integer IGELU polynomial using signed qb/qc bit
+patterns when both capability flags are true; ordinary scaling follows it.
 full_data keeps the original value. Other activation/normalization operations
 will be added separately.
 */

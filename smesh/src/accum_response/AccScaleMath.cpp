@@ -14,6 +14,13 @@ namespace smesh {
 
 namespace {
 
+Acc signedAccumBits(std::uint32_t raw) {
+  Acc value = 0;
+  static_assert(sizeof(value) == sizeof(raw), "IGELU accumulator must be 32 bits");
+  std::memcpy(&value, &raw, sizeof(value));
+  return value;
+}
+
 float scaleFromBits(u32 bits) {
   static_assert(sizeof(float) == sizeof(bits), "Scale format must be binary32");
   static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<float>::digits == 24, "Accumulator scaling requires IEEE binary32");
@@ -58,6 +65,24 @@ Elem scaleAccumValue(Acc value, u32 scale_bits) {
   const float product = static_cast<float>(value) * scaleFromBits(scale_bits);
   const Acc scaled    = convertToAcc(product);
   return clipToElem(scaled);
+}
+
+// IGELU integer polynomial; unsigned operations retain Original's low 32 result bits.
+Acc igeluAccumValue(Acc value, u32 qb_bits, u32 qc_bits) {
+  const auto q  = static_cast<std::uint32_t>(value);
+  const auto qb = static_cast<std::uint32_t>(qb_bits);
+  const auto qc = static_cast<std::uint32_t>(qc_bits);
+
+  // Signed magnitude and clipping comparisons include wrapped negation of INT_MIN.
+  const Acc magnitude = signedAccumBits(value < 0 ? 0u - q : q);
+  const Acc limit     = signedAccumBits(0u - qb);
+  const auto clipped  = static_cast<std::uint32_t>(magnitude > limit ? limit : magnitude);
+
+  // Original: q_poly = qc + (q_clipped + qb)^2; q_erf = sign(q) * q_poly.
+  const auto offset     = clipped + qb;
+  const auto polynomial = qc + offset * offset;
+  const auto erf        = value < 0 ? 0u - polynomial : polynomial;
+  return signedAccumBits(q * (erf + qc));
 }
 
 AccScaleResult scaleAccumulatorElement(const AccScaleElem& input) {

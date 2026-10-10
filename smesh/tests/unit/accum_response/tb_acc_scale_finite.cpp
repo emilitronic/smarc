@@ -6,7 +6,7 @@
 Exercise the finite scaler through its external row ports. Seven rows wrap the
 three slots twice. Check scaled rows in input order, source/bank metadata,
 backpressure from the selected consumer, full-slot simultaneous pop/push,
-unchanged full_data, mixed ordinary/ReLU/LayerNorm rows, the capability
+unchanged full_data, mixed ordinary/ReLU/LayerNorm/IGELU rows, the capability
 flag, and reset while rows and elements are in flight.
 */
 // cmake --build build --target tb_acc_scale_finite tb_acc_scale_finite_dim8 -j 4
@@ -22,7 +22,7 @@ TraceKey(acc_scale_finite_view_);
 
 namespace {
 
-BoolParameter(nonlinear, true, "Enable ReLU in scale pipes");
+BoolParameter(nonlinear, true, "Enable element activation functions");
 BoolParameter(normalizations, true, "Enable normalization-capable lanes");
 constexpr unsigned kRows = 7;
 
@@ -43,6 +43,17 @@ smesh::AccScaleReq packet(unsigned id) {
   for (std::size_t e = 0; e < smesh::kDim; ++e) {
     row.data[e] = id % 3 == 0 ? half[e % 4] : id % 3 == 1 ? twice[e % 4] : identity[e % 4];
   }
+  if (normalizations && (id == 2 || id == 5)) {
+    row.act = 3;
+    row.igelu_qb = u32(static_cast<std::uint32_t>(id == 2 ? -4 : -3));
+    row.igelu_qc = id == 2 ? 16 : 7;
+    row.scale = id == 2 ? 0x3f000000u : 0x3f800000u;
+    constexpr int first_igelu[] = {-4, -1, 1, 4};
+    constexpr int reused_igelu[] = {-3, -2, 2, 3};
+    for (std::size_t e = 0; e < smesh::kDim; ++e) {
+      row.data[e] = id == 2 ? first_igelu[e % 4] : reused_igelu[e % 4];
+    }
+  }
   row.from_dma = bit(id % 2 == 0);
   row.laddr = smesh::makeAccAddr((id % smesh::kAccBanks) * smesh::kAccBankRows + id);
   return p;
@@ -62,6 +73,14 @@ bool matches(const smesh::AccScaleResp& actual, unsigned id) {
       constexpr int first_norm[] = {48, -36, 28, -34};
       constexpr int reused_norm[] = {48, -38, 26, -34};
       scaled = id == 1 ? first_norm[e % 4] : reused_norm[e % 4];
+    }
+    if (source.act == 3) {
+      constexpr int first_igelu[] = {0, 4, 20, 64};
+      constexpr int reused_igelu[] = {0, 2, 30, 42};
+      constexpr int first_bypass[] = {-2, 0, 0, 2};
+      constexpr int reused_bypass[] = {-3, -2, 2, 3};
+      scaled = nonlinear ? (id == 2 ? first_igelu[e % 4] : reused_igelu[e % 4]) :
+                           (id == 2 ? first_bypass[e % 4] : reused_bypass[e % 4]);
     }
     if (actual.full_data[e] != source.data[e] || actual.data[e] != scaled) return false;
   }

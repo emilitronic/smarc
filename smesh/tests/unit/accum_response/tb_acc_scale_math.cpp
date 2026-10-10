@@ -5,6 +5,7 @@
 
 #include "AccScaleMath.hpp"
 
+#include <array>
 #include <cstdio>
 #include <cstdint>
 #include <limits>
@@ -46,6 +47,29 @@ int main() {
   good &= check(-65, kScaleTwo, -128);
   good &= check(std::numeric_limits<smesh::Acc>::max(), kScaleOne, 127);
   good &= check(std::numeric_limits<smesh::Acc>::min(), kScaleOne, -128);
+
+  // Fixed integer results, before scale/clip can hide a polynomial overflow mistake.
+  struct IgeluCase { smesh::Acc q, qb, qc, expected; };
+  const std::array<IgeluCase, 18> igelu_cases{{
+      {-8, -4, 16, 0}, {-4, -4, 16, 0}, {-3, -4, 16, 3},
+      {-2, -4, 16, 8}, {-1, -4, 16, 9}, {0, -4, 16, 0},
+      {1, -4, 16, 41}, {2, -4, 16, 72}, {3, -4, 16, 99},
+      {4, -4, 16, 128}, {8, -4, 16, 256},
+      {std::numeric_limits<smesh::Acc>::min(), -3, 7, std::numeric_limits<smesh::Acc>::min()},
+      {std::numeric_limits<smesh::Acc>::max(), -4, 16, -32},
+      {1, -65537, 1, 2}, {-1, -65537, 1, 0},
+      {50000, -100000, 1, -728082784}, {-50000, -100000, 1, -728182784},
+      {1, std::numeric_limits<smesh::Acc>::min(), std::numeric_limits<smesh::Acc>::max(), -2}
+  }};
+  for (const auto& item : igelu_cases) {
+    const auto actual = smesh::igeluAccumValue(item.q, u32(static_cast<std::uint32_t>(item.qb)),
+                                              u32(static_cast<std::uint32_t>(item.qc)));
+    if (actual != item.expected) {
+      std::printf("[ACC_SCALE_MATH] IGELU q=%d qb=%d qc=%d expected=%d actual=%d\n",
+                  item.q, item.qb, item.qc, item.expected, actual);
+      good = false;
+    }
+  }
 
   std::printf("[ACC_SCALE_MATH] %s\n", good ? "PASS" : "FAIL");
   return good ? 0 : 1;

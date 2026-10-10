@@ -15,8 +15,8 @@ have their own clock boundary.
 
 Current construction uses one group of four normalization-capable lanes, matching
 Original's four normalization units when there are four total lanes. Every slot
-uses this group, which supports ordinary scaling, ReLU, and LayerNorm.
-has_normalizations=false selects four ordinary lanes and rejects LayerNorm.
+uses this group, which supports ordinary scaling, ReLU, LayerNorm, and IGELU.
+has_normalizations=false selects four ordinary lanes and rejects LayerNorm/IGELU.
 has_nonlinear_activations=false bypasses activation and uses the ordinary scale.
 TODO: Add mixed lane groups and work classification when the total lane count
 exceeds the normalization-capable lane count.

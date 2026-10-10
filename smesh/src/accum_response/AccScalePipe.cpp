@@ -32,8 +32,8 @@ void AccScalePipe::updateStages() {
   incoming.valid = *in_val;
   if (in_val == 1) {
     auto element = *in_bits;
-    assert_always(element.act == 0 || element.act == 1 || element.act == 2, "AccScalePipe supports only NONE, RELU, and LAYERNORM");
-    assert_always(has_normalizations_ || element.act != 2, "Layer normalization requires a normalization-capable scale pipe");
+    assert_always(element.act == 0 || element.act == 1 || element.act == 2 || element.act == 3, "AccScalePipe supports only NONE, RELU, LAYERNORM, and IGELU");
+    assert_always(has_normalizations_ || (element.act != 2 && element.act != 3), "Layer normalization and IGELU require a normalization-capable scale pipe");
     // Original act=1: clamp negative input to zero before scaling; full_data stays unchanged.
     if (has_nonlinear_activations_ && element.act == 1 && element.data < 0) { // ReLU
       element.data = 0;                                                       // ReLU
@@ -46,7 +46,11 @@ void AccScalePipe::updateStages() {
       // inv_stddev is a binary32 factor that already includes the ordinary row scale.
       element.scale = element.inv_stddev;
     }
-    incoming.bits      = scaleAccumulatorElement(element);
+    if (has_nonlinear_activations_ && has_normalizations_ && element.act == 3) {
+      // IGELU: integer activation first, then the ordinary row scale and output clipping.
+      element.data = igeluAccumValue(element.data, element.igelu_qb, element.igelu_qc);
+    }
+    incoming.bits = scaleAccumulatorElement(element);
     trace(acc_scale_pipe_, "accept slot=%u element=%u full=%d scaled=%d\n",
           static_cast<unsigned>(incoming.bits.slot),
           static_cast<unsigned>(incoming.bits.element),
