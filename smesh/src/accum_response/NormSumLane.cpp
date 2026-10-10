@@ -20,7 +20,15 @@ Acc signedBits(std::uint32_t raw) {
   return value;
 }
 
-// Original's active iexp polynomial returns zero when data equals maximum. TODO: iexp polynomial is not a mathematical exponent
+// TODO: Replace this compatibility polynomial with a validated shared IEXP
+// helper before enabling softmax in AccScalePipe. Original's active iexp is
+// identical to igelu: it ignores qln2/qln2_inv and returns zero at data == max.
+// Consequently an all-equal row produces sum == 0, not valid softmax weights.
+// Current SumExp/InvSumExp tests preserve that behavior; they do not prove
+// exponential or softmax correctness. Change both this denominator calculation
+// and the scaler's numerator together. See the detailed deferred-softmax TODO
+// in smesh/include/accum_response/AccScalePipe.hpp for the source findings,
+// candidate algorithm caveats, numeric contract, and required verification.
 std::uint32_t iexp(Acc data, Acc maximum, u32 qb_bits, u32 qc_bits) {
   const auto q                 = signedBits(static_cast<std::uint32_t>(data) - static_cast<std::uint32_t>(maximum));
   const auto qb                = signedBits(static_cast<std::uint32_t>(qb_bits));

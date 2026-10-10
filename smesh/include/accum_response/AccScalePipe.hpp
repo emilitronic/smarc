@@ -20,6 +20,50 @@ act == 3 selects Original's integer IGELU polynomial using signed qb/qc bit
 patterns when both capability flags are true; ordinary scaling follows it.
 full_data keeps the original value. Other activation/normalization operations
 will be added separately.
+
+TODO: Implement act == 4 (softmax) only after defining a sound integer IEXP.
+This operation is deliberately deferred, not an implemented softmax path.
+
+What we found in Original:
+- AccumulatorScale.scala's active iexp body duplicates its igelu polynomial;
+  it does not use iexp_qln2/iexp_qln2_inv. Both the finite-lane and whole-row
+  branches call this helper. Normalizer.scala uses the same arithmetic for
+  SumExp/InvSumExp. Thus switching scaler branches does not resolve the issue.
+- With q = element - max, the active helper gives iexp(0) == 0. The maximum
+  element receives zero weight; an all-equal row gives a zero denominator.
+  This is not the exponential weighting required by softmax.
+- The commented-out exponent approximation is a candidate, not a validated
+  fix. It decomposes q using qln2/qln2_inv, evaluates a polynomial, then shifts
+  it. Original notes possible z overflow; its shift saturation checks bits
+  5..15 only. Audit coefficient encodings, signedness, intermediate widths,
+  subtraction/INT_MIN negation, overflow, and large shifts before adopting it.
+
+Implementation contract to establish when resuming:
+- Choose the approximation, coefficient format, supported input range, and
+  quantization/error tolerance. Do not merely uncomment Original's code.
+- Share one IEXP arithmetic helper between NormSumLane's SumExp/InvSumExp and
+  this pipe: the denominator and each output numerator must use the same
+  weights. Existing Normalizer tests check polynomial compatibility, not
+  mathematical exponentiation or correct softmax; update them deliberately.
+- The intended pipe path is accumulator-width (element - max), then IEXP,
+  then binary32 inv_sum_exp scaling and clipping. Preserve original full_data,
+  slot/element routing, capability gating, and configured pipeline latency.
+- NormReciprocal currently computes 127 / signed(sum); NormScale then includes
+  the ordinary row scale in inv_sum_exp. Zero sum yields infinity, which the
+  scale arithmetic rejects. Define handling for zero/nonpositive sums and
+  wrapped arithmetic rather than silently accepting an invalid denominator.
+
+Verification needed:
+- Positive weight at q == 0; nonnegative, monotonic weights over the supported
+  range; all-equal rows approximately uniform; singleton approximately 127
+  with identity row scale; a dominant element; signed/coefficient extremes
+  and overflow/shift boundaries. Compare complete outputs with floating-point
+  softmax using the agreed approximation and quantization tolerance.
+- Exercise Normalizer -> scaler together, not just the IEXP helper; include
+  DIM4/DIM8, bubbles, output backpressure, and unchanged full_data/metadata.
+Relevant existing tests: tb_normalizer_sum_exp.cpp and
+tb_normalizer_inv_sum_exp.cpp. The companion TODO is above iexp() in
+smesh/src/accum_response/NormSumLane.cpp.
 */
 #pragma once
 
