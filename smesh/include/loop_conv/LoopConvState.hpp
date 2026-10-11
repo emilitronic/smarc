@@ -5,7 +5,7 @@
 /*
 Owns two saved LoopConv configurations and selects the bank receiving setup.
 Configuration commands update their own fields; launch marks that bank configured.
-Bias acceptance marks its worker started; worker idle records generation complete.
+Bias/input acceptance marks workers started; bias idle records generation complete.
 Retirement comes later, after all workers exist.
 */
 #pragma once
@@ -55,6 +55,8 @@ class LoopConvState : public Component {
   Input(u8,                 ld_bias_loop_id);
   Input(bit,                ld_bias_idle);
   Input(u8,                 ld_bias_worker_loop_id);
+  Input(bit,                ld_input_req_fire);
+  Input(u8,                 ld_input_loop_id);
   Output(bit,               cmd_rdy);
   Output(bit,               loop_configured);
   Output(u8,                head_loop_id);

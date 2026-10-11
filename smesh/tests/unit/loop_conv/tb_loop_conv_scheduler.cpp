@@ -104,6 +104,8 @@ void Driver::updateCheck() {
                first.ld_bias_started == bit(cycle >= 7) && first.running == bit(cycle >= 7) &&
                second.ld_bias_started == bit(cycle >= 13) && second.running == bit(cycle >= 13) &&
                request.addr_start == base && request.loop_id == (cycle <= 6 ? 0 : 1);
+  match &= first.ld_input_started == bit(cycle >= 7) &&
+           second.ld_input_started == bit(cycle >= 13);
   if (cycle == 5 || cycle == 6) {
     match &= request.dram_addr == 0 && request.no_bias == 1 &&
              request.ochs == 7 && request.bias_spad_stride == 30 &&
@@ -144,8 +146,11 @@ void connect(Driver& driver, smesh::LoopConvState& state,
   scheduler.loop1 << state.loop1;
   scheduler.head_loop_id << state.head_loop_id;
   scheduler.ld_bias_req_rdy << driver.req_rdy;
+  scheduler.ld_input_req_rdy << driver.req_rdy;
   state.ld_bias_req_fire << scheduler.ld_bias_req_fire;
   state.ld_bias_loop_id << scheduler.ld_bias_loop_id;
+  state.ld_input_req_fire << scheduler.ld_input_req_fire;
+  state.ld_input_loop_id << scheduler.ld_input_loop_id;
   state.ld_bias_idle.wireToConst(bit(0));
   state.ld_bias_worker_loop_id.wireToConst(u8(0));
   driver.req_val << scheduler.ld_bias_req_val;

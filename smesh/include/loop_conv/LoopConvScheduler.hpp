@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 11 2026
 /*
-Builds and offers the load-bias worker request from the saved loop slots.
+Builds and offers load-bias and load-input requests from the saved loop slots.
 Other worker request paths will be added one at a time.
 */
 #pragma once
@@ -12,6 +12,7 @@ Other worker request paths will be added one at a time.
 
 #include "LoopConvState.hpp"
 #include "LoopConvLdBias.hpp"
+#include "LoopConvLdInputReq.hpp"
 
 namespace smesh {
 
@@ -30,12 +31,19 @@ class LoopConvScheduler : public Component {
   Output(LoopConvLdBiasReq, ld_bias_req_bits);
   Input(bit,                ld_bias_req_rdy);
   // Acceptance events tell the state owner which slot's worker has started.
-  Output(bit, ld_bias_req_fire);
-  Output(u8,  ld_bias_loop_id);
+  Output(bit,                ld_bias_req_fire);
+  Output(u8,                 ld_bias_loop_id);
+  Output(bit,                ld_input_req_val);
+  Output(LoopConvLdInputReq, ld_input_req_bits);
+  Input(bit,                 ld_input_req_rdy);
+  Output(bit,                ld_input_req_fire);
+  Output(u8, ld_input_loop_id);
 
   void updateRequest();
   void updateTransfer();
   void updateAddress();
+  void updateInputRequest();
+  void updateInputTransfer();
   void reset();
 
  private:

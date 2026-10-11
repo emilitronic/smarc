@@ -47,6 +47,10 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   scheduler_->head_loop_id      << loop_state_->head_loop_id;
   loop_state_->ld_bias_req_fire << scheduler_->ld_bias_req_fire;
   loop_state_->ld_bias_loop_id  << scheduler_->ld_bias_loop_id;
+  loop_state_->ld_input_req_fire << scheduler_->ld_input_req_fire;
+  loop_state_->ld_input_loop_id << scheduler_->ld_input_loop_id;
+  // Hold the input job pending until its command-generating worker is added.
+  scheduler_->ld_input_req_rdy.wireToConst(bit(0));
   ld_bias_ = new LoopConvLdBias("LdBias");
   ld_bias_->clk                       << clk;
   ld_bias_->req_val                   << scheduler_->ld_bias_req_val;

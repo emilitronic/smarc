@@ -19,6 +19,7 @@ LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateNextState)
       .reads(state_Q_, decoded, cmd_rdy, ld_bias_req_fire, ld_bias_loop_id)
       .reads(ld_bias_idle, ld_bias_worker_loop_id)
+      .reads(ld_input_req_fire, ld_input_loop_id)
       .writes(state_D_);
 }
 
@@ -47,7 +48,7 @@ void LoopConvState::updateNextState() {
   const auto& worker_slot = current.loops[worker_id];
   const bool bias_finished = ld_bias_idle == 1 && worker_slot.running == 1 &&
                             worker_slot.ld_bias_started == 1 && worker_slot.ld_bias_completed == 0;
-  if (!setup && ld_bias_req_fire == 0 && !bias_finished) return;
+  if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && !bias_finished) return;
   auto next = current;
   const auto head = static_cast<unsigned>(current.head_id);
   const auto selected = current.loops[head].configured == 1 ? head ^ 1u : head;
@@ -146,6 +147,14 @@ void LoopConvState::updateNextState() {
   if (bias_finished) {
     next.loops[worker_id].ld_bias_completed = 1;
     trace("loop_conv state: bias finished slot=%u", worker_id);
+  }
+  if (ld_input_req_fire == 1) {
+    const auto id = static_cast<unsigned>(*ld_input_loop_id);
+    assert(id < next.loops.size());
+    assert(current.loops[id].configured == 1 && current.loops[id].ld_input_started == 0);
+    next.loops[id].running = 1;
+    next.loops[id].ld_input_started = 1;
+    trace("loop_conv state: input started slot=%u", id);
   }
   state_D_ = next;
 }

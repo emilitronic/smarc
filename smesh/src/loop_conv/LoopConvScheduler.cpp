@@ -9,6 +9,62 @@
 #include <cassert>
 
 namespace smesh {
+namespace {
+
+constexpr std::uint64_t mask(unsigned width) {
+  return (std::uint64_t{1} << width) - 1;
+}
+
+// Original's 16-bit kernel operands produce a 32-bit dilated-kernel extent.
+std::uint32_t dilatedKernel(std::uint16_t size, std::uint16_t dilation) {
+  const auto extra = std::uint64_t{static_cast<std::uint16_t>(dilation - 1)} *
+                     static_cast<std::uint16_t>(size - 1);
+  return static_cast<std::uint32_t>(size + extra);
+}
+
+struct InputExtent {
+  std::uint16_t padded;
+  std::uint16_t unpadded;
+};
+
+// Preserve +&/-& widths (33..36 bits), then truncate at the result fields.
+InputExtent inputExtent(std::uint16_t outputs, std::uint16_t stride,
+                        std::uint16_t kernel, std::uint16_t dilation,
+                        std::uint16_t before, std::uint16_t after, bool input_dilated) {
+  const auto sum = (std::uint64_t{outputs} * stride + dilatedKernel(kernel, dilation)) & mask(33);
+  const auto extent = (sum - 1) & mask(34);
+  const auto first_subtraction = (extent - before) & mask(35);
+  const auto without_padding = (first_subtraction - after) & mask(36);
+  const auto unpadded = (without_padding + unsigned(input_dilated)) >> unsigned(input_dilated);
+  const auto padded = input_dilated
+      ? unpadded + ((std::uint32_t{before} + 1) >> 1) + ((std::uint32_t{after} + 1) >> 1)
+      : extent;
+  return {static_cast<std::uint16_t>(padded), static_cast<std::uint16_t>(unpadded)};
+}
+
+// Strides use the already-truncated dimensions, as in Original's derived bundle.
+LoopConvInputGeometry inputGeometry(const LoopConvSlot& slot) {
+  const auto& outer = slot.outer_bounds;
+  const auto& inner = slot.inner_bounds;
+  const bool dilated = slot.launch.input_dilated == 1;
+  const auto rows = inputExtent(inner.orows, outer.stride, inner.krows,
+                               outer.kernel_dilation, inner.upad, inner.dpad, dilated);
+  const auto cols = inputExtent(inner.ocols, outer.stride, inner.kcols,
+                               outer.kernel_dilation, inner.lpad, inner.rpad, dilated);
+  LoopConvInputGeometry result{};
+  result.irows = rows.padded;
+  result.icols = cols.padded;
+  result.irows_unpadded = rows.unpadded;
+  result.icols_unpadded = cols.unpadded;
+  result.ichs = inner.kchs;
+  const auto planes = slot.launch.trans_input_3120 == 1 ? result.ichs : inner.batches;
+  const unsigned shift = slot.launch.downsample == 1 ? 1 : 0;
+  result.input_spad_stride = static_cast<std::uint16_t>(
+      std::uint64_t{planes} * (result.irows >> shift) * (result.icols >> shift));
+  return result;
+}
+
+} // namespace
 
 LoopConvScheduler::LoopConvScheduler(std::string /*name*/, IMPL_CTOR) {
   ld_bias_addr_start_Q_ <= ld_bias_addr_start_D_;
@@ -21,6 +77,40 @@ LoopConvScheduler::LoopConvScheduler(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAddress)
       .reads(loop0, loop1, ld_bias_req_fire, ld_bias_loop_id, ld_bias_addr_start_Q_)
       .writes(ld_bias_addr_start_D_);
+  UPDATE(updateInputRequest).reads(loop0, loop1, head_loop_id)
+      .writes(ld_input_req_val, ld_input_req_bits);
+  UPDATE(updateInputTransfer).reads(ld_input_req_val, ld_input_req_bits, ld_input_req_rdy)
+      .writes(ld_input_req_fire, ld_input_loop_id);
+}
+
+// Select the head's input job until started, then the tail's, independently of bias.
+void LoopConvScheduler::updateInputRequest() {
+  const auto head = static_cast<unsigned>(*head_loop_id);
+  assert(head < 2);
+  const auto head_slot = head == 0 ? *loop0 : *loop1;
+  const auto selected = head_slot.ld_input_started == 1 ? head ^ 1u : head;
+  const auto slot = selected == 0 ? *loop0 : *loop1;
+  LoopConvLdInputReq request{};
+  request.outer_bounds = slot.outer_bounds;
+  request.inner_bounds = slot.inner_bounds;
+  request.geometry = inputGeometry(slot);
+  const auto spad_id = slot.launch.a_ex_spad_id;
+  const auto base = spad_id == 0 ? slot.a_addr_start : (spad_id - 1u) * (kSpRows / 2);
+  // Original assigns this value to a log2Up(max_addr)-bit request field.
+  request.addr_start = static_cast<std::uint32_t>(base) & kSpAddrMask;
+  request.dram_addr = slot.input_dram_addr;
+  request.downsample = slot.launch.downsample;
+  request.max_pixels_per_row = slot.launch.max_pixels_per_row;
+  request.input_dilated = slot.launch.input_dilated;
+  request.trans_input_3120 = slot.launch.trans_input_3120;
+  request.loop_id = selected;
+  ld_input_req_bits = request;
+  ld_input_req_val = bit(slot.configured == 1 && slot.ld_input_started == 0);
+}
+
+void LoopConvScheduler::updateInputTransfer() {
+  ld_input_req_fire = bit(ld_input_req_val == 1 && ld_input_req_rdy == 1);
+  ld_input_loop_id = (*ld_input_req_bits).loop_id;
 }
 
 // Offer the head bank's bias job until accepted, then offer the tail bank's.
@@ -68,6 +158,10 @@ void LoopConvScheduler::reset() {
   ld_bias_req_bits.reset(LoopConvLdBiasReq{});
   ld_bias_req_fire.reset(0);
   ld_bias_loop_id.reset(0);
+  ld_input_req_val.reset(0);
+  ld_input_req_bits.reset(LoopConvLdInputReq{});
+  ld_input_req_fire.reset(0);
+  ld_input_loop_id.reset(0);
 }
 
 } // namespace smesh
