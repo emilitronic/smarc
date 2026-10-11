@@ -9,6 +9,8 @@
 # Other
 AGENTS.md
 CLAUDE.md
+.claude/
+.codex/
 */plans/
 */build/
 */doc/
