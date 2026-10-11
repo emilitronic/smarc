@@ -165,5 +165,6 @@ int main(int argc, char* argv[]) {
                 drv1.done() ? 1 : 0);
   }
   std::printf("[SDF_DELAY_LINE] %s delay_and_freeze\n", ok ? "PASS" : "FAIL");
+  descore::flushLog();
   return ok ? 0 : 1;
 }

@@ -34,9 +34,9 @@ inline bool operator!=(const SdfComplex& a, const SdfComplex& b) { return !(a ==
 
 // Spec section 1 parameters.
 struct SdfParams {
-  std::size_t N = 8192;  // FFT size, power of two >= 2
-  std::size_t B_in = 13; // input width per I/Q, 2..16
-  std::size_t B_w = 16;  // twiddle width per re/im, 10..24
+  std::size_t N    = 8192; // FFT size, power of two >= 2
+  std::size_t B_in = 13;   // input width per I/Q, 2..16
+  std::size_t B_w  = 16;   // twiddle width per re/im, 10..24
 
   std::size_t stages() const {
     std::size_t n = 0;
