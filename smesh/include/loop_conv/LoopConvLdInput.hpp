@@ -54,7 +54,7 @@ class LoopConvLdInput : public Component {
   Input(bit,                ld_utilization_at_limit);
   Input(bit,                wait_for_prev_loop);
   Output(bit,               idle);
-  Output(u8,      loop_id);
+  Output(u8,                loop_id);
 
   void updateStatus();
   void updateCommand();

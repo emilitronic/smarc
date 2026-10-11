@@ -300,6 +300,7 @@ void Driver::updateCheck() {
     auto expected = expected_[0];
     expected.running = bit(cycle >= 9);
     expected.ld_bias_started = bit(cycle >= 9);
+    expected.ld_input_started = bit(cycle >= 9);
     match &= sameSlot(first, expected);
   }
   if (cycle >= 15) match &= sameSlot(second, expected_[1]);

@@ -49,8 +49,6 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   loop_state_->ld_bias_loop_id  << scheduler_->ld_bias_loop_id;
   loop_state_->ld_input_req_fire << scheduler_->ld_input_req_fire;
   loop_state_->ld_input_loop_id << scheduler_->ld_input_loop_id;
-  // Hold the input job pending until its command-generating worker is added.
-  scheduler_->ld_input_req_rdy.wireToConst(bit(0));
   ld_bias_ = new LoopConvLdBias("LdBias");
   ld_bias_->clk                       << clk;
   ld_bias_->req_val                   << scheduler_->ld_bias_req_val;
@@ -61,18 +59,37 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   // TODO: Connect load utilization and execute-dependent waiting as they are added.
   ld_bias_->ld_utilization_at_limit.wireToConst(bit(0));
   ld_bias_->wait_for_prev_loop.wireToConst(bit(0));
-  // One worker needs no arbiter yet; propagate downstream acceptance directly.
-  ld_bias_->cmd_rdy << out_rdy;
+  ld_bias_->cmd_rdy << ld_bias_cmd_rdy_;
   ld_bias_cmd_val_  << ld_bias_->cmd_val;
   ld_bias_cmd_bits_ << ld_bias_->cmd_bits;
+
+  // Input loads run independently of bias loads and share the command output.
+  ld_input_ = new LoopConvLdInput("LdInput");
+  ld_input_->clk                       << clk;
+  ld_input_->req_val                   << scheduler_->ld_input_req_val;
+  ld_input_->req_bits                  << scheduler_->ld_input_req_bits;
+  scheduler_->ld_input_req_rdy         << ld_input_->req_rdy;
+  loop_state_->ld_input_idle           << ld_input_->idle;
+  loop_state_->ld_input_worker_loop_id << ld_input_->loop_id;
+  ld_input_->cmd_rdy                   << ld_input_cmd_rdy_;
+  ld_input_cmd_val_                    << ld_input_->cmd_val;
+  ld_input_cmd_bits_                   << ld_input_->cmd_bits;
+  // TODO: Connect utilization and execute-dependent waiting when implemented.
+  ld_input_->ld_utilization_at_limit.wireToConst(bit(0));
+  ld_input_->wait_for_prev_loop.wireToConst(bit(0));
 
   UPDATE(updateRouting)
       .reads(head_val_, head_bits_, decoded_, out_rdy, state_cmd_rdy_, loop_configured_)
       .reads(ld_bias_cmd_val_, ld_bias_cmd_bits_)
+      .reads(ld_input_cmd_val_, ld_input_cmd_bits_)
       .writes(head_rdy_, out_val, out_bits, busy);
+  UPDATE(updateWorkerReady)
+      .reads(loop_configured_, ld_bias_cmd_val_, ld_input_cmd_val_, out_rdy)
+      .writes(ld_bias_cmd_rdy_, ld_input_cmd_rdy_);
 }
 
 LoopConv::~LoopConv() {
+  delete ld_input_;
   delete ld_bias_;
   delete scheduler_;
   delete loop_state_;
@@ -89,14 +106,23 @@ void LoopConv::updateRouting() {
   out_bits  = pass_through ? *head_bits_ : SmeshQueuedCmd{};
   if (loop_configured_ == 1) {
     SmeshQueuedCmd generated{};
-    generated.cmd            = *ld_bias_cmd_bits_;
+    // Original gives bias commands priority over input commands.
+    const bool bias_selected = ld_bias_cmd_val_ == 1;
+    generated.cmd            = bias_selected ? *ld_bias_cmd_bits_ : *ld_input_cmd_bits_;
     generated.from_conv_loop = 1;
-    out_bits                 = ld_bias_cmd_val_ == 1 ? generated : SmeshQueuedCmd{};
-    out_val                  = ld_bias_cmd_val_;
+    const bool valid         = bias_selected || ld_input_cmd_val_ == 1;
+    out_bits                 = valid ? generated : SmeshQueuedCmd{};
+    out_val                  = bit(valid);
   }
   head_rdy_ = bit(head_val_ == 1 && (loop_command ? state_cmd_rdy_ == 1 : pass_through && out_rdy == 1));
   busy      = bit(head_val_ == 1 || loop_configured_ == 1);
-  // TODO: Replace the single-worker output with the shared worker-command arbiter.
+}
+
+// Only the selected worker removes a command when downstream accepts it.
+void LoopConv::updateWorkerReady() {
+  const bool accept = loop_configured_ == 1 && out_rdy == 1;
+  ld_bias_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 1);
+  ld_input_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_input_cmd_val_ == 1);
 }
 
 void LoopConv::reset() {
@@ -104,6 +130,8 @@ void LoopConv::reset() {
   out_val.reset(0);
   out_bits.reset(SmeshQueuedCmd{});
   busy.reset(0);
+  ld_bias_cmd_rdy_.reset(0);
+  ld_input_cmd_rdy_.reset(0);
 }
 
 } // namespace smesh

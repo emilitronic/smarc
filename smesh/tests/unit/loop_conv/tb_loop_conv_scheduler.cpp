@@ -153,6 +153,8 @@ void connect(Driver& driver, smesh::LoopConvState& state,
   state.ld_input_loop_id << scheduler.ld_input_loop_id;
   state.ld_bias_idle.wireToConst(bit(0));
   state.ld_bias_worker_loop_id.wireToConst(u8(0));
+  state.ld_input_idle.wireToConst(bit(0));
+  state.ld_input_worker_loop_id.wireToConst(u8(0));
   driver.req_val << scheduler.ld_bias_req_val;
   driver.req_bits << scheduler.ld_bias_req_bits;
   driver.req_fire << scheduler.ld_bias_req_fire;

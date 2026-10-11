@@ -5,7 +5,7 @@
 /*
 Buffers commands, decodes loop setup, and saves it in two loop banks.
 Ordinary commands pass through while neither bank is configured.
-The bias worker emits generated commands; other workers and retirement come later.
+Bias and input workers share the generated-command output; retirement comes later.
 */
 #pragma once
 
@@ -44,6 +44,7 @@ class LoopConv : public Component {
   Output(u8,             config_loop_id);
 
   void updateRouting();
+  void updateWorkerReady();
   void reset();
 
  private:
@@ -52,6 +53,7 @@ class LoopConv : public Component {
   LoopConvState*     loop_state_ = nullptr;
   LoopConvScheduler* scheduler_  = nullptr;
   LoopConvLdBias*    ld_bias_    = nullptr;
+  LoopConvLdInput*   ld_input_   = nullptr;
 
   Input(bit,                head_val_);
   Input(SmeshQueuedCmd,     head_bits_);
@@ -61,6 +63,10 @@ class LoopConv : public Component {
   Input(bit,                loop_configured_);
   Input(bit,                ld_bias_cmd_val_);
   Input(SmeshCmd,           ld_bias_cmd_bits_);
+  Input(bit,                ld_input_cmd_val_);
+  Input(SmeshCmd,           ld_input_cmd_bits_);
+  Output(bit,               ld_bias_cmd_rdy_);
+  Output(bit,               ld_input_cmd_rdy_);
 };
 
 } // namespace smesh
