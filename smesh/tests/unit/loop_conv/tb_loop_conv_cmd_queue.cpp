@@ -6,7 +6,7 @@
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
 
-#include "LoopConv.hpp"
+#include "LoopConvCmdQueue.hpp"
 
 #include <array>
 #include <cstdio>
@@ -112,15 +112,15 @@ int main(int argc, char* argv[]) {
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
 
-  smesh::LoopConv loop("LoopConv");
+  smesh::LoopConvCmdQueue loop("CmdQueue");
   Driver driver("Driver");
-  loop.in_val << driver.in_val;
-  loop.in_bits << driver.in_bits;
-  driver.in_rdy << loop.in_rdy;
+  loop.cmd_val << driver.in_val;
+  loop.cmd_bits << driver.in_bits;
+  driver.in_rdy << loop.cmd_rdy;
   driver.head_val << loop.head_val;
   driver.head_bits << loop.head_bits;
   loop.head_rdy << driver.head_rdy;
-  driver.busy << loop.busy;
+  driver.busy << loop.head_val;
 
   Clock clk;
   loop.clk << clk;

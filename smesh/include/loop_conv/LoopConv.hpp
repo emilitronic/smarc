@@ -3,10 +3,9 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 11 2026
 /*
-First construction of LoopConv: owns and connects its input command queue.
-The queue head is exposed for now; the future decoder/router will consume it
-inside this component. Configuration decoding and command generation are
-not implemented yet.
+Buffers incoming commands and passes ordinary commands to the output.
+LOOP_CONV_WS configuration and launch commands remain at the queue head
+until the internal decoder and loop-bank storage are implemented.
 */
 #pragma once
 
@@ -27,18 +26,28 @@ class LoopConv : public Component {
 
   Clock(clk);
 
-  Input(bit, in_val);
+  Input(bit,            in_val);
   Input(SmeshQueuedCmd, in_bits);
-  Output(bit, in_rdy);
+  Output(bit,           in_rdy);
 
-  // Temporary queue-head interface, before the internal decoder is added.
-  Output(bit, head_val);
-  Output(SmeshQueuedCmd, head_bits);
-  Input(bit, head_rdy);
-  Output(bit, busy);
+  Output(bit,            out_val);
+  Output(SmeshQueuedCmd, out_bits);
+  Input(bit,             out_rdy);
+  Output(bit,            busy);
+
+  void updateClassify();
+  void updateRouting();
+  void reset();
 
  private:
   LoopConvCmdQueue* cmd_queue_ = nullptr;
+
+  Input(bit,            head_val_);
+  Input(SmeshQueuedCmd, head_bits_);
+  Output(bit,           head_rdy_);
+  Output(bit,           is_loop_run_cmd_);
+  Output(bit,           is_loop_config_cmd_);
+  Output(bit,           is_loop_cmd_);
 };
 
 } // namespace smesh

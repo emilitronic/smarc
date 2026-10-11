@@ -8,3 +8,14 @@ set_tests_properties(smesh_unit_loop_conv_cmd_queue PROPERTIES
   LABELS "unit;loop_conv"
   TIMEOUT 10
 )
+
+add_executable(tb_loop_conv_routing tb_loop_conv_routing.cpp)
+target_link_libraries(tb_loop_conv_routing PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_loop_conv_routing PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
+)
+add_test(NAME smesh_unit_loop_conv_routing COMMAND tb_loop_conv_routing)
+set_tests_properties(smesh_unit_loop_conv_routing PROPERTIES
+  LABELS "unit;loop_conv"
+  TIMEOUT 10
+)
