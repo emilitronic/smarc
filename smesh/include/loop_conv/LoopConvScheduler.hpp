@@ -24,7 +24,7 @@ struct LoopConvLdBiasReq {
   std::uint32_t       addr_start       = 0;
   std::uint64_t       dram_addr        = 0;
   bit                 no_bias          = false;
-  std::uint8_t        loop_id = 0;
+  std::uint8_t        loop_id          = 0;
 };
 
 class LoopConvScheduler : public Component {

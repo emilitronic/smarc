@@ -48,6 +48,7 @@ add_library(smesh_model
   src/loop_conv/LoopConvCmdDec.cpp
   src/loop_conv/LoopConvState.cpp
   src/loop_conv/LoopConvScheduler.cpp
+  src/loop_conv/LoopConvLdBias.cpp
   src/loop_matmul/LoopMatmulCmdQueue.cpp
   src/loop_matmul/LoopMatmulLdA.cpp
   src/loop_matmul/LoopMatmulLdB.cpp
