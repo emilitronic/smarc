@@ -21,13 +21,26 @@ State classification, per the cascade-component-design guidance:
                     write, its clock boundary supplied by the address
                     register above. Same treatment smesh gives Spad::banks_.
 
-Within update() the read is published before the write commits, which is
-the read-during-write behaviour of the modelled memory and is what makes
-the delay d rather than 0 when both hit the same address. That ordering is
-intentional and local; it is not a dependence on update scheduling.
+The write is synchronous, and modelled as one: updateWrite captures the
+address and data into registers, and updateRead commits that pending write
+into mem_ at the start of the next cycle, before reading. A word presented
+at cycle t therefore lands in the array at t+1 and is published at t+d,
+which is the same d-cycle delay a read-before-write-in-one-update model
+gives -- including at d = 1, where the commit and the read hit the same
+address and out is last cycle's input.
 
-en low freezes the line: nothing is captured and idx_D_ is left unassigned,
-so the address register holds and a stalled chain keeps its state.
+Splitting it that way is what keeps out independent of in. An SDF stage
+wires the butterfly difference back into this component's input while
+reading its output in the same cycle, so a single update touching both
+ports reports a combinational cycle and no update order exists -- even
+though the hardware has none, because the read address comes from a
+register. updateRead reads only registers; updateWrite writes only
+registers.
+
+en low freezes the line: w_val_D_ is cleared so nothing is captured, and
+idx_D_ is left unassigned so the address register holds. w_val_D_ must be
+assigned rather than left to hold, or a stalled cycle would replay the
+previous write.
 */
 #pragma once
 
@@ -55,7 +68,8 @@ class SdfDelayLine : public Component {
 
   std::size_t depth() const { return depth_; }
 
-  void update();
+  void updateRead();
+  void updateWrite();
   void reset();
 
  private:
@@ -66,6 +80,14 @@ class SdfDelayLine : public Component {
   // 12 bits are needed for the largest stage at N = 8192.
   Output(u32, idx_Q_);
   Register(u32, idx_D_);
+
+  // The write captured at the previous clock edge, committed by updateRead.
+  Output(bit, w_val_Q_);
+  Register(bit, w_val_D_);
+  Output(u32, w_addr_Q_);
+  Register(u32, w_addr_D_);
+  Output(SdfComplex, w_data_Q_);
+  Register(SdfComplex, w_data_D_);
 };
 
 } // namespace smfft

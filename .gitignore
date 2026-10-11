@@ -33,6 +33,7 @@ cmake-build-release/
 *.sdf
 *.mapped.v
 *.svf
+*.pyc
 
 # Build directories
 build*/
