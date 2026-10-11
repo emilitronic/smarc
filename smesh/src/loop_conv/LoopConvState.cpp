@@ -18,6 +18,7 @@ LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
       .writes(cmd_rdy, loop_configured, head_loop_id, tail_loop_id, config_loop_id, loop0, loop1);
   UPDATE(updateNextState)
       .reads(state_Q_, decoded, cmd_rdy, ld_bias_req_fire, ld_bias_loop_id)
+      .reads(ld_bias_idle, ld_bias_worker_loop_id)
       .writes(state_D_);
 }
 
@@ -40,8 +41,13 @@ void LoopConvState::updateView() {
 void LoopConvState::updateNextState() {
   const auto command = *decoded;
   const bool setup = cmd_rdy == 1 && (command.do_config == 1 || command.do_launch == 1);
-  if (!setup && ld_bias_req_fire == 0) return;
   const auto current = *state_Q_;
+  const auto worker_id = static_cast<unsigned>(*ld_bias_worker_loop_id);
+  assert(worker_id < current.loops.size());
+  const auto& worker_slot = current.loops[worker_id];
+  const bool bias_finished = ld_bias_idle == 1 && worker_slot.running == 1 &&
+                            worker_slot.ld_bias_started == 1 && worker_slot.ld_bias_completed == 0;
+  if (!setup && ld_bias_req_fire == 0 && !bias_finished) return;
   auto next = current;
   const auto head = static_cast<unsigned>(current.head_id);
   const auto selected = current.loops[head].configured == 1 ? head ^ 1u : head;
@@ -134,6 +140,12 @@ void LoopConvState::updateNextState() {
     next.loops[id].running = 1;
     next.loops[id].ld_bias_started = 1;
     trace("loop_conv state: bias started slot=%u", id);
+  }
+  // Idle includes pipeline drain: every generated bias command has left the worker.
+  // This records command-generation completion, not RS execution completion.
+  if (bias_finished) {
+    next.loops[worker_id].ld_bias_completed = 1;
+    trace("loop_conv state: bias finished slot=%u", worker_id);
   }
   state_D_ = next;
 }

@@ -5,7 +5,7 @@
 /*
 Buffers commands, decodes loop setup, and saves it in two loop banks.
 Ordinary commands pass through while neither bank is configured.
-Workers and retirement are not implemented yet, so launched banks remain occupied.
+The bias worker emits generated commands; other workers and retirement come later.
 */
 #pragma once
 
@@ -37,27 +37,30 @@ class LoopConv : public Component {
   Output(SmeshQueuedCmd, out_bits);
   Input(bit,             out_rdy);
   Output(bit,            busy);
-  Output(LoopConvSlot, loop0);
-  Output(LoopConvSlot, loop1);
-  Output(u8, head_loop_id);
-  Output(u8, tail_loop_id);
-  Output(u8, config_loop_id);
+  Output(LoopConvSlot,   loop0);
+  Output(LoopConvSlot,   loop1);
+  Output(u8,             head_loop_id);
+  Output(u8,             tail_loop_id);
+  Output(u8,             config_loop_id);
 
   void updateRouting();
   void reset();
 
  private:
-  LoopConvCmdQueue* cmd_queue_ = nullptr;
-  LoopConvCmdDec* cmd_dec_ = nullptr;
-  LoopConvState* loop_state_ = nullptr;
-  LoopConvScheduler* scheduler_ = nullptr;
+  LoopConvCmdQueue*  cmd_queue_  = nullptr;
+  LoopConvCmdDec*    cmd_dec_    = nullptr;
+  LoopConvState*     loop_state_ = nullptr;
+  LoopConvScheduler* scheduler_  = nullptr;
+  LoopConvLdBias*    ld_bias_    = nullptr;
 
-  Input(bit,            head_val_);
-  Input(SmeshQueuedCmd, head_bits_);
-  Output(bit,           head_rdy_);
+  Input(bit,                head_val_);
+  Input(SmeshQueuedCmd,     head_bits_);
+  Output(bit,               head_rdy_);
   Input(LoopConvDecodedCmd, decoded_);
-  Input(bit, state_cmd_rdy_);
-  Input(bit, loop_configured_);
+  Input(bit,                state_cmd_rdy_);
+  Input(bit,                loop_configured_);
+  Input(bit,                ld_bias_cmd_val_);
+  Input(SmeshCmd,           ld_bias_cmd_bits_);
 };
 
 } // namespace smesh

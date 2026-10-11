@@ -11,21 +11,9 @@ Other worker request paths will be added one at a time.
 #include <cascade/Cascade.hpp>
 
 #include "LoopConvState.hpp"
+#include "LoopConvLdBias.hpp"
 
 namespace smesh {
-
-// One convolution's bias-loading job. Includes the two derived values the
-// bias worker uses; geometry for other workers will be added with their paths.
-struct LoopConvLdBiasReq {
-  LoopConvOuterBounds outer_bounds{};
-  LoopConvInnerBounds inner_bounds{};
-  std::uint16_t       ochs             = 0;
-  std::uint16_t       bias_spad_stride = 0;
-  std::uint32_t       addr_start       = 0;
-  std::uint64_t       dram_addr        = 0;
-  bit                 no_bias          = false;
-  std::uint8_t        loop_id          = 0;
-};
 
 class LoopConvScheduler : public Component {
   DECLARE_COMPONENT(LoopConvScheduler);

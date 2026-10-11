@@ -283,7 +283,7 @@ void Driver::updateCheck() {
   const auto first = *loop0;
   const auto second = *loop1;
   bool match = head_loop_id == 0 && tail_loop_id == 1 &&
-               config_loop_id == (cycle < 8 ? 0 : 1) && out_val == 0 &&
+               config_loop_id == (cycle < 8 ? 0 : 1) && out_val == bit(cycle >= 11) &&
                first.configured == bit(cycle >= 8) && second.configured == bit(cycle >= 15) &&
                busy == bit(cycle != 0);
   if (cycle < 15) match &= in_rdy == 1;
@@ -296,7 +296,12 @@ void Driver::updateCheck() {
   }
   if (cycle == 1) match &= first.outer_bounds.batch_size == 0;
   if (cycle == 2) match &= first.outer_bounds.batch_size == expected_[0].outer_bounds.batch_size;
-  if (cycle >= 8) match &= sameSlot(first, expected_[0]);
+  if (cycle >= 8) {
+    auto expected = expected_[0];
+    expected.running = bit(cycle >= 9);
+    expected.ld_bias_started = bit(cycle >= 9);
+    match &= sameSlot(first, expected);
+  }
   if (cycle >= 15) match &= sameSlot(second, expected_[1]);
   if (!match) std::printf("LoopConv state mismatch cycle=%u\n", cycle);
   passed_ &= match;

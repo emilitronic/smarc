@@ -76,7 +76,11 @@ void Driver::updateDrive() {
   if (cycle <= 4) {
     in_bits = ordinary(cycle < 2 ? cycle + 1 : 3);
   } else if (cycle == 9) {
-    in_bits = command(4, static_cast<std::uint32_t>(held_funct_));
+    auto setup = command(4, static_cast<std::uint32_t>(held_funct_));
+    // Bias stays disabled in this routing-only test; complete jobs are tested separately.
+    setup.cmd.rs1 = 0;
+    setup.cmd.rs2 = 0;
+    in_bits = setup;
   } else if (cycle == 10 || cycle == 11) {
     in_bits = command(cycle, static_cast<std::uint32_t>(smesh::SmeshFunct::LoopConvWs));
   } else if (cycle >= 12) {
