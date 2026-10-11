@@ -12,7 +12,7 @@ Other worker request paths will be added one at a time.
 
 #include "LoopConvState.hpp"
 #include "LoopConvLdBias.hpp"
-#include "LoopConvLdInputReq.hpp"
+#include "LoopConvLdInput.hpp"
 
 namespace smesh {
 

@@ -12,6 +12,16 @@ set_tests_properties(smesh_unit_loop_conv_input_request PROPERTIES
   TIMEOUT 10
 )
 add_executable(tb_loop_conv_ld_bias tb_loop_conv_ld_bias.cpp)
+add_executable(tb_loop_conv_ld_input tb_loop_conv_ld_input.cpp)
+target_link_libraries(tb_loop_conv_ld_input PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_loop_conv_ld_input PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
+)
+add_test(NAME smesh_unit_loop_conv_ld_input COMMAND tb_loop_conv_ld_input)
+set_tests_properties(smesh_unit_loop_conv_ld_input PROPERTIES
+  LABELS "unit;loop_conv"
+  TIMEOUT 10
+)
 add_executable(tb_loop_conv_bias_stream tb_loop_conv_bias_stream.cpp)
 target_link_libraries(tb_loop_conv_bias_stream PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
 set_target_properties(tb_loop_conv_bias_stream PROPERTIES
