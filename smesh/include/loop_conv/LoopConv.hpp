@@ -14,6 +14,7 @@ Workers and retirement are not implemented yet, so launched banks remain occupie
 #include "SmeshPorts.hpp"
 #include "LoopConvCmdDec.hpp"
 #include "LoopConvState.hpp"
+#include "LoopConvScheduler.hpp"
 
 namespace smesh {
 
@@ -49,6 +50,7 @@ class LoopConv : public Component {
   LoopConvCmdQueue* cmd_queue_ = nullptr;
   LoopConvCmdDec* cmd_dec_ = nullptr;
   LoopConvState* loop_state_ = nullptr;
+  LoopConvScheduler* scheduler_ = nullptr;
 
   Input(bit,            head_val_);
   Input(SmeshQueuedCmd, head_bits_);

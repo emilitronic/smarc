@@ -40,12 +40,23 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   tail_loop_id << loop_state_->tail_loop_id;
   config_loop_id << loop_state_->config_loop_id;
 
+  scheduler_ = new LoopConvScheduler("Scheduler");
+  scheduler_->clk << clk;
+  scheduler_->loop0 << loop_state_->loop0;
+  scheduler_->loop1 << loop_state_->loop1;
+  scheduler_->head_loop_id << loop_state_->head_loop_id;
+  loop_state_->ld_bias_req_fire << scheduler_->ld_bias_req_fire;
+  loop_state_->ld_bias_loop_id << scheduler_->ld_bias_loop_id;
+  // The bias worker is not implemented yet; hold its request until it exists.
+  scheduler_->ld_bias_req_rdy.wireToConst(bit(0));
+
   UPDATE(updateRouting)
       .reads(head_val_, head_bits_, decoded_, out_rdy, state_cmd_rdy_, loop_configured_)
       .writes(head_rdy_, out_val, out_bits, busy);
 }
 
 LoopConv::~LoopConv() {
+  delete scheduler_;
   delete loop_state_;
   delete cmd_dec_;
   delete cmd_queue_;

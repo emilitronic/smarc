@@ -7,6 +7,8 @@
 #include "SmeshConfig.hpp"
 #include "SmeshTypes.hpp"
 
+#include <cassert>
+
 namespace smesh {
 
 LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
@@ -14,7 +16,9 @@ LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateView)
       .reads(state_Q_)
       .writes(cmd_rdy, loop_configured, head_loop_id, tail_loop_id, config_loop_id, loop0, loop1);
-  UPDATE(updateNextState).reads(state_Q_, decoded, cmd_rdy).writes(state_D_);
+  UPDATE(updateNextState)
+      .reads(state_Q_, decoded, cmd_rdy, ld_bias_req_fire, ld_bias_loop_id)
+      .writes(state_D_);
 }
 
 // Select the head bank for setup unless it is configured; otherwise use the tail.
@@ -32,94 +36,106 @@ void LoopConvState::updateView() {
   loop1 = state.loops[1];
 }
 
-// Save the accepted command's fields for the next clock edge.
+// Save accepted setup and mark accepted worker requests started at the next edge.
 void LoopConvState::updateNextState() {
   const auto command = *decoded;
-  if (cmd_rdy == 0 || (command.do_config == 0 && command.do_launch == 0)) return;
+  const bool setup = cmd_rdy == 1 && (command.do_config == 1 || command.do_launch == 1);
+  if (!setup && ld_bias_req_fire == 0) return;
   const auto current = *state_Q_;
   auto next = current;
   const auto head = static_cast<unsigned>(current.head_id);
   const auto selected = current.loops[head].configured == 1 ? head ^ 1u : head;
-  auto& slot = next.loops[selected];
-  const auto& outer = command.outer_bounds;
-  const auto& inner = command.inner_bounds;
-  if (command.do_config == 1) {
-    switch (command.config_id) {
-      case 1:
-        slot.outer_bounds.out_channels = outer.out_channels;
-        slot.outer_bounds.in_channels = outer.in_channels;
-        slot.outer_bounds.in_row_dim = outer.in_row_dim;
-        slot.outer_bounds.batch_size = outer.batch_size;
-        slot.outer_bounds.padding = outer.padding;
-        slot.outer_bounds.stride = outer.stride;
-        slot.outer_bounds.out_col_dim = outer.out_col_dim;
-        slot.outer_bounds.pool_out_row_dim = outer.pool_out_row_dim;
-        slot.outer_bounds.out_row_dim = outer.out_row_dim;
-        break;
-      case 2:
-        slot.outer_bounds.kernel_dim = outer.kernel_dim;
-        slot.outer_bounds.pool_out_col_dim = outer.pool_out_col_dim;
-        slot.outer_bounds.pool_size = kDefaultConfig.has_max_pool ? outer.pool_size : 1;
-        slot.outer_bounds.pool_stride = kDefaultConfig.has_max_pool ? outer.pool_stride : 1;
-        slot.outer_bounds.pool_padding = kDefaultConfig.has_max_pool ? outer.pool_padding : 0;
-        slot.inner_bounds.batches = inner.batches;
-        slot.inner_bounds.porows = inner.porows;
-        slot.inner_bounds.pocols = inner.pocols;
-        slot.inner_bounds.pochs = inner.pochs;
-        break;
-      case 3:
-        slot.inner_bounds.krows = inner.krows;
-        slot.inner_bounds.kcols = inner.kcols;
-        slot.inner_bounds.kchs = inner.kchs;
-        slot.inner_bounds.lpad = inner.lpad;
-        slot.inner_bounds.rpad = inner.rpad;
-        slot.inner_bounds.upad = inner.upad;
-        slot.inner_bounds.dpad = inner.dpad;
-        slot.inner_bounds.plpad = inner.plpad;
-        slot.outer_bounds.in_col_dim = outer.in_col_dim;
-        break;
-      case 4:
-        slot.inner_bounds.orows = inner.orows;
-        slot.inner_bounds.prad = inner.prad;
-        slot.inner_bounds.pupad = inner.pupad;
-        slot.inner_bounds.pdpad = inner.pdpad;
-        slot.outer_bounds.kernel_dilation = outer.kernel_dilation;
-        slot.inner_bounds.ocols = inner.ocols;
-        slot.outer_bounds.in_stride = outer.in_stride;
-        slot.outer_bounds.weight_stride = outer.weight_stride;
-        slot.outer_bounds.out_stride = outer.out_stride;
-        break;
-      case 5:
-        slot.weights_dram_addr = command.weights_dram_addr;
-        slot.output_dram_addr = command.output_dram_addr;
-        break;
-      case 6:
-        slot.bias_dram_addr = command.bias_dram_addr;
-        slot.input_dram_addr = command.input_dram_addr;
-        break;
-      default:
-        return;
+  if (setup) {
+    auto& slot = next.loops[selected];
+    const auto& outer = command.outer_bounds;
+    const auto& inner = command.inner_bounds;
+    if (command.do_config == 1) {
+      switch (command.config_id) {
+        case 1:
+          slot.outer_bounds.out_channels = outer.out_channels;
+          slot.outer_bounds.in_channels = outer.in_channels;
+          slot.outer_bounds.in_row_dim = outer.in_row_dim;
+          slot.outer_bounds.batch_size = outer.batch_size;
+          slot.outer_bounds.padding = outer.padding;
+          slot.outer_bounds.stride = outer.stride;
+          slot.outer_bounds.out_col_dim = outer.out_col_dim;
+          slot.outer_bounds.pool_out_row_dim = outer.pool_out_row_dim;
+          slot.outer_bounds.out_row_dim = outer.out_row_dim;
+          break;
+        case 2:
+          slot.outer_bounds.kernel_dim = outer.kernel_dim;
+          slot.outer_bounds.pool_out_col_dim = outer.pool_out_col_dim;
+          slot.outer_bounds.pool_size = kDefaultConfig.has_max_pool ? outer.pool_size : 1;
+          slot.outer_bounds.pool_stride = kDefaultConfig.has_max_pool ? outer.pool_stride : 1;
+          slot.outer_bounds.pool_padding = kDefaultConfig.has_max_pool ? outer.pool_padding : 0;
+          slot.inner_bounds.batches = inner.batches;
+          slot.inner_bounds.porows = inner.porows;
+          slot.inner_bounds.pocols = inner.pocols;
+          slot.inner_bounds.pochs = inner.pochs;
+          break;
+        case 3:
+          slot.inner_bounds.krows = inner.krows;
+          slot.inner_bounds.kcols = inner.kcols;
+          slot.inner_bounds.kchs = inner.kchs;
+          slot.inner_bounds.lpad = inner.lpad;
+          slot.inner_bounds.rpad = inner.rpad;
+          slot.inner_bounds.upad = inner.upad;
+          slot.inner_bounds.dpad = inner.dpad;
+          slot.inner_bounds.plpad = inner.plpad;
+          slot.outer_bounds.in_col_dim = outer.in_col_dim;
+          break;
+        case 4:
+          slot.inner_bounds.orows = inner.orows;
+          slot.inner_bounds.prad = inner.prad;
+          slot.inner_bounds.pupad = inner.pupad;
+          slot.inner_bounds.pdpad = inner.pdpad;
+          slot.outer_bounds.kernel_dilation = outer.kernel_dilation;
+          slot.inner_bounds.ocols = inner.ocols;
+          slot.outer_bounds.in_stride = outer.in_stride;
+          slot.outer_bounds.weight_stride = outer.weight_stride;
+          slot.outer_bounds.out_stride = outer.out_stride;
+          break;
+        case 5:
+          slot.weights_dram_addr = command.weights_dram_addr;
+          slot.output_dram_addr = command.output_dram_addr;
+          break;
+        case 6:
+          slot.bias_dram_addr = command.bias_dram_addr;
+          slot.input_dram_addr = command.input_dram_addr;
+          break;
+        default:
+          return;
+      }
+    } else {
+      slot.launch = command.launch;
+      // Original disables unsupported options and treats a zero pixel count as one.
+      if (!kDefaultConfig.has_training_convs) {
+        slot.launch.wrot180 = 0;
+        slot.launch.input_dilated = 0;
+        slot.launch.trans_output_1203 = 0;
+        slot.launch.trans_weight_1203 = 0;
+        slot.launch.trans_weight_0132 = 0;
+        slot.launch.trans_input_3120 = 0;
+      }
+      if (!kDefaultConfig.has_dw_convs) slot.launch.dw = 0;
+      if (!kDefaultConfig.has_max_pool) slot.launch.no_pool = 1;
+      if (!kDefaultConfig.has_first_layer_optimizations || slot.launch.max_pixels_per_row == 0)
+        slot.launch.max_pixels_per_row = 1;
+      slot.configured = 1;
     }
-  } else {
-    slot.launch = command.launch;
-    // Original disables unsupported options and treats a zero pixel count as one.
-    if (!kDefaultConfig.has_training_convs) {
-      slot.launch.wrot180 = 0;
-      slot.launch.input_dilated = 0;
-      slot.launch.trans_output_1203 = 0;
-      slot.launch.trans_weight_1203 = 0;
-      slot.launch.trans_weight_0132 = 0;
-      slot.launch.trans_input_3120 = 0;
-    }
-    if (!kDefaultConfig.has_dw_convs) slot.launch.dw = 0;
-    if (!kDefaultConfig.has_max_pool) slot.launch.no_pool = 1;
-    if (!kDefaultConfig.has_first_layer_optimizations || slot.launch.max_pixels_per_row == 0)
-      slot.launch.max_pixels_per_row = 1;
-    slot.configured = 1;
+    trace("loop_conv state: slot=%u config=%u launch=%u",
+          selected, unsigned(command.config_id), unsigned(command.do_launch));
+  }
+  // A worker starts on request acceptance, independently of setup in the other slot.
+  if (ld_bias_req_fire == 1) {
+    const auto id = static_cast<unsigned>(*ld_bias_loop_id);
+    assert(id < next.loops.size());
+    assert(current.loops[id].configured == 1 && current.loops[id].ld_bias_started == 0);
+    next.loops[id].running = 1;
+    next.loops[id].ld_bias_started = 1;
+    trace("loop_conv state: bias started slot=%u", id);
   }
   state_D_ = next;
-  trace("loop_conv state: slot=%u config=%u launch=%u",
-        selected, unsigned(command.config_id), unsigned(command.do_launch));
 }
 
 // Start with empty banks and assign each its half of SPAD.

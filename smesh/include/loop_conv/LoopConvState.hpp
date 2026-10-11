@@ -5,7 +5,7 @@
 /*
 Owns two saved LoopConv configurations and selects the bank receiving setup.
 Configuration commands update their own fields; launch marks that bank configured.
-Worker progress and bank retirement will be added when the workers are connected.
+Bias request acceptance marks its worker started; retirement comes later.
 */
 #pragma once
 
@@ -50,6 +50,8 @@ class LoopConvState : public Component {
   Clock(clk);
 
   Input(LoopConvDecodedCmd, decoded);
+  Input(bit, ld_bias_req_fire);
+  Input(u8, ld_bias_loop_id);
   Output(bit, cmd_rdy);
   Output(bit, loop_configured);
   Output(u8, head_loop_id);
