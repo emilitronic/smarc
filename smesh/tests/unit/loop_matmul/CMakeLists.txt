@@ -3,6 +3,16 @@ add_executable(tb_loop_matmul_ld_a tb_loop_matmul_ld_a.cpp)
 add_executable(tb_loop_matmul_ld_b tb_loop_matmul_ld_b.cpp)
 add_executable(tb_loop_matmul_ld_d tb_loop_matmul_ld_d.cpp)
 add_executable(tb_loop_matmul_ld_utilization tb_loop_matmul_ld_utilization.cpp)
+add_executable(tb_loop_matmul_ex_st_utilization tb_loop_matmul_ex_st_utilization.cpp)
+target_link_libraries(tb_loop_matmul_ex_st_utilization PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_loop_matmul_ex_st_utilization PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
+)
+add_test(NAME smesh_unit_loop_matmul_ex_st_utilization COMMAND tb_loop_matmul_ex_st_utilization)
+set_tests_properties(smesh_unit_loop_matmul_ex_st_utilization PROPERTIES
+  LABELS "unit;loop_matmul"
+  TIMEOUT 10
+)
 add_executable(tb_loop_matmul_ex tb_loop_matmul_ex.cpp)
 add_executable(tb_loop_matmul_st_c tb_loop_matmul_st_c.cpp)
 add_executable(tb_loop_matmul_st_c_spad tb_loop_matmul_st_c_spad.cpp)

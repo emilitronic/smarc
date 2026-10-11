@@ -9,6 +9,8 @@
 #include "LoopMatmulLdABArb.hpp"
 #include "LoopMatmulCmdArb.hpp"
 #include "LoopMatmulLdUtilization.hpp"
+#include "LoopMatmulExUtilization.hpp"
+#include "LoopMatmulStUtilization.hpp"
 
 #include "SmeshCommand.hpp"
 
@@ -74,6 +76,8 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   ld_ab_arb_      = new LoopMatmulLdABArb("LdABArb");
   cmd_arb_        = new LoopMatmulCmdArb("CmdArb");
   ld_utilization_ = new LoopMatmulLdUtilization("LdUtilization");
+  ex_utilization_ = new LoopMatmulExUtilization("ExUtilization");
+  st_utilization_ = new LoopMatmulStUtilization("StUtilization");
 
   ld_a_->clk           << clk;
   ld_b_->clk           << clk;
@@ -84,6 +88,8 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   ld_ab_arb_->clk      << clk;
   cmd_arb_->clk        << clk;
   ld_utilization_->clk << clk;
+  ex_utilization_->clk << clk;
+  st_utilization_->clk << clk;
 
   ld_a_->req_val  << ld_a_req_val_;
   ld_a_req_rdy_   << ld_a_->req_rdy;
@@ -113,14 +119,19 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   ld_b_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
   ld_d_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
 
-  ex_->ex_utilization_at_limit        << ex_utilization_at_limit_;
-  st_c_->st_utilization_at_limit      << st_utilization_at_limit_;
-  st_c_spad_->st_utilization_at_limit << st_utilization_at_limit_;
+  ex_->ex_utilization_at_limit        << ex_utilization_->ex_utilization_at_limit;
+  st_c_->st_utilization_at_limit      << st_utilization_->st_utilization_at_limit;
+  st_c_spad_->st_utilization_at_limit << st_utilization_->st_utilization_at_limit;
 
   ld_utilization_->lda_cmd_fire << ld_a_cmd_fire_;
   ld_utilization_->ldb_cmd_fire << ld_b_cmd_fire_;
   ld_utilization_->ldd_cmd_fire << ld_d_cmd_fire_;
   ld_utilization_->ld_completed << ld_completed;
+  ex_utilization_->ex_cmd_fire << ex_cmd_fire_;
+  ex_utilization_->ex_completed << ex_completed;
+  st_utilization_->st_c_cmd_fire << st_c_cmd_fire_;
+  st_utilization_->st_c_spad_cmd_fire << st_c_spad_cmd_fire_;
+  st_utilization_->st_completed << st_completed;
 
   ex_->ld_ka << ld_a_->k;
   ex_->ld_kb << ld_b_->k;
@@ -206,8 +217,6 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
               ld_d_req_val_, ld_d_req_bits_, ex_req_val_, ex_req_bits_)
       .writes(st_c_req_val_, st_c_req_bits_, st_c_spad_req_val_,
               st_c_spad_req_bits_);
-  UPDATE(updateCapacity).reads(state_Q_)
-      .writes(st_utilization_at_limit_, ex_utilization_at_limit_);
   UPDATE(updateCommandFires)
       .reads(ld_a_cmd_val_, ld_a_cmd_rdy_, ld_b_cmd_val_, ld_b_cmd_rdy_,
              ld_d_cmd_val_, ld_d_cmd_rdy_, ex_cmd_val_, ex_cmd_rdy_)
@@ -234,12 +243,13 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
       .reads(ld_a_idle_, ld_a_loop_id_, ld_b_idle_, ld_b_loop_id_,
              ld_d_idle_, ld_d_loop_id_, ex_idle_, ex_loop_id_)
       .reads(st_c_idle_, st_c_loop_id_, st_c_spad_idle_, st_c_spad_loop_id_)
-      .reads(st_completed, ex_completed, st_c_cmd_fire_, st_c_spad_cmd_fire_,
-             ex_cmd_fire_, completed0, completed1)
+      .reads(completed0, completed1)
       .writes(state_D_);
 }
 
 LoopMatmul::~LoopMatmul() {
+  delete st_utilization_;
+  delete ex_utilization_;
   delete ld_utilization_;
   delete cmd_arb_;
   delete ld_ab_arb_;
@@ -366,12 +376,6 @@ void LoopMatmul::updateGeneratorInputs() {
   st_c_spad_req_val_ = bit(st.configured == 1 && st.st_started == 0 &&
                           st.ex_started == 1 && st.spad_only == 1);
 
-}
-
-void LoopMatmul::updateCapacity() {
-  const auto state = *state_Q_;
-  st_utilization_at_limit_ = bit(state.st_outstanding >= kDefaultConfig.rs_store_entries);
-  ex_utilization_at_limit_ = bit(state.ex_outstanding >= kDefaultConfig.rs_execute_entries);
 }
 
 void LoopMatmul::updateCommandFires() {
@@ -599,24 +603,6 @@ void LoopMatmul::updateSlots() {
     complete(*st_c_spad_idle_, *st_c_spad_loop_id_, &LoopMatmulSlot::st_started,
              &LoopMatmulSlot::st_completed);
 
-  const auto st_count = static_cast<std::uint16_t>(current.st_outstanding);
-  const auto ex_count = static_cast<std::uint16_t>(current.ex_outstanding);
-  const auto st_done = static_cast<std::uint8_t>(*st_completed);
-  const auto ex_done = static_cast<std::uint8_t>(*ex_completed);
-  const unsigned st_issued = st_c_cmd_fire_ == 1 || st_c_spad_cmd_fire_ == 1;
-  const unsigned ex_issued = ex_cmd_fire_ == 1;
-  assert(st_done <= st_count && ex_done <= ex_count);
-  const auto next_st_count = st_count + st_issued - st_done;
-  const auto next_ex_count = ex_count + ex_issued - ex_done;
-  assert(next_st_count <= kDefaultConfig.rs_store_entries);
-  assert(next_ex_count <= kDefaultConfig.rs_execute_entries);
-  if (next_st_count != st_count || next_ex_count != ex_count) {
-    next.st_outstanding = static_cast<std::uint16_t>(next_st_count);
-    next.ex_outstanding = static_cast<std::uint16_t>(next_ex_count);
-    changed = true;
-    trace("loop_matmul: utilization st=%u ex=%u", next_st_count, next_ex_count);
-  }
-
   if (completed0 == 1 || completed1 == 1) {
     clearLoopProgress(next.loops[head_id]);
     next.head_id = tail_id;
@@ -659,8 +645,6 @@ void LoopMatmul::reset() {
   ex_req_bits_.reset(LoopMatmulExReq{});
   st_c_req_bits_.reset(LoopMatmulStCReq{});
   st_c_spad_req_bits_.reset(LoopMatmulStCSpadReq{});
-  st_utilization_at_limit_.reset(0);
-  ex_utilization_at_limit_.reset(0);
   ld_a_cmd_fire_.reset(0);
   ld_b_cmd_fire_.reset(0);
   ld_d_cmd_fire_.reset(0);

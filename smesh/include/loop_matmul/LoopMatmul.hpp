@@ -32,6 +32,8 @@ class LoopMatmulCmdQueue;
 class LoopMatmulLdABArb;
 class LoopMatmulCmdArb;
 class LoopMatmulLdUtilization;
+class LoopMatmulExUtilization;
+class LoopMatmulStUtilization;
 
 // One pending LOOP_WS operation, including the fields collected from its setup commands.
 struct LoopMatmulSlot {
@@ -113,7 +115,6 @@ class LoopMatmul : public Component {
   void updateStatus();
   void updateGeneratorInputs();
   void updateProgress();
-  void updateCapacity();
   void updateCommandFires();
   void updateSlots();
   void reset();
@@ -126,8 +127,6 @@ class LoopMatmul : public Component {
     u32 ld_d_addr_start = 0;
     u32 ex_c_addr_start = 0;
     u32 st_c_addr_start = 0;
-    u16 st_outstanding = 0;
-    u16 ex_outstanding = 0;
   };
 
   LoopMatmulCmdQueue* cmd_queue_ = nullptr;
@@ -140,6 +139,8 @@ class LoopMatmul : public Component {
   LoopMatmulLdABArb*  ld_ab_arb_ = nullptr;
   LoopMatmulCmdArb*   cmd_arb_   = nullptr;
   LoopMatmulLdUtilization* ld_utilization_ = nullptr;
+  LoopMatmulExUtilization* ex_utilization_ = nullptr;
+  LoopMatmulStUtilization* st_utilization_ = nullptr;
 
   Input(bit, head_val_);
   Input(SmeshQueuedCmd, head_bits_);
@@ -181,8 +182,6 @@ class LoopMatmul : public Component {
   Input(bit, st_c_spad_idle_);
   Input(u8, st_c_spad_loop_id_);
 
-  Output(bit, st_utilization_at_limit_);
-  Output(bit, ex_utilization_at_limit_);
   Output(bit, ld_a_cmd_fire_);
   Output(bit, ld_b_cmd_fire_);
   Output(bit, ld_d_cmd_fire_);
