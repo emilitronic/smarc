@@ -43,6 +43,8 @@ add_library(smesh_model
   src/controllers/ld/LdCtrlQueues.cpp
   src/controllers/ld/LdCtrlState.cpp
   src/loop_matmul/LoopMatmul.cpp
+  src/loop_conv/LoopConv.cpp
+  src/loop_conv/LoopConvCmdQueue.cpp
   src/loop_matmul/LoopMatmulCmdQueue.cpp
   src/loop_matmul/LoopMatmulLdA.cpp
   src/loop_matmul/LoopMatmulLdB.cpp
@@ -103,6 +105,7 @@ target_include_directories(smesh_model
     include/controllers/ex
     include/controllers/ld
     include/loop_matmul
+    include/loop_conv
     include/controllers/st
     include/mesh
     include/mvin
