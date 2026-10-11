@@ -69,7 +69,7 @@ Driver::Driver(std::string /*name*/, smesh::SmeshFunct held_funct, IMPL_CTOR)
   UPDATE(updateCycle).reads(cycle_Q_).writes(cycle_D_);
 }
 
-// Drain ordinary commands, then put a loop command ahead of further traffic.
+// Drain ordinary commands, then configure/launch both banks ahead of further traffic.
 void Driver::updateDrive() {
   const auto cycle = static_cast<unsigned>(*cycle_Q_);
   in_val = bit(cycle <= 4 || cycle >= 9);
@@ -77,15 +77,17 @@ void Driver::updateDrive() {
     in_bits = ordinary(cycle < 2 ? cycle + 1 : 3);
   } else if (cycle == 9) {
     in_bits = command(4, static_cast<std::uint32_t>(held_funct_));
-  } else if (cycle >= 10) {
-    in_bits = ordinary(cycle == 10 ? 5 : 6);
+  } else if (cycle == 10 || cycle == 11) {
+    in_bits = command(cycle, static_cast<std::uint32_t>(smesh::SmeshFunct::LoopConvWs));
+  } else if (cycle >= 12) {
+    in_bits = ordinary(6);
   } else {
     in_bits = smesh::SmeshQueuedCmd{};
   }
   out_rdy = bit(cycle == 4 || cycle == 6 || cycle >= 7);
 }
 
-// Verify registered queue timing, stalled payloads, and loop-command retention.
+// Verify pass-through timing and backpressure once both loop banks are launched.
 void Driver::updateCheck() {
   if (Sim::state == Sim::SimResetting) return;
   const auto cycle = static_cast<unsigned>(*cycle_Q_);
@@ -93,7 +95,9 @@ void Driver::updateCheck() {
   constexpr std::array<unsigned, 10> ids{{0, 1, 1, 1, 1, 2, 2, 3, 0, 0}};
   constexpr std::array<unsigned, 10> ready{{1, 1, 0, 0, 1, 0, 1, 1, 1, 1}};
   const auto id = cycle < ids.size() ? ids[cycle] : 0;
-  const auto expected_ready = cycle < ready.size() ? ready[cycle] : cycle == 10 ? 1u : 0u;
+  const bool first_is_config = held_funct_ != smesh::SmeshFunct::LoopConvWs;
+  const auto expected_ready = cycle < ready.size() ? ready[cycle] :
+                              cycle <= 12 || (cycle == 13 && first_is_config) ? 1u : 0u;
   const auto expected_busy = cycle < 10 ? unsigned(id != 0) : 1u;
   bool match = out_val == bit(id != 0) && in_rdy == expected_ready &&
                busy == expected_busy;

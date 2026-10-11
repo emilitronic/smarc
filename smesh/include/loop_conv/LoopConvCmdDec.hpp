@@ -6,7 +6,7 @@
 Combinational extraction of Original's six LOOP_CONV_WS configuration commands
 and launch command. This block holds no configuration or loop-bank state.
 Fields are raw command values; feature overrides and compatibility defaults
-are applied when the future loop-bank state accepts them.
+are applied when loop-bank state accepts them.
 */
 #pragma once
 

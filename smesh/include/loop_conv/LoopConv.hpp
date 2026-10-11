@@ -3,10 +3,9 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 11 2026
 /*
-Buffers incoming commands and passes ordinary commands to the output.
-LOOP_CONV_WS configuration and launch commands remain at the queue head
-until loop-bank storage is implemented. The combinational decoder extracts
-their fields without consuming or saving them.
+Buffers commands, decodes loop setup, and saves it in two loop banks.
+Ordinary commands pass through while neither bank is configured.
+Workers and retirement are not implemented yet, so launched banks remain occupied.
 */
 #pragma once
 
@@ -14,6 +13,7 @@ their fields without consuming or saving them.
 
 #include "SmeshPorts.hpp"
 #include "LoopConvCmdDec.hpp"
+#include "LoopConvState.hpp"
 
 namespace smesh {
 
@@ -36,6 +36,11 @@ class LoopConv : public Component {
   Output(SmeshQueuedCmd, out_bits);
   Input(bit,             out_rdy);
   Output(bit,            busy);
+  Output(LoopConvSlot, loop0);
+  Output(LoopConvSlot, loop1);
+  Output(u8, head_loop_id);
+  Output(u8, tail_loop_id);
+  Output(u8, config_loop_id);
 
   void updateRouting();
   void reset();
@@ -43,11 +48,14 @@ class LoopConv : public Component {
  private:
   LoopConvCmdQueue* cmd_queue_ = nullptr;
   LoopConvCmdDec* cmd_dec_ = nullptr;
+  LoopConvState* loop_state_ = nullptr;
 
   Input(bit,            head_val_);
   Input(SmeshQueuedCmd, head_bits_);
   Output(bit,           head_rdy_);
   Input(LoopConvDecodedCmd, decoded_);
+  Input(bit, state_cmd_rdy_);
+  Input(bit, loop_configured_);
 };
 
 } // namespace smesh

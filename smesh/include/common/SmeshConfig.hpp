@@ -47,6 +47,8 @@ struct SmeshConfig {
   std::size_t dma_max_bytes  = 64; // max size that DMA can request of mem, not memory beat width (which is mem_beat_bytes)
 
   bool has_max_pool = true; // StoreController includes max-pooling geometry
+  bool has_training_convs = true; // LoopConv rotation, dilation, and transpose options
+  bool has_dw_convs = true; // LoopConv depthwise-convolution option
   std::size_t store_cmd_tracker_entries = 2; // concurrent StoreController commands
 
   std::size_t rs_load_entries    = 2; // typ: 8
