@@ -65,3 +65,27 @@ set_tests_properties(smfft_twiddle PROPERTIES
   LABELS "unit;smfft"
   TIMEOUT 10
 )
+
+add_executable(tb_sdf_multiply
+  tests/tb_sdf_multiply.cpp
+)
+
+target_link_libraries(tb_sdf_multiply
+  PRIVATE
+    smfft_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+set_target_properties(tb_sdf_multiply PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smfft"
+)
+
+add_test(NAME smfft_multiply COMMAND tb_sdf_multiply)
+
+set_tests_properties(smfft_multiply PROPERTIES
+  LABELS "unit;smfft"
+  TIMEOUT 10
+)
