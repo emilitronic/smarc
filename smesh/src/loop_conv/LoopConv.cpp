@@ -5,7 +5,6 @@
 
 #include "LoopConv.hpp"
 #include "LoopConvCmdQueue.hpp"
-#include "SmeshCommand.hpp"
 
 namespace smesh {
 
@@ -23,31 +22,27 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   head_bits_ << cmd_queue_->head_bits;
   cmd_queue_->head_rdy << head_rdy_;
 
-  UPDATE(updateClassify)
-      .reads(head_val_, head_bits_)
-      .writes(is_loop_run_cmd_, is_loop_config_cmd_, is_loop_cmd_);
+  // Decode the queue head; loop-bank storage will later accept these fields.
+  cmd_dec_ = new LoopConvCmdDec("CmdDec");
+  cmd_dec_->clk << clk;
+  cmd_dec_->head_val << head_val_;
+  cmd_dec_->head_bits << head_bits_;
+  decoded_ << cmd_dec_->decoded;
+
   UPDATE(updateRouting)
-      .reads(head_val_, head_bits_, is_loop_cmd_, out_rdy)
+      .reads(head_val_, head_bits_, decoded_, out_rdy)
       .writes(head_rdy_, out_val, out_bits, busy);
 }
 
 LoopConv::~LoopConv() {
+  delete cmd_dec_;
   delete cmd_queue_;
-}
-
-// Recognize Original's launch function 15 and configuration functions 16..21.
-void LoopConv::updateClassify() {
-  const auto funct    = static_cast<std::uint32_t>((*head_bits_).cmd.funct);
-  const bool run      = head_val_ == 1 && funct == static_cast<std::uint32_t>(SmeshFunct::LoopConvWs);
-  const bool config   = head_val_ == 1 && funct >= static_cast<std::uint32_t>(SmeshFunct::LoopConvWsConfig1) && funct <= static_cast<std::uint32_t>(SmeshFunct::LoopConvWsConfig6);
-  is_loop_run_cmd_    = bit(run);
-  is_loop_config_cmd_ = bit(config);
-  is_loop_cmd_        = bit(run || config);
 }
 
 // Send ordinary commands downstream; remove them only when the output accepts.
 void LoopConv::updateRouting() {
-  const bool pass_through = head_val_ == 1 && is_loop_cmd_ == 0;
+  const auto decoded = *decoded_;
+  const bool pass_through = head_val_ == 1 && decoded.do_config == 0 && decoded.do_launch == 0;
   out_val   = bit(pass_through);
   out_bits  = pass_through ? *head_bits_ : SmeshQueuedCmd{};
   head_rdy_ = bit(pass_through && out_rdy == 1);
@@ -59,9 +54,6 @@ void LoopConv::updateRouting() {
 
 void LoopConv::reset() {
   head_rdy_.reset(0);
-  is_loop_run_cmd_.reset(0);
-  is_loop_config_cmd_.reset(0);
-  is_loop_cmd_.reset(0);
   out_val.reset(0);
   out_bits.reset(SmeshQueuedCmd{});
   busy.reset(0);

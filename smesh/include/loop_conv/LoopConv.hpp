@@ -5,13 +5,15 @@
 /*
 Buffers incoming commands and passes ordinary commands to the output.
 LOOP_CONV_WS configuration and launch commands remain at the queue head
-until the internal decoder and loop-bank storage are implemented.
+until loop-bank storage is implemented. The combinational decoder extracts
+their fields without consuming or saving them.
 */
 #pragma once
 
 #include <cascade/Cascade.hpp>
 
 #include "SmeshPorts.hpp"
+#include "LoopConvCmdDec.hpp"
 
 namespace smesh {
 
@@ -35,19 +37,17 @@ class LoopConv : public Component {
   Input(bit,             out_rdy);
   Output(bit,            busy);
 
-  void updateClassify();
   void updateRouting();
   void reset();
 
  private:
   LoopConvCmdQueue* cmd_queue_ = nullptr;
+  LoopConvCmdDec* cmd_dec_ = nullptr;
 
   Input(bit,            head_val_);
   Input(SmeshQueuedCmd, head_bits_);
   Output(bit,           head_rdy_);
-  Output(bit,           is_loop_run_cmd_);
-  Output(bit,           is_loop_config_cmd_);
-  Output(bit,           is_loop_cmd_);
+  Input(LoopConvDecodedCmd, decoded_);
 };
 
 } // namespace smesh
