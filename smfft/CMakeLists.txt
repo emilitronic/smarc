@@ -1,6 +1,7 @@
 add_library(smfft_model
   src/SdfDelayLine.cpp
   src/SdfStage.cpp
+  src/SdfChain.cpp
 )
 
 target_include_directories(smfft_model
@@ -113,4 +114,33 @@ add_test(NAME smfft_stage COMMAND tb_sdf_stage)
 set_tests_properties(smfft_stage PROPERTIES
   LABELS "unit;smfft"
   TIMEOUT 10
+)
+
+add_executable(tb_sdf_chain
+  tests/tb_sdf_chain.cpp
+)
+
+target_link_libraries(tb_sdf_chain
+  PRIVATE
+    smfft_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+target_compile_definitions(tb_sdf_chain
+  PRIVATE
+    SMFFT_VECTOR_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors"
+)
+
+set_target_properties(tb_sdf_chain PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smfft"
+)
+
+add_test(NAME smfft_chain COMMAND tb_sdf_chain)
+
+set_tests_properties(smfft_chain PROPERTIES
+  LABELS "smfft;vectors"
+  TIMEOUT 300
 )
