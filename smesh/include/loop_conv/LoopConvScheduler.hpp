@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 11 2026
 /*
-Builds and offers load-bias and load-input requests from the saved loop slots.
+Builds and offers bias, input, and weight-loading requests from saved loop slots.
 Other worker request paths will be added one at a time.
 */
 #pragma once
@@ -13,6 +13,7 @@ Other worker request paths will be added one at a time.
 #include "LoopConvState.hpp"
 #include "LoopConvLdBias.hpp"
 #include "LoopConvLdInput.hpp"
+#include "LoopConvLdWeightReq.hpp"
 
 namespace smesh {
 
@@ -27,23 +28,30 @@ class LoopConvScheduler : public Component {
   Input(LoopConvSlot, loop1);
   Input(u8,           head_loop_id);
 
-  Output(bit,               ld_bias_req_val);
-  Output(LoopConvLdBiasReq, ld_bias_req_bits);
-  Input(bit,                ld_bias_req_rdy);
+  Output(bit,                 ld_bias_req_val);
+  Output(LoopConvLdBiasReq,   ld_bias_req_bits);
+  Input(bit,                  ld_bias_req_rdy);
   // Acceptance events tell the state owner which slot's worker has started.
-  Output(bit,                ld_bias_req_fire);
-  Output(u8,                 ld_bias_loop_id);
-  Output(bit,                ld_input_req_val);
-  Output(LoopConvLdInputReq, ld_input_req_bits);
-  Input(bit,                 ld_input_req_rdy);
-  Output(bit,                ld_input_req_fire);
-  Output(u8, ld_input_loop_id);
+  Output(bit,                 ld_bias_req_fire);
+  Output(u8,                  ld_bias_loop_id);
+  Output(bit,                 ld_input_req_val);
+  Output(LoopConvLdInputReq,  ld_input_req_bits);
+  Input(bit,                  ld_input_req_rdy);
+  Output(bit,                 ld_input_req_fire);
+  Output(u8,                  ld_input_loop_id);
+  Output(bit,                 ld_weights_req_val);
+  Output(LoopConvLdWeightReq, ld_weights_req_bits);
+  Input(bit,                  ld_weights_req_rdy);
+  Output(bit,                 ld_weights_req_fire);
+  Output(u8,                  ld_weights_loop_id);
 
   void updateRequest();
   void updateTransfer();
   void updateAddress();
   void updateInputRequest();
   void updateInputTransfer();
+  void updateWeightRequest();
+  void updateWeightTransfer();
   void reset();
 
  private:

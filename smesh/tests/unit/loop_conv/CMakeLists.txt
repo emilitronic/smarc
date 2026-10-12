@@ -1,4 +1,11 @@
 add_executable(tb_loop_conv_cmd_queue tb_loop_conv_cmd_queue.cpp)
+add_executable(tb_loop_conv_weight_request tb_loop_conv_weight_request.cpp)
+target_link_libraries(tb_loop_conv_weight_request PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_loop_conv_weight_request PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
+)
+add_test(NAME smesh_unit_loop_conv_weight_request COMMAND tb_loop_conv_weight_request)
+set_tests_properties(smesh_unit_loop_conv_weight_request PROPERTIES LABELS "unit;loop_conv" TIMEOUT 10)
 add_executable(tb_loop_conv_load_stream tb_loop_conv_load_stream.cpp)
 target_link_libraries(tb_loop_conv_load_stream PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
 set_target_properties(tb_loop_conv_load_stream PROPERTIES
