@@ -63,10 +63,23 @@ LoopConvInputGeometry inputGeometry(const LoopConvSlot& slot) {
   return result;
 }
 
+// Both the weight loader and Execute must describe exactly the same B layout.
+LoopConvWeightGeometry weightGeometry(const LoopConvSlot& slot) {
+  LoopConvWeightGeometry result{};
+  result.ochs = slot.inner_bounds.pochs;
+  result.out_channels_per_bank = (std::uint32_t{slot.inner_bounds.pochs} + kDim - 1) / kDim;
+  result.in_channels_per_bank = (std::uint32_t{slot.inner_bounds.kchs} + kDim - 1) / kDim;
+  const auto channels = slot.launch.trans_weight_0132 == 1 ? slot.inner_bounds.pochs : slot.inner_bounds.kchs;
+  result.weight_spad_stride = static_cast<std::uint16_t>(
+      std::uint64_t{slot.inner_bounds.krows} * slot.inner_bounds.kcols * channels);
+  return result;
+}
+
 } // namespace
 
 LoopConvScheduler::LoopConvScheduler(std::string /*name*/, IMPL_CTOR) {
   ld_bias_addr_start_Q_ <= ld_bias_addr_start_D_;
+  ex_c_addr_start_Q_ <= ex_c_addr_start_D_;
   UPDATE(updateRequest)
       .reads(loop0, loop1, head_loop_id, ld_bias_addr_start_Q_)
       .writes(ld_bias_req_val, ld_bias_req_bits);
@@ -84,6 +97,63 @@ LoopConvScheduler::LoopConvScheduler(std::string /*name*/, IMPL_CTOR) {
       .writes(ld_weights_req_val, ld_weights_req_bits);
   UPDATE(updateWeightTransfer).reads(ld_weights_req_val, ld_weights_req_bits, ld_weights_req_rdy)
       .writes(ld_weights_req_fire, ld_weights_loop_id);
+  UPDATE(updateExecuteRequest).reads(loop0, loop1, head_loop_id, ex_c_addr_start_Q_)
+      .writes(ex_req_val, ex_req_bits);
+  UPDATE(updateExecuteTransfer).reads(ex_req_val, ex_req_bits, ex_req_rdy)
+      .writes(ex_req_fire, ex_loop_id);
+  UPDATE(updateExecuteAddress).reads(loop0, loop1, ex_req_fire, ex_loop_id, ex_c_addr_start_Q_)
+      .writes(ex_c_addr_start_D_);
+}
+
+// Offer Execute only after all three load jobs have started. Their completion
+// will gate command generation inside the future Execute worker, not this request.
+void LoopConvScheduler::updateExecuteRequest() {
+  const auto head = static_cast<unsigned>(*head_loop_id);
+  assert(head < 2);
+  const auto head_slot = head == 0 ? *loop0 : *loop1;
+  const auto selected = head_slot.ex_started == 1 ? head ^ 1u : head;
+  const auto slot = selected == 0 ? *loop0 : *loop1;
+  LoopConvExecuteReq request{};
+  request.outer_bounds = slot.outer_bounds;
+  request.inner_bounds = slot.inner_bounds;
+  request.input_geometry = inputGeometry(slot);
+  request.weight_geometry = weightGeometry(slot);
+  const auto a_id = slot.launch.a_ex_spad_id;
+  const auto a_start = a_id == 0 ? slot.a_addr_start : (a_id - 1u) * (kSpRows / 2);
+  const auto b_id = slot.launch.b_ex_spad_id;
+  const auto b_end = b_id == 0 ? slot.b_addr_end : b_id * (kSpRows / 2);
+  request.a_addr_start = static_cast<std::uint32_t>(a_start) & kSpAddrMask;
+  request.b_addr_end = static_cast<std::uint32_t>(b_end) &
+                       static_cast<std::uint32_t>(mask(log2Up(kSpRows + 1)));
+  request.c_addr_start = static_cast<std::uint32_t>(*ex_c_addr_start_Q_);
+  request.wrot180 = slot.launch.wrot180;
+  request.downsample = slot.launch.downsample;
+  request.max_pixels_per_row = slot.launch.max_pixels_per_row;
+  request.input_dilated = slot.launch.input_dilated;
+  request.trans_weight_0132 = slot.launch.trans_weight_0132;
+  request.trans_input_3120 = slot.launch.trans_input_3120;
+  request.loop_id = selected;
+  ex_req_bits = request;
+  ex_req_val = bit(slot.configured == 1 && slot.ex_started == 0 &&
+                   slot.ld_bias_started == 1 && slot.ld_input_started == 1 && slot.ld_weights_started == 1);
+}
+
+void LoopConvScheduler::updateExecuteTransfer() {
+  ex_req_fire = bit(ex_req_val == 1 && ex_req_rdy == 1);
+  ex_loop_id = (*ex_req_bits).loop_id;
+}
+
+// The accepted job uses the current C base. Only jobs with an output address
+// advance the next job to the other accumulator half, at the next clock edge.
+void LoopConvScheduler::updateExecuteAddress() {
+  if (ex_req_fire == 0) return;
+  const auto id = static_cast<unsigned>(*ex_loop_id);
+  const auto slot = id == 0 ? *loop0 : *loop1;
+  if (slot.output_dram_addr != 0) {
+    const auto next = static_cast<std::uint32_t>(*ex_c_addr_start_Q_) + kAccRows / 2;
+    ex_c_addr_start_D_ = next >= kAccRows ? 0 : next;
+  }
+  trace("loop_conv scheduler: execute accepted slot=%u C=%u", id, unsigned(*ex_c_addr_start_Q_));
 }
 
 // Offer the head's weight job until started, then the tail's, independently of
@@ -97,11 +167,7 @@ void LoopConvScheduler::updateWeightRequest() {
   LoopConvLdWeightReq request{};
   request.outer_bounds  = slot.outer_bounds;
   request.inner_bounds  = slot.inner_bounds;
-  request.geometry.ochs = slot.inner_bounds.pochs;
-  request.geometry.out_channels_per_bank = (std::uint32_t{slot.inner_bounds.pochs} + kDim - 1) / kDim;
-  request.geometry.in_channels_per_bank  = (std::uint32_t{slot.inner_bounds.kchs} + kDim - 1) / kDim;
-  const auto channels = slot.launch.trans_weight_0132 == 1 ? slot.inner_bounds.pochs : slot.inner_bounds.kchs;
-  request.geometry.weight_spad_stride = static_cast<std::uint16_t>(std::uint64_t{slot.inner_bounds.krows} * slot.inner_bounds.kcols * channels);
+  request.geometry = weightGeometry(slot);
   const auto spad_id  = slot.launch.b_ex_spad_id;
   const auto end      = spad_id == 0 ? slot.b_addr_end : spad_id * (kSpRows / 2);
   // Original uses log2Up(max_addr+1) bits: the full-memory endpoint is valid.
@@ -194,6 +260,11 @@ void LoopConvScheduler::updateAddress() {
 
 void LoopConvScheduler::reset() {
   ld_bias_addr_start_D_.reset(0);
+  ex_c_addr_start_D_.reset(0);
+  ex_req_val.reset(0);
+  ex_req_bits.reset(LoopConvExecuteReq{});
+  ex_req_fire.reset(0);
+  ex_loop_id.reset(0);
   ld_bias_req_val.reset(0);
   ld_bias_req_bits.reset(LoopConvLdBiasReq{});
   ld_bias_req_fire.reset(0);

@@ -176,6 +176,7 @@ int main(int argc, char* argv[]) {
   scheduler.head_loop_id << driver.head_loop_id;
   scheduler.ld_bias_req_rdy.wireToConst(bit(0));
   scheduler.ld_input_req_rdy.wireToConst(bit(0));
+  scheduler.ex_req_rdy.wireToConst(bit(0));
   scheduler.ld_weights_req_rdy << driver.req_rdy;
   driver.req_val << scheduler.ld_weights_req_val;
   driver.req_bits << scheduler.ld_weights_req_bits;
