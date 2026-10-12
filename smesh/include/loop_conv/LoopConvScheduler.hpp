@@ -14,7 +14,7 @@ Other worker request paths will be added one at a time.
 #include "LoopConvLdBias.hpp"
 #include "LoopConvLdInput.hpp"
 #include "LoopConvLdWeight.hpp"
-#include "LoopConvExecuteReq.hpp"
+#include "LoopConvExecute.hpp"
 
 namespace smesh {
 

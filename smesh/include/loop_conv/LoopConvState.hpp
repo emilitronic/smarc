@@ -5,7 +5,7 @@
 /*
 Owns two saved LoopConv configurations and selects the bank receiving setup.
 Configuration commands update their own fields; launch marks that bank configured.
-Load-worker acceptance marks workers started; idle records generation complete.
+Worker acceptance marks jobs started; worker idle records generation complete.
 Retirement comes later, after all workers exist.
 */
 #pragma once
@@ -63,6 +63,10 @@ class LoopConvState : public Component {
   Input(u8,                 ld_weights_loop_id);
   Input(bit,                ld_weights_idle);
   Input(u8,                 ld_weights_worker_loop_id);
+  Input(bit,                ex_req_fire);
+  Input(u8,                 ex_loop_id);
+  Input(bit,                ex_idle);
+  Input(u8,                 ex_worker_loop_id);
   Output(bit,               cmd_rdy);
   Output(bit,               loop_configured);
   Output(u8,                head_loop_id);

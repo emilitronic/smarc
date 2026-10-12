@@ -5,7 +5,7 @@
 /*
 Buffers commands, decodes loop setup, and saves it in two loop banks.
 Ordinary commands pass through while neither bank is configured.
-Bias, weights, and input workers share the command output; retirement comes later.
+Execute and the three load workers share the output; store/retirement come later.
 */
 #pragma once
 
@@ -46,6 +46,7 @@ class LoopConv : public Component {
 
   void updateRouting();
   void updateWorkerReady();
+  void updateExecuteProgress();
   void reset();
 
  private:
@@ -56,6 +57,7 @@ class LoopConv : public Component {
   LoopConvLdBias*    ld_bias_    = nullptr;
   LoopConvLdInput*   ld_input_   = nullptr;
   LoopConvLdWeight*  ld_weights_ = nullptr;
+  LoopConvExecute*   ex_ = nullptr;
 
   Input(bit,                head_val_);
   Input(SmeshQueuedCmd,     head_bits_);
@@ -72,6 +74,24 @@ class LoopConv : public Component {
   Output(bit,               ld_bias_cmd_rdy_);
   Output(bit,               ld_input_cmd_rdy_);
   Output(bit,               ld_weights_cmd_rdy_);
+  Input(bit,                ex_cmd_val_);
+  Input(SmeshCmd,           ex_cmd_bits_);
+  Output(bit,               ex_cmd_rdy_);
+  Input(u8,                 ex_worker_loop_id_);
+  Input(u8,                 bias_worker_loop_id_);
+  Input(u8,                 input_worker_loop_id_);
+  Input(u8,                 weights_worker_loop_id_);
+  Input(bit,                bias_idle_);
+  Input(bit,                input_idle_);
+  Input(bit,                weights_idle_);
+  Input(LoopConvSlot,       progress_loop0_);
+  Input(LoopConvSlot,       progress_loop1_);
+  Output(bit,               lda_completed_);
+  Output(bit,               ldb_completed_);
+  Output(bit,               ldd_completed_);
+  Output(bit,               bias_wait_);
+  Output(bit,               input_wait_);
+  Output(bit,               weights_wait_);
 };
 
 } // namespace smesh

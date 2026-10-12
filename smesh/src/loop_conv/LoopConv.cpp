@@ -45,8 +45,8 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   scheduler_->loop0             << loop_state_->loop0;
   scheduler_->loop1             << loop_state_->loop1;
   scheduler_->head_loop_id      << loop_state_->head_loop_id;
-  // Keep Execute requests pending until its command-generating worker is added.
-  scheduler_->ex_req_rdy.wireToConst(bit(0));
+  loop_state_->ex_req_fire << scheduler_->ex_req_fire;
+  loop_state_->ex_loop_id << scheduler_->ex_loop_id;
   loop_state_->ld_weights_req_fire << scheduler_->ld_weights_req_fire;
   loop_state_->ld_weights_loop_id << scheduler_->ld_weights_loop_id;
   loop_state_->ld_bias_req_fire << scheduler_->ld_bias_req_fire;
@@ -60,9 +60,9 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   scheduler_->ld_bias_req_rdy         << ld_bias_->req_rdy;
   loop_state_->ld_bias_idle           << ld_bias_->idle;
   loop_state_->ld_bias_worker_loop_id << ld_bias_->loop_id;
-  // TODO: Connect load utilization and execute-dependent waiting as they are added.
+  // TODO: Connect load utilization when implemented.
   ld_bias_->ld_utilization_at_limit.wireToConst(bit(0));
-  ld_bias_->wait_for_prev_loop.wireToConst(bit(0));
+  ld_bias_->wait_for_prev_loop << bias_wait_;
   ld_bias_->cmd_rdy << ld_bias_cmd_rdy_;
   ld_bias_cmd_val_  << ld_bias_->cmd_val;
   ld_bias_cmd_bits_ << ld_bias_->cmd_bits;
@@ -78,9 +78,9 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   ld_input_->cmd_rdy                   << ld_input_cmd_rdy_;
   ld_input_cmd_val_                    << ld_input_->cmd_val;
   ld_input_cmd_bits_                   << ld_input_->cmd_bits;
-  // TODO: Connect utilization and execute-dependent waiting when implemented.
+  // TODO: Connect load utilization when implemented.
   ld_input_->ld_utilization_at_limit.wireToConst(bit(0));
-  ld_input_->wait_for_prev_loop.wireToConst(bit(0));
+  ld_input_->wait_for_prev_loop << input_wait_;
 
   // Weight loads use the scheduler's SPAD end address and load-state slot 1.
   ld_weights_ = new LoopConvLdWeight("LdWeight");
@@ -93,23 +93,55 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   ld_weights_->cmd_rdy                   << ld_weights_cmd_rdy_;
   ld_weights_cmd_val_                    << ld_weights_->cmd_val;
   ld_weights_cmd_bits_                   << ld_weights_->cmd_bits;
-  // TODO: Connect utilization and execute-dependent waiting when implemented.
+  // TODO: Connect load utilization when implemented.
   ld_weights_->ld_utilization_at_limit.wireToConst(bit(0));
-  ld_weights_->wait_for_prev_loop.wireToConst(bit(0));
+  ld_weights_->wait_for_prev_loop << weights_wait_;
+
+  // Execute accepts a job after its loads start, then waits for their drain.
+  ex_ = new LoopConvExecute("Execute");
+  ex_->clk << clk;
+  ex_->req_val << scheduler_->ex_req_val;
+  ex_->req_bits << scheduler_->ex_req_bits;
+  scheduler_->ex_req_rdy << ex_->req_rdy;
+  loop_state_->ex_idle << ex_->idle;
+  loop_state_->ex_worker_loop_id << ex_->loop_id;
+  ex_->lda_completed << lda_completed_;
+  ex_->ldb_completed << ldb_completed_;
+  ex_->ldd_completed << ldd_completed_;
+  ex_->cmd_rdy << ex_cmd_rdy_;
+  ex_cmd_val_ << ex_->cmd_val;
+  ex_cmd_bits_ << ex_->cmd_bits;
+  // TODO: Connect Execute utilization when implemented.
+  ex_->ex_utilization_at_limit.wireToConst(bit(0));
+  ex_worker_loop_id_ << ex_->loop_id;
+  bias_worker_loop_id_ << ld_bias_->loop_id;
+  input_worker_loop_id_ << ld_input_->loop_id;
+  weights_worker_loop_id_ << ld_weights_->loop_id;
+  bias_idle_ << ld_bias_->idle;
+  input_idle_ << ld_input_->idle;
+  weights_idle_ << ld_weights_->idle;
+  progress_loop0_ << loop_state_->loop0;
+  progress_loop1_ << loop_state_->loop1;
 
   UPDATE(updateRouting)
       .reads(head_val_, head_bits_, decoded_, out_rdy, state_cmd_rdy_, loop_configured_)
       .reads(ld_bias_cmd_val_, ld_bias_cmd_bits_)
       .reads(ld_input_cmd_val_, ld_input_cmd_bits_)
       .reads(ld_weights_cmd_val_, ld_weights_cmd_bits_)
+      .reads(ex_cmd_val_, ex_cmd_bits_)
       .writes(head_rdy_, out_val, out_bits, busy);
   UPDATE(updateWorkerReady)
       .reads(loop_configured_, ld_bias_cmd_val_, ld_input_cmd_val_, out_rdy)
-      .reads(ld_weights_cmd_val_)
-      .writes(ld_bias_cmd_rdy_, ld_input_cmd_rdy_, ld_weights_cmd_rdy_);
+      .reads(ld_weights_cmd_val_, ex_cmd_val_)
+      .writes(ld_bias_cmd_rdy_, ld_input_cmd_rdy_, ld_weights_cmd_rdy_, ex_cmd_rdy_);
+  UPDATE(updateExecuteProgress)
+      .reads(ex_worker_loop_id_, bias_worker_loop_id_, input_worker_loop_id_, weights_worker_loop_id_)
+      .reads(bias_idle_, input_idle_, weights_idle_, progress_loop0_, progress_loop1_)
+      .writes(lda_completed_, ldb_completed_, ldd_completed_, bias_wait_, input_wait_, weights_wait_);
 }
 
 LoopConv::~LoopConv() {
+  delete ex_;
   delete ld_weights_;
   delete ld_input_;
   delete ld_bias_;
@@ -128,12 +160,12 @@ void LoopConv::updateRouting() {
   out_bits  = pass_through ? *head_bits_ : SmeshQueuedCmd{};
   if (loop_configured_ == 1) {
     SmeshQueuedCmd generated{};
-    // Original's load-worker priority is bias, then weights, then input.
+    // Original gives Execute priority over bias, weights, then input.
     const bool bias_selected = ld_bias_cmd_val_ == 1;
-    generated.cmd            = bias_selected ? *ld_bias_cmd_bits_ :
+    generated.cmd            = ex_cmd_val_ == 1 ? *ex_cmd_bits_ : bias_selected ? *ld_bias_cmd_bits_ :
                                ld_weights_cmd_val_ == 1 ? *ld_weights_cmd_bits_ : *ld_input_cmd_bits_;
     generated.from_conv_loop = 1;
-    const bool valid         = bias_selected || ld_weights_cmd_val_ == 1 || ld_input_cmd_val_ == 1;
+    const bool valid         = ex_cmd_val_ == 1 || bias_selected || ld_weights_cmd_val_ == 1 || ld_input_cmd_val_ == 1;
     out_bits                 = valid ? generated : SmeshQueuedCmd{};
     out_val                  = bit(valid);
   }
@@ -143,10 +175,26 @@ void LoopConv::updateRouting() {
 
 // Only the selected worker removes a command when downstream accepts it.
 void LoopConv::updateWorkerReady() {
-  const bool accept = loop_configured_ == 1 && out_rdy == 1;
+  ex_cmd_rdy_ = bit(loop_configured_ == 1 && out_rdy == 1 && ex_cmd_val_ == 1);
+  const bool accept = loop_configured_ == 1 && out_rdy == 1 && ex_cmd_val_ == 0;
   ld_bias_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 1);
   ld_weights_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_weights_cmd_val_ == 1);
   ld_input_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_weights_cmd_val_ == 0 && ld_input_cmd_val_ == 1);
+}
+
+// A loader that moved to another loop has already drained this Execute job's
+// commands. Pause that other loop's generation while Execute awaits its loads.
+void LoopConv::updateExecuteProgress() {
+  const auto id = static_cast<unsigned>(*ex_worker_loop_id_);
+  const auto slot = id == 0 ? *progress_loop0_ : *progress_loop1_;
+  lda_completed_ = bit(input_worker_loop_id_ != ex_worker_loop_id_ || input_idle_ == 1);
+  ldb_completed_ = bit(weights_worker_loop_id_ != ex_worker_loop_id_ || weights_idle_ == 1);
+  ldd_completed_ = bit(bias_worker_loop_id_ != ex_worker_loop_id_ || bias_idle_ == 1);
+  const bool waiting = slot.ex_started == 1 && slot.ex_completed == 0 &&
+      !(slot.ld_bias_completed == 1 && slot.ld_input_completed == 1 && slot.ld_weights_completed == 1);
+  bias_wait_ = bit(waiting && bias_worker_loop_id_ != ex_worker_loop_id_);
+  input_wait_ = bit(waiting && input_worker_loop_id_ != ex_worker_loop_id_);
+  weights_wait_ = bit(waiting && weights_worker_loop_id_ != ex_worker_loop_id_);
 }
 
 void LoopConv::reset() {
@@ -157,6 +205,13 @@ void LoopConv::reset() {
   ld_bias_cmd_rdy_.reset(0);
   ld_input_cmd_rdy_.reset(0);
   ld_weights_cmd_rdy_.reset(0);
+  ex_cmd_rdy_.reset(0);
+  lda_completed_.reset(0);
+  ldb_completed_.reset(0);
+  ldd_completed_.reset(0);
+  bias_wait_.reset(0);
+  input_wait_.reset(0);
+  weights_wait_.reset(0);
 }
 
 } // namespace smesh

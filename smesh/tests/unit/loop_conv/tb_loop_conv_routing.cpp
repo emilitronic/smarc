@@ -12,6 +12,7 @@
 #include <array>
 #include <cstdio>
 #include <memory>
+#include <vector>
 
 namespace {
 
@@ -51,40 +52,61 @@ class Driver : public Component {
   void updateCheck();
   void updateCycle();
   void reset();
-  bool passed() const { return passed_ && observed_ == 0xffffu; }
+  bool passed() const { return passed_ && observed_ == 0x3ffu && position_Q_ == program_.size() && generated_ == 4; }
 
  private:
   const smesh::SmeshFunct held_funct_;
+  std::vector<smesh::SmeshQueuedCmd> program_;
+  Output(u8, position_Q_);
+  Register(u8, position_D_);
   Output(u8, cycle_Q_);
   Register(u8, cycle_D_);
   bool passed_ = true;
   unsigned observed_ = 0;
+  unsigned generated_ = 0;
 };
 
 Driver::Driver(std::string /*name*/, smesh::SmeshFunct held_funct, IMPL_CTOR)
     : held_funct_(held_funct) {
+  // Classify each config function, then overwrite it with valid job bounds.
+  // Launch itself is tested after setup, not as an invalid zero-sized job.
+  if (held_funct != smesh::SmeshFunct::LoopConvWs) {
+    auto setup = command(4, static_cast<std::uint32_t>(held_funct));
+    setup.cmd.rs1 = setup.cmd.rs2 = 0;
+    program_.push_back(setup);
+  }
+  for (unsigned slot = 0; slot < 2; ++slot) {
+    auto setup = [](unsigned funct, std::uint64_t rs1, std::uint64_t rs2) {
+      auto value = command(0, funct);
+      value.cmd.rs1 = rs1;
+      value.cmd.rs2 = rs2;
+      return value;
+    };
+    program_.push_back(setup(16, (1ull << 48) | (1ull << 32) | (1ull << 16) | 1, (1ull << 48) | 1));
+    program_.push_back(setup(17, 1ull << 48, (1ull << 48) | 1));
+    program_.push_back(setup(18, (1ull << 48) | (1ull << 32) | (1ull << 16), 1));
+    program_.push_back(setup(19, (1ull << 48) | 1, (1ull << 48) | 1));
+    program_.push_back(setup(20, 0, 0));
+    program_.push_back(setup(21, 0, 0));
+    program_.push_back(setup(15, 0, 1));
+  }
+  program_.push_back(ordinary(6));
+  position_Q_ <= position_D_;
   cycle_Q_ <= cycle_D_;
-  UPDATE(updateDrive).reads(cycle_Q_).writes(in_val, in_bits, out_rdy);
-  UPDATE(updateCheck).reads(cycle_Q_, in_rdy, out_val, out_bits, busy);
-  UPDATE(updateCycle).reads(cycle_Q_).writes(cycle_D_);
+  UPDATE(updateDrive).reads(cycle_Q_, position_Q_).writes(in_val, in_bits, out_rdy);
+  UPDATE(updateCheck).reads(cycle_Q_, in_rdy, out_val, out_bits, busy, out_rdy);
+  UPDATE(updateCycle).reads(cycle_Q_, position_Q_, in_val, in_rdy).writes(cycle_D_, position_D_);
 }
 
 // Drain ordinary commands, then configure/launch both banks ahead of further traffic.
 void Driver::updateDrive() {
   const auto cycle = static_cast<unsigned>(*cycle_Q_);
-  in_val = bit(cycle <= 4 || cycle >= 9);
+  const auto position = static_cast<unsigned>(*position_Q_);
+  in_val = bit(cycle <= 4 || (cycle >= 9 && position < program_.size()));
   if (cycle <= 4) {
     in_bits = ordinary(cycle < 2 ? cycle + 1 : 3);
-  } else if (cycle == 9) {
-    auto setup = command(4, static_cast<std::uint32_t>(held_funct_));
-    // Bias stays disabled in this routing-only test; complete jobs are tested separately.
-    setup.cmd.rs1 = 0;
-    setup.cmd.rs2 = 0;
-    in_bits = setup;
-  } else if (cycle == 10 || cycle == 11) {
-    in_bits = command(cycle, static_cast<std::uint32_t>(smesh::SmeshFunct::LoopConvWs));
-  } else if (cycle >= 12) {
-    in_bits = ordinary(6);
+  } else if (cycle >= 9 && position < program_.size()) {
+    in_bits = program_[position];
   } else {
     in_bits = smesh::SmeshQueuedCmd{};
   }
@@ -95,13 +117,21 @@ void Driver::updateDrive() {
 void Driver::updateCheck() {
   if (Sim::state == Sim::SimResetting) return;
   const auto cycle = static_cast<unsigned>(*cycle_Q_);
-  if (cycle >= 16) return;
+  if (cycle >= 10) {
+    passed_ &= busy == 1;
+    if (out_val == 1 && out_rdy == 1) {
+      const auto actual = *out_bits;
+      // The queued ordinary command cannot pass until retirement exists.
+      passed_ &= actual.from_conv_loop == 1 && actual.from_mmul_loop == 0 && actual.rs_tag_valid == 0 &&
+                 (actual.cmd.funct == 6 || actual.cmd.funct == 4);
+      ++generated_;
+    }
+    return;
+  }
   constexpr std::array<unsigned, 10> ids{{0, 1, 1, 1, 1, 2, 2, 3, 0, 0}};
   constexpr std::array<unsigned, 10> ready{{1, 1, 0, 0, 1, 0, 1, 1, 1, 1}};
   const auto id = cycle < ids.size() ? ids[cycle] : 0;
-  const bool first_is_config = held_funct_ != smesh::SmeshFunct::LoopConvWs;
-  const auto expected_ready = cycle < ready.size() ? ready[cycle] :
-                              cycle <= 12 || (cycle == 13 && first_is_config) ? 1u : 0u;
+  const auto expected_ready = ready[cycle];
   const auto expected_busy = cycle < 10 ? unsigned(id != 0) : 1u;
   bool match = out_val == bit(id != 0) && in_rdy == expected_ready &&
                busy == expected_busy;
@@ -123,15 +153,18 @@ void Driver::updateCheck() {
 
 void Driver::updateCycle() {
   cycle_D_ = static_cast<unsigned>(*cycle_Q_) + 1;
+  if (cycle_Q_ >= 9 && in_val == 1 && in_rdy == 1) position_D_ = static_cast<unsigned>(*position_Q_) + 1;
 }
 
 void Driver::reset() {
   cycle_D_.reset(0);
+  position_D_.reset(0);
   in_val.reset(0);
   in_bits.reset(smesh::SmeshQueuedCmd{});
   out_rdy.reset(0);
   passed_ = true;
   observed_ = 0;
+  generated_ = 0;
 }
 
 } // namespace
@@ -173,7 +206,7 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  for (int cycle = 0; cycle < 16; ++cycle) Sim::run();
+  for (int cycle = 0; cycle < 80; ++cycle) Sim::run();
 
   bool passed = true;
   for (const auto& driver : drivers) passed &= driver->passed();

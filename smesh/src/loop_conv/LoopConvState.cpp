@@ -22,6 +22,7 @@ LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
       .reads(ld_input_req_fire, ld_input_loop_id)
       .reads(ld_input_idle, ld_input_worker_loop_id)
       .reads(ld_weights_req_fire, ld_weights_loop_id, ld_weights_idle, ld_weights_worker_loop_id)
+      .reads(ex_req_fire, ex_loop_id, ex_idle, ex_worker_loop_id)
       .writes(state_D_);
 }
 
@@ -57,8 +58,12 @@ void LoopConvState::updateNextState() {
   assert(weights_id < current.loops.size());
   const auto& weights_slot = current.loops[weights_id];
   const bool weights_finished = ld_weights_idle == 1 && weights_slot.running == 1 && weights_slot.ld_weights_started == 1 && weights_slot.ld_weights_completed == 0;
-  if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && ld_weights_req_fire == 0 &&
-      !bias_finished && !input_finished && !weights_finished) return;
+  const auto ex_id = static_cast<unsigned>(*ex_worker_loop_id);
+  assert(ex_id < current.loops.size());
+  const auto& ex_slot = current.loops[ex_id];
+  const bool ex_finished = ex_idle == 1 && ex_slot.running == 1 && ex_slot.ex_started == 1 && ex_slot.ex_completed == 0;
+  if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && ld_weights_req_fire == 0 && ex_req_fire == 0 &&
+      !bias_finished && !input_finished && !weights_finished && !ex_finished) return;
   auto next           = current;
   const auto head     = static_cast<unsigned>(current.head_id);
   const auto selected = current.loops[head].configured == 1 ? head ^ 1u : head;
@@ -181,6 +186,20 @@ void LoopConvState::updateNextState() {
   if (weights_finished) {
     next.loops[weights_id].ld_weights_completed = 1;
     trace("loop_conv state: weights finished slot=%u", weights_id);
+  }
+  if (ex_req_fire == 1) {
+    const auto id = static_cast<unsigned>(*ex_loop_id);
+    assert(id < next.loops.size());
+    const auto& slot = current.loops[id];
+    assert(slot.configured == 1 && slot.ex_started == 0 && slot.ld_bias_started == 1 &&
+           slot.ld_input_started == 1 && slot.ld_weights_started == 1);
+    next.loops[id].running = 1;
+    next.loops[id].ex_started = 1;
+    trace("loop_conv state: execute started slot=%u", id);
+  }
+  if (ex_finished) {
+    next.loops[ex_id].ex_completed = 1;
+    trace("loop_conv state: execute finished slot=%u", ex_id);
   }
   state_D_ = next;
 }

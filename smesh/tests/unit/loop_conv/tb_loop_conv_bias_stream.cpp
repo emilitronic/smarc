@@ -52,18 +52,19 @@ class Driver : public Component {
   bool passed() const {
     const auto first = *loop0;
     const auto second = *loop1;
-    return passed_ && seen_ == expected_.size() && *position_Q_ == program_.size() &&
+    return passed_ && seen_ == expected_.size() && exec_seen_ == 8 && *position_Q_ == program_.size() &&
            saw_stall_ && first.ld_bias_started == 1 && first.ld_bias_completed == 1 &&
            second.ld_bias_started == 1 && second.ld_bias_completed == 1 &&
            first.ld_input_started == 1 && first.ld_input_completed == 1 &&
            second.ld_input_started == 1 && second.ld_input_completed == 1 &&
            first.ld_weights_started == 1 && first.ld_weights_completed == 1 &&
            second.ld_weights_started == 1 && second.ld_weights_completed == 1 &&
+           first.ex_completed == 1 && second.ex_completed == 1 &&
            first.configured == 1 && second.configured == 1 && *busy == 1;
   }
 
  private:
-  std::array<smesh::SmeshQueuedCmd, 12> program_{};
+  std::array<smesh::SmeshQueuedCmd, 16> program_{};
   std::array<smesh::SmeshQueuedCmd, 7> expected_{};
   Output(u8, position_Q_);
   Register(u8, position_D_);
@@ -71,9 +72,8 @@ class Driver : public Component {
   Register(u16, cycle_D_);
   bool passed_ = true;
   unsigned seen_ = 0;
-  bool stalled_ = false;
+  unsigned exec_seen_ = 0;
   bool saw_stall_ = false;
-  smesh::SmeshQueuedCmd stalled_command_{};
 };
 
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
@@ -84,16 +84,19 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   program_[0].from_mmul_loop = 1;
   expected_[0] = program_[0];
   for (unsigned slot = 0; slot < 2; ++slot) {
-    const auto p = 1 + slot * 5;
+    const auto p = 1 + slot * 7;
     program_[p] = command(17, 0, (1ull << 48) | 3);
-    program_[p + 1] = command(19, (1ull << 48) | 1, 5);
+    program_[p + 1] = command(19, (1ull << 48) | 1, (1ull << 48) | 5);
     program_[p + 2] = command(20, 0, 0x80003000 + slot * 0x1000);
     program_[p + 3] = command(21, 0x80001000 + slot * 0x1000, 0);
     // Slot 1 requests zero bias filling, but its source address is nonzero.
-    program_[p + 4] = command(15, slot, 0);
+    // Input/weights are assumed resident for this bias-focused generator test.
+    program_[p + 4] = command(16, 1, 1ull << 48);
+    program_[p + 5] = command(18, (1ull << 48) | (1ull << 32) | (1ull << 16), 5);
+    program_[p + 6] = command(15, slot, 0);
   }
   // This ordinary command must wait for loop retirement, which is not built yet.
-  program_[11] = command(7, 0xbeef, 0xcafe);
+  program_[15] = command(7, 0xbeef, 0xcafe);
   expected_[1] = command(0, 0x3f80000000050111ull, 0);
   expected_[2] = command(14, 0x80001000, 0x0004000380000000ull);
   expected_[3] = command(14, 0x80001000, 0x0001000380000004ull);
@@ -124,16 +127,30 @@ void Driver::updatePosition() {
 
 void Driver::updateCheck() {
   if (Sim::state == Sim::SimResetting) return;
-  if (stalled_) passed_ &= out_val == 1 && same(*out_bits, stalled_command_);
+  // Fixed-priority arbitration can replace a stalled lower-priority command
+  // when Execute becomes valid; each worker separately preserves its payload.
   if (out_val == 0) return;
   const auto actual = *out_bits;
   if (out_rdy == 0) {
-    stalled_ = true;
-    stalled_command_ = actual;
     saw_stall_ = true;
     return;
   }
-  stalled_ = false;
+  if (actual.cmd.funct == 6 || actual.cmd.funct == 4 || actual.cmd.funct == 5) {
+    const auto slot = exec_seen_ / 4;
+    const auto col = (exec_seen_ % 4) / 2 * 4;
+    const auto rows = col == 0 ? 4u : 1u;
+    const auto spad = slot * smesh::kSpRows / 2;
+    const auto acc = slot * smesh::kAccRows / 2;
+    auto expected = exec_seen_ % 2 == 0
+        ? command(6, smesh::packLocal(col == 0 ? smesh::makeSpAddr(spad + smesh::kSpRows / 2 - 1).raw : 0xffffffffu, {1, 3}),
+                     smesh::packLocal(smesh::makeAccAddr(acc + col, true), {rows, 3}))
+        : command(col == 0 ? 4 : 5, smesh::packLocal(smesh::makeSpAddr(spad + col), {rows, 1}),
+                                    smesh::packLocal(0xffffffffu, {rows, 3}));
+    expected.from_conv_loop = 1;
+    passed_ &= exec_seen_ < 8 && same(actual, expected);
+    ++exec_seen_;
+    return;
+  }
   const bool match = seen_ < expected_.size() && same(actual, expected_[seen_]);
   if (!match)
     std::printf("Bias stream command %u mismatch funct=%u rs1=0x%llx rs2=0x%llx\n",
@@ -162,7 +179,7 @@ void Driver::reset() {
   out_rdy.reset(0);
   passed_ = true;
   seen_ = 0;
-  stalled_ = false;
+  exec_seen_ = 0;
   saw_stall_ = false;
 }
 

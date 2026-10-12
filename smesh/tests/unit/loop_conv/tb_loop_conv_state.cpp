@@ -302,6 +302,7 @@ void Driver::updateCheck() {
     expected.ld_bias_started = bit(cycle >= 9);
     expected.ld_input_started = bit(cycle >= 9);
     expected.ld_weights_started = bit(cycle >= 9);
+    expected.ex_started = bit(cycle >= 10);
     match &= sameSlot(first, expected);
   }
   if (cycle >= 15) match &= sameSlot(second, expected_[1]);
