@@ -57,6 +57,8 @@ class Driver : public Component {
            second.ld_bias_started == 1 && second.ld_bias_completed == 1 &&
            first.ld_input_started == 1 && first.ld_input_completed == 1 &&
            second.ld_input_started == 1 && second.ld_input_completed == 1 &&
+           first.ld_weights_started == 1 && first.ld_weights_completed == 1 &&
+           second.ld_weights_started == 1 && second.ld_weights_completed == 1 &&
            first.configured == 1 && second.configured == 1 && *busy == 1;
   }
 

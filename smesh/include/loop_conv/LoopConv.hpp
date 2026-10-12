@@ -5,7 +5,7 @@
 /*
 Buffers commands, decodes loop setup, and saves it in two loop banks.
 Ordinary commands pass through while neither bank is configured.
-Bias and input workers share the generated-command output; retirement comes later.
+Bias, weights, and input workers share the command output; retirement comes later.
 */
 #pragma once
 
@@ -15,6 +15,7 @@ Bias and input workers share the generated-command output; retirement comes late
 #include "LoopConvCmdDec.hpp"
 #include "LoopConvState.hpp"
 #include "LoopConvScheduler.hpp"
+#include "LoopConvLdWeight.hpp"
 
 namespace smesh {
 
@@ -54,6 +55,7 @@ class LoopConv : public Component {
   LoopConvScheduler* scheduler_  = nullptr;
   LoopConvLdBias*    ld_bias_    = nullptr;
   LoopConvLdInput*   ld_input_   = nullptr;
+  LoopConvLdWeight*  ld_weights_ = nullptr;
 
   Input(bit,                head_val_);
   Input(SmeshQueuedCmd,     head_bits_);
@@ -65,8 +67,11 @@ class LoopConv : public Component {
   Input(SmeshCmd,           ld_bias_cmd_bits_);
   Input(bit,                ld_input_cmd_val_);
   Input(SmeshCmd,           ld_input_cmd_bits_);
+  Input(bit,                ld_weights_cmd_val_);
+  Input(SmeshCmd,           ld_weights_cmd_bits_);
   Output(bit,               ld_bias_cmd_rdy_);
   Output(bit,               ld_input_cmd_rdy_);
+  Output(bit,               ld_weights_cmd_rdy_);
 };
 
 } // namespace smesh

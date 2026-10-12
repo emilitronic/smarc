@@ -45,8 +45,8 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   scheduler_->loop0             << loop_state_->loop0;
   scheduler_->loop1             << loop_state_->loop1;
   scheduler_->head_loop_id      << loop_state_->head_loop_id;
-  // Keep weight jobs pending until the load-weights worker is implemented.
-  scheduler_->ld_weights_req_rdy.wireToConst(bit(0));
+  loop_state_->ld_weights_req_fire << scheduler_->ld_weights_req_fire;
+  loop_state_->ld_weights_loop_id << scheduler_->ld_weights_loop_id;
   loop_state_->ld_bias_req_fire << scheduler_->ld_bias_req_fire;
   loop_state_->ld_bias_loop_id  << scheduler_->ld_bias_loop_id;
   loop_state_->ld_input_req_fire << scheduler_->ld_input_req_fire;
@@ -80,17 +80,35 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   ld_input_->ld_utilization_at_limit.wireToConst(bit(0));
   ld_input_->wait_for_prev_loop.wireToConst(bit(0));
 
+  // Weight loads use the scheduler's SPAD end address and load-state slot 1.
+  ld_weights_ = new LoopConvLdWeight("LdWeight");
+  ld_weights_->clk                       << clk;
+  ld_weights_->req_val                   << scheduler_->ld_weights_req_val;
+  ld_weights_->req_bits                  << scheduler_->ld_weights_req_bits;
+  scheduler_->ld_weights_req_rdy         << ld_weights_->req_rdy;
+  loop_state_->ld_weights_idle           << ld_weights_->idle;
+  loop_state_->ld_weights_worker_loop_id << ld_weights_->loop_id;
+  ld_weights_->cmd_rdy                   << ld_weights_cmd_rdy_;
+  ld_weights_cmd_val_                    << ld_weights_->cmd_val;
+  ld_weights_cmd_bits_                   << ld_weights_->cmd_bits;
+  // TODO: Connect utilization and execute-dependent waiting when implemented.
+  ld_weights_->ld_utilization_at_limit.wireToConst(bit(0));
+  ld_weights_->wait_for_prev_loop.wireToConst(bit(0));
+
   UPDATE(updateRouting)
       .reads(head_val_, head_bits_, decoded_, out_rdy, state_cmd_rdy_, loop_configured_)
       .reads(ld_bias_cmd_val_, ld_bias_cmd_bits_)
       .reads(ld_input_cmd_val_, ld_input_cmd_bits_)
+      .reads(ld_weights_cmd_val_, ld_weights_cmd_bits_)
       .writes(head_rdy_, out_val, out_bits, busy);
   UPDATE(updateWorkerReady)
       .reads(loop_configured_, ld_bias_cmd_val_, ld_input_cmd_val_, out_rdy)
-      .writes(ld_bias_cmd_rdy_, ld_input_cmd_rdy_);
+      .reads(ld_weights_cmd_val_)
+      .writes(ld_bias_cmd_rdy_, ld_input_cmd_rdy_, ld_weights_cmd_rdy_);
 }
 
 LoopConv::~LoopConv() {
+  delete ld_weights_;
   delete ld_input_;
   delete ld_bias_;
   delete scheduler_;
@@ -108,11 +126,12 @@ void LoopConv::updateRouting() {
   out_bits  = pass_through ? *head_bits_ : SmeshQueuedCmd{};
   if (loop_configured_ == 1) {
     SmeshQueuedCmd generated{};
-    // Original gives bias commands priority over input commands.
+    // Original's load-worker priority is bias, then weights, then input.
     const bool bias_selected = ld_bias_cmd_val_ == 1;
-    generated.cmd            = bias_selected ? *ld_bias_cmd_bits_ : *ld_input_cmd_bits_;
+    generated.cmd            = bias_selected ? *ld_bias_cmd_bits_ :
+                               ld_weights_cmd_val_ == 1 ? *ld_weights_cmd_bits_ : *ld_input_cmd_bits_;
     generated.from_conv_loop = 1;
-    const bool valid         = bias_selected || ld_input_cmd_val_ == 1;
+    const bool valid         = bias_selected || ld_weights_cmd_val_ == 1 || ld_input_cmd_val_ == 1;
     out_bits                 = valid ? generated : SmeshQueuedCmd{};
     out_val                  = bit(valid);
   }
@@ -124,7 +143,8 @@ void LoopConv::updateRouting() {
 void LoopConv::updateWorkerReady() {
   const bool accept = loop_configured_ == 1 && out_rdy == 1;
   ld_bias_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 1);
-  ld_input_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_input_cmd_val_ == 1);
+  ld_weights_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_weights_cmd_val_ == 1);
+  ld_input_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_weights_cmd_val_ == 0 && ld_input_cmd_val_ == 1);
 }
 
 void LoopConv::reset() {
@@ -134,6 +154,7 @@ void LoopConv::reset() {
   busy.reset(0);
   ld_bias_cmd_rdy_.reset(0);
   ld_input_cmd_rdy_.reset(0);
+  ld_weights_cmd_rdy_.reset(0);
 }
 
 } // namespace smesh

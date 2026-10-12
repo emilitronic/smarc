@@ -48,29 +48,30 @@ class Driver : public Component {
   bool passed() const;
  private:
   std::vector<smesh::SmeshQueuedCmd> program_;
-  std::array<std::vector<smesh::SmeshCmd>, 2> expected_;
+  std::array<std::vector<smesh::SmeshCmd>, 3> expected_;
   Output(u16, position_Q_);
   Register(u16, position_D_);
   Output(u16, cycle_Q_);
   Register(u16, cycle_D_);
-  std::array<unsigned, 2> seen_{};
+  std::array<unsigned, 3> seen_{};
   bool passed_ = true;
   bool saw_stall_ = false;
   bool saw_overlap_ = false;
   bool saw_bias_priority_ = false;
+  bool saw_weights_priority_ = false;
 };
 
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   // Two loops: four padded input positions, of which the middle two are real.
-  // Each loop also loads a four-row bias strip into its accumulator half.
+  // Each also loads bias into its accumulator half and weights at its SPAD end.
   for (unsigned slot = 0; slot < 2; ++slot) {
     program_.push_back(command(16, (3ull << 48) | (4ull << 32) | (1ull << 16) | 1,
                                (1ull << 48) | (4ull << 32) | 1));
     program_.push_back(command(17, 1ull << 48, (1ull << 48) | 3));
     program_.push_back(command(18, (1ull << 48) | (1ull << 32) | (4ull << 16) | 1,
                                (1ull << 48) | 2));
-    program_.push_back(command(19, (1ull << 48) | 1, (4ull << 48) | (3ull << 16) | 4));
-    program_.push_back(command(20, 0, 0x80003000 + slot * 0x1000));
+    program_.push_back(command(19, (1ull << 48) | 1, (4ull << 48) | (3ull << 32) | (3ull << 16) | 4));
+    program_.push_back(command(20, 0x80009000 + slot * 0x1000, 0x80003000 + slot * 0x1000));
     program_.push_back(command(21, 0x80001000 + slot * 0x1000, 0x80005000 + slot * 0x1000));
     program_.push_back(command(15, 0, 1));
 
@@ -84,6 +85,9 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
     expected_[1].push_back(command(2, 0x80005000 + slot * 0x1000,
                                    smesh::packLocal(smesh::makeSpAddr(spad + 1), {2, 4})).cmd);
     expected_[1].push_back(command(2, 0, smesh::packLocal(smesh::makeSpAddr(spad + 3), {1, 4})).cmd);
+    expected_[2].push_back(command(0, smesh::packConfigLoadRs1(1, 4, smesh::kMvinScaleIdentityBits, false, 1), 3).cmd);
+    expected_[2].push_back(command(1, 0x80009000 + slot * 0x1000,
+                                   smesh::packLocal(smesh::makeSpAddr(spad + smesh::kSpRows / 2 - 4), {4, 3})).cmd);
   }
   position_Q_ <= position_D_;
   cycle_Q_ <= cycle_D_;
@@ -111,6 +115,7 @@ void Driver::updateCheck() {
   if (Sim::state == Sim::SimResetting) return;
   const auto first = *loop0;
   saw_overlap_ |= first.ld_bias_started == 1 && first.ld_input_started == 1 &&
+                  first.ld_weights_started == 1 && first.ld_weights_completed == 0 &&
                   first.ld_bias_completed == 0 && first.ld_input_completed == 0;
   if (out_val == 0) return;
   if (out_rdy == 0) {
@@ -120,16 +125,22 @@ void Driver::updateCheck() {
   const auto value = *out_bits;
   const auto funct = static_cast<unsigned>(value.cmd.funct);
   const bool bias = funct == 14 || (funct == 0 && ((std::uint64_t(value.cmd.rs1) >> 3) & 3) == 2);
-  const unsigned worker = bias ? 0 : 1;
+  const bool weights = funct == 1 || (funct == 0 && ((std::uint64_t(value.cmd.rs1) >> 3) & 3) == 1);
+  const unsigned worker = bias ? 0 : weights ? 2 : 1;
   const auto n = seen_[worker];
   const bool match = n < expected_[worker].size() && same(value.cmd, expected_[worker][n]);
   passed_ &= match && value.from_conv_loop == 1 && value.from_mmul_loop == 0 && value.rs_tag_valid == 0;
   if (!match) std::printf("Load stream mismatch worker=%u command=%u funct=%u rs1=0x%llx rs2=0x%llx\n",
                          worker, n, funct, static_cast<unsigned long long>(value.cmd.rs1),
                          static_cast<unsigned long long>(value.cmd.rs2));
-  if (seen_[0] == 0 && seen_[1] == 0) saw_bias_priority_ = bias;
-  const auto slot = (bias ? n / 2 : n / 4) == 0 ? first : *loop1;
-  passed_ &= bias ? slot.ld_bias_completed == 0 : slot.ld_input_completed == 0;
+  if (seen_[0] == 0 && seen_[1] == 0 && seen_[2] == 0) saw_bias_priority_ = bias;
+  // Both lower-priority workers were stalled with commands pending. Weights
+  // must win their first transfer before input can transfer anything.
+  if (weights && seen_[2] == 0) saw_weights_priority_ = seen_[1] == 0;
+  if (!bias && !weights && seen_[1] == 0) passed_ &= seen_[2] >= 2;
+  const auto slot = (worker == 1 ? n / 4 : n / 2) == 0 ? first : *loop1;
+  passed_ &= bias ? slot.ld_bias_completed == 0 : weights
+      ? slot.ld_weights_completed == 0 : slot.ld_input_completed == 0;
   ++seen_[worker];
 }
 
@@ -144,16 +155,19 @@ void Driver::reset() {
   seen_ = {};
   passed_ = true;
   saw_stall_ = saw_overlap_ = saw_bias_priority_ = false;
+  saw_weights_priority_ = false;
 }
 
 bool Driver::passed() const {
   const auto a = *loop0;
   const auto b = *loop1;
-  return passed_ && saw_stall_ && saw_overlap_ && saw_bias_priority_ &&
+  return passed_ && saw_stall_ && saw_overlap_ && saw_bias_priority_ && saw_weights_priority_ &&
          seen_[0] == expected_[0].size() && seen_[1] == expected_[1].size() &&
+         seen_[2] == expected_[2].size() &&
          *position_Q_ == program_.size() &&
          a.ld_bias_completed == 1 && a.ld_input_completed == 1 &&
-         b.ld_bias_completed == 1 && b.ld_input_completed == 1;
+         b.ld_bias_completed == 1 && b.ld_input_completed == 1 &&
+         a.ld_weights_completed == 1 && b.ld_weights_completed == 1;
 }
 
 } // namespace

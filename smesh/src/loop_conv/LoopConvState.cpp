@@ -21,6 +21,7 @@ LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
       .reads(ld_bias_idle, ld_bias_worker_loop_id)
       .reads(ld_input_req_fire, ld_input_loop_id)
       .reads(ld_input_idle, ld_input_worker_loop_id)
+      .reads(ld_weights_req_fire, ld_weights_loop_id, ld_weights_idle, ld_weights_worker_loop_id)
       .writes(state_D_);
 }
 
@@ -52,12 +53,17 @@ void LoopConvState::updateNextState() {
   assert(input_id < current.loops.size());
   const auto& input_slot    = current.loops[input_id];
   const bool input_finished = ld_input_idle == 1 && input_slot.running == 1 && input_slot.ld_input_started == 1 && input_slot.ld_input_completed == 0;
-  if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && !bias_finished && !input_finished) return;
+  const auto weights_id = static_cast<unsigned>(*ld_weights_worker_loop_id);
+  assert(weights_id < current.loops.size());
+  const auto& weights_slot = current.loops[weights_id];
+  const bool weights_finished = ld_weights_idle == 1 && weights_slot.running == 1 && weights_slot.ld_weights_started == 1 && weights_slot.ld_weights_completed == 0;
+  if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && ld_weights_req_fire == 0 &&
+      !bias_finished && !input_finished && !weights_finished) return;
   auto next           = current;
   const auto head     = static_cast<unsigned>(current.head_id);
   const auto selected = current.loops[head].configured == 1 ? head ^ 1u : head;
   if (setup) {
-    auto& slot = next.loops[selected];
+    auto& slot        = next.loops[selected];
     const auto& outer = command.outer_bounds;
     const auto& inner = command.inner_bounds;
     if (command.do_config == 1) {
@@ -162,6 +168,19 @@ void LoopConvState::updateNextState() {
   if (input_finished) {
     next.loops[input_id].ld_input_completed = 1;
     trace("loop_conv state: input finished slot=%u", input_id);
+  }
+  if (ld_weights_req_fire == 1) {
+    const auto id = static_cast<unsigned>(*ld_weights_loop_id);
+    assert(id < next.loops.size());
+    assert(current.loops[id].configured == 1 && current.loops[id].ld_weights_started == 0);
+    next.loops[id].running            = 1;
+    next.loops[id].ld_weights_started = 1;
+    trace("loop_conv state: weights started slot=%u", id);
+  }
+  // Idle includes both command-pipeline stages draining, not memory execution.
+  if (weights_finished) {
+    next.loops[weights_id].ld_weights_completed = 1;
+    trace("loop_conv state: weights finished slot=%u", weights_id);
   }
   state_D_ = next;
 }
