@@ -6,7 +6,8 @@
 Buffers commands, decodes loop setup, and saves it in two loop banks.
 Ordinary commands pass through while neither bank is configured.
 All five workers share the command output and obey RS utilization limits.
-Loop-slot retirement is not implemented yet.
+Finished command streams retire their loop slots for reuse, independently of RS
+execution completion (which still controls utilization).
 */
 #pragma once
 

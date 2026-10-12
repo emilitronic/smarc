@@ -10,6 +10,25 @@
 #include <cassert>
 
 namespace smesh {
+namespace {
+
+bool allCompleted(const LoopConvSlot& slot) {
+  return slot.ld_bias_completed == 1 && slot.ld_input_completed == 1 &&
+         slot.ld_weights_completed == 1 && slot.ex_completed == 1 && slot.st_completed == 1;
+}
+
+// Original's slot reset clears progress only. Keep saved configuration and
+// local-memory region addresses available for the next setup/launch sequence.
+void clearProgress(LoopConvSlot& slot) {
+  slot.configured = 0;
+  slot.running = 0;
+  slot.ld_bias_started = slot.ld_input_started = slot.ld_weights_started = 0;
+  slot.ex_started = slot.st_started = 0;
+  slot.ld_bias_completed = slot.ld_input_completed = slot.ld_weights_completed = 0;
+  slot.ex_completed = slot.st_completed = 0;
+}
+
+} // namespace
 
 LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
   state_Q_ <= state_D_;
@@ -42,11 +61,13 @@ void LoopConvState::updateView() {
   loop1               = state.loops[1];
 }
 
-// Save accepted setup and mark accepted worker requests started at the next edge.
+// Apply setup, worker progress, and head-slot retirement at the next clock edge.
 void LoopConvState::updateNextState() {
   const auto command        = *decoded;
   const bool setup          = cmd_rdy == 1 && (command.do_config == 1 || command.do_launch == 1);
   const auto current        = *state_Q_;
+  const auto head           = static_cast<unsigned>(current.head_id);
+  const bool retire        = current.loops[head].running == 1 && allCompleted(current.loops[head]);
   const auto worker_id      = static_cast<unsigned>(*ld_bias_worker_loop_id);
   assert(worker_id < current.loops.size());
   const auto& worker_slot   = current.loops[worker_id];
@@ -68,9 +89,8 @@ void LoopConvState::updateNextState() {
   const auto& st_slot = current.loops[st_id];
   const bool st_finished = st_idle == 1 && st_slot.running == 1 && st_slot.st_started == 1 && st_slot.st_completed == 0;
   if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && ld_weights_req_fire == 0 && ex_req_fire == 0 && st_req_fire == 0 &&
-      !bias_finished && !input_finished && !weights_finished && !ex_finished && !st_finished) return;
+      !bias_finished && !input_finished && !weights_finished && !ex_finished && !st_finished && !retire) return;
   auto next           = current;
-  const auto head     = static_cast<unsigned>(current.head_id);
   const auto selected = current.loops[head].configured == 1 ? head ^ 1u : head;
   if (setup) {
     auto& slot        = next.loops[selected];
@@ -219,10 +239,18 @@ void LoopConvState::updateNextState() {
     next.loops[st_id].st_completed = 1;
     trace("loop_conv state: store finished slot=%u", st_id);
   }
+  // Use CURRENT completion flags, as Original does: the final idle event sets
+  // its flag on one edge, then retirement clears progress on the following edge.
+  // RS commands may still be executing; their utilization counts are not reset.
+  if (retire) {
+    clearProgress(next.loops[head]);
+    next.head_id = head ^ 1u;
+    trace("loop_conv state: retired slot=%u next_head=%u\n", head, head ^ 1u);
+  }
   state_D_ = next;
 }
 
-// Start with empty banks and assign each its half of SPAD.
+// Global reset initializes banks and SPAD regions; retirement keeps their payload.
 void LoopConvState::reset() {
   State state{};
   for (std::size_t id = 0; id < state.loops.size(); ++id) {

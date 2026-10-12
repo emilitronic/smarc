@@ -54,16 +54,8 @@ class Driver : public Component {
     const auto first = *loop0;
     const auto second = *loop1;
     return passed_ && seen_ == expected_.size() && exec_seen_ == 8 && store_seen_ == 4 && *position_Q_ == program_.size() &&
-           saw_stall_ && first.ld_bias_started == 1 && first.ld_bias_completed == 1 &&
-           second.ld_bias_started == 1 && second.ld_bias_completed == 1 &&
-           first.ld_input_started == 1 && first.ld_input_completed == 1 &&
-           second.ld_input_started == 1 && second.ld_input_completed == 1 &&
-           first.ld_weights_started == 1 && first.ld_weights_completed == 1 &&
-           second.ld_weights_started == 1 && second.ld_weights_completed == 1 &&
-           first.ex_completed == 1 && second.ex_completed == 1 &&
-           first.st_started == 1 && second.st_started == 1 &&
-           first.st_completed == 1 && second.st_completed == 1 &&
-           first.configured == 1 && second.configured == 1 && *busy == 1;
+           saw_stall_ && trailing_seen_ && first.configured == 0 && second.configured == 0 &&
+           first.running == 0 && second.running == 0 && *busy == 0;
   }
 
  private:
@@ -77,6 +69,7 @@ class Driver : public Component {
   unsigned seen_ = 0;
   unsigned exec_seen_ = 0;
   unsigned store_seen_ = 0;
+  bool trailing_seen_ = false;
   bool saw_stall_ = false;
 };
 
@@ -99,7 +92,7 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
     program_[p + 5] = command(18, (1ull << 48) | (1ull << 32) | (1ull << 16), 5);
     program_[p + 6] = command(15, slot, 1); // Ordinary stores; no pooling geometry configured.
   }
-  // This ordinary command must wait for loop retirement, which is not built yet.
+  // This ordinary command must wait until both loop streams retire.
   program_[15] = command(7, 0xbeef, 0xcafe);
   expected_[1] = command(0, 0x3f80000000050111ull, 0);
   expected_[2] = command(14, 0x80001000, 0x0004000380000000ull);
@@ -137,6 +130,13 @@ void Driver::updateCheck() {
   const auto actual = *out_bits;
   if (out_rdy == 0) {
     saw_stall_ = true;
+    return;
+  }
+  if (actual.cmd.funct == 7 && actual.cmd.rs1 == 0xbeef) {
+    passed_ &= !trailing_seen_ && same(actual, program_[15]) &&
+               seen_ == expected_.size() && exec_seen_ == 8 && store_seen_ == 4 &&
+               (*loop0).configured == 0 && (*loop1).configured == 0;
+    trailing_seen_ = true;
     return;
   }
   if (actual.cmd.funct == 6 || actual.cmd.funct == 4 || actual.cmd.funct == 5) {
@@ -198,6 +198,7 @@ void Driver::reset() {
   seen_ = 0;
   exec_seen_ = 0;
   store_seen_ = 0;
+  trailing_seen_ = false;
   saw_stall_ = false;
 }
 

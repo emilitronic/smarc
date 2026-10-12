@@ -55,7 +55,7 @@ class Driver : public Component {
   void updateCheck();
   void updateCycle();
   void reset();
-  bool passed() const { return passed_ && observed_ == 0x3ffu && position_Q_ == program_.size() && generated_ == 4; }
+  bool passed() const { return passed_ && observed_ == 0x3ffu && position_Q_ == program_.size() && generated_ == 4 && trailing_seen_ && busy == 0; }
 
  private:
   const smesh::SmeshFunct held_funct_;
@@ -67,6 +67,7 @@ class Driver : public Component {
   bool passed_ = true;
   unsigned observed_ = 0;
   unsigned generated_ = 0;
+  bool trailing_seen_ = false;
 };
 
 Driver::Driver(std::string /*name*/, smesh::SmeshFunct held_funct, IMPL_CTOR)
@@ -125,10 +126,18 @@ void Driver::updateCheck() {
   // when its preserved metadata happens to have from_conv_loop set.
   passed_ &= ld_outstanding == 0 && st_outstanding == 0 && ex_outstanding == generated_;
   if (cycle >= 10) {
-    passed_ &= busy == 1;
     if (out_val == 1 && out_rdy == 1) {
       const auto actual = *out_bits;
-      // The queued ordinary command cannot pass until retirement exists.
+      if (actual.cmd.funct == ordinary(6).cmd.funct) {
+        const auto expected = ordinary(6);
+        // No RS completions were returned: retirement still permits this pass-through.
+        passed_ &= !trailing_seen_ && generated_ == 4 && ex_outstanding == 4 &&
+                   actual.cmd.rs1 == expected.cmd.rs1 && actual.cmd.rs2 == expected.cmd.rs2 &&
+                   actual.rs_tag == expected.rs_tag && actual.rs_tag_valid == expected.rs_tag_valid &&
+                   actual.from_conv_loop == expected.from_conv_loop && actual.from_mmul_loop == expected.from_mmul_loop;
+        trailing_seen_ = true;
+        return;
+      }
       passed_ &= actual.from_conv_loop == 1 && actual.from_mmul_loop == 0 && actual.rs_tag_valid == 0 &&
                  (actual.cmd.funct == 6 || actual.cmd.funct == 4);
       ++generated_;
@@ -172,6 +181,7 @@ void Driver::reset() {
   passed_ = true;
   observed_ = 0;
   generated_ = 0;
+  trailing_seen_ = false;
 }
 
 } // namespace

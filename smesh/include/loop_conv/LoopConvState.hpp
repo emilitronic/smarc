@@ -6,7 +6,8 @@
 Owns two saved LoopConv configurations and selects the bank receiving setup.
 Configuration commands update their own fields; launch marks that bank configured.
 Worker acceptance marks jobs started; worker idle records generation complete.
-Retirement comes later, after all workers exist.
+After all five complete, the head bank clears its progress and becomes reusable.
+Saved configuration survives retirement; RS execution completion is separate.
 */
 #pragma once
 
