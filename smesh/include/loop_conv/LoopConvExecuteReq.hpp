@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 11 2026
 /*
-Execute-job packet shared with the scheduler. The worker will be added separately.
+Execute-job packet shared by the scheduler and worker. No worker state lives here.
 */
 #pragma once
 
