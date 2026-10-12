@@ -23,7 +23,7 @@ SdfChain::SdfChain(std::string /*name*/, const SdfParams& params, IMPL_CTOR) : p
   for (std::size_t i = 0; i < n; ++i) {
     stages_[i]->clk  << clk;
     stages_[i]->en   << en;
-    stages_[i]->cntr << cnt_Q_;
+    stages_[i]->cntr << cntr;
     // Each stage truncates the master count to its own log2(2d) bits; see the
     // header for why the reference's cumulative-delay offset is a no-op here.
     if (i == 0) {
@@ -34,9 +34,9 @@ SdfChain::SdfChain(std::string /*name*/, const SdfParams& params, IMPL_CTOR) : p
   }
   out << stages_[n - 1]->out;
 
-  cnt_Q_ <= cnt_D_;
+  cntr <= cnt_D_;
 
-  UPDATE(updateCount).reads(en, cnt_Q_).writes(cnt_D_);
+  UPDATE(updateCount).reads(en, clr, cntr).writes(cnt_D_);
 }
 
 SdfChain::~SdfChain() {
@@ -48,12 +48,17 @@ SdfChain::~SdfChain() {
 void SdfChain::updateCount() {
   // Modulo N, so the counter is the sample index within the frame and every
   // stage's truncation of it is correct by construction.
-  if (en == 1) {
-    cnt_D_ = u32((static_cast<std::size_t>(*cnt_Q_) + 1) % params_.N);
+  if (clr == 1) {
+    cnt_D_ = u32(0);
+  } else if (en == 1) {
+    cnt_D_ = u32((static_cast<std::size_t>(*cntr) + 1) % params_.N);
   }
-  // en == 0: cnt_D_ deliberately unassigned, so the counter holds.
+  // Otherwise cnt_D_ is deliberately unassigned, so the counter holds.
 }
 
-void SdfChain::reset() { cnt_Q_.reset(0); cnt_D_.reset(0); }
+void SdfChain::reset() {
+  cntr.reset(0);
+  cnt_D_.reset(0);
+}
 
 } // namespace smfft

@@ -54,7 +54,18 @@ def constant(p, v, frames=1):
     return [v] * (frames * p.N)
 
 
-def chirp_echo(p, seed=2):
+def quiet_tone(p, k, amp, frames=1):
+    """A tone only a few LSB tall: rounding is a large part of the signal."""
+    return [quantise(amp * cmath.exp(2j * math.pi * k * t / p.N), p) for t in range(frames * p.N)]
+
+
+def lsb_noise(p, frames=1, seed=3):
+    """Every sample in {-1, 0, +1}: the noise-floor corner."""
+    rng = random.Random(seed)
+    return [(rng.randint(-1, 1), rng.randint(-1, 1)) for _ in range(frames * p.N)]
+
+
+def chirp_echo(p, seed=2, echoes=((200, 0.5), (3000, 0.3), (5800, 0.15)), noise=2.0):
     """Scenario-like frame: three LFM echoes in a 6,900-sample window, zero padded.
 
     f_s = 180 MHz, tau = 5 us (900 samples), B = 150 MHz.
@@ -63,7 +74,7 @@ def chirp_echo(p, seed=2):
     Lc = int(round(tau * fs))
     K = B / tau
     chirp = [cmath.exp(1j * math.pi * K * (t / fs - tau / 2) ** 2) for t in range(Lc)]
-    echoes = [(200, 0.5), (3000, 0.3), (5800, 0.15)]      # (start sample, amplitude)
+    # echoes: (start sample, amplitude as a fraction of full scale)
     rng = random.Random(seed)
     A = full_scale(p)
     frame = []
@@ -73,7 +84,7 @@ def chirp_echo(p, seed=2):
             for start, amp in echoes:
                 if start <= t < start + Lc:
                     z += amp * A * chirp[t - start]
-            z += complex(rng.uniform(-2, 2), rng.uniform(-2, 2))   # a little noise
+            z += complex(rng.uniform(-noise, noise), rng.uniform(-noise, noise))
         frame.append(quantise(z, p))
     return frame
 
@@ -137,6 +148,16 @@ def main():
     write_case(root, "n8192_minneg", constant(p8k, (-M, -M)), p8k, "all samples (-M, -M): most negative input")
     write_case(root, "n8192_chirp_echo", chirp_echo(p8k), p8k,
                "3 LFM echoes (180 MHz, 5 us, 150 MHz) in 6,900 samples, zero padded")
+    # Quiet corner (Bailey 2018 lesson: test the noise floor, not only loud signals)
+    write_case(root, "n64_quiet_tone_k3", quiet_tone(p64, 3, 2.0), p64,
+               "tone in bin 3, 2 LSB amplitude: easy to trace rounding by hand")
+    write_case(root, "n8192_quiet_tone_k777", quiet_tone(p8k, 777, 3.0), p8k,
+               "tone in bin 777, 3 LSB amplitude")
+    write_case(root, "n8192_lsb_noise", lsb_noise(p8k, 2), p8k,
+               "every sample in {-1,0,+1}, 2 frames")
+    write_case(root, "n8192_weak_echo", chirp_echo(p8k, seed=4,
+               echoes=((500, 0.9), (4000, 0.9 / 1000)), noise=0.5), p8k,
+               "strong echo at 0.9 FS plus a -60 dB echo (~4 LSB), 0.5 LSB noise")
     for N in (8, 8192):
         write_twiddles(root, N, a.B_w)
 

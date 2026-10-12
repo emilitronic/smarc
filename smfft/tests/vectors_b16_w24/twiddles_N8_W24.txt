@@ -1,0 +1,5 @@
+# d k w_re w_im   (k = 0 is never multiplied and is omitted)
+4 1 5931642 -5931642
+4 2 0 -8388608
+4 3 -5931642 -5931642
+2 1 0 -8388608

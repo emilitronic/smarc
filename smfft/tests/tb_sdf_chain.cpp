@@ -7,8 +7,24 @@ The acceptance test: SdfChain against every case in tests/vectors/.
 
 This is the first thing in smfft that checks the contract rather than a piece
 of it. doc/fixed-point-spec.md requires the model to reproduce each case's
-out.txt line for line, bit-exact, and that is what is compared here -- all
-twelve cases, from n8_impulse up to the three 8192-point ones.
+out.txt line for line, bit-exact, and that is what is compared here.
+
+Two suites are run, sixteen cases each:
+
+  vectors/           B_in = 13, B_w = 16 -- the target configuration
+  vectors_b16_w24/   B_in = 16, B_w = 24 -- the widest the spec allows, where
+                     values reach 30 bits and products 54
+
+Four of the sixteen sit at the noise floor (n64_quiet_tone_k3,
+n8192_quiet_tone_k777, n8192_lsb_noise, n8192_weak_echo). Full-scale random
+input exercises the arithmetic but averages over rounding; a tone a couple of
+LSBs tall does not, so a rounding mode that is wrong in the last bit shows up
+there and nowhere else. Their SQNR is low by nature -- that is a property of
+the input, not a failure -- and only bit-exactness is checked.
+
+Parameters come from each case's meta.txt, so a suite needs no hard-coded
+widths and a mismatch between the file and the spec's growth rule is caught
+rather than absorbed.
 
 SdfChain has no flow control, so the protocol is the harness's job and it is
 the one in SdfStream.run(): feed the whole input with en high, keep stepping
@@ -48,13 +64,21 @@ namespace {
 using namespace smfft;
 
 const char* kCaseNames[] = {
-    "n8_impulse", "n8_random",      "n16_random",    "n64_tone_k5",
-    "n64_random", "n1024_random",   "n8192_tone_k1", "n8192_tone_k3001",
-    "n8192_maxpos", "n8192_minneg", "n8192_chirp_echo", "n8192_random",
+    "n8_impulse",       "n8_random",             "n16_random",      "n64_tone_k5",
+    "n64_random",       "n1024_random",          "n8192_tone_k1",   "n8192_tone_k3001",
+    "n8192_maxpos",     "n8192_minneg",          "n8192_chirp_echo", "n8192_random",
+    // Noise-floor corner: rounding is visible here and nowhere else.
+    "n64_quiet_tone_k3", "n8192_quiet_tone_k777", "n8192_lsb_noise", "n8192_weak_echo",
+};
+
+struct Suite {
+  const char* dir;
+  const char* label;
 };
 
 struct VectorCase {
   std::string             name;
+  std::string             suite;
   SdfParams               params;
   std::size_t             out_width = 0;
   std::string             description;
@@ -146,6 +170,7 @@ class ChainDriver : public Component {
   Clock(clk);
   Output(SdfComplex, in);
   Output(bit,        en);
+  Output(bit,        clr); // held low: this test never flushes mid-stream
   Input(SdfComplex,  out);
 
   void updateDrive();
@@ -168,11 +193,12 @@ class ChainDriver : public Component {
 };
 
 ChainDriver::ChainDriver(const VectorCase& vc, std::string /*name*/, IMPL_CTOR) : vc_(vc) {
-  UPDATE(updateDrive).writes(in, en);
+  UPDATE(updateDrive).writes(in, en, clr);
   UPDATE(updateCheck).reads(out);
 }
 
 void ChainDriver::updateDrive() {
+  clr = 0;
   if (done()) {
     in = SdfComplex{};
     en = 0;
@@ -197,8 +223,8 @@ void ChainDriver::updateCheck() {
       const auto  actual = *out;
       if (actual != expect) {
         if (mismatches_ < 8) {
-          std::printf("  %s: output %zu expected {%d,%d} got {%d,%d}\n", vc_.name.c_str(), m,
-                      expect.re, expect.im, actual.re, actual.im);
+          std::printf("  %s/%s: output %zu expected {%d,%d} got {%d,%d}\n", vc_.suite.c_str(),
+                      vc_.name.c_str(), m, expect.re, expect.im, actual.re, actual.im);
         }
         ++mismatches_;
       }
@@ -206,8 +232,8 @@ void ChainDriver::updateCheck() {
       const std::int32_t hi = (std::int32_t{1} << (vc_.out_width - 1)) - 1;
       if (actual.re < lo || actual.re > hi || actual.im < lo || actual.im > hi) {
         if (overflows_ < 4) {
-          std::printf("  %s: output %zu {%d,%d} does not fit %zu bits\n", vc_.name.c_str(), m,
-                      actual.re, actual.im, vc_.out_width);
+          std::printf("  %s/%s: output %zu {%d,%d} does not fit %zu bits\n", vc_.suite.c_str(),
+                      vc_.name.c_str(), m, actual.re, actual.im, vc_.out_width);
         }
         ++overflows_;
       }
@@ -224,6 +250,7 @@ void ChainDriver::reset() {
   overflows_  = 0;
   in.reset(SdfComplex{});
   en.reset(0);
+  clr.reset(0);
 }
 
 struct Harness {
@@ -239,27 +266,39 @@ int main(int argc, char* argv[]) {
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
 
-  const std::string dir = SMFFT_VECTOR_DIR;
+  const Suite kSuites[] = {
+      {SMFFT_VECTOR_DIR, "b13_w16"},
+      {SMFFT_VECTOR_DIR_B16W24, "b16_w24"},
+  };
 
-  // -case=<name> narrows the run to one case, for debugging and tracing.
+  // -case=<name> and -suite=<label> narrow the run, for debugging and tracing.
   std::string only;
+  std::string only_suite;
   for (int i = 1; i < argc; ++i) {
     if (std::strncmp(argv[i], "-case=", 6) == 0) {
       only = argv[i] + 6;
+    } else if (std::strncmp(argv[i], "-suite=", 7) == 0) {
+      only_suite = argv[i] + 7;
     }
   }
 
   std::vector<VectorCase*> cases;
-  for (const char* name : kCaseNames) {
-    if (!only.empty() && only != name) {
+  for (const auto& suite : kSuites) {
+    if (!only_suite.empty() && only_suite != suite.label) {
       continue;
     }
-    auto* vc = new VectorCase();
-    if (!readCase(dir, name, *vc)) {
-      std::printf("[SDF_CHAIN] FAIL could not load %s\n", name);
-      return 1;
+    for (const char* name : kCaseNames) {
+      if (!only.empty() && only != name) {
+        continue;
+      }
+      auto* vc  = new VectorCase();
+      vc->suite = suite.label;
+      if (!readCase(suite.dir, name, *vc)) {
+        std::printf("[SDF_CHAIN] FAIL could not load %s/%s\n", suite.label, name);
+        return 1;
+      }
+      cases.push_back(vc);
     }
-    cases.push_back(vc);
   }
   if (cases.empty()) {
     std::printf("[SDF_CHAIN] FAIL no cases selected\n");
@@ -275,8 +314,9 @@ int main(int argc, char* argv[]) {
     h.chain = new SdfChain("Chain", vc->params);
     h.drv   = new ChainDriver(*vc, "Driver");
 
-    h.chain->in << h.drv->in;
-    h.chain->en << h.drv->en;
+    h.chain->in  << h.drv->in;
+    h.chain->en  << h.drv->en;
+    h.chain->clr << h.drv->clr;
     h.drv->out  << h.chain->out;
 
     h.chain->clk << clk;
@@ -299,8 +339,9 @@ int main(int argc, char* argv[]) {
   for (const auto& h : hs) {
     const bool pass = h.drv->passed() && h.drv->done() && h.drv->checked() == h.vc->expect.size();
     ok &= pass;
-    std::printf("  [%s] %-18s N=%-5zu %zu/%zu outputs", pass ? "PASS" : "FAIL", h.vc->name.c_str(),
-                h.vc->params.N, h.drv->checked(), h.vc->expect.size());
+    std::printf("  [%s] %-8s %-22s N=%-5zu B=%zu/%zu %zu/%zu outputs", pass ? "PASS" : "FAIL",
+                h.vc->suite.c_str(), h.vc->name.c_str(), h.vc->params.N, h.vc->params.B_in,
+                h.vc->params.B_w, h.drv->checked(), h.vc->expect.size());
     if (h.drv->mismatches() != 0) {
       std::printf("  %zu mismatches", h.drv->mismatches());
     }

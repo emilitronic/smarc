@@ -1,0 +1,6 @@
+N=16
+B_in=16
+B_w=24
+frames=2
+out_width=21
+description=full-scale uniform random, 2 frames

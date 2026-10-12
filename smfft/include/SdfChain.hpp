@@ -60,7 +60,17 @@ class SdfChain : public Component {
 
   Input(SdfComplex,  in);
   Input(bit,         en);
+  // Forces the master counter back to zero, which a new frame needs after a
+  // flush: a flush consumes N-1 extra enabled cycles, so the counter is left
+  // at N-1 and every stage would start the next frame in the wrong phase.
+  // Back-to-back frames need nothing, because the counter wraps to zero
+  // exactly on the boundary.
+  Input(bit,         clr);
   Output(SdfComplex, out);
+
+  // The master count, for a surrounding FSM that needs to know when the last
+  // stage reaches N-2 and the first output becomes valid.
+  Output(u32,        cntr);
 
   const SdfParams& params() const { return params_; }
   std::size_t      stages() const { return stages_.size(); }
@@ -68,7 +78,7 @@ class SdfChain : public Component {
 
   // Inspection only.
   const SdfStage& stage(std::size_t i) const { return *stages_[i]; }
-  std::size_t     count() const { return static_cast<std::size_t>(*cnt_Q_); }
+  std::size_t     count() const { return static_cast<std::size_t>(*cntr); }
 
   void updateCount();
   void reset();
@@ -77,9 +87,9 @@ class SdfChain : public Component {
   SdfParams params_;
   std::vector<SdfStage*> stages_;
 
-  // Master sample counter, modulo N. Advances only on an enabled cycle, so a
-  // stalled chain holds both its counter and every stage's delay line.
-  Output(u32, cnt_Q_);
+  // Master sample counter, modulo N, published on cntr. Advances only on an
+  // enabled cycle, so a stalled chain holds both its counter and every
+  // stage's delay line.
   Register(u32, cnt_D_);
 };
 

@@ -1,0 +1,6 @@
+N=1024
+B_in=16
+B_w=24
+frames=1
+out_width=27
+description=full-scale uniform random

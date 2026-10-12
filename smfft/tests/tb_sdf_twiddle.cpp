@@ -15,6 +15,11 @@ Each file holds the whole chain for its N: one block of rows per stage delay,
 k = 1 .. d-1, with k = 0 omitted. The row count is checked as well as the
 values, so a truncated or partial file cannot pass by matching only what it
 happens to contain.
+
+Both twiddle widths in the vector set are checked: B_w = 16 under vectors/ and
+B_w = 24 -- the widest the spec allows -- under vectors_b16_w24/. The clamp
+and the rounding are the parts most likely to differ at the extremes, so the
+wide tables are not redundant with the narrow ones.
 */
 
 #include "SdfTwiddle.hpp"
@@ -119,9 +124,13 @@ bool checkFile(const std::string& path, std::size_t B_w) {
 int main() {
   const std::string dir = SMFFT_VECTOR_DIR;
 
+  const std::string dir24 = SMFFT_VECTOR_DIR_B16W24;
+
   bool ok = true;
   ok &= checkFile(dir + "/twiddles_N8_W16.txt", 16);
   ok &= checkFile(dir + "/twiddles_N8192_W16.txt", 16);
+  ok &= checkFile(dir24 + "/twiddles_N8_W24.txt", 24);
+  ok &= checkFile(dir24 + "/twiddles_N8192_W24.txt", 24);
 
   // Section 5.1 boundary behaviour, stated explicitly so a change to the
   // clamp or the rounding shows up here and not only as a file diff.
@@ -141,6 +150,46 @@ int main() {
     std::printf("  d=4096 k=1 expected re=32767 (clamped) got %d\n", wclamp.re);
     ok = false;
   }
+  // The negative bound at B_w = 24: S = 2^23, so -j is -8388608.
+  const auto w90_24 = twiddle(4, 2, 24);
+  if (w90_24.re != 0 || w90_24.im != -8388608) {
+    std::printf("  B_w=24 d=4 k=2 expected 0 -8388608 got %d %d\n", w90_24.re, w90_24.im);
+    ok = false;
+  }
+
+  // The positive clamp does NOT fire anywhere at B_w = 24, and that is worth
+  // pinning rather than assuming. cos(pi/d)*S falls short of S by about
+  // S*(pi/d)^2/2, so the clamp needs that deficit below half an LSB:
+  //
+  //   B_w = 16  deficit at d=4096 is 0.0097  -> rounds to +S, clamps
+  //   B_w = 24  deficit at d=4096 is 2.47    -> representable, no clamp
+  //
+  // Counter-intuitively a wider twiddle clamps less, not more: S grows faster
+  // than the rounding threshold. At B_w = 24 the clamp would first bite at
+  // d = 16384, i.e. N = 32768, beyond the spec's maximum N. So the clamp is a
+  // narrow-twiddle concern only, and the B_w = 24 tables should contain no
+  // clamped entry at all.
+  if (twiddle(4096, 1, 24).re != 8388606) {
+    std::printf("  B_w=24 d=4096 k=1 expected re=8388606 got %d\n", twiddle(4096, 1, 24).re);
+    ok = false;
+  }
+  if (twiddle(4096, 1, 16).re != 32767) {
+    std::printf("  B_w=16 d=4096 k=1 expected re=32767 (clamped) got %d\n",
+                twiddle(4096, 1, 16).re);
+    ok = false;
+  }
+  for (std::size_t d = 2; d <= 4096; d <<= 1) {
+    const auto t = twiddleTable(d, 24);
+    for (std::size_t k = 1; k < d; ++k) {
+      if (t[k].re == 8388607 || t[k].im == 8388607) {
+        std::printf("  B_w=24 d=%zu k=%zu is at the clamp bound: %d %d\n", d, k, t[k].re,
+                    t[k].im);
+        ok = false;
+        break;
+      }
+    }
+  }
+
   // Entry 0 is a deliberate zero, never multiplied.
   const auto table = twiddleTable(8, 16);
   if (table[0].re != 0 || table[0].im != 0) {

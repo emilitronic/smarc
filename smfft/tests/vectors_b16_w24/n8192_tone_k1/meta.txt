@@ -1,0 +1,6 @@
+N=8192
+B_in=16
+B_w=24
+frames=1
+out_width=30
+description=complex tone in bin 1, 0.9 FS

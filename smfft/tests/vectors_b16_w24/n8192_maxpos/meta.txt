@@ -1,0 +1,6 @@
+N=8192
+B_in=16
+B_w=24
+frames=1
+out_width=30
+description=all samples (+max, +max): DC overflow check

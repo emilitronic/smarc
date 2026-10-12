@@ -39,6 +39,11 @@ hand) up to N = 8,192 (random, tones, extreme inputs, and a scenario-like frame
 of three chirp echoes in 6,900 samples plus zero padding).
 `twiddles_N<N>_W<B_w>.txt` hold the canonical twiddle values.
 
+Quiet-corner cases (`n64_quiet_tone_k3`, `n8192_quiet_tone_k777`,
+`n8192_lsb_noise`, `n8192_weak_echo`) check the noise floor, where rounding is
+a large part of the signal. `tests/vectors_b16_w24/` holds the same cases at the
+widest legal widths (B_in = 16, B_w = 24: 30-bit values, 54-bit products).
+
 Suggested order for bringing up the C++ model: `n8_impulse`, `n8_random`,
 `n16_random`, `n64_*`, `n1024_random`, then the `n8192_*` cases.
 

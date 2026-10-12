@@ -1,0 +1,6 @@
+N=8192
+B_in=16
+B_w=24
+frames=1
+out_width=30
+description=3 LFM echoes (180 MHz, 5 us, 150 MHz) in 6,900 samples, zero padded

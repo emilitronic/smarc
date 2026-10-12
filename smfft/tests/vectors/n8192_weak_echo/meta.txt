@@ -1,0 +1,6 @@
+N=8192
+B_in=13
+B_w=16
+frames=1
+out_width=27
+description=strong echo at 0.9 FS plus a -60 dB echo (~4 LSB), 0.5 LSB noise

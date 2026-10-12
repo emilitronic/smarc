@@ -1,0 +1,6 @@
+N=64
+B_in=13
+B_w=16
+frames=1
+out_width=20
+description=tone in bin 3, 2 LSB amplitude: easy to trace rounding by hand
