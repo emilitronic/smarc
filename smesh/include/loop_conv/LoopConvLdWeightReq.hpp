@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 11 2026
 /*
-Request format for the future load-weights worker. No worker state lives here.
+Request format shared by the scheduler and load-weights worker. No state lives here.
 */
 #pragma once
 
