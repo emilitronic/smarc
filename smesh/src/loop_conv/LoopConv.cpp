@@ -5,12 +5,24 @@
 
 #include "LoopConv.hpp"
 #include "LoopConvCmdQueue.hpp"
+#include "LoopConvUtilization.hpp"
 
 namespace smesh {
 
 LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
+  utilization_ = new LoopConvUtilization("Utilization");
+  utilization_->clk          << clk;
+  utilization_->ld_completed << ld_completed;
+  utilization_->ex_completed << ex_completed;
+  utilization_->st_completed << st_completed;
+  utilization_->ld_cmd_fire  << ld_cmd_fire_;
+  utilization_->ex_cmd_fire  << ex_cmd_fire_;
+  utilization_->st_cmd_fire  << st_cmd_fire_;
+  ld_outstanding             << utilization_->ld_outstanding;
+  ex_outstanding             << utilization_->ex_outstanding;
+  st_outstanding             << utilization_->st_outstanding;
   cmd_queue_ = new LoopConvCmdQueue("CmdQueue");
-  cmd_queue_->clk << clk;
+  cmd_queue_->clk            << clk;
 
   // Buffer incoming commands before any LoopConv interpretation.
   cmd_queue_->cmd_val  << in_val;
@@ -62,12 +74,11 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   scheduler_->ld_bias_req_rdy         << ld_bias_->req_rdy;
   loop_state_->ld_bias_idle           << ld_bias_->idle;
   loop_state_->ld_bias_worker_loop_id << ld_bias_->loop_id;
-  // TODO: Connect load utilization when implemented.
-  ld_bias_->ld_utilization_at_limit.wireToConst(bit(0));
-  ld_bias_->wait_for_prev_loop << bias_wait_;
-  ld_bias_->cmd_rdy << ld_bias_cmd_rdy_;
-  ld_bias_cmd_val_  << ld_bias_->cmd_val;
-  ld_bias_cmd_bits_ << ld_bias_->cmd_bits;
+  ld_bias_->ld_utilization_at_limit   << utilization_->ld_utilization_at_limit;
+  ld_bias_->wait_for_prev_loop        << bias_wait_;
+  ld_bias_->cmd_rdy                   << ld_bias_cmd_rdy_;
+  ld_bias_cmd_val_                    << ld_bias_->cmd_val;
+  ld_bias_cmd_bits_                   << ld_bias_->cmd_bits;
 
   // Input loads run independently of bias loads and share the command output.
   ld_input_ = new LoopConvLdInput("LdInput");
@@ -80,8 +91,7 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   ld_input_->cmd_rdy                   << ld_input_cmd_rdy_;
   ld_input_cmd_val_                    << ld_input_->cmd_val;
   ld_input_cmd_bits_                   << ld_input_->cmd_bits;
-  // TODO: Connect load utilization when implemented.
-  ld_input_->ld_utilization_at_limit.wireToConst(bit(0));
+  ld_input_->ld_utilization_at_limit << utilization_->ld_utilization_at_limit;
   ld_input_->wait_for_prev_loop << input_wait_;
 
   // Weight loads use the scheduler's SPAD end address and load-state slot 1.
@@ -95,9 +105,8 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   ld_weights_->cmd_rdy                   << ld_weights_cmd_rdy_;
   ld_weights_cmd_val_                    << ld_weights_->cmd_val;
   ld_weights_cmd_bits_                   << ld_weights_->cmd_bits;
-  // TODO: Connect load utilization when implemented.
-  ld_weights_->ld_utilization_at_limit.wireToConst(bit(0));
-  ld_weights_->wait_for_prev_loop << weights_wait_;
+  ld_weights_->ld_utilization_at_limit   << utilization_->ld_utilization_at_limit;
+  ld_weights_->wait_for_prev_loop        << weights_wait_;
 
   // Execute accepts a job after its loads start, then waits for their drain.
   ex_ = new LoopConvExecute("Execute");
@@ -113,17 +122,16 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   ex_->cmd_rdy                   << ex_cmd_rdy_;
   ex_cmd_val_                    << ex_->cmd_val;
   ex_cmd_bits_                   << ex_->cmd_bits;
-  // TODO: Connect Execute utilization when implemented.
-  ex_->ex_utilization_at_limit.wireToConst(bit(0));
-  ex_worker_loop_id_      << ex_->loop_id;
-  bias_worker_loop_id_    << ld_bias_->loop_id;
-  input_worker_loop_id_   << ld_input_->loop_id;
-  weights_worker_loop_id_ << ld_weights_->loop_id;
-  bias_idle_              << ld_bias_->idle;
-  input_idle_             << ld_input_->idle;
-  weights_idle_           << ld_weights_->idle;
-  progress_loop0_         << loop_state_->loop0;
-  progress_loop1_         << loop_state_->loop1;
+  ex_->ex_utilization_at_limit   << utilization_->ex_utilization_at_limit;
+  ex_worker_loop_id_             << ex_->loop_id;
+  bias_worker_loop_id_           << ld_bias_->loop_id;
+  input_worker_loop_id_          << ld_input_->loop_id;
+  weights_worker_loop_id_        << ld_weights_->loop_id;
+  bias_idle_                     << ld_bias_->idle;
+  input_idle_                    << ld_input_->idle;
+  weights_idle_                  << ld_weights_->idle;
+  progress_loop0_                << loop_state_->loop0;
+  progress_loop1_                << loop_state_->loop1;
 
   // Store accepts its job after Execute starts, then waits for command drain.
   st_ = new LoopConvSt("St");
@@ -139,8 +147,7 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   st_cmd_bits_                   << st_->cmd_bits;
   st_worker_loop_id_             << st_->loop_id;
   ex_idle_                       << ex_->idle;
-  // TODO: Connect Store utilization when implemented.
-  st_->st_utilization_at_limit.wireToConst(bit(0));
+  st_->st_utilization_at_limit   << utilization_->st_utilization_at_limit;
 
   UPDATE(updateRouting)
       .reads(head_val_, head_bits_, decoded_, out_rdy, state_cmd_rdy_, loop_configured_)
@@ -160,9 +167,13 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
       .writes(lda_completed_, ldb_completed_, ldd_completed_, bias_wait_, input_wait_, weights_wait_);
   UPDATE(updateStoreProgress).reads(ex_worker_loop_id_, st_worker_loop_id_, ex_idle_)
       .writes(store_ex_completed_);
+  UPDATE(updateCommandTransfers)
+      .reads(ld_bias_cmd_rdy_, ld_input_cmd_rdy_, ld_weights_cmd_rdy_, ex_cmd_rdy_, st_cmd_rdy_)
+      .writes(ld_cmd_fire_, ex_cmd_fire_, st_cmd_fire_);
 }
 
 LoopConv::~LoopConv() {
+  delete utilization_;
   delete st_;
   delete ex_;
   delete ld_weights_;
@@ -198,30 +209,32 @@ void LoopConv::updateRouting() {
 
 // Only the selected worker removes a command when downstream accepts it.
 void LoopConv::updateWorkerReady() {
-  st_cmd_rdy_ = bit(loop_configured_ == 1 && out_rdy == 1 && st_cmd_val_ == 1);
-  ex_cmd_rdy_ = bit(loop_configured_ == 1 && out_rdy == 1 && st_cmd_val_ == 0 && ex_cmd_val_ == 1);
-  const bool accept = loop_configured_ == 1 && out_rdy == 1 && st_cmd_val_ == 0 && ex_cmd_val_ == 0;
-  ld_bias_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 1);
+  st_cmd_rdy_         = bit(loop_configured_ == 1 && out_rdy == 1 && st_cmd_val_ == 1);
+  ex_cmd_rdy_         = bit(loop_configured_ == 1 && out_rdy == 1 && st_cmd_val_ == 0 && ex_cmd_val_ == 1);
+  const bool accept   = loop_configured_ == 1 && out_rdy == 1 && st_cmd_val_ == 0 && ex_cmd_val_ == 0;
+  ld_bias_cmd_rdy_    = bit(accept && ld_bias_cmd_val_ == 1);
   ld_weights_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_weights_cmd_val_ == 1);
-  ld_input_cmd_rdy_ = bit(accept && ld_bias_cmd_val_ == 0 && ld_weights_cmd_val_ == 0 && ld_input_cmd_val_ == 1);
+  ld_input_cmd_rdy_   = bit(accept && ld_bias_cmd_val_ == 0 && ld_weights_cmd_val_ == 0 && ld_input_cmd_val_ == 1);
 }
 
 // A loader that moved to another loop has already drained this Execute job's
 // commands. Pause that other loop's generation while Execute awaits its loads.
 void LoopConv::updateExecuteProgress() {
-  const auto id = static_cast<unsigned>(*ex_worker_loop_id_);
-  const auto slot = id == 0 ? *progress_loop0_ : *progress_loop1_;
-  lda_completed_ = bit(input_worker_loop_id_ != ex_worker_loop_id_ || input_idle_ == 1);
-  ldb_completed_ = bit(weights_worker_loop_id_ != ex_worker_loop_id_ || weights_idle_ == 1);
-  ldd_completed_ = bit(bias_worker_loop_id_ != ex_worker_loop_id_ || bias_idle_ == 1);
-  const bool waiting = slot.ex_started == 1 && slot.ex_completed == 0 &&
-      !(slot.ld_bias_completed == 1 && slot.ld_input_completed == 1 && slot.ld_weights_completed == 1);
-  bias_wait_ = bit(waiting && bias_worker_loop_id_ != ex_worker_loop_id_);
-  input_wait_ = bit(waiting && input_worker_loop_id_ != ex_worker_loop_id_);
-  weights_wait_ = bit(waiting && weights_worker_loop_id_ != ex_worker_loop_id_);
+  const auto id      = static_cast<unsigned>(*ex_worker_loop_id_);
+  const auto slot    = id == 0 ? *progress_loop0_ : *progress_loop1_;
+  lda_completed_     = bit(input_worker_loop_id_ != ex_worker_loop_id_ || input_idle_ == 1);
+  ldb_completed_     = bit(weights_worker_loop_id_ != ex_worker_loop_id_ || weights_idle_ == 1);
+  ldd_completed_     = bit(bias_worker_loop_id_ != ex_worker_loop_id_ || bias_idle_ == 1);
+  const bool waiting = slot.ex_started == 1 && slot.ex_completed == 0 && !(slot.ld_bias_completed == 1 && slot.ld_input_completed == 1 && slot.ld_weights_completed == 1);
+  bias_wait_         = bit(waiting && bias_worker_loop_id_ != ex_worker_loop_id_);
+  input_wait_        = bit(waiting && input_worker_loop_id_ != ex_worker_loop_id_);
+  weights_wait_      = bit(waiting && weights_worker_loop_id_ != ex_worker_loop_id_);
 }
 
 void LoopConv::reset() {
+  ld_cmd_fire_.reset(0);
+  ex_cmd_fire_.reset(0);
+  st_cmd_fire_.reset(0);
   head_rdy_.reset(0);
   out_val.reset(0);
   out_bits.reset(SmeshQueuedCmd{});
@@ -243,7 +256,17 @@ void LoopConv::reset() {
 // A different Execute loop ID means this Store job's Execute pipeline drained
 // before it accepted another job. Otherwise wait for that pipeline to be idle.
 void LoopConv::updateStoreProgress() {
+  const auto id       = static_cast<unsigned>(*st_worker_loop_id_);
+  const auto slot     = id == 0 ? *progress_loop0_ : *progress_loop1_;
   store_ex_completed_ = bit(ex_worker_loop_id_ != st_worker_loop_id_ || ex_idle_ == 1);
+}
+
+// Worker ready is asserted only for the selected valid command when out_rdy
+// is high. Thus these are actual worker transfers, excluding pass-through.
+void LoopConv::updateCommandTransfers() {
+  ld_cmd_fire_ = bit(ld_bias_cmd_rdy_ == 1 || ld_input_cmd_rdy_ == 1 || ld_weights_cmd_rdy_ == 1);
+  ex_cmd_fire_ = ex_cmd_rdy_;
+  st_cmd_fire_ = st_cmd_rdy_;
 }
 
 } // namespace smesh

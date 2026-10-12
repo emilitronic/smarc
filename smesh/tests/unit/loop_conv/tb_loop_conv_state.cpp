@@ -332,6 +332,9 @@ int main(int argc, char* argv[]) {
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
   smesh::LoopConv loop("LoopConv");
+  loop.ld_completed.wireToConst(u8(0));
+  loop.ex_completed.wireToConst(u8(0));
+  loop.st_completed.wireToConst(u8(0));
   Driver driver("Driver");
   loop.in_val << driver.in_val;
   loop.in_bits << driver.in_bits;

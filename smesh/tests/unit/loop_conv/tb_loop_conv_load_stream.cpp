@@ -7,6 +7,7 @@
 #include <descore/Parameter.hpp>
 
 #include "LoopConv.hpp"
+#include "LoopConvRsCredits.hpp"
 #include "SmeshCommand.hpp"
 
 #include <array>
@@ -40,6 +41,7 @@ class Driver : public Component {
   Input(smesh::SmeshQueuedCmd, out_bits);
   Input(smesh::LoopConvSlot, loop0);
   Input(smesh::LoopConvSlot, loop1);
+  Input(u16, ld_outstanding);
   void updateDrive();
   void updatePosition();
   void updateCheck();
@@ -61,6 +63,7 @@ class Driver : public Component {
   bool saw_weights_priority_ = false;
   bool saw_execute_wait_ = false;
   bool saw_store_wait_ = false;
+  bool saw_credit_stall_ = false;
   bool execute_pair_open_ = false;
 };
 
@@ -103,7 +106,7 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   cycle_Q_ <= cycle_D_;
   UPDATE(updateDrive).reads(position_Q_, cycle_Q_).writes(in_val, in_bits, out_rdy);
   UPDATE(updatePosition).reads(position_Q_, in_val, in_rdy).writes(position_D_);
-  UPDATE(updateCheck).reads(out_val, out_bits, out_rdy, loop0, loop1);
+  UPDATE(updateCheck).reads(out_val, out_bits, out_rdy, loop0, loop1, cycle_Q_, ld_outstanding);
   UPDATE(updateCycle).reads(cycle_Q_).writes(cycle_D_);
 }
 
@@ -124,6 +127,11 @@ void Driver::updatePosition() {
 void Driver::updateCheck() {
   if (Sim::state == Sim::SimResetting) return;
   const auto first = *loop0;
+  if (cycle_Q_ >= 25 && cycle_Q_ < 35 && ld_outstanding == smesh::kDefaultConfig.rs_load_entries) {
+    // Downstream can be ready, yet no load worker may exceed its shared limit.
+    passed_ &= out_val == 0;
+    saw_credit_stall_ |= out_rdy == 1;
+  }
   saw_overlap_ |= first.ld_bias_started == 1 && first.ld_input_started == 1 &&
                   first.ld_weights_started == 1 && first.ld_weights_completed == 0 &&
                   first.ld_bias_completed == 0 && first.ld_input_completed == 0;
@@ -187,12 +195,13 @@ void Driver::reset() {
   saw_weights_priority_ = false;
   saw_execute_wait_ = execute_pair_open_ = false;
   saw_store_wait_ = false;
+  saw_credit_stall_ = false;
 }
 
 bool Driver::passed() const {
   const auto a = *loop0;
   const auto b = *loop1;
-  return passed_ && saw_stall_ && saw_overlap_ && saw_bias_priority_ && saw_weights_priority_ && saw_execute_wait_ && saw_store_wait_ &&
+  return passed_ && saw_credit_stall_ && saw_stall_ && saw_overlap_ && saw_bias_priority_ && saw_weights_priority_ && saw_execute_wait_ && saw_store_wait_ &&
          seen_[0] == expected_[0].size() && seen_[1] == expected_[1].size() &&
          seen_[2] == expected_[2].size() &&
          seen_[3] == expected_[3].size() && !execute_pair_open_ &&
@@ -213,6 +222,7 @@ int main(int argc, char* argv[]) {
   Sim::parseDumps(argc, argv);
   Driver driver("Driver");
   smesh::LoopConv loop("LoopConv");
+  LoopConvRsCredits credits("Credits", 35);
   loop.in_val << driver.in_val;
   loop.in_bits << driver.in_bits;
   driver.in_rdy << loop.in_rdy;
@@ -221,7 +231,9 @@ int main(int argc, char* argv[]) {
   driver.out_bits << loop.out_bits;
   driver.loop0 << loop.loop0;
   driver.loop1 << loop.loop1;
+  driver.ld_outstanding << loop.ld_outstanding;
   Clock clk;
+  credits.connect(loop, clk);
   driver.clk << clk;
   loop.clk << clk;
   clk.generateClock();

@@ -44,6 +44,7 @@ add_library(smesh_model
   src/controllers/ld/LdCtrlState.cpp
   src/loop_matmul/LoopMatmul.cpp
   src/loop_conv/LoopConv.cpp
+  src/loop_conv/LoopConvUtilization.cpp
   src/loop_conv/LoopConvCmdQueue.cpp
   src/loop_conv/LoopConvCmdDec.cpp
   src/loop_conv/LoopConvState.cpp

@@ -5,7 +5,8 @@
 /*
 Buffers commands, decodes loop setup, and saves it in two loop banks.
 Ordinary commands pass through while neither bank is configured.
-All five workers share the command output; utilization/retirement come later.
+All five workers share the command output and obey RS utilization limits.
+Loop-slot retirement is not implemented yet.
 */
 #pragma once
 
@@ -20,6 +21,7 @@ All five workers share the command output; utilization/retirement come later.
 namespace smesh {
 
 class LoopConvCmdQueue;
+class LoopConvUtilization;
 
 class LoopConv : public Component {
   DECLARE_COMPONENT(LoopConv);
@@ -37,6 +39,13 @@ class LoopConv : public Component {
   Output(bit,            out_val);
   Output(SmeshQueuedCmd, out_bits);
   Input(bit,             out_rdy);
+  // Completion counts from the RS, restricted to LoopConv-originated commands.
+  Input(u8,              ld_completed);
+  Input(u8,              ex_completed);
+  Input(u8,              st_completed);
+  Output(u16,            ld_outstanding);
+  Output(u16,            ex_outstanding);
+  Output(u16,            st_outstanding);
   Output(bit,            busy);
   Output(LoopConvSlot,   loop0);
   Output(LoopConvSlot,   loop1);
@@ -48,6 +57,7 @@ class LoopConv : public Component {
   void updateWorkerReady();
   void updateExecuteProgress();
   void updateStoreProgress();
+  void updateCommandTransfers();
   void reset();
 
  private:
@@ -60,6 +70,10 @@ class LoopConv : public Component {
   LoopConvLdWeight*  ld_weights_ = nullptr;
   LoopConvExecute*   ex_ = nullptr;
   LoopConvSt*        st_ = nullptr;
+  LoopConvUtilization* utilization_ = nullptr;
+  Output(bit, ld_cmd_fire_);
+  Output(bit, ex_cmd_fire_);
+  Output(bit, st_cmd_fire_);
 
   Input(bit,                head_val_);
   Input(SmeshQueuedCmd,     head_bits_);

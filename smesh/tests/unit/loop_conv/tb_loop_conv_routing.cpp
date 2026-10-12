@@ -47,6 +47,9 @@ class Driver : public Component {
   Input(smesh::SmeshQueuedCmd, out_bits);
   Output(bit, out_rdy);
   Input(bit, busy);
+  Input(u16, ld_outstanding);
+  Input(u16, ex_outstanding);
+  Input(u16, st_outstanding);
 
   void updateDrive();
   void updateCheck();
@@ -94,7 +97,8 @@ Driver::Driver(std::string /*name*/, smesh::SmeshFunct held_funct, IMPL_CTOR)
   position_Q_ <= position_D_;
   cycle_Q_ <= cycle_D_;
   UPDATE(updateDrive).reads(cycle_Q_, position_Q_).writes(in_val, in_bits, out_rdy);
-  UPDATE(updateCheck).reads(cycle_Q_, in_rdy, out_val, out_bits, busy, out_rdy);
+  UPDATE(updateCheck).reads(cycle_Q_, in_rdy, out_val, out_bits, busy, out_rdy)
+      .reads(ld_outstanding, ex_outstanding, st_outstanding);
   UPDATE(updateCycle).reads(cycle_Q_, position_Q_, in_val, in_rdy).writes(cycle_D_, position_D_);
 }
 
@@ -117,6 +121,9 @@ void Driver::updateDrive() {
 void Driver::updateCheck() {
   if (Sim::state == Sim::SimResetting) return;
   const auto cycle = static_cast<unsigned>(*cycle_Q_);
+  // Ordinary pass-through traffic never consumes LoopConv utilization, even
+  // when its preserved metadata happens to have from_conv_loop set.
+  passed_ &= ld_outstanding == 0 && st_outstanding == 0 && ex_outstanding == generated_;
   if (cycle >= 10) {
     passed_ &= busy == 1;
     if (out_val == 1 && out_rdy == 1) {
@@ -191,6 +198,9 @@ int main(int argc, char* argv[]) {
     loops[i].reset(new smesh::LoopConv("LoopConv" + std::to_string(i)));
     drivers[i].reset(new Driver("Driver" + std::to_string(i), functions[i]));
     auto& loop = *loops[i];
+    loop.ld_completed.wireToConst(u8(0));
+    loop.ex_completed.wireToConst(u8(0));
+    loop.st_completed.wireToConst(u8(0));
     auto& driver = *drivers[i];
     loop.in_val << driver.in_val;
     loop.in_bits << driver.in_bits;
@@ -199,6 +209,9 @@ int main(int argc, char* argv[]) {
     driver.out_bits << loop.out_bits;
     loop.out_rdy << driver.out_rdy;
     driver.busy << loop.busy;
+    driver.ld_outstanding << loop.ld_outstanding;
+    driver.ex_outstanding << loop.ex_outstanding;
+    driver.st_outstanding << loop.st_outstanding;
     loop.clk << clk;
     driver.clk << clk;
   }

@@ -7,6 +7,7 @@
 #include <descore/Parameter.hpp>
 
 #include "LoopConv.hpp"
+#include "LoopConvRsCredits.hpp"
 #include "SmeshCommand.hpp"
 
 #include <array>
@@ -208,6 +209,7 @@ int main(int argc, char* argv[]) {
   Sim::parseDumps(argc, argv);
   Driver driver("Driver");
   smesh::LoopConv loop("LoopConv");
+  LoopConvRsCredits credits("Credits", 0);
   loop.in_val << driver.in_val;
   loop.in_bits << driver.in_bits;
   driver.in_rdy << loop.in_rdy;
@@ -218,6 +220,7 @@ int main(int argc, char* argv[]) {
   driver.loop1 << loop.loop1;
   driver.busy << loop.busy;
   Clock clk;
+  credits.connect(loop, clk);
   driver.clk << clk;
   loop.clk << clk;
   clk.generateClock();
