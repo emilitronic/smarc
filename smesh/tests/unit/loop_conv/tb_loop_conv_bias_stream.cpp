@@ -52,7 +52,7 @@ class Driver : public Component {
   bool passed() const {
     const auto first = *loop0;
     const auto second = *loop1;
-    return passed_ && seen_ == expected_.size() && exec_seen_ == 8 && *position_Q_ == program_.size() &&
+    return passed_ && seen_ == expected_.size() && exec_seen_ == 8 && store_seen_ == 4 && *position_Q_ == program_.size() &&
            saw_stall_ && first.ld_bias_started == 1 && first.ld_bias_completed == 1 &&
            second.ld_bias_started == 1 && second.ld_bias_completed == 1 &&
            first.ld_input_started == 1 && first.ld_input_completed == 1 &&
@@ -60,6 +60,8 @@ class Driver : public Component {
            first.ld_weights_started == 1 && first.ld_weights_completed == 1 &&
            second.ld_weights_started == 1 && second.ld_weights_completed == 1 &&
            first.ex_completed == 1 && second.ex_completed == 1 &&
+           first.st_started == 1 && second.st_started == 1 &&
+           first.st_completed == 1 && second.st_completed == 1 &&
            first.configured == 1 && second.configured == 1 && *busy == 1;
   }
 
@@ -73,6 +75,7 @@ class Driver : public Component {
   bool passed_ = true;
   unsigned seen_ = 0;
   unsigned exec_seen_ = 0;
+  unsigned store_seen_ = 0;
   bool saw_stall_ = false;
 };
 
@@ -86,14 +89,14 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   for (unsigned slot = 0; slot < 2; ++slot) {
     const auto p = 1 + slot * 7;
     program_[p] = command(17, 0, (1ull << 48) | 3);
-    program_[p + 1] = command(19, (1ull << 48) | 1, (1ull << 48) | 5);
+    program_[p + 1] = command(19, (1ull << 48) | 1, (1ull << 48) | (3ull << 16) | 5);
     program_[p + 2] = command(20, 0, 0x80003000 + slot * 0x1000);
     program_[p + 3] = command(21, 0x80001000 + slot * 0x1000, 0);
     // Slot 1 requests zero bias filling, but its source address is nonzero.
     // Input/weights are assumed resident for this bias-focused generator test.
     program_[p + 4] = command(16, 1, 1ull << 48);
     program_[p + 5] = command(18, (1ull << 48) | (1ull << 32) | (1ull << 16), 5);
-    program_[p + 6] = command(15, slot, 0);
+    program_[p + 6] = command(15, slot, 1); // Ordinary stores; no pooling geometry configured.
   }
   // This ordinary command must wait for loop retirement, which is not built yet.
   program_[15] = command(7, 0xbeef, 0xcafe);
@@ -151,6 +154,19 @@ void Driver::updateCheck() {
     ++exec_seen_;
     return;
   }
+  if (actual.cmd.funct == 3) {
+    const auto slot = store_seen_ / 2;
+    const auto col = (store_seen_ % 2) * 4;
+    const auto rows = col == 0 ? 4u : 1u;
+    auto expected = command(3, 0x80003000 + slot * 0x1000 + col * 3,
+        smesh::packLocal(smesh::makeAccAddr(slot * smesh::kAccRows / 2 + col, false, false), {rows, 3}));
+    expected.from_conv_loop = 1;
+    const auto state = slot == 0 ? *loop0 : *loop1;
+    passed_ &= store_seen_ < 4 && same(actual, expected) &&
+               exec_seen_ >= (slot + 1) * 4 && state.st_completed == 0;
+    ++store_seen_;
+    return;
+  }
   const bool match = seen_ < expected_.size() && same(actual, expected_[seen_]);
   if (!match)
     std::printf("Bias stream command %u mismatch funct=%u rs1=0x%llx rs2=0x%llx\n",
@@ -180,6 +196,7 @@ void Driver::reset() {
   passed_ = true;
   seen_ = 0;
   exec_seen_ = 0;
+  store_seen_ = 0;
   saw_stall_ = false;
 }
 

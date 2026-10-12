@@ -5,7 +5,7 @@
 /*
 Buffers commands, decodes loop setup, and saves it in two loop banks.
 Ordinary commands pass through while neither bank is configured.
-Execute and the three load workers share the output; store/retirement come later.
+All five workers share the command output; utilization/retirement come later.
 */
 #pragma once
 
@@ -47,6 +47,7 @@ class LoopConv : public Component {
   void updateRouting();
   void updateWorkerReady();
   void updateExecuteProgress();
+  void updateStoreProgress();
   void reset();
 
  private:
@@ -58,6 +59,7 @@ class LoopConv : public Component {
   LoopConvLdInput*   ld_input_   = nullptr;
   LoopConvLdWeight*  ld_weights_ = nullptr;
   LoopConvExecute*   ex_ = nullptr;
+  LoopConvSt*        st_ = nullptr;
 
   Input(bit,                head_val_);
   Input(SmeshQueuedCmd,     head_bits_);
@@ -92,6 +94,12 @@ class LoopConv : public Component {
   Output(bit,               bias_wait_);
   Output(bit,               input_wait_);
   Output(bit,               weights_wait_);
+  Input(bit,                st_cmd_val_);
+  Input(SmeshCmd,           st_cmd_bits_);
+  Output(bit,               st_cmd_rdy_);
+  Input(u8,                 st_worker_loop_id_);
+  Input(bit,                ex_idle_);
+  Output(bit,               store_ex_completed_);
 };
 
 } // namespace smesh

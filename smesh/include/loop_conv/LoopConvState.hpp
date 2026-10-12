@@ -67,6 +67,10 @@ class LoopConvState : public Component {
   Input(u8,                 ex_loop_id);
   Input(bit,                ex_idle);
   Input(u8,                 ex_worker_loop_id);
+  Input(bit,                st_req_fire);
+  Input(u8,                 st_loop_id);
+  Input(bit,                st_idle);
+  Input(u8,                 st_worker_loop_id);
   Output(bit,               cmd_rdy);
   Output(bit,               loop_configured);
   Output(u8,                head_loop_id);

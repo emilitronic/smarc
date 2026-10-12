@@ -48,18 +48,19 @@ class Driver : public Component {
   bool passed() const;
  private:
   std::vector<smesh::SmeshQueuedCmd> program_;
-  std::array<std::vector<smesh::SmeshCmd>, 4> expected_;
+  std::array<std::vector<smesh::SmeshCmd>, 5> expected_;
   Output(u16, position_Q_);
   Register(u16, position_D_);
   Output(u16, cycle_Q_);
   Register(u16, cycle_D_);
-  std::array<unsigned, 4> seen_{};
+  std::array<unsigned, 5> seen_{};
   bool passed_ = true;
   bool saw_stall_ = false;
   bool saw_overlap_ = false;
   bool saw_bias_priority_ = false;
   bool saw_weights_priority_ = false;
   bool saw_execute_wait_ = false;
+  bool saw_store_wait_ = false;
   bool execute_pair_open_ = false;
 };
 
@@ -95,6 +96,8 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
         smesh::packLocal(smesh::makeAccAddr(acc, true), {4, 3})).cmd);
     expected_[3].push_back(command(4, smesh::packLocal(smesh::makeSpAddr(spad), {4, 4}),
         smesh::packLocal(0xffffffffu, {4, 3})).cmd);
+    expected_[4].push_back(command(3, 0x80003000 + slot * 0x1000,
+        smesh::packLocal(smesh::makeAccAddr(acc, false, false), {4, 3})).cmd);
   }
   position_Q_ <= position_D_;
   cycle_Q_ <= cycle_D_;
@@ -126,6 +129,7 @@ void Driver::updateCheck() {
                   first.ld_bias_completed == 0 && first.ld_input_completed == 0;
   saw_execute_wait_ |= first.ex_started == 1 &&
       !(first.ld_bias_completed == 1 && first.ld_input_completed == 1 && first.ld_weights_completed == 1);
+  saw_store_wait_ |= first.st_started == 1 && first.ex_completed == 0;
   if (out_val == 0) return;
   if (out_rdy == 0) {
     saw_stall_ = true;
@@ -136,7 +140,8 @@ void Driver::updateCheck() {
   const bool bias = funct == 14 || (funct == 0 && ((std::uint64_t(value.cmd.rs1) >> 3) & 3) == 2);
   const bool weights = funct == 1 || (funct == 0 && ((std::uint64_t(value.cmd.rs1) >> 3) & 3) == 1);
   const bool execute = funct == 6 || funct == 4 || funct == 5;
-  const unsigned worker = execute ? 3 : bias ? 0 : weights ? 2 : 1;
+  const bool store = funct == 3;
+  const unsigned worker = store ? 4 : execute ? 3 : bias ? 0 : weights ? 2 : 1;
   const auto n = seen_[worker];
   const bool match = n < expected_[worker].size() && same(value.cmd, expected_[worker][n]);
   passed_ &= match && value.from_conv_loop == 1 && value.from_mmul_loop == 0 && value.rs_tag_valid == 0;
@@ -148,17 +153,18 @@ void Driver::updateCheck() {
   // must win their first transfer before input can transfer anything.
   if (weights && seen_[2] == 0) saw_weights_priority_ = seen_[1] == 0;
   if (worker == 1 && seen_[1] == 0) passed_ &= seen_[2] >= 2;
-  const auto slot = (worker == 1 ? n / 4 : n / 2) == 0 ? first : *loop1;
-  if (!execute && (worker == 1 ? n / 4 : n / 2) == 1) {
+  const auto job = store ? n : worker == 1 ? n / 4 : n / 2;
+  const auto slot = job == 0 ? first : *loop1;
+  if (!execute && !store && job == 1) {
     // The second loop's workers must not generate ahead while Execute awaits
     // the first loop's loads. This scenario has no prequeued second-loop data.
     passed_ &= first.ld_bias_completed == 1 && first.ld_input_completed == 1 && first.ld_weights_completed == 1;
   }
-  passed_ &= execute ? slot.ex_completed == 0 : bias ? slot.ld_bias_completed == 0 : weights
+  passed_ &= store ? slot.st_completed == 0 : execute ? slot.ex_completed == 0 : bias ? slot.ld_bias_completed == 0 : weights
       ? slot.ld_weights_completed == 0 : slot.ld_input_completed == 0;
-  // A PRELOAD/COMPUTE pair is already pipelined. Execute's priority must keep
-  // another worker from transferring between its two commands.
-  if (execute_pair_open_) passed_ &= execute;
+  // Only higher-priority Store may interrupt a pipelined PRELOAD/COMPUTE pair.
+  if (execute_pair_open_) passed_ &= execute || store;
+  if (store) passed_ &= seen_[3] >= (job + 1) * 2 && slot.ex_completed == 1;
   if (execute) {
     const auto job = n / 2;
     passed_ &= seen_[0] >= (job + 1) * 2 && seen_[1] >= (job + 1) * 4 && seen_[2] >= (job + 1) * 2;
@@ -180,20 +186,23 @@ void Driver::reset() {
   saw_stall_ = saw_overlap_ = saw_bias_priority_ = false;
   saw_weights_priority_ = false;
   saw_execute_wait_ = execute_pair_open_ = false;
+  saw_store_wait_ = false;
 }
 
 bool Driver::passed() const {
   const auto a = *loop0;
   const auto b = *loop1;
-  return passed_ && saw_stall_ && saw_overlap_ && saw_bias_priority_ && saw_weights_priority_ && saw_execute_wait_ &&
+  return passed_ && saw_stall_ && saw_overlap_ && saw_bias_priority_ && saw_weights_priority_ && saw_execute_wait_ && saw_store_wait_ &&
          seen_[0] == expected_[0].size() && seen_[1] == expected_[1].size() &&
          seen_[2] == expected_[2].size() &&
          seen_[3] == expected_[3].size() && !execute_pair_open_ &&
+         seen_[4] == expected_[4].size() &&
          *position_Q_ == program_.size() &&
          a.ld_bias_completed == 1 && a.ld_input_completed == 1 &&
          b.ld_bias_completed == 1 && b.ld_input_completed == 1 &&
          a.ld_weights_completed == 1 && b.ld_weights_completed == 1 &&
-         a.ex_started == 1 && b.ex_started == 1 && a.ex_completed == 1 && b.ex_completed == 1;
+         a.ex_started == 1 && b.ex_started == 1 && a.ex_completed == 1 && b.ex_completed == 1 &&
+         a.st_started == 1 && b.st_started == 1 && a.st_completed == 1 && b.st_completed == 1;
 }
 
 } // namespace

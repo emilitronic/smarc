@@ -107,7 +107,7 @@ LoopConvScheduler::LoopConvScheduler(std::string /*name*/, IMPL_CTOR) {
       .writes(st_addr_start_D_);
 }
 
-// Store can accept a job once Execute has started. The future Store worker
+// Store can accept a job once Execute has started. The Store worker
 // waits for Execute completion before generating any commands for that job.
 void LoopConvScheduler::updateStoreRequest() {
   const auto head = static_cast<unsigned>(*head_loop_id);
@@ -148,7 +148,7 @@ void LoopConvScheduler::updateStoreAddress() {
 }
 
 // Offer Execute only after all three load jobs have started. Their completion
-// will gate command generation inside the future Execute worker, not this request.
+// will gate command generation inside the Execute worker, not this request.
 void LoopConvScheduler::updateExecuteRequest() {
   const auto head = static_cast<unsigned>(*head_loop_id);
   assert(head < 2);

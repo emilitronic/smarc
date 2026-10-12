@@ -23,6 +23,7 @@ LoopConvState::LoopConvState(std::string /*name*/, IMPL_CTOR) {
       .reads(ld_input_idle, ld_input_worker_loop_id)
       .reads(ld_weights_req_fire, ld_weights_loop_id, ld_weights_idle, ld_weights_worker_loop_id)
       .reads(ex_req_fire, ex_loop_id, ex_idle, ex_worker_loop_id)
+      .reads(st_req_fire, st_loop_id, st_idle, st_worker_loop_id)
       .writes(state_D_);
 }
 
@@ -62,8 +63,12 @@ void LoopConvState::updateNextState() {
   assert(ex_id < current.loops.size());
   const auto& ex_slot = current.loops[ex_id];
   const bool ex_finished = ex_idle == 1 && ex_slot.running == 1 && ex_slot.ex_started == 1 && ex_slot.ex_completed == 0;
-  if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && ld_weights_req_fire == 0 && ex_req_fire == 0 &&
-      !bias_finished && !input_finished && !weights_finished && !ex_finished) return;
+  const auto st_id = static_cast<unsigned>(*st_worker_loop_id);
+  assert(st_id < current.loops.size());
+  const auto& st_slot = current.loops[st_id];
+  const bool st_finished = st_idle == 1 && st_slot.running == 1 && st_slot.st_started == 1 && st_slot.st_completed == 0;
+  if (!setup && ld_bias_req_fire == 0 && ld_input_req_fire == 0 && ld_weights_req_fire == 0 && ex_req_fire == 0 && st_req_fire == 0 &&
+      !bias_finished && !input_finished && !weights_finished && !ex_finished && !st_finished) return;
   auto next           = current;
   const auto head     = static_cast<unsigned>(current.head_id);
   const auto selected = current.loops[head].configured == 1 ? head ^ 1u : head;
@@ -200,6 +205,19 @@ void LoopConvState::updateNextState() {
   if (ex_finished) {
     next.loops[ex_id].ex_completed = 1;
     trace("loop_conv state: execute finished slot=%u", ex_id);
+  }
+  if (st_req_fire == 1) {
+    const auto id = static_cast<unsigned>(*st_loop_id);
+    assert(id < next.loops.size());
+    assert(current.loops[id].configured == 1 && current.loops[id].st_started == 0 && current.loops[id].ex_started == 1);
+    next.loops[id].running = 1;
+    next.loops[id].st_started = 1;
+    trace("loop_conv state: store started slot=%u", id);
+  }
+  // Completion here is command-generation/pipeline drain, not DMA completion.
+  if (st_finished) {
+    next.loops[st_id].st_completed = 1;
+    trace("loop_conv state: store finished slot=%u", st_id);
   }
   state_D_ = next;
 }
