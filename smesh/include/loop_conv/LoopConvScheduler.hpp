@@ -14,7 +14,7 @@ Builds and offers load, Execute, and Store requests from saved loop slots.
 #include "LoopConvLdInput.hpp"
 #include "LoopConvLdWeight.hpp"
 #include "LoopConvExecute.hpp"
-#include "LoopConvStReq.hpp"
+#include "LoopConvSt.hpp"
 
 namespace smesh {
 

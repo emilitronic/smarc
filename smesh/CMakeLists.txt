@@ -52,6 +52,7 @@ add_library(smesh_model
   src/loop_conv/LoopConvLdInput.cpp
   src/loop_conv/LoopConvLdWeight.cpp
   src/loop_conv/LoopConvExecute.cpp
+  src/loop_conv/LoopConvSt.cpp
   src/loop_matmul/LoopMatmulCmdQueue.cpp
   src/loop_matmul/LoopMatmulLdA.cpp
   src/loop_matmul/LoopMatmulLdB.cpp

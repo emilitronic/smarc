@@ -31,14 +31,12 @@ struct InputExtent {
 InputExtent inputExtent(std::uint16_t outputs, std::uint16_t stride,
                         std::uint16_t kernel, std::uint16_t dilation,
                         std::uint16_t before, std::uint16_t after, bool input_dilated) {
-  const auto sum = (std::uint64_t{outputs} * stride + dilatedKernel(kernel, dilation)) & mask(33);
-  const auto extent = (sum - 1) & mask(34);
+  const auto sum               = (std::uint64_t{outputs} * stride + dilatedKernel(kernel, dilation)) & mask(33);
+  const auto extent            = (sum - 1) & mask(34);
   const auto first_subtraction = (extent - before) & mask(35);
-  const auto without_padding = (first_subtraction - after) & mask(36);
-  const auto unpadded = (without_padding + unsigned(input_dilated)) >> unsigned(input_dilated);
-  const auto padded = input_dilated
-      ? unpadded + ((std::uint32_t{before} + 1) >> 1) + ((std::uint32_t{after} + 1) >> 1)
-      : extent;
+  const auto without_padding   = (first_subtraction - after) & mask(36);
+  const auto unpadded          = (without_padding + unsigned(input_dilated)) >> unsigned(input_dilated);
+  const auto padded            = input_dilated ? unpadded + ((std::uint32_t{before} + 1) >> 1) + ((std::uint32_t{after} + 1) >> 1) : extent;
   return {static_cast<std::uint16_t>(padded), static_cast<std::uint16_t>(unpadded)};
 }
 
@@ -47,10 +45,8 @@ LoopConvInputGeometry inputGeometry(const LoopConvSlot& slot) {
   const auto& outer  = slot.outer_bounds;
   const auto& inner  = slot.inner_bounds;
   const bool dilated = slot.launch.input_dilated == 1;
-  const auto rows    = inputExtent(inner.orows, outer.stride, inner.krows,
-                                  outer.kernel_dilation, inner.upad, inner.dpad, dilated);
-  const auto cols    = inputExtent(inner.ocols, outer.stride, inner.kcols,
-                                  outer.kernel_dilation, inner.lpad, inner.rpad, dilated);
+  const auto rows    = inputExtent(inner.orows, outer.stride, inner.krows, outer.kernel_dilation, inner.upad, inner.dpad, dilated);
+  const auto cols    = inputExtent(inner.ocols, outer.stride, inner.kcols, outer.kernel_dilation, inner.lpad, inner.rpad, dilated);
   LoopConvInputGeometry result{};
   result.irows          = rows.padded;
   result.icols          = cols.padded;
@@ -66,12 +62,11 @@ LoopConvInputGeometry inputGeometry(const LoopConvSlot& slot) {
 // Both the weight loader and Execute must describe exactly the same B layout.
 LoopConvWeightGeometry weightGeometry(const LoopConvSlot& slot) {
   LoopConvWeightGeometry result{};
-  result.ochs = slot.inner_bounds.pochs;
+  result.ochs                  = slot.inner_bounds.pochs;
   result.out_channels_per_bank = (std::uint32_t{slot.inner_bounds.pochs} + kDim - 1) / kDim;
-  result.in_channels_per_bank = (std::uint32_t{slot.inner_bounds.kchs} + kDim - 1) / kDim;
-  const auto channels = slot.launch.trans_weight_0132 == 1 ? slot.inner_bounds.pochs : slot.inner_bounds.kchs;
-  result.weight_spad_stride = static_cast<std::uint16_t>(
-      std::uint64_t{slot.inner_bounds.krows} * slot.inner_bounds.kcols * channels);
+  result.in_channels_per_bank  = (std::uint32_t{slot.inner_bounds.kchs} + kDim - 1) / kDim;
+  const auto channels          = slot.launch.trans_weight_0132 == 1 ? slot.inner_bounds.pochs : slot.inner_bounds.kchs;
+  result.weight_spad_stride = static_cast<std::uint16_t>(std::uint64_t{slot.inner_bounds.krows} * slot.inner_bounds.kcols * channels);
   return result;
 }
 
@@ -79,8 +74,8 @@ LoopConvWeightGeometry weightGeometry(const LoopConvSlot& slot) {
 
 LoopConvScheduler::LoopConvScheduler(std::string /*name*/, IMPL_CTOR) {
   ld_bias_addr_start_Q_ <= ld_bias_addr_start_D_;
-  ex_c_addr_start_Q_ <= ex_c_addr_start_D_;
-  st_addr_start_Q_ <= st_addr_start_D_;
+  ex_c_addr_start_Q_    <= ex_c_addr_start_D_;
+  st_addr_start_Q_      <= st_addr_start_D_;
   UPDATE(updateRequest)
       .reads(loop0, loop1, head_loop_id, ld_bias_addr_start_Q_)
       .writes(ld_bias_req_val, ld_bias_req_bits);
@@ -210,11 +205,11 @@ void LoopConvScheduler::updateWeightRequest() {
   const auto selected  = head_slot.ld_weights_started == 1 ? head ^ 1u : head;
   const auto slot      = selected == 0 ? *loop0 : *loop1;
   LoopConvLdWeightReq request{};
-  request.outer_bounds  = slot.outer_bounds;
-  request.inner_bounds  = slot.inner_bounds;
-  request.geometry = weightGeometry(slot);
-  const auto spad_id  = slot.launch.b_ex_spad_id;
-  const auto end      = spad_id == 0 ? slot.b_addr_end : spad_id * (kSpRows / 2);
+  request.outer_bounds = slot.outer_bounds;
+  request.inner_bounds = slot.inner_bounds;
+  request.geometry     = weightGeometry(slot);
+  const auto spad_id   = slot.launch.b_ex_spad_id;
+  const auto end       = spad_id == 0 ? slot.b_addr_end : spad_id * (kSpRows / 2);
   // Original uses log2Up(max_addr+1) bits: the full-memory endpoint is valid.
   request.addr_end          = static_cast<std::uint32_t>(end) & static_cast<std::uint32_t>(mask(log2Up(kSpRows + 1)));
   request.dram_addr         = slot.weights_dram_addr;
