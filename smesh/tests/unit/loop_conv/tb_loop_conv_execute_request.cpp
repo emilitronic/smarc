@@ -194,6 +194,7 @@ int main(int argc, char* argv[]) {
   scheduler.ld_input_req_rdy.wireToConst(bit(0));
   scheduler.ld_weights_req_rdy.wireToConst(bit(0));
   scheduler.ex_req_rdy << driver.req_rdy;
+  scheduler.st_req_rdy.wireToConst(bit(0));
   driver.req_val << scheduler.ex_req_val;
   driver.req_bits << scheduler.ex_req_bits;
   driver.req_fire << scheduler.ex_req_fire;

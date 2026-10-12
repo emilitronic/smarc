@@ -45,6 +45,8 @@ LoopConv::LoopConv(std::string /*name*/, IMPL_CTOR) {
   scheduler_->loop0             << loop_state_->loop0;
   scheduler_->loop1             << loop_state_->loop1;
   scheduler_->head_loop_id      << loop_state_->head_loop_id;
+  // Keep Store jobs pending until its command-generating worker is implemented.
+  scheduler_->st_req_rdy.wireToConst(bit(0));
   loop_state_->ex_req_fire << scheduler_->ex_req_fire;
   loop_state_->ex_loop_id << scheduler_->ex_loop_id;
   loop_state_->ld_weights_req_fire << scheduler_->ld_weights_req_fire;
