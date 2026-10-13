@@ -3,19 +3,16 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 26 2026
 /*
-Captures LOOP_WS setup in two slots and connects the command generators and arbiters.
-Generator requests, progress, utilization, and loop completion are connected.
-
-Launches primitive command generators (PCGs), connects load and execute progress, 
-records when each generator finishes, tracks load, store, and execute utilization,
-applies capacity backpressure, and releases completed loop slots for reuse.
-
+Connects LoopMatmulState, the primitive command generators, utilization counters,
+and command arbiters. The state block owns saved loop setup and worker progress;
+this parent builds worker requests and routes generated or ordinary commands.
 */
 #pragma once
 
 #include <cascade/Cascade.hpp>
 
 #include "SmeshPorts.hpp"
+#include "LoopMatmulState.hpp"
 #include "LoopMatmulLdA.hpp"
 #include "LoopMatmulLdB.hpp"
 #include "LoopMatmulLdD.hpp"
@@ -23,7 +20,6 @@ applies capacity backpressure, and releases completed loop slots for reuse.
 #include "LoopMatmulStC.hpp"
 #include "LoopMatmulStCSpad.hpp"
 
-#include <array>
 #include <cstdint>
 
 namespace smesh {
@@ -32,53 +28,6 @@ class LoopMatmulCmdQueue;
 class LoopMatmulLdABArb;
 class LoopMatmulCmdArb;
 class LoopMatmulUtilization;
-
-// One pending LOOP_WS operation, including the fields collected from its setup commands.
-struct LoopMatmulSlot {
-  std::uint16_t max_i = 0;
-  std::uint16_t max_j = 0;
-  std::uint16_t max_k = 0;
-  std::uint16_t pad_i = 0;
-  std::uint16_t pad_j = 0;
-  std::uint16_t pad_k = 0;
-
-  std::uint64_t a_dram_addr = 0;
-  std::uint64_t b_dram_addr = 0;
-  std::uint64_t d_dram_addr = 0;
-  std::uint64_t c_dram_addr = 0;
-  std::uint64_t a_dram_stride = 0;
-  std::uint64_t b_dram_stride = 0;
-  std::uint64_t d_dram_stride = 0;
-  std::uint64_t c_dram_stride = 0;
-
-  std::uint32_t a_addr_start = 0;
-  std::uint32_t b_addr_end = 0;
-  std::uint32_t resadd_addr_start = 0;
-  std::uint32_t c_spad_addr = 0;
-  std::uint8_t  a_ex_spad_id = 0;
-  std::uint8_t  b_ex_spad_id = 0;
-  std::uint8_t  act = 0;
-  bit a_transpose   = false;
-  bit b_transpose   = false;
-  bit ex_accumulate = false;
-  bit full_c        = false;
-  bit low_d         = false;
-  bit inc_acc_addr  = false;
-  bit spad_only     = false;
-  bit configured    = false;
-  bit running       = false;
-
-  bit lda_started   = false;
-  bit ldb_started   = false;
-  bit ldd_started   = false;
-  bit ex_started    = false;
-  bit st_started    = false;
-  bit lda_completed = false;
-  bit ldb_completed = false;
-  bit ldd_completed = false;
-  bit ex_completed  = false;
-  bit st_completed  = false;
-};
 
 // Captures LOOP_WS setup and routes generated or ordinary commands to the output.
 class LoopMatmul : public Component {
@@ -114,19 +63,10 @@ class LoopMatmul : public Component {
   void updateGeneratorInputs();
   void updateProgress();
   void updateCommandFires();
-  void updateSlots();
   void reset();
 
  private:
-  struct State {
-    std::array<LoopMatmulSlot, 2> loops{};
-    u8  head_id = 0;
-    bit is_resadd = false;
-    u32 ld_d_addr_start = 0;
-    u32 ex_c_addr_start = 0;
-    u32 st_c_addr_start = 0;
-  };
-
+  LoopMatmulState*    loop_state_ = nullptr;
   LoopMatmulCmdQueue* cmd_queue_ = nullptr;
   LoopMatmulLdA*      ld_a_      = nullptr;
   LoopMatmulLdB*      ld_b_      = nullptr;
@@ -202,8 +142,7 @@ class LoopMatmul : public Component {
   Output(bit, ex_complete_to_st_c_);
   Output(bit, ex_complete_to_st_c_spad_);
 
-  Output(State, state_Q_);
-  Register(State, state_D_);
+  Input(LoopMatmulStateData, state_view_);
 };
 
 } // namespace smesh

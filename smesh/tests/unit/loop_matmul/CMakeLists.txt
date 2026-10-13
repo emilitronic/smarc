@@ -4,7 +4,6 @@ add_executable(tb_loop_matmul_ld_b tb_loop_matmul_ld_b.cpp)
 add_executable(tb_loop_matmul_ld_d tb_loop_matmul_ld_d.cpp)
 add_executable(tb_loop_matmul_utilization
   tb_loop_matmul_utilization.cpp
-  ../../../src/loop_matmul/LoopMatmulUtilization.cpp
 )
 target_link_libraries(tb_loop_matmul_utilization PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
 set_target_properties(tb_loop_matmul_utilization PROPERTIES

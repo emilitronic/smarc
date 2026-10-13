@@ -28,28 +28,6 @@ bool isLoopCommand(SmeshFunct funct) {
          (funct >= SmeshFunct::LoopWsBounds && funct <= SmeshFunct::LoopWsStridesDc);
 }
 
-bool allCompleted(const LoopMatmulSlot& slot) {
-  return slot.lda_completed == 1 && slot.ldb_completed == 1 &&
-         slot.ldd_completed == 1 && slot.ex_completed == 1 &&
-         slot.st_completed == 1;
-}
-
-void clearLoopProgress(LoopMatmulSlot& slot) {
-  slot.configured = 0;
-  slot.running = 0;
-  slot.lda_started = 0;
-  slot.ldb_started = 0;
-  slot.ldd_started = 0;
-  slot.ex_started = 0;
-  slot.st_started = 0;
-  slot.lda_completed = 0;
-  slot.ldb_completed = 0;
-  slot.ldd_completed = 0;
-  slot.ex_completed = 0;
-  slot.st_completed = 0;
-  slot.spad_only = 0;
-}
-
 } // namespace
 
 LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
@@ -204,9 +182,46 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   unrolled_val_ << cmd_arb_->out_val;
   unrolled_bits_ << cmd_arb_->out_bits;
 
-  state_Q_ <= state_D_;
+  // The state block owns saved setup, worker progress, and slot retirement.
+  loop_state_ = new LoopMatmulState("LoopState");
+  loop_state_->clk       << clk;
+  loop_state_->head_val  << head_val_;
+  loop_state_->head_bits << head_bits_;
+  loop_state_->head_rdy  << head_rdy_;
+  state_view_            << loop_state_->state;
+  loop0                  << loop_state_->loop0;
+  loop1                  << loop_state_->loop1;
+  head_loop_id           << loop_state_->head_loop_id;
+  completed0             << loop_state_->completed0;
+  completed1             << loop_state_->completed1;
+
+  loop_state_->ld_a_req_val       << ld_a_req_val_;
+  loop_state_->ld_a_req_rdy       << ld_a_req_rdy_;
+  loop_state_->ld_b_req_val       << ld_b_req_val_;
+  loop_state_->ld_b_req_rdy       << ld_b_req_rdy_;
+  loop_state_->ld_d_req_val       << ld_d_req_val_;
+  loop_state_->ld_d_req_rdy       << ld_d_req_rdy_;
+  loop_state_->ex_req_val         << ex_req_val_;
+  loop_state_->ex_req_rdy         << ex_req_rdy_;
+  loop_state_->st_c_req_val       << st_c_req_val_;
+  loop_state_->st_c_req_rdy       << st_c_req_rdy_;
+  loop_state_->st_c_spad_req_val  << st_c_spad_req_val_;
+  loop_state_->st_c_spad_req_rdy  << st_c_spad_req_rdy_;
+  loop_state_->ld_a_idle          << ld_a_idle_;
+  loop_state_->ld_a_loop_id       << ld_a_loop_id_;
+  loop_state_->ld_b_idle          << ld_b_idle_;
+  loop_state_->ld_b_loop_id       << ld_b_loop_id_;
+  loop_state_->ld_d_idle          << ld_d_idle_;
+  loop_state_->ld_d_loop_id       << ld_d_loop_id_;
+  loop_state_->ex_idle            << ex_idle_;
+  loop_state_->ex_loop_id         << ex_loop_id_;
+  loop_state_->st_c_idle          << st_c_idle_;
+  loop_state_->st_c_loop_id       << st_c_loop_id_;
+  loop_state_->st_c_spad_idle     << st_c_spad_idle_;
+  loop_state_->st_c_spad_loop_id  << st_c_spad_loop_id_;
+
   UPDATE(updateGeneratorInputs)
-      .reads(state_Q_)
+      .reads(state_view_)
       .writes(ld_a_req_val_, ld_a_req_bits_, ld_b_req_val_, ld_b_req_bits_,
               ld_d_req_val_, ld_d_req_bits_, ex_req_val_, ex_req_bits_)
       .writes(st_c_req_val_, st_c_req_bits_, st_c_spad_req_val_,
@@ -218,30 +233,21 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
       .writes(ld_a_cmd_fire_, ld_b_cmd_fire_, ld_d_cmd_fire_,
               ex_cmd_fire_, st_c_cmd_fire_, st_c_spad_cmd_fire_);
   UPDATE(updateProgress)
-      .reads(state_Q_, ld_a_idle_, ld_a_loop_id_, ld_b_idle_, ld_b_loop_id_,
+      .reads(state_view_, ld_a_idle_, ld_a_loop_id_, ld_b_idle_, ld_b_loop_id_,
              ld_d_idle_, ld_d_loop_id_, ex_idle_)
       .reads(ex_loop_id_, st_c_loop_id_, st_c_spad_loop_id_)
       .writes(lda_complete_to_ex_, ldb_complete_to_ex_, ldd_complete_to_ex_,
               ex_complete_to_st_c_, ex_complete_to_st_c_spad_);
   UPDATE(updateStatus)
-      .reads(state_Q_, head_val_)
-      .writes(busy, head_loop_id, loop0, loop1, is_resadd_, completed0, completed1);
+      .reads(state_view_, head_val_)
+      .writes(busy, is_resadd_);
   UPDATE(updateDecision)
-      .reads(state_Q_, head_val_, head_bits_, out_rdy, unrolled_val_, unrolled_bits_)
+      .reads(state_view_, head_val_, head_bits_, out_rdy, unrolled_val_, unrolled_bits_)
       .writes(head_rdy_, out_val, out_bits);
-  UPDATE(updateSlots)
-      .reads(state_Q_, head_val_, head_bits_, head_rdy_, ld_a_req_val_,
-             ld_a_req_rdy_, ld_b_req_val_, ld_b_req_rdy_)
-      .reads(ld_d_req_val_, ld_d_req_rdy_, ex_req_val_, ex_req_rdy_,
-             st_c_req_val_, st_c_req_rdy_, st_c_spad_req_val_, st_c_spad_req_rdy_)
-      .reads(ld_a_idle_, ld_a_loop_id_, ld_b_idle_, ld_b_loop_id_,
-             ld_d_idle_, ld_d_loop_id_, ex_idle_, ex_loop_id_)
-      .reads(st_c_idle_, st_c_loop_id_, st_c_spad_idle_, st_c_spad_loop_id_)
-      .reads(completed0, completed1)
-      .writes(state_D_);
 }
 
 LoopMatmul::~LoopMatmul() {
+  delete loop_state_;
   delete utilization_;
   delete cmd_arb_;
   delete ld_ab_arb_;
@@ -255,7 +261,7 @@ LoopMatmul::~LoopMatmul() {
 }
 
 void LoopMatmul::updateGeneratorInputs() {
-  const auto state = *state_Q_;
+  const auto state = *state_view_;
   const auto head  = static_cast<std::uint8_t>(state.head_id);
   const auto tail  = static_cast<std::uint8_t>(head ^ 1u);
   const auto a_id  = state.loops[head].lda_started == 1 ? tail : head;
@@ -380,7 +386,7 @@ void LoopMatmul::updateCommandFires() {
 }
 
 void LoopMatmul::updateProgress() {
-  const auto state = *state_Q_;
+  const auto state = *state_view_;
   lda_complete_to_ex_ = bit(ld_a_idle_ == 1 || ld_a_loop_id_ != ex_loop_id_);
   ldb_complete_to_ex_ = bit(ld_b_idle_ == 1 || ld_b_loop_id_ != ex_loop_id_);
   ldd_complete_to_ex_ = bit(ld_d_idle_ == 1 || ld_d_loop_id_ != ex_loop_id_);
@@ -393,23 +399,15 @@ void LoopMatmul::updateProgress() {
 }
 
 void LoopMatmul::updateStatus() {
-  const auto state = *state_Q_;
+  const auto state = *state_view_;
   const bool configured = state.loops[0].configured == 1 || state.loops[1].configured == 1;
   busy = bit(head_val_ == 1 || configured);
-  head_loop_id = state.head_id;
-  loop0 = state.loops[0];
-  loop1 = state.loops[1];
   is_resadd_ = state.is_resadd;
-  const auto head = static_cast<std::uint8_t>(state.head_id);
-  const bool finished = state.loops[head].running == 1 &&
-                        allCompleted(state.loops[head]);
-  completed0 = bit(finished && head == 0);
-  completed1 = bit(finished && head == 1);
 }
 
 // read current loop-slot state and cmd queue head & compute outputs
 void LoopMatmul::updateDecision() {
-  const auto state = *state_Q_;
+  const auto state = *state_view_;
   const bool configured  = state.loops[0].configured == 1 || state.loops[1].configured == 1;
   const auto head_id     = static_cast<std::uint8_t>(state.head_id);
   const auto selected_id = state.loops[head_id].configured == 1 ? head_id ^ 1u : head_id;
@@ -440,190 +438,11 @@ void LoopMatmul::updateDecision() {
   }
 }
 
-// records an accepted LOOP_WS cmd
-void LoopMatmul::updateSlots() {
-  const auto current = *state_Q_;
-  auto next = current;
-  bool changed = false;
-  const auto head_id = static_cast<std::uint8_t>(current.head_id);
-  const auto tail_id = static_cast<std::uint8_t>(head_id ^ 1u);
-
-  if (head_val_ == 1 && head_rdy_ == 1 &&
-      isLoopCommand(commandFunct(*head_bits_))) {
-    const auto head = *head_bits_;
-    const auto funct = commandFunct(head);
-    const auto selected_id = current.loops[head_id].configured == 1 ? tail_id : head_id;
-    auto& slot = next.loops[selected_id];
-    const auto rs1 = static_cast<std::uint64_t>(head.cmd.rs1);
-    const auto rs2 = static_cast<std::uint64_t>(head.cmd.rs2);
-    changed = true;
-    switch (funct) {
-    case SmeshFunct::LoopWsBounds:
-      slot.max_i = rs2 & 0xffffu;
-      slot.max_j = (rs2 >> 16) & 0xffffu;
-      slot.max_k = (rs2 >> 32) & 0xffffu;
-      slot.pad_i = rs1 & 0xffffu;
-      slot.pad_j = (rs1 >> 16) & 0xffffu;
-      slot.pad_k = (rs1 >> 32) & 0xffffu;
-      break;
-    case SmeshFunct::LoopWsAddrsAb:
-      slot.spad_only   = 0;
-      slot.a_dram_addr = rs1;
-      slot.b_dram_addr = rs2;
-      break;
-    case SmeshFunct::LoopWsAddrsDc:
-      slot.spad_only   = 0;
-      slot.d_dram_addr = rs1;
-      slot.c_dram_addr = rs2;
-      break;
-    case SmeshFunct::LoopWsStridesAb:
-      slot.a_dram_stride = rs1;
-      slot.b_dram_stride = rs2;
-      break;
-    case SmeshFunct::LoopWsStridesDc:
-      slot.d_dram_stride = rs1;
-      slot.c_dram_stride = rs2;
-      break;
-    case SmeshFunct::LoopWs:
-      slot.ex_accumulate = bit(rs1 & 1u);
-      slot.full_c        = bit((rs1 >> 1) & 1u);
-      slot.low_d         = bit((rs1 >> 2) & 1u);
-      slot.act           = (rs1 >> 8) & 0x7u;
-      slot.b_ex_spad_id  = (rs1 >> 16) & 0x3u;
-      slot.a_ex_spad_id  = (rs1 >> 18) & 0x3u;
-      slot.a_transpose   = bit(rs2 & 1u);
-      slot.b_transpose   = bit((rs2 >> 1) & 1u);
-      next.is_resadd     = bit((rs2 >> 2) & 1u);
-      slot.lda_started   = bit((rs2 >> 3) & 1u);
-      slot.ldb_started   = bit((rs2 >> 4) & 1u);
-      slot.ldd_started   = bit((rs2 >> 5) & 1u);
-      slot.ex_started    = bit((rs2 >> 6) & 1u);
-      slot.st_started    = bit((rs2 >> 7) & 1u);
-      slot.lda_completed = slot.lda_started;
-      slot.ldb_completed = slot.ldb_started;
-      slot.ldd_completed = slot.ldd_started;
-      slot.ex_completed  = slot.ex_started;
-      slot.st_completed  = slot.st_started;
-      slot.inc_acc_addr  = bit((rs2 >> 8) & 1u);
-      slot.spad_only     = bit((rs2 >> 9) & 1u);
-      slot.c_spad_addr   = rs2 >> 32;
-      slot.configured    = 1;
-      break;
-    default:
-      break;
-    }
-    trace("loop_matmul: slot=%u funct=%u configured=%u",
-          static_cast<unsigned>(selected_id), static_cast<unsigned>(funct),
-          static_cast<unsigned>(slot.configured == 1));
-  }
-
-  const auto requesting = [&](bit started) {
-    return static_cast<std::uint8_t>(started == 1 ? tail_id : head_id);
-  };
-  if (ld_a_req_val_ == 1 && ld_a_req_rdy_ == 1) {
-    auto& slot = next.loops[requesting(current.loops[head_id].lda_started)];
-    slot.running = 1;
-    slot.lda_started = 1;
-    changed = true;
-    trace("loop_matmul: launch LdA");
-  }
-  if (ld_b_req_val_ == 1 && ld_b_req_rdy_ == 1) {
-    auto& slot = next.loops[requesting(current.loops[head_id].ldb_started)];
-    slot.running = 1;
-    slot.ldb_started = 1;
-    changed = true;
-    trace("loop_matmul: launch LdB");
-  }
-  if (ld_d_req_val_ == 1 && ld_d_req_rdy_ == 1) {
-    auto& slot = next.loops[requesting(current.loops[head_id].ldd_started)];
-    slot.running = 1;
-    slot.ldd_started = 1;
-    if (slot.c_dram_addr != 0)
-      next.ld_d_addr_start = (static_cast<std::uint32_t>(current.ld_d_addr_start) +
-                              kAccRows / 2) % kAccRows;
-    changed = true;
-    trace("loop_matmul: launch LdD");
-  }
-  if (ex_req_val_ == 1 && ex_req_rdy_ == 1) {
-    auto& slot = next.loops[requesting(current.loops[head_id].ex_started)];
-    slot.running = 1;
-    slot.ex_started = 1;
-    if ((slot.spad_only == 1 && slot.inc_acc_addr == 1) ||
-        (slot.spad_only == 0 && slot.c_dram_addr != 0))
-      next.ex_c_addr_start = (static_cast<std::uint32_t>(current.ex_c_addr_start) +
-                              kAccRows / 2) % kAccRows;
-    changed = true;
-    trace("loop_matmul: launch Ex");
-  }
-  if ((st_c_req_val_ == 1 && st_c_req_rdy_ == 1) ||
-      (st_c_spad_req_val_ == 1 && st_c_spad_req_rdy_ == 1)) {
-    auto& slot = next.loops[requesting(current.loops[head_id].st_started)];
-    slot.running = 1;
-    slot.st_started = 1;
-    if ((slot.spad_only == 1 && slot.inc_acc_addr == 1) ||
-        (slot.spad_only == 0 && slot.c_dram_addr != 0))
-      next.st_c_addr_start = (static_cast<std::uint32_t>(current.st_c_addr_start) +
-                              kAccRows / 2) % kAccRows;
-    changed = true;
-    trace("loop_matmul: launch StC");
-  }
-
-  const auto complete = [&](bit idle, u8 loop_id, bit LoopMatmulSlot::*started,
-                            bit LoopMatmulSlot::*completed) {
-    const auto id = static_cast<std::uint8_t>(loop_id);
-    if (idle == 1 && id < next.loops.size() &&
-        current.loops[id].running == 1 && current.loops[id].*started == 1 &&
-        current.loops[id].*completed == 0) {
-      next.loops[id].*completed = 1;
-      changed = true;
-    }
-  };
-  complete(*ld_a_idle_, *ld_a_loop_id_, &LoopMatmulSlot::lda_started,
-           &LoopMatmulSlot::lda_completed);
-  complete(*ld_b_idle_, *ld_b_loop_id_, &LoopMatmulSlot::ldb_started,
-           &LoopMatmulSlot::ldb_completed);
-  complete(*ld_d_idle_, *ld_d_loop_id_, &LoopMatmulSlot::ldd_started,
-           &LoopMatmulSlot::ldd_completed);
-  complete(*ex_idle_, *ex_loop_id_, &LoopMatmulSlot::ex_started,
-           &LoopMatmulSlot::ex_completed);
-  if (st_c_idle_ == 1 && st_c_loop_id_ < next.loops.size() &&
-      current.loops[static_cast<std::uint8_t>(*st_c_loop_id_)].spad_only == 0)
-    complete(*st_c_idle_, *st_c_loop_id_, &LoopMatmulSlot::st_started,
-             &LoopMatmulSlot::st_completed);
-  if (st_c_spad_idle_ == 1 && st_c_spad_loop_id_ < next.loops.size() &&
-      current.loops[static_cast<std::uint8_t>(*st_c_spad_loop_id_)].spad_only == 1)
-    complete(*st_c_spad_idle_, *st_c_spad_loop_id_, &LoopMatmulSlot::st_started,
-             &LoopMatmulSlot::st_completed);
-
-  if (completed0 == 1 || completed1 == 1) {
-    clearLoopProgress(next.loops[head_id]);
-    next.head_id = tail_id;
-    changed = true;
-    trace("loop_matmul: complete loop=%u", static_cast<unsigned>(head_id));
-  }
-
-  if (changed) state_D_ = next;
-}
-
 void LoopMatmul::reset() {
-  State state{};
-  const auto half_spad = static_cast<std::uint32_t>(kSpRows / 2);
-  const auto half_acc = static_cast<std::uint32_t>(kAccRows / 2);
-  for (std::size_t i = 0; i < state.loops.size(); ++i) {
-    state.loops[i].a_addr_start = i * half_spad;
-    state.loops[i].b_addr_end = (i + 1) * half_spad;
-    state.loops[i].resadd_addr_start = i * half_acc;
-  }
-  state_D_.reset(state);
   head_rdy_.reset(0);
   out_val.reset(0);
   out_bits.reset(SmeshQueuedCmd{});
   busy.reset(0);
-  head_loop_id.reset(0);
-  loop0.reset(state.loops[0]);
-  loop1.reset(state.loops[1]);
-  completed0.reset(0);
-  completed1.reset(0);
   is_resadd_.reset(0);
   ld_a_req_val_.reset(0);
   ld_b_req_val_.reset(0);
