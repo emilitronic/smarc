@@ -50,6 +50,11 @@ The suite currently covers:
   produces a 2x2 output. Checks zero-fill of eight initially nonzero SPAD
   rows, real pixel/weight placement, independently computed accumulator
   results, DRAM output, completions, and loop retirement.
+- `loop_conv_images`: two distinct 1x4 images with four input channels and
+  two output channels run back-to-back without reset. Both use the same
+  1x1 kernel, bias, and SPAD A/B locations, but separate DRAM destinations.
+  Checks both numerical results, final SPAD contents, completion tags,
+  and loop/utilization drain.
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
 - `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
 - `accum_scale_store`: loads signed full-width accumulator rows and stores half-scaled, ReLU, and original full-width values. Checks rounding, clipping, completion tags, and DRAM bytes in DIM4, DIM8, and four-byte memory builds.
@@ -92,6 +97,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_dma
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_kernel2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_padding
+./build/smesh/tb_rs_to_mem_suite -test=loop_conv_images
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load
 ./build/smesh/tb_rs_to_mem_suite -test=shared_accum_read
 ./build/smesh/tb_rs_to_mem_suite -test=accum_scale_store

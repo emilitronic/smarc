@@ -66,6 +66,7 @@ add_test(NAME smesh_rs_to_mem_loop_ws_dma COMMAND tb_rs_to_mem_suite -test=loop_
 add_test(NAME smesh_rs_to_mem_loop_conv_dma COMMAND tb_rs_to_mem_suite -test=loop_conv_dma)
 add_test(NAME smesh_rs_to_mem_loop_conv_kernel2 COMMAND tb_rs_to_mem_suite -test=loop_conv_kernel2)
 add_test(NAME smesh_rs_to_mem_loop_conv_padding COMMAND tb_rs_to_mem_suite -test=loop_conv_padding)
+add_test(NAME smesh_rs_to_mem_loop_conv_images COMMAND tb_rs_to_mem_suite -test=loop_conv_images)
 add_test(NAME smesh_rs_to_mem_loop_ws_dma_i2 COMMAND tb_rs_to_mem_suite -test=loop_ws_dma_i2)
 add_test(NAME smesh_rs_to_mem_loop_ws_dma_k2 COMMAND tb_rs_to_mem_suite -test=loop_ws_dma_k2)
 add_test(NAME smesh_rs_to_mem_full_width_accum_load COMMAND tb_rs_to_mem_suite -test=full_width_accum_load)
@@ -84,6 +85,7 @@ set_tests_properties(
   smesh_rs_to_mem_loop_conv_dma
   smesh_rs_to_mem_loop_conv_kernel2
   smesh_rs_to_mem_loop_conv_padding
+  smesh_rs_to_mem_loop_conv_images
   smesh_rs_to_mem_loop_ws_dma_i2
   smesh_rs_to_mem_loop_ws_dma_k2
   smesh_rs_to_mem_full_width_accum_load

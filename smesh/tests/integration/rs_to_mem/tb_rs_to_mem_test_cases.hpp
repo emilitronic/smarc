@@ -84,6 +84,7 @@ RsMemTestCase makeLoopWsDmaK2Case();
 RsMemTestCase makeLoopConvDmaCase();
 RsMemTestCase makeLoopConvKernel2Case();
 RsMemTestCase makeLoopConvPaddingCase();
+RsMemTestCase makeLoopConvImagesCase();
 RsMemTestCase makeFullWidthAccumLoadCase();
 RsMemTestCase makeDim8LoadsCase();
 std::vector<RsMemTestCase> rsMemTestCases();
