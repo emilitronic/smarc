@@ -2,12 +2,6 @@ add_executable(tb_loop_matmul_config tb_loop_matmul_config.cpp)
 add_executable(tb_loop_matmul_ld_a tb_loop_matmul_ld_a.cpp)
 add_executable(tb_loop_matmul_ld_b tb_loop_matmul_ld_b.cpp)
 add_executable(tb_loop_matmul_ld_d tb_loop_matmul_ld_d.cpp)
-add_executable(tb_loop_matmul_ld_utilization tb_loop_matmul_ld_utilization.cpp)
-add_executable(tb_loop_matmul_ex_st_utilization
-  tb_loop_matmul_ex_st_utilization.cpp
-  ../../../src/loop_matmul/LoopMatmulExUtilization.cpp
-  ../../../src/loop_matmul/LoopMatmulStUtilization.cpp
-)
 add_executable(tb_loop_matmul_utilization
   tb_loop_matmul_utilization.cpp
   ../../../src/loop_matmul/LoopMatmulUtilization.cpp
@@ -18,15 +12,6 @@ set_target_properties(tb_loop_matmul_utilization PROPERTIES
 )
 add_test(NAME smesh_unit_loop_matmul_utilization COMMAND tb_loop_matmul_utilization)
 set_tests_properties(smesh_unit_loop_matmul_utilization PROPERTIES
-  LABELS "unit;loop_matmul"
-  TIMEOUT 10
-)
-target_link_libraries(tb_loop_matmul_ex_st_utilization PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
-set_target_properties(tb_loop_matmul_ex_st_utilization PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
-)
-add_test(NAME smesh_unit_loop_matmul_ex_st_utilization COMMAND tb_loop_matmul_ex_st_utilization)
-set_tests_properties(smesh_unit_loop_matmul_ex_st_utilization PROPERTIES
   LABELS "unit;loop_matmul"
   TIMEOUT 10
 )
@@ -66,17 +51,6 @@ target_link_libraries(tb_loop_matmul_ld_b
 )
 
 target_link_libraries(tb_loop_matmul_ld_d
-  PRIVATE
-    smesh_model
-    cascade
-    -lz
-    -ltermcap
-    -lpthread
-)
-
-target_sources(tb_loop_matmul_ld_utilization PRIVATE
-  ../../../src/loop_matmul/LoopMatmulLdUtilization.cpp)
-target_link_libraries(tb_loop_matmul_ld_utilization
   PRIVATE
     smesh_model
     cascade
@@ -160,9 +134,6 @@ set_target_properties(tb_loop_matmul_ld_b PROPERTIES
 set_target_properties(tb_loop_matmul_ld_d PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
-set_target_properties(tb_loop_matmul_ld_utilization PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
-)
 set_target_properties(tb_loop_matmul_ex PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
@@ -189,7 +160,6 @@ add_test(NAME smesh_unit_loop_matmul_config COMMAND tb_loop_matmul_config)
 add_test(NAME smesh_unit_loop_matmul_ld_a COMMAND tb_loop_matmul_ld_a)
 add_test(NAME smesh_unit_loop_matmul_ld_b COMMAND tb_loop_matmul_ld_b)
 add_test(NAME smesh_unit_loop_matmul_ld_d COMMAND tb_loop_matmul_ld_d)
-add_test(NAME smesh_unit_loop_matmul_ld_utilization COMMAND tb_loop_matmul_ld_utilization)
 add_test(NAME smesh_unit_loop_matmul_ex COMMAND tb_loop_matmul_ex)
 add_test(NAME smesh_unit_loop_matmul_st_c COMMAND tb_loop_matmul_st_c)
 add_test(NAME smesh_unit_loop_matmul_st_c_spad COMMAND tb_loop_matmul_st_c_spad)
@@ -197,7 +167,7 @@ add_test(NAME smesh_unit_loop_matmul_ld_ab_arb COMMAND tb_loop_matmul_ld_ab_arb)
 add_test(NAME smesh_unit_loop_matmul_cmd_arb COMMAND tb_loop_matmul_cmd_arb)
 add_test(NAME smesh_unit_loop_matmul_stream COMMAND tb_loop_matmul_stream)
 add_test(NAME smesh_unit_loop_matmul_reuse COMMAND tb_loop_matmul_reuse)
-set_tests_properties(smesh_unit_loop_matmul_config smesh_unit_loop_matmul_ld_a smesh_unit_loop_matmul_ld_b smesh_unit_loop_matmul_ld_d smesh_unit_loop_matmul_ld_utilization smesh_unit_loop_matmul_ex smesh_unit_loop_matmul_st_c smesh_unit_loop_matmul_st_c_spad smesh_unit_loop_matmul_ld_ab_arb smesh_unit_loop_matmul_cmd_arb smesh_unit_loop_matmul_stream smesh_unit_loop_matmul_reuse PROPERTIES
+set_tests_properties(smesh_unit_loop_matmul_config smesh_unit_loop_matmul_ld_a smesh_unit_loop_matmul_ld_b smesh_unit_loop_matmul_ld_d smesh_unit_loop_matmul_ex smesh_unit_loop_matmul_st_c smesh_unit_loop_matmul_st_c_spad smesh_unit_loop_matmul_ld_ab_arb smesh_unit_loop_matmul_cmd_arb smesh_unit_loop_matmul_stream smesh_unit_loop_matmul_reuse PROPERTIES
   LABELS "unit;loop_matmul"
   TIMEOUT 10
 )
