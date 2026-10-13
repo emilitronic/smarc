@@ -8,9 +8,7 @@
 #include "LoopMatmulCmdQueue.hpp"
 #include "LoopMatmulLdABArb.hpp"
 #include "LoopMatmulCmdArb.hpp"
-#include "LoopMatmulLdUtilization.hpp"
-#include "LoopMatmulExUtilization.hpp"
-#include "LoopMatmulStUtilization.hpp"
+#include "LoopMatmulUtilization.hpp"
 
 #include "SmeshCommand.hpp"
 
@@ -75,9 +73,7 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   st_c_spad_      = new LoopMatmulStCSpad("StCSpad");
   ld_ab_arb_      = new LoopMatmulLdABArb("LdABArb");
   cmd_arb_        = new LoopMatmulCmdArb("CmdArb");
-  ld_utilization_ = new LoopMatmulLdUtilization("LdUtilization");
-  ex_utilization_ = new LoopMatmulExUtilization("ExUtilization");
-  st_utilization_ = new LoopMatmulStUtilization("StUtilization");
+  utilization_ = new LoopMatmulUtilization("Utilization");
 
   ld_a_->clk           << clk;
   ld_b_->clk           << clk;
@@ -87,9 +83,7 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   st_c_spad_->clk      << clk;
   ld_ab_arb_->clk      << clk;
   cmd_arb_->clk        << clk;
-  ld_utilization_->clk << clk;
-  ex_utilization_->clk << clk;
-  st_utilization_->clk << clk;
+  utilization_->clk << clk;
 
   ld_a_->req_val  << ld_a_req_val_;
   ld_a_req_rdy_   << ld_a_->req_rdy;
@@ -115,23 +109,23 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
   st_c_spad_req_rdy_   << st_c_spad_->req_rdy;
   st_c_spad_->req_bits << st_c_spad_req_bits_;
 
-  ld_a_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
-  ld_b_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
-  ld_d_->ld_utilization_at_limit << ld_utilization_->ld_utilization_at_limit;
+  ld_a_->ld_utilization_at_limit << utilization_->ld_utilization_at_limit;
+  ld_b_->ld_utilization_at_limit << utilization_->ld_utilization_at_limit;
+  ld_d_->ld_utilization_at_limit << utilization_->ld_utilization_at_limit;
 
-  ex_->ex_utilization_at_limit        << ex_utilization_->ex_utilization_at_limit;
-  st_c_->st_utilization_at_limit      << st_utilization_->st_utilization_at_limit;
-  st_c_spad_->st_utilization_at_limit << st_utilization_->st_utilization_at_limit;
+  ex_->ex_utilization_at_limit        << utilization_->ex_utilization_at_limit;
+  st_c_->st_utilization_at_limit      << utilization_->st_utilization_at_limit;
+  st_c_spad_->st_utilization_at_limit << utilization_->st_utilization_at_limit;
 
-  ld_utilization_->lda_cmd_fire << ld_a_cmd_fire_;
-  ld_utilization_->ldb_cmd_fire << ld_b_cmd_fire_;
-  ld_utilization_->ldd_cmd_fire << ld_d_cmd_fire_;
-  ld_utilization_->ld_completed << ld_completed;
-  ex_utilization_->ex_cmd_fire << ex_cmd_fire_;
-  ex_utilization_->ex_completed << ex_completed;
-  st_utilization_->st_c_cmd_fire << st_c_cmd_fire_;
-  st_utilization_->st_c_spad_cmd_fire << st_c_spad_cmd_fire_;
-  st_utilization_->st_completed << st_completed;
+  utilization_->lda_cmd_fire << ld_a_cmd_fire_;
+  utilization_->ldb_cmd_fire << ld_b_cmd_fire_;
+  utilization_->ldd_cmd_fire << ld_d_cmd_fire_;
+  utilization_->ld_completed << ld_completed;
+  utilization_->ex_cmd_fire << ex_cmd_fire_;
+  utilization_->ex_completed << ex_completed;
+  utilization_->st_c_cmd_fire << st_c_cmd_fire_;
+  utilization_->st_c_spad_cmd_fire << st_c_spad_cmd_fire_;
+  utilization_->st_completed << st_completed;
 
   ex_->ld_ka << ld_a_->k;
   ex_->ld_kb << ld_b_->k;
@@ -248,9 +242,7 @@ LoopMatmul::LoopMatmul(std::string /*name*/, IMPL_CTOR) {
 }
 
 LoopMatmul::~LoopMatmul() {
-  delete st_utilization_;
-  delete ex_utilization_;
-  delete ld_utilization_;
+  delete utilization_;
   delete cmd_arb_;
   delete ld_ab_arb_;
   delete st_c_spad_;

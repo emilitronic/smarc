@@ -31,9 +31,7 @@ namespace smesh {
 class LoopMatmulCmdQueue;
 class LoopMatmulLdABArb;
 class LoopMatmulCmdArb;
-class LoopMatmulLdUtilization;
-class LoopMatmulExUtilization;
-class LoopMatmulStUtilization;
+class LoopMatmulUtilization;
 
 // One pending LOOP_WS operation, including the fields collected from its setup commands.
 struct LoopMatmulSlot {
@@ -138,9 +136,7 @@ class LoopMatmul : public Component {
   LoopMatmulStCSpad*  st_c_spad_ = nullptr;
   LoopMatmulLdABArb*  ld_ab_arb_ = nullptr;
   LoopMatmulCmdArb*   cmd_arb_   = nullptr;
-  LoopMatmulLdUtilization* ld_utilization_ = nullptr;
-  LoopMatmulExUtilization* ex_utilization_ = nullptr;
-  LoopMatmulStUtilization* st_utilization_ = nullptr;
+  LoopMatmulUtilization* utilization_ = nullptr;
 
   Input(bit, head_val_);
   Input(SmeshQueuedCmd, head_bits_);
