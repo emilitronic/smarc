@@ -598,6 +598,108 @@ RsMemTestCase makeLoopConvDmaCase() {
   return test;
 }
 
+// A 3x3 NHWC image, two input/output channels, and four distinct kernel
+// positions. Tile into two output-row jobs: each uses six input SPAD rows
+// and eight weight rows, fitting the existing 16-row scratchpad without overlap.
+RsMemTestCase makeLoopConvKernel2Case() {
+  RsMemTestCase test{};
+  test.name = "loop_conv_kernel2";
+  test.description = "2x2 kernel over a 3x3 image accumulates four kernel contributions and stores a 2x2 output";
+  test.max_cycles = 1400;
+  test.drain_cycles = 16;
+  test.expect_conv_release = true;
+  constexpr std::uint64_t input_base = 0x80018000;
+  constexpr std::uint64_t weight_base = 0x80019000;
+  constexpr std::uint64_t bias_base = 0x8001a000;
+  constexpr std::uint64_t output_base = 0x8001b000;
+  constexpr int input[3][3][2] = {
+      {{1, 2}, {2, -1}, {0, 3}},
+      {{-2, 1}, {3, 2}, {1, -2}},
+      {{2, 0}, {-1, 3}, {4, 1}},
+  };
+  // [kernel row][kernel column][input channel][output channel]
+  constexpr int weights[2][2][2][2] = {
+      {{{1, -1}, {2, 1}}, {{-1, 2}, {1, -2}}},
+      {{{2, 1}, {-1, 2}}, {{1, -2}, {2, 1}}},
+  };
+  constexpr Acc bias[2] = {3, -2};
+  std::vector<std::uint8_t> bias_bytes;
+  for (const auto value : bias)
+    for (unsigned byte = 0; byte < sizeof(Acc); ++byte)
+      bias_bytes.push_back(static_cast<std::uint32_t>(value) >> (8 * byte));
+  test.dram_initial.push_back({bias_base, bias_bytes});
+  for (unsigned row = 0; row < 3; ++row)
+    for (unsigned col = 0; col < 3; ++col) {
+      std::vector<std::uint8_t> bytes;
+      for (unsigned ich = 0; ich < 2; ++ich) bytes.push_back(static_cast<std::uint8_t>(input[row][col][ich]));
+      test.dram_initial.push_back({input_base + (row * 3 + col) * 2, bytes});
+      // The second job leaves the last two image rows in the shared A region.
+      if (row >= 1) {
+        MeshInputRow pixel{};
+        for (unsigned ich = 0; ich < 2; ++ich) pixel[ich] = input[row][col][ich];
+        test.expected_loaded_spad_rows.push_back({makeSpAddr((row - 1) * 3 + col), pixel});
+      }
+    }
+  const unsigned b_start = kSpRows - 8;
+  for (unsigned kr = 0; kr < 2; ++kr)
+    for (unsigned kc = 0; kc < 2; ++kc)
+      for (unsigned ich = 0; ich < 2; ++ich) {
+        std::vector<std::uint8_t> bytes;
+        MeshInputRow weight{};
+        for (unsigned och = 0; och < 2; ++och) {
+          weight[och] = weights[kr][kc][ich][och];
+          bytes.push_back(static_cast<std::uint8_t>(weight[och]));
+        }
+        const auto row = (kr * 2 + kc) * 2 + ich;
+        test.dram_initial.push_back({weight_base + row * 2, bytes});
+        test.expected_loaded_spad_rows.push_back({makeSpAddr(b_start + row), weight});
+      }
+  test.program = {
+      configExCmd(),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                  (std::uint64_t{kAccScaleIdentityBits} << 32) | 2),
+  };
+  for (unsigned out_row = 0; out_row < 2; ++out_row) {
+    std::vector<MeshAccumRow> results;
+    for (unsigned out_col = 0; out_col < 2; ++out_col) {
+      MeshAccumRow result{};
+      std::vector<std::uint8_t> bytes;
+      for (unsigned och = 0; och < 2; ++och) {
+        result[och] = bias[och];
+        // Direct convolution oracle, independent of all PCG address/counter code.
+        for (unsigned kr = 0; kr < 2; ++kr)
+          for (unsigned kc = 0; kc < 2; ++kc)
+            for (unsigned ich = 0; ich < 2; ++ich)
+              result[och] += input[out_row + kr][out_col + kc][ich] * weights[kr][kc][ich][och];
+        bytes.push_back(static_cast<std::uint8_t>(result[och]));
+      }
+      results.push_back(result);
+      test.expected_dram.push_back({output_base + (out_row * 2 + out_col) * 2, bytes});
+    }
+    test.expected_results.push_back({makeAccAddr(out_row * kAccRows / 2), results});
+    test.program.push_back(loopCommand(SmeshFunct::LoopConvWsConfig1,
+        (2ull << 48) | (2ull << 32) | (3ull << 16) | 1, (1ull << 48) | (2ull << 32) | 2));
+    test.program.push_back(loopCommand(SmeshFunct::LoopConvWsConfig2, 2ull << 48, (1ull << 48) | 2));
+    test.program.push_back(loopCommand(SmeshFunct::LoopConvWsConfig3,
+        (2ull << 48) | (2ull << 32) | (2ull << 16), 3));
+    test.program.push_back(loopCommand(SmeshFunct::LoopConvWsConfig4, (1ull << 48) | 1,
+        (2ull << 48) | (2ull << 32) | (2ull << 16) | 2));
+    test.program.push_back(loopCommand(SmeshFunct::LoopConvWsConfig5, weight_base, output_base + out_row * 4));
+    test.program.push_back(loopCommand(SmeshFunct::LoopConvWsConfig6, bias_base, input_base + out_row * 6));
+    // Explicit A region starts at zero; B ends at the full-SPAD boundary.
+    // Both jobs share these regions; RS hazards protect the first job's reads.
+    test.program.push_back(loopCommand(SmeshFunct::LoopConvWs, (1ull << 18) | (2ull << 16), 1));
+  }
+  // 40 primitive commands reach the RS: CONFIG_EX plus 32 load/execute/store
+  // completions. CONFIG_STORE tag 1 and the three load CONFIGs in each job
+  // (tags 2,4,9 and 20,23,28) retire on issue instead.
+  for (unsigned tag = 0; tag < 40; ++tag) {
+    if (tag == 1 || tag == 2 || tag == 4 || tag == 9 || tag == 20 || tag == 23 || tag == 28) continue;
+    test.expected_completion_tags.push_back(tag);
+  }
+  return test;
+}
+
 // Two output tiles share B but use distinct A/D tiles and two destinct C destinations.
 RsMemTestCase makeLoopWsDmaI2Case() {
   RsMemTestCase test{};
@@ -950,6 +1052,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(), makeLoopConvDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase()};
+  if (kDim == 4) tests.push_back(makeLoopConvKernel2Case());
   if (kDim == 4) tests.push_back(makeSharedAccumReadCase());
   if (kDim == 8) tests.push_back(makeDim8LoadsCase());
   if (kMemBeatBytes == 4) {
