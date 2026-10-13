@@ -45,6 +45,11 @@ The suite currently covers:
   shared A rows 0-5 and B rows 8-15 to fit the 16-row scratchpad. Checks all
   four kernel contributions, RS protection of shared operands, accumulator
   results, stored output bytes, completions, and loop retirement.
+- `loop_conv_padding`: a 1x1 image with one input channel, a 2x2 kernel,
+  two output channels, and bias. One pixel of padding on all four sides
+  produces a 2x2 output. Checks zero-fill of eight initially nonzero SPAD
+  rows, real pixel/weight placement, independently computed accumulator
+  results, DRAM output, completions, and loop retirement.
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
 - `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
 - `accum_scale_store`: loads signed full-width accumulator rows and stores half-scaled, ReLU, and original full-width values. Checks rounding, clipping, completion tags, and DRAM bytes in DIM4, DIM8, and four-byte memory builds.
@@ -86,6 +91,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_dma
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_kernel2
+./build/smesh/tb_rs_to_mem_suite -test=loop_conv_padding
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load
 ./build/smesh/tb_rs_to_mem_suite -test=shared_accum_read
 ./build/smesh/tb_rs_to_mem_suite -test=accum_scale_store

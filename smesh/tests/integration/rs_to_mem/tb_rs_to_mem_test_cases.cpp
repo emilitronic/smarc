@@ -700,6 +700,89 @@ RsMemTestCase makeLoopConvKernel2Case() {
   return test;
 }
 
+// Every output window touches padding: a 1x1 image and 2x2 kernel produce
+// a 2x2 output with one pixel of padding on each side.
+RsMemTestCase makeLoopConvPaddingCase() {
+  RsMemTestCase test{};
+  test.name = "loop_conv_padding";
+  test.description = "all four padded edges are zero-filled before a biased 2x2 convolution";
+  test.max_cycles = 1400;
+  test.drain_cycles = 16;
+  test.expect_conv_release = true;
+  constexpr std::uint64_t input_base = 0x8001c000;
+  constexpr std::uint64_t weight_base = 0x8001d000;
+  constexpr std::uint64_t bias_base = 0x8001e000;
+  constexpr std::uint64_t output_base = 0x8001f000;
+  constexpr int pixel = -3;
+  constexpr int weights[2][2][2] = {{{1, -2}, {3, 1}}, {{-1, 2}, {2, -3}}};
+  constexpr Acc bias[2] = {5, -4};
+  test.dram_initial.push_back({input_base, {static_cast<std::uint8_t>(pixel)}});
+  std::vector<std::uint8_t> bias_bytes;
+  for (const auto value : bias)
+    for (unsigned byte = 0; byte < sizeof(Acc); ++byte)
+      bias_bytes.push_back(static_cast<std::uint32_t>(value) >> (8 * byte));
+  test.dram_initial.push_back({bias_base, bias_bytes});
+  for (unsigned r = 0; r < 3; ++r)
+    for (unsigned c = 0; c < 3; ++c) {
+      // Poison the used lane so missing zero-fill cannot pass on reset contents.
+      test.spad_rows.push_back({makeSpAddr(r * 3 + c), row({47})});
+      test.expected_loaded_spad_rows.push_back({makeSpAddr(r * 3 + c),
+                                               row({r == 1 && c == 1 ? pixel : 0})});
+    }
+  for (unsigned kr = 0; kr < 2; ++kr)
+    for (unsigned kc = 0; kc < 2; ++kc) {
+      const auto index = kr * 2 + kc;
+      test.dram_initial.push_back({weight_base + index * 2,
+          {static_cast<std::uint8_t>(weights[kr][kc][0]),
+           static_cast<std::uint8_t>(weights[kr][kc][1])}});
+      test.expected_loaded_spad_rows.push_back({makeSpAddr(kSpRows - 4 + index),
+                                               row({weights[kr][kc][0], weights[kr][kc][1]})});
+    }
+  std::vector<MeshAccumRow> results;
+  for (int r = 0; r < 2; ++r)
+    for (int c = 0; c < 2; ++c) {
+      MeshAccumRow result{};
+      std::vector<std::uint8_t> bytes;
+      for (unsigned och = 0; och < 2; ++och) {
+        result[och] = bias[och];
+        // Direct convolution: coordinates outside the actual image contribute zero.
+        for (int kr = 0; kr < 2; ++kr)
+          for (int kc = 0; kc < 2; ++kc)
+            if (r + kr - 1 == 0 && c + kc - 1 == 0)
+              result[och] += pixel * weights[kr][kc][och];
+        bytes.push_back(static_cast<std::uint8_t>(result[och]));
+      }
+      results.push_back(result);
+      test.expected_dram.push_back({output_base + (r * 2 + c) * 2, bytes});
+    }
+  test.expected_results = {{makeAccAddr(0), results}};
+  test.program = {
+      configExCmd(),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                  (std::uint64_t{kAccScaleIdentityBits} << 32) | 2),
+      loopCommand(SmeshFunct::LoopConvWsConfig1, (2ull << 48) | (1ull << 32) | (1ull << 16) | 1,
+                  (1ull << 56) | (1ull << 48) | (2ull << 32) | 2),
+      loopCommand(SmeshFunct::LoopConvWsConfig2, 2ull << 48,
+                  (1ull << 48) | (2ull << 32) | (2ull << 16) | 2),
+      loopCommand(SmeshFunct::LoopConvWsConfig3, (2ull << 48) | (2ull << 32) | (1ull << 16) | 1,
+                  (1ull << 48) | (1ull << 32) | (1ull << 24) | 1),
+      loopCommand(SmeshFunct::LoopConvWsConfig4, (2ull << 48) | 1,
+                  (1ull << 48) | (2ull << 32) | (2ull << 16) | 2),
+      loopCommand(SmeshFunct::LoopConvWsConfig5, weight_base, output_base),
+      loopCommand(SmeshFunct::LoopConvWsConfig6, bias_base, input_base),
+      loopCommand(SmeshFunct::LoopConvWs, (1ull << 18) | (2ull << 16), 1),
+  };
+  // RS stream: external CONFIGs 0..1, bias CONFIG/loads 2..4,
+  // weight CONFIG/loads 5..9, input CONFIG/loads 10..19,
+  // eight PRELOAD/COMPUTE pairs 20..35, and two STOREs 36..37.
+  // Load/Store CONFIGs retire on issue; CONFIG_EX reports completion.
+  for (unsigned tag = 0; tag < 38; ++tag) {
+    if (tag == 1 || tag == 2 || tag == 5 || tag == 10) continue;
+    test.expected_completion_tags.push_back(tag);
+  }
+  return test;
+}
+
 // Two output tiles share B but use distinct A/D tiles and two destinct C destinations.
 RsMemTestCase makeLoopWsDmaI2Case() {
   RsMemTestCase test{};
@@ -1053,6 +1136,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase()};
   if (kDim == 4) tests.push_back(makeLoopConvKernel2Case());
+  if (kDim == 4) tests.push_back(makeLoopConvPaddingCase());
   if (kDim == 4) tests.push_back(makeSharedAccumReadCase());
   if (kDim == 8) tests.push_back(makeDim8LoadsCase());
   if (kMemBeatBytes == 4) {
