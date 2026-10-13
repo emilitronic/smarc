@@ -259,12 +259,13 @@ void fillDependencies(SmeshRsEntry& entry, const std::array<SmeshRsEntry, kDefau
 
 SmeshRS::SmeshRS(std::string /*name*/, IMPL_CTOR) {
   UPDATE(updateAlloc).reads(alloc_in);
-  UPDATE(updateIssueLoad).reads(issue_ld_rdy).writes(issue_ld_val, issue_ld_bits);
+  UPDATE(updateIssueLoad).reads(issue_ld_rdy).writes(issue_ld_val, issue_ld_bits, conv_ld_config_issued);
   UPDATE(updateIssueExecute).reads(issue_ex_rdy).writes(issue_ex_val, issue_ex_bits);
   UPDATE(updateIssueStore).reads(issue_st_rdy)
-      .writes(issue_st_val, issue_st_bits, loop_st_config_issued);
+      .writes(issue_st_val, issue_st_bits, loop_st_config_issued, conv_st_config_issued);
   UPDATE(updateComplete).reads(completed)
-      .writes(loop_ld_completed, loop_ex_completed, loop_st_completed);
+      .writes(loop_ld_completed, loop_ex_completed, loop_st_completed)
+      .writes(conv_ld_completed, conv_ex_completed, conv_st_completed);
 }
 
 // ********** RS STATUS **********
@@ -334,7 +335,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd) { // convenience wrapper for allocat
   return allocate(cmd, nullptr);
 }
 // places new command into appropriate RS entry and fills its operands and dependencies
-bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out, bit from_mmul_loop) {
+bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out, bit from_mmul_loop, bit from_conv_loop) {
   if (!canAccept(cmd)) {
     return false;
   }
@@ -383,6 +384,7 @@ bool SmeshRS::allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out, bit from_mmu
   new_entry.cmd               = cmd;
   new_entry.rs_tag            = next_rs_tag_++;
   new_entry.from_mmul_loop    = from_mmul_loop;
+  new_entry.from_conv_loop    = from_conv_loop;
   new_entry.allocated_at      = instructions_allocated_++;
 
   fillOperands(new_entry, config_state_);
@@ -408,7 +410,7 @@ void SmeshRS::updateAlloc() {
   }
 
   alloc_in.pop();
-  allocate(queued.cmd, nullptr, queued.from_mmul_loop);
+  allocate(queued.cmd, nullptr, queued.from_mmul_loop, queued.from_conv_loop);
 }
 
 // ********** ENTRY ACCESS **********
@@ -490,6 +492,7 @@ const SmeshRsEntry* SmeshRS::issueStore() const {
 
 // runs each cycle ("update"): send oldest ready load command to LdCtrl and mark its RS entry issued
 void SmeshRS::updateIssueLoad() {
+  conv_ld_config_issued = 0;
   const auto* entry = load_issue_port_enabled_ ? issueLoad() : nullptr;
   issue_ld_val = bit(entry != nullptr);
   issue_ld_bits = SmeshIssue{};
@@ -504,6 +507,9 @@ void SmeshRS::updateIssueLoad() {
   issue_ld_bits = issue;
   if (issue_ld_rdy == 1) {
     if (entry->complete_on_issue) {
+      conv_ld_config_issued = entry->from_conv_loop;
+      if (entry->from_conv_loop == 1)
+        trace("rs: convolution load CONFIG issued tag=%u\n", unsigned(entry->rs_tag));
       assert_always(complete(entry->rs_tag), "SmeshRS could not retire issued Load CONFIG");
     } else {
       markIssued(entry->rs_tag);
@@ -533,6 +539,7 @@ void SmeshRS::updateIssueExecute() {
 // Present the oldest ready Store command; retire CONFIG or mark STORE issued on acceptance.
 void SmeshRS::updateIssueStore() {
   loop_st_config_issued = 0;
+  conv_st_config_issued = 0;
   const auto* entry = store_issue_port_enabled_ ? issueStore() : nullptr;
   issue_st_val = bit(entry != nullptr);
   issue_st_bits = SmeshIssue{};
@@ -548,6 +555,9 @@ void SmeshRS::updateIssueStore() {
   if (issue_st_rdy == 1) {
     if (entry->complete_on_issue) {
       loop_st_config_issued = entry->from_mmul_loop;
+      conv_st_config_issued = entry->from_conv_loop;
+      if (entry->from_conv_loop == 1)
+        trace("rs: convolution store CONFIG issued tag=%u\n", unsigned(entry->rs_tag));
       assert_always(complete(entry->rs_tag), "SmeshRS could not retire issued Store CONFIG");
     } else {
       markIssued(entry->rs_tag);
@@ -596,6 +606,9 @@ void SmeshRS::updateComplete() {
   loop_ld_completed = 0;
   loop_ex_completed = 0;
   loop_st_completed = 0;
+  conv_ld_completed = 0;
+  conv_ex_completed = 0;
+  conv_st_completed = 0;
   if (completed.empty()) {
     return;
   }
@@ -603,18 +616,25 @@ void SmeshRS::updateComplete() {
   const auto rs_tag = completed.pop();
   SmeshQueueClass completed_q = SmeshQueueClass::Invalid;
   bit from_mmul_loop = false;
-  assert_always(complete(rs_tag, &completed_q, &from_mmul_loop),
+  bit from_conv_loop = false;
+  assert_always(complete(rs_tag, &completed_q, &from_mmul_loop, &from_conv_loop),
                 "SmeshRS received completion for an unknown RS tag");
   if (from_mmul_loop == 1) {
     loop_ld_completed = bit(completed_q == SmeshQueueClass::Load);
     loop_ex_completed = bit(completed_q == SmeshQueueClass::Execute);
     loop_st_completed = bit(completed_q == SmeshQueueClass::Store);
   }
+  if (from_conv_loop == 1) {
+    trace("rs: convolution completed tag=%u queue=%u\n", unsigned(rs_tag), unsigned(completed_q));
+    conv_ld_completed = bit(completed_q == SmeshQueueClass::Load);
+    conv_ex_completed = bit(completed_q == SmeshQueueClass::Execute);
+    conv_st_completed = bit(completed_q == SmeshQueueClass::Store);
+  }
 }
 
 // mark RS entry as completed (based on rs_tag) and free it, clearing dependencies in other entries
 bool SmeshRS::complete(SmeshRsTag rs_tag, SmeshQueueClass* completed_q_out,
-                       bit* from_mmul_loop_out) {
+                       bit* from_mmul_loop_out, bit* from_conv_loop_out) {
   SmeshRsEntry* completed_entry = nullptr;
   std::size_t completed_row = 0;
 
@@ -653,6 +673,7 @@ bool SmeshRS::complete(SmeshRsTag rs_tag, SmeshQueueClass* completed_q_out,
   const auto completed_q = completed_entry->q; // remember whether it was a LOAD, EXECUTE, or STORE entry
   if (completed_q_out != nullptr) *completed_q_out = completed_q;
   if (from_mmul_loop_out != nullptr) *from_mmul_loop_out = completed_entry->from_mmul_loop;
+  if (from_conv_loop_out != nullptr) *from_conv_loop_out = completed_entry->from_conv_loop;
   const auto completed_bit = std::uint32_t{1} << completed_row; // dep bit to clear corresponding to the completed entry's row
 
   // visit every entry that might have a dependency on the completed entry and clear that dependency
@@ -700,6 +721,11 @@ bool SmeshRS::complete(SmeshRsTag rs_tag, SmeshQueueClass* completed_q_out,
 }
 
 void SmeshRS::reset() {
+  conv_ld_completed.reset(0);
+  conv_ex_completed.reset(0);
+  conv_st_completed.reset(0);
+  conv_ld_config_issued.reset(0);
+  conv_st_config_issued.reset(0);
   loop_ld_completed.reset(0);
   loop_ex_completed.reset(0);
   loop_st_completed.reset(0);

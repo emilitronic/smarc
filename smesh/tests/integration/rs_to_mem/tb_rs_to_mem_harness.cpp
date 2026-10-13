@@ -143,6 +143,9 @@ bool RsMemHarnessInstance::activityComplete() const {
   // Store completion can precede the scaler and writer finishing their rows.
   // Start the final drain countdown only after the expected DRAM writes appear.
   if (!dramResultsMatch() || !mem_->writes_empty()) return false;
+  if (test_.expect_conv_release &&
+      (top_->loopConv().busy == 1 || top_->loopConv().ld_outstanding != 0 ||
+       top_->loopConv().ex_outstanding != 0 || top_->loopConv().st_outstanding != 0)) return false;
   return !test_.expect_loop_release ||
       (top_->loopMatmul().loop0->configured == 0 &&
        top_->loopMatmul().loop1->configured == 0);
@@ -159,6 +162,10 @@ bool RsMemHarnessInstance::passed() const {
   if (test_.expect_loop_release &&
       (top_->loopMatmul().loop0->configured == 1 ||
        top_->loopMatmul().loop1->configured == 1)) return false;
+  if (test_.expect_conv_release &&
+      (top_->loopConv().busy == 1 || top_->loopConv().loop0->configured == 1 ||
+       top_->loopConv().loop1->configured == 1 || top_->loopConv().ld_outstanding != 0 ||
+       top_->loopConv().ex_outstanding != 0 || top_->loopConv().st_outstanding != 0)) return false;
   if (test_.min_concurrent_spad_banks > 0 &&
       max_concurrent_spad_banks_ < test_.min_concurrent_spad_banks) {
     return false;
@@ -200,6 +207,12 @@ bool RsMemHarnessInstance::dramResultsMatch() const {
 void RsMemHarnessInstance::report() const {
   std::printf("  rs_empty=%u cmd_driver_done=%u\n",
               top_->rs().empty() ? 1u : 0u, cmd_driver_->done() ? 1u : 0u);
+  if (test_.expect_conv_release) {
+    std::printf("  loop_conv busy=%u slots={%u,%u} outstanding={%u,%u,%u}\n",
+        unsigned(top_->loopConv().busy), unsigned(top_->loopConv().loop0->configured),
+        unsigned(top_->loopConv().loop1->configured), unsigned(top_->loopConv().ld_outstanding),
+        unsigned(top_->loopConv().ex_outstanding), unsigned(top_->loopConv().st_outstanding));
+  }
   for (std::size_t i = 0; i < kDefaultConfig.rs_execute_entries; ++i) {
     const auto& entry = top_->rs().executeEntry(i);
     if (!entry.valid) continue;

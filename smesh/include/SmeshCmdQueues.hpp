@@ -31,7 +31,7 @@ class SmeshCmdQueue : public Component {
   void updateAccept(); // pushes cmd_bits when cmd_valid && cmd_ready
 };
 
-// Converts the command FIFO head to LoopMatmul's valid/ready input.
+// Converts the command FIFO head to the loop unrollers' valid/ready input.
 class SmeshLoopCmdAdapter : public Component {
   DECLARE_COMPONENT(SmeshLoopCmdAdapter);
 

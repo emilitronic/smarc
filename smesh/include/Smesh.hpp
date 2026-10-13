@@ -27,6 +27,7 @@ smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 #include "ExCtrl.hpp"
 #include "LdCtrl.hpp"
 #include "LoopMatmul.hpp"
+#include "LoopConv.hpp"
 #include "MvinLocalRouter.hpp"
 #include "MvinPixelRepeater.hpp"
 #include "MvinScale.hpp"
@@ -68,6 +69,7 @@ class Smesh : public Component {
   // narrow inspection accessors for testbench to check internal state
   const SmeshRS& rs()     const { return *rs_; }
   const LoopMatmul& loopMatmul() const { return *loop_matmul_; }
+  const LoopConv& loopConv() const { return *loop_conv_; }
   const LdCtrl& ldCtrl() const { return *ld_ctrl_; }
   const Spad&    spad()   const { return *spad_; }
   const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_[0]; }
@@ -100,14 +102,17 @@ class Smesh : public Component {
   auto& storeDmaWriterReqBits() { return dma_writer_->req_bits; }
 
   void update();
-  void updateLoopStoreCompletions();
+  void updateLoopCompletions();
   void reset();
 
  private:
   Output(u8, loop_st_completed_total_);
+  Output(u8, conv_ld_completed_total_);
+  Output(u8, conv_st_completed_total_);
 
   SmeshCmdQueue*           cmd_queue_ = nullptr;
   SmeshLoopCmdAdapter*     loop_cmd_adapter_ = nullptr;
+  LoopConv*               loop_conv_ = nullptr;
   LoopMatmul*              loop_matmul_ = nullptr;
   SmeshUnrolledCmdQueue*   unrolled_cmd_queue_ = nullptr;
   SmeshRS*                 rs_ = nullptr;

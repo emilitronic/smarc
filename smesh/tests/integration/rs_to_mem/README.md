@@ -21,6 +21,11 @@ execute commands, and stores through the shared memory boundary. The harness
 checks completions and Accum results, plus loaded Spad rows and final DRAM
 bytes for the DMA scenarios.
 
+Commands now pass through `SmeshCmdQueue -> LoopConv -> LoopMatmul ->
+SmeshUnrolledCmdQueue -> SmeshRS`. Each unroller receives credits only for its
+own generated commands. Load/Store CONFIG credits return on RS issue;
+ordinary command credits return on controller completion.
+
 The suite currently covers:
 
 - `basic`: PRELOAD followed by COMPUTE_FLIP and COMPUTE_STAY.
@@ -31,6 +36,10 @@ The suite currently covers:
 - `loop_ws_dma`: one tile loaded from DRAM and stored back to DRAM.
 - `loop_ws_dma_i2`: two output tiles with a shared B tile.
 - `loop_ws_dma_k2`: two products accumulated into one output tile.
+- `loop_conv_dma`: one 1x4 NHWC image with four input channels, a 1x1 kernel
+  producing two output channels, and signed full-width bias. Loads all operands
+  from DRAM, checks the independently computed accumulator rows and stored
+  output bytes, and requires both LoopConv slots and utilization counters to drain.
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
 - `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
 - `accum_scale_store`: loads signed full-width accumulator rows and stores half-scaled, ReLU, and original full-width values. Checks rounding, clipping, completion tags, and DRAM bytes in DIM4, DIM8, and four-byte memory builds.
@@ -70,6 +79,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=mul_pre
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_i2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
+./build/smesh/tb_rs_to_mem_suite -test=loop_conv_dma
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load
 ./build/smesh/tb_rs_to_mem_suite -test=shared_accum_read
 ./build/smesh/tb_rs_to_mem_suite -test=accum_scale_store
@@ -81,3 +91,9 @@ ctest --test-dir build -L rs_to_mem --output-on-failure
 Use `-trace` with the suite executable to inspect production component traces.
 The harness also checks expected completion tags, final Accum values, and
 configured Spad bank-concurrency bounds.
+
+Trace the convolution workers and memory traffic with:
+
+```bash
+./build/smesh/tb_rs_to_mem_suite -test=loop_conv_dma -trace '*LoopConv*;*DmaReader;*DmaWriter'
+```

@@ -11,6 +11,7 @@ namespace smesh {
 Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   cmd_queue_            = new SmeshCmdQueue("CmdQueue");
   loop_cmd_adapter_     = new SmeshLoopCmdAdapter("LoopCmdAdapter");
+  loop_conv_            = new LoopConv("LoopConv");
   loop_matmul_          = new LoopMatmul("LoopMatmul");
   unrolled_cmd_queue_   = new SmeshUnrolledCmdQueue("UnrolledCmdQueue");
   rs_                   = new SmeshRS("RS");
@@ -67,6 +68,7 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
 
   cmd_queue_->clk            << clk;
   loop_cmd_adapter_->clk     << clk;
+  loop_conv_->clk            << clk;
   loop_matmul_->clk          << clk;
   unrolled_cmd_queue_->clk   << clk;
   rs_->clk                   << clk;
@@ -125,9 +127,16 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   cmd_ready             << cmd_queue_->cmd_ready;
 
   loop_cmd_adapter_->cmd_in     << cmd_queue_->cmd_out;
-  loop_matmul_->in_val          << loop_cmd_adapter_->cmd_val;
-  loop_matmul_->in_bits         << loop_cmd_adapter_->cmd_bits;
-  loop_cmd_adapter_->cmd_rdy    << loop_matmul_->in_rdy;
+  // Original's front end expands convolution before the matmul unroller.
+  loop_conv_->in_val            << loop_cmd_adapter_->cmd_val;
+  loop_conv_->in_bits           << loop_cmd_adapter_->cmd_bits;
+  loop_cmd_adapter_->cmd_rdy    << loop_conv_->in_rdy;
+  loop_matmul_->in_val          << loop_conv_->out_val;
+  loop_matmul_->in_bits         << loop_conv_->out_bits;
+  loop_conv_->out_rdy           << loop_matmul_->in_rdy;
+  loop_conv_->ld_completed      << conv_ld_completed_total_;
+  loop_conv_->ex_completed      << rs_->conv_ex_completed;
+  loop_conv_->st_completed      << conv_st_completed_total_;
   unrolled_cmd_queue_->cmd_val  << loop_matmul_->out_val;
   unrolled_cmd_queue_->cmd_bits << loop_matmul_->out_bits;
   loop_matmul_->out_rdy         << unrolled_cmd_queue_->cmd_rdy;
@@ -339,9 +348,10 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   rs_->setExecuteIssuePortEnabled(true);
 
   UPDATE(update).writes(write_arb_zero_val_, write_arb_zero_bits_);
-  UPDATE(updateLoopStoreCompletions)
+  UPDATE(updateLoopCompletions)
       .reads(rs_->loop_st_completed, rs_->loop_st_config_issued)
-      .writes(loop_st_completed_total_);
+      .reads(rs_->conv_ld_completed, rs_->conv_ld_config_issued, rs_->conv_st_completed, rs_->conv_st_config_issued)
+      .writes(loop_st_completed_total_, conv_ld_completed_total_, conv_st_completed_total_);
 }
 
 Smesh::~Smesh() {
@@ -399,11 +409,15 @@ Smesh::~Smesh() {
   delete rs_;
   delete unrolled_cmd_queue_;
   delete loop_matmul_;
+  delete loop_conv_;
   delete loop_cmd_adapter_;
   delete cmd_queue_;
 }
 
-void Smesh::updateLoopStoreCompletions() {
+void Smesh::updateLoopCompletions() {
+  // CONFIG retires on RS issue; ordinary commands return credits on completion.
+  conv_ld_completed_total_ = unsigned(*rs_->conv_ld_completed) + unsigned(*rs_->conv_ld_config_issued);
+  conv_st_completed_total_ = unsigned(*rs_->conv_st_completed) + unsigned(*rs_->conv_st_config_issued);
   loop_st_completed_total_ = static_cast<std::uint8_t>(
       static_cast<std::uint8_t>(*rs_->loop_st_completed) +
       static_cast<std::uint8_t>(*rs_->loop_st_config_issued));
@@ -423,6 +437,8 @@ void Smesh::reset() {
   rs_->setExecuteIssuePortEnabled(true);
   write_arb_zero_val_.reset(0);
   loop_st_completed_total_.reset(0);
+  conv_ld_completed_total_.reset(0);
+  conv_st_completed_total_.reset(0);
   write_arb_zero_bits_.reset(DmaReadResp{});
   trace("smesh: reset");
 }

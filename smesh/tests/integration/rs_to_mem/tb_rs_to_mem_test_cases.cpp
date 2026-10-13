@@ -4,7 +4,7 @@
 // Sebastian Claudiusz Magierowski Sep 19 2026
 /*
 rs_to_mem test scenarios. Each program is issued as raw SmeshCmds through
-the real SmeshCmdQueue -> LoopMatmul -> SmeshUnrolledCmdQueue -> SmeshRS -> ExCtrl path
+the real SmeshCmdQueue -> LoopConv -> LoopMatmul -> SmeshUnrolledCmdQueue -> SmeshRS path
 (see tb_rs_to_mem_harness.hpp), so completion tags are assigned by the
 real SmeshRS at allocation time rather than hand-picked -- since our
 programs are issued one command per cycle and RS allocates strictly in
@@ -523,6 +523,81 @@ RsMemTestCase makeLoopWsDmaCase() {
   return test;
 }
 
+// One NHWC image (1x4 pixels, four channels), a 1x1 kernel producing two
+// channels, and full-width bias. Compute the convolution directly from DRAM
+// tensors; no worker command-generation code participates in this oracle.
+RsMemTestCase makeLoopConvDmaCase() {
+  RsMemTestCase test{};
+  test.name = "loop_conv_dma";
+  test.description = "LOOP_CONV_WS loads pixels/weights/bias, computes a 1x1 convolution, and stores NHWC output";
+  test.expect_conv_release = true;
+  test.max_cycles = 800;
+  test.drain_cycles = 16;
+  constexpr std::uint64_t input_base = 0x80014000;
+  constexpr std::uint64_t weight_base = 0x80015000;
+  constexpr std::uint64_t bias_base = 0x80016000;
+  constexpr std::uint64_t output_base = 0x80017000;
+  constexpr int input[4][4] = {{1, 2, 3, 4}, {2, 1, 0, 3}, {-1, 2, 1, 0}, {0, -2, 3, 1}};
+  constexpr int weights[4][2] = {{1, 2}, {-1, 1}, {2, -1}, {1, 0}};
+  constexpr Acc bias[2] = {3, -2};
+  std::vector<std::uint8_t> bias_bytes;
+  for (const auto value : bias) {
+    for (unsigned byte = 0; byte < sizeof(Acc); ++byte)
+      bias_bytes.push_back(static_cast<std::uint32_t>(value) >> (8 * byte));
+  }
+  test.dram_initial.push_back({bias_base, bias_bytes});
+  std::vector<MeshAccumRow> output;
+  for (unsigned pixel = 0; pixel < 4; ++pixel) {
+    MeshInputRow pixels{};
+    std::vector<std::uint8_t> bytes;
+    for (unsigned channel = 0; channel < 4; ++channel) {
+      pixels[channel] = input[pixel][channel];
+      bytes.push_back(static_cast<std::uint8_t>(pixels[channel]));
+    }
+    test.dram_initial.push_back({input_base + pixel * 4, bytes});
+    test.expected_loaded_spad_rows.push_back({makeSpAddr(pixel), pixels});
+    MeshAccumRow result{};
+    std::vector<std::uint8_t> stored;
+    for (unsigned och = 0; och < 2; ++och) {
+      result[och] = bias[och];
+      for (unsigned channel = 0; channel < 4; ++channel)
+        result[och] += input[pixel][channel] * weights[channel][och];
+      stored.push_back(static_cast<std::uint8_t>(result[och]));
+    }
+    output.push_back(result);
+    test.expected_dram.push_back({output_base + pixel * 2, stored});
+  }
+  for (unsigned channel = 0; channel < 4; ++channel) {
+    MeshInputRow weight{};
+    std::vector<std::uint8_t> bytes;
+    for (unsigned och = 0; och < 2; ++och) {
+      weight[och] = weights[channel][och];
+      bytes.push_back(static_cast<std::uint8_t>(weight[och]));
+    }
+    test.dram_initial.push_back({weight_base + channel * 2, bytes});
+    test.expected_loaded_spad_rows.push_back({makeSpAddr(kSpRows / 2 - 4 + channel), weight});
+  }
+  test.expected_results = {{makeAccAddr(0), output}};
+  test.program = {
+    configExCmd(),
+    loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                (std::uint64_t{kAccScaleIdentityBits} << 32) | 2),
+    loopCommand(SmeshFunct::LoopConvWsConfig1, (2ull << 48) | (4ull << 32) | (1ull << 16) | 1,
+                (1ull << 48) | (4ull << 32) | 1),
+    loopCommand(SmeshFunct::LoopConvWsConfig2, 1ull << 48, (1ull << 48) | 2),
+    loopCommand(SmeshFunct::LoopConvWsConfig3, (1ull << 48) | (1ull << 32) | (4ull << 16), 4),
+    loopCommand(SmeshFunct::LoopConvWsConfig4, (1ull << 48) | 1,
+                (4ull << 48) | (2ull << 32) | (2ull << 16) | 4),
+    loopCommand(SmeshFunct::LoopConvWsConfig5, weight_base, output_base),
+    loopCommand(SmeshFunct::LoopConvWsConfig6, bias_base, input_base),
+    loopCommand(SmeshFunct::LoopConvWs, 0, 1),
+  };
+  // External CONFIG_EX then three loads, PRELOAD/COMPUTE, and STORE complete.
+  // Load/Store CONFIGs retire on issue and do not reach controller completion.
+  test.expected_completion_tags = {0, 3, 5, 7, 8, 9, 10};
+  return test;
+}
+
 // Two output tiles share B but use distinct A/D tiles and two destinct C destinations.
 RsMemTestCase makeLoopWsDmaI2Case() {
   RsMemTestCase test{};
@@ -872,7 +947,7 @@ RsMemTestCase makeDim8LoadsCase() {
 std::vector<RsMemTestCase> rsMemTestCases() {
   auto tests = std::vector<RsMemTestCase>{
       makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
-      makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(),
+      makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(), makeLoopConvDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase()};
   if (kDim == 4) tests.push_back(makeSharedAccumReadCase());

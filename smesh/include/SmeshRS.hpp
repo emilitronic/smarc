@@ -90,11 +90,12 @@ struct SmeshRsEntry {
   SmeshRSOp opb{};
 
   bool issued = false;
-  bool complete_on_issue = false; // Store CONFIG retires on issue; Load CONFIG still needs this handling
+  bool complete_on_issue = false; // Load/Store CONFIG retires on issue
 
   SmeshCmd cmd{};
   SmeshRsTag rs_tag = 0; // smesh v0 command-completion tag
   bit from_mmul_loop = false;
+  bit from_conv_loop = false;
 
   std::uint32_t deps_ld = 0; // bit 0 represents the current load entry
   std::uint32_t deps_ex = 0; // bit 0 represents the current execute entry
@@ -168,6 +169,12 @@ public:
   Output(u8, loop_ex_completed);
   Output(u8, loop_st_completed);
   Output(u8, loop_st_config_issued);
+  // LoopConv receives its own credits, including CONFIG retirement on issue.
+  Output(u8, conv_ld_completed);
+  Output(u8, conv_ex_completed);
+  Output(u8, conv_st_completed);
+  Output(u8, conv_ld_config_issued);
+  Output(u8, conv_st_config_issued);
 
   // ********** RS STATUS **********
 
@@ -179,7 +186,8 @@ public:
 
   bool canAccept(const SmeshCmd& cmd) const;
   bool allocate(const SmeshCmd& cmd); // accept new cmd into RS slot
-  bool allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out, bit from_mmul_loop = false);
+  bool allocate(const SmeshCmd& cmd, SmeshRsTag* rs_tag_out, bit from_mmul_loop = false,
+                bit from_conv_loop = false);
   void updateAlloc();
 
   // ********** ENTRY ACCESS **********
@@ -206,7 +214,7 @@ public:
   // ********** COMPLETION **********
 
   bool complete(SmeshRsTag rs_tag, SmeshQueueClass* completed_q_out = nullptr,
-                bit* from_mmul_loop_out = nullptr);
+                bit* from_mmul_loop_out = nullptr, bit* from_conv_loop_out = nullptr);
   void updateComplete();
   void reset();
 

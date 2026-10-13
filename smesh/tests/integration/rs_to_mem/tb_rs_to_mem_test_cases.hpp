@@ -58,6 +58,7 @@ struct RsMemTestCase {
   std::vector<SmeshRsTag> expected_completion_tags;
   bool posted_writes = false;
   bool expect_loop_release = false;
+  bool expect_conv_release = false;
   int mvin_scale_latency = 1;
   int max_cycles = 200;
   int drain_cycles = 8;
@@ -80,6 +81,7 @@ RsMemTestCase makeLoopWsCase();
 RsMemTestCase makeLoopWsDmaCase();
 RsMemTestCase makeLoopWsDmaI2Case();
 RsMemTestCase makeLoopWsDmaK2Case();
+RsMemTestCase makeLoopConvDmaCase();
 RsMemTestCase makeFullWidthAccumLoadCase();
 RsMemTestCase makeDim8LoadsCase();
 std::vector<RsMemTestCase> rsMemTestCases();

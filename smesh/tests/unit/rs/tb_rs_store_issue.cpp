@@ -72,10 +72,11 @@ int main() {
   const auto cmd = configStore();
   bool ok = true;
   for (int i = 0; i < 2; ++i) {
-    ok &= rs.allocate(cmd, nullptr, bit(i == 0));
+    ok &= rs.allocate(cmd, nullptr, bit(i == 0), bit(i == 1));
     Sim::run();
     ok &= !rs.storeEntry(0).valid;
     ok &= rs.loop_st_config_issued == bit(i == 0);
+    ok &= rs.conv_st_config_issued == bit(i == 1);
   }
 
   ok &= rs.allocate(cmd);
@@ -83,7 +84,7 @@ int main() {
   for (int i = 0; i < 2; ++i) {
     Sim::run();
     ok &= rs.storeEntry(0).valid && !rs.storeEntry(0).issued &&
-          rs.storeEntry(0).rs_tag == blocked_tag && queue.cmd_rdy == 0;
+          rs.storeEntry(0).rs_tag == blocked_tag && queue.cmd_rdy == 0 && rs.conv_st_config_issued == 0;
   }
 
   for (int i = 0; i < 8 && rs.storeEntry(0).valid; ++i) {
@@ -103,6 +104,17 @@ int main() {
   ok &= rs.storeEntry(0).valid && rs.storeEntry(0).issued &&
         rs.storeEntry(0).rs_tag == store_tag;
   ok &= rs.complete(store_tag) && !rs.storeEntry(0).valid;
+
+  // Generated load CONFIG returns a convolution credit when its issue fires.
+  smesh::SmeshCmd load_config{};
+  load_config.funct = static_cast<std::uint32_t>(smesh::SmeshFunct::Config);
+  load_config.rs1 = smesh::packConfigLoadRs1(0, smesh::kDim);
+  rs.setLoadIssuePortEnabled(true);
+  ok &= rs.allocate(load_config, nullptr, bit(0), bit(1));
+  Sim::run();
+  ok &= rs.empty() && rs.conv_ld_config_issued == 1 && rs.conv_st_config_issued == 0;
+  Sim::run();
+  ok &= rs.conv_ld_config_issued == 0;
 
   std::printf("[RS_STORE_ISSUE] %s queue_acceptance\n", ok ? "PASS" : "FAIL");
   return ok ? 0 : 1;
