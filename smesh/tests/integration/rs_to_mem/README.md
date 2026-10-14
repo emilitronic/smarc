@@ -45,6 +45,10 @@ The suite currently covers:
   shared A rows 0-5 and B rows 8-15 to fit the 16-row scratchpad. Checks all
   four kernel contributions, RS protection of shared operands, accumulator
   results, stored output bytes, completions, and loop retirement.
+- `loop_conv_temporal3`: a 1x6 image with two input channels, a 1x3 kernel,
+  and two output channels. Valid stride-1 convolution produces four output
+  positions. Checks all three temporal contributions, bias, loaded SPAD rows,
+  accumulator results, DRAM bytes, completions, and loop/utilization drain.
 - `loop_conv_padding`: a 1x1 image with one input channel, a 2x2 kernel,
   two output channels, and bias. One pixel of padding on all four sides
   produces a 2x2 output. Checks zero-fill of eight initially nonzero SPAD
@@ -96,6 +100,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=loop_ws_dma_k2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_dma
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_kernel2
+./build/smesh/tb_rs_to_mem_suite -test=loop_conv_temporal3
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_padding
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_images
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load

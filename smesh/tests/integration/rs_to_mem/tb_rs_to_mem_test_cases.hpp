@@ -83,6 +83,7 @@ RsMemTestCase makeLoopWsDmaI2Case();
 RsMemTestCase makeLoopWsDmaK2Case();
 RsMemTestCase makeLoopConvDmaCase();
 RsMemTestCase makeLoopConvKernel2Case();
+RsMemTestCase makeLoopConvTemporal3Case();
 RsMemTestCase makeLoopConvPaddingCase();
 RsMemTestCase makeLoopConvImagesCase();
 RsMemTestCase makeFullWidthAccumLoadCase();

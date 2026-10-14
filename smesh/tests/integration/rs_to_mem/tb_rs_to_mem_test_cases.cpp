@@ -782,6 +782,97 @@ RsMemTestCase makeLoopConvKernel2Case() {
   return test;
 }
 
+// A two-channel time series: each output combines three consecutive time steps.
+RsMemTestCase makeLoopConvTemporal3Case() {
+  RsMemTestCase test{};
+  test.name = "loop_conv_temporal3";
+  test.description = "1x3 kernel over a 1x6 two-channel image produces four two-channel outputs";
+  test.max_cycles = 1200;
+  test.drain_cycles = 16;
+  test.expect_conv_release = true;
+  constexpr std::uint64_t input_base = 0x80028000;
+  constexpr std::uint64_t weight_base = 0x80029000;
+  constexpr std::uint64_t bias_base = 0x8002a000;
+  constexpr std::uint64_t output_base = 0x8002b000;
+  constexpr int input[6][2] = {{1, 2}, {2, -1}, {0, 3}, {-2, 1}, {3, 2}, {1, -2}};
+  // [kernel time offset][input channel][output channel]; no kernel reversal.
+  constexpr int weights[3][2][2] = {
+      {{1, -1}, {2, 1}}, {{-1, 2}, {1, -2}}, {{2, 1}, {-1, 2}},
+  };
+  constexpr Acc bias[2] = {3, -2};
+  std::vector<std::uint8_t> bias_bytes;
+  for (const auto value : bias)
+    for (unsigned byte = 0; byte < sizeof(Acc); ++byte)
+      bias_bytes.push_back(static_cast<std::uint32_t>(value) >> (8 * byte));
+  test.dram_initial.push_back({bias_base, bias_bytes});
+  for (unsigned time = 0; time < 6; ++time) {
+    MeshInputRow pixel{};
+    std::vector<std::uint8_t> bytes;
+    for (unsigned ich = 0; ich < 2; ++ich) {
+      pixel[ich] = input[time][ich];
+      bytes.push_back(static_cast<std::uint8_t>(pixel[ich]));
+    }
+    test.dram_initial.push_back({input_base + time * 2, bytes});
+    test.expected_loaded_spad_rows.push_back({makeSpAddr(time), pixel});
+  }
+  const auto b_start = static_cast<std::uint32_t>(kSpRows - 6);
+  for (unsigned tap = 0; tap < 3; ++tap)
+    for (unsigned ich = 0; ich < 2; ++ich) {
+      MeshInputRow weight{};
+      std::vector<std::uint8_t> bytes;
+      for (unsigned och = 0; och < 2; ++och) {
+        weight[och] = weights[tap][ich][och];
+        bytes.push_back(static_cast<std::uint8_t>(weight[och]));
+      }
+      const auto row = tap * 2 + ich;
+      test.dram_initial.push_back({weight_base + row * 2, bytes});
+      test.expected_loaded_spad_rows.push_back({makeSpAddr(b_start + row), weight});
+    }
+  std::vector<MeshAccumRow> results;
+  for (unsigned time = 0; time < 4; ++time) {
+    MeshAccumRow result{};
+    std::vector<std::uint8_t> bytes;
+    for (unsigned och = 0; och < 2; ++och) {
+      result[och] = bias[och];
+      // Direct temporal convolution, independent of worker geometry and commands.
+      for (unsigned tap = 0; tap < 3; ++tap)
+        for (unsigned ich = 0; ich < 2; ++ich)
+          result[och] += input[time + tap][ich] * weights[tap][ich][och];
+      bytes.push_back(static_cast<std::uint8_t>(result[och]));
+    }
+    results.push_back(result);
+    test.expected_dram.push_back({output_base + time * 2, bytes});
+  }
+  test.expected_results.push_back({makeAccAddr(0), results});
+  test.program = {
+      configExCmd(),
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                  (std::uint64_t{kAccScaleIdentityBits} << 32) | 2),
+      // One batch, input height 1, two input/output channels; valid stride-1 output width 4.
+      loopCommand(SmeshFunct::LoopConvWsConfig1,
+                  (2ull << 48) | (2ull << 32) | (1ull << 16) | 1,
+                  (1ull << 48) | (4ull << 32) | 1),
+      // The normal weight layout uses kernel_dim as its kernel-row pitch.
+      loopCommand(SmeshFunct::LoopConvWsConfig2, 3ull << 48, (1ull << 48) | 2),
+      // Process one kernel row, three kernel columns, two channels; input width 6.
+      loopCommand(SmeshFunct::LoopConvWsConfig3,
+                  (1ull << 48) | (3ull << 32) | (2ull << 16), 6),
+      loopCommand(SmeshFunct::LoopConvWsConfig4, (1ull << 48) | 1,
+                  (2ull << 48) | (2ull << 32) | (2ull << 16) | 4),
+      loopCommand(SmeshFunct::LoopConvWsConfig5, weight_base, output_base),
+      loopCommand(SmeshFunct::LoopConvWsConfig6, bias_base, input_base),
+      // Input rows 0-5; weight rows 10-15. Disable pooling and transposition.
+      loopCommand(SmeshFunct::LoopConvWs, (1ull << 18) | (2ull << 16), 1),
+  };
+  // Two setup CONFIGs, three load CONFIGs, six loads, six execute commands,
+  // and one STORE. Load/Store CONFIGs retire on issue; all others complete.
+  for (unsigned tag = 0; tag < 18; ++tag) {
+    if (tag == 1 || tag == 2 || tag == 4 || tag == 8) continue;
+    test.expected_completion_tags.push_back(tag);
+  }
+  return test;
+}
+
 // Every output window touches padding: a 1x1 image and 2x2 kernel produce
 // a 2x2 output with one pixel of padding on each side.
 RsMemTestCase makeLoopConvPaddingCase() {
@@ -1218,6 +1309,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase()};
   if (kDim == 4) tests.push_back(makeLoopConvKernel2Case());
+  if (kDim == 4) tests.push_back(makeLoopConvTemporal3Case());
   if (kDim == 4) tests.push_back(makeLoopConvPaddingCase());
   if (kDim == 4) tests.push_back(makeLoopConvImagesCase());
   if (kDim == 4) tests.push_back(makeSharedAccumReadCase());
