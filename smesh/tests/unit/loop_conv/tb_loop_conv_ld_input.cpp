@@ -105,8 +105,9 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   dilated.max_pixels_per_row = 2;
   dilated.geometry = {2, 3, 1, 1, 1, 6};
 
-  // Arithmetic-only boundary test: the second channel block wraps the SPAD address.
+  // Start 16 rows before the SPAD boundary so the second channel block wraps.
   auto& channels = requests_[5];
+  channels.addr_start = smesh::kSpRows - 16;
   channels.outer_bounds.in_col_dim = 1;
   channels.outer_bounds.in_stride = 65;
   channels.geometry = {1, 1, 1, 1, 65, 1};
@@ -160,7 +161,7 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   add(4, 2, 0, 0x0001000100000005ull);
   boundaries_[5] = expected_.size();
   add(5, 0, 0x3f80000000010101ull, 65);
-  add(5, 2, 0x80006000, 0x0001004000000000ull);
+  add(5, 2, 0x80006000, 0x0001004000000000ull | (smesh::kSpRows - 16));
   add(5, 2, 0x80006040, 0x0001000100000000ull);
   boundaries_[6] = expected_.size();
   add(6, 0, 0x3f80000000020101ull, 1);

@@ -138,10 +138,10 @@ void appendComputeResponses(ExCtrlTestCase& test,
 // then reuse B0 for a standalone COMPUTE_STAY.
 ExCtrlTestCase makeBasicFlipStayTest() {
   const auto d1 = spadMatrix(0);
-  const auto b0 = spadMatrix(4); // that's math B
-  const auto d0 = spadMatrix(4); // that's math D
-  const auto a1 = spadMatrix(8);
-  const auto a0 = spadMatrix(12);
+  const auto b0 = spadMatrix(kSpBankRows); // that's math B
+  const auto d0 = b0; // that's math D
+  const auto a1 = spadMatrix(2 * kSpBankRows);
+  const auto a0 = spadMatrix(3 * kSpBankRows);
   const auto c0 = accumMatrix(8);
   const auto d1_data = rows0To3("D1", d1);
   const auto b0_data = rows4To7("B0 and D0", b0);
@@ -178,9 +178,10 @@ ExCtrlTestCase makeBasicFlipStayTest() {
   */
 
   test.expected_spad_reads[0] = {0, 1, 2, 3}; // bank 0 should receive requests from global spad rows 0, 1, 2, 3 in that order
-  test.expected_spad_reads[1] = {7, 6, 5, 4, 4, 5, 6, 7};
-  test.expected_spad_reads[2] = {8, 9, 10, 11};
-  test.expected_spad_reads[3] = {12, 13, 14, 15};
+  test.expected_spad_reads[1] = {b0.base + 3, b0.base + 2, b0.base + 1, b0.base,
+                                 d0.base, d0.base + 1, d0.base + 2, d0.base + 3};
+  test.expected_spad_reads[2] = {a1.base, a1.base + 1, a1.base + 2, a1.base + 3};
+  test.expected_spad_reads[3] = {a0.base, a0.base + 1, a0.base + 2, a0.base + 3};
 
   // The initial PRELOAD supplies C0's destination. The trailing standalone
   // COMPUTE_STAY has no following PRELOAD, so its result is not written.
@@ -208,9 +209,9 @@ ExCtrlTestCase makeBasicFlipStayTest() {
 // then compute C1=A1*B1+D1 using the newly loaded weights.
 ExCtrlTestCase makeComputePreloadOverlapTest() {
   const auto a0 = spadMatrix(0);
-  const auto d0 = spadMatrix(4);
-  const auto b1 = spadMatrix(8);
-  const auto b0 = spadMatrix(12);
+  const auto d0 = spadMatrix(kSpBankRows);
+  const auto b1 = spadMatrix(2 * kSpBankRows);
+  const auto b0 = spadMatrix(3 * kSpBankRows);
   const auto a1 = a0;
   const auto d1 = d0;
   const auto c0 = accumMatrix(0);
@@ -251,9 +252,10 @@ ExCtrlTestCase makeComputePreloadOverlapTest() {
 
   */
   test.expected_spad_reads[0] = {0, 1, 2, 3, 0, 1, 2, 3};
-  test.expected_spad_reads[1] = {4, 5, 6, 7, 4, 5, 6, 7};
-  test.expected_spad_reads[2] = {11, 10, 9, 8};
-  test.expected_spad_reads[3] = {15, 14, 13, 12};
+  test.expected_spad_reads[1] = {d0.base, d0.base + 1, d0.base + 2, d0.base + 3,
+                                 d1.base, d1.base + 1, d1.base + 2, d1.base + 3};
+  test.expected_spad_reads[2] = {b1.base + 3, b1.base + 2, b1.base + 1, b1.base};
+  test.expected_spad_reads[3] = {b0.base + 3, b0.base + 2, b0.base + 1, b0.base};
 
   test.expected_results = {
       matmulResult("C0", c0, a0, b0, d0),

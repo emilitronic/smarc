@@ -24,20 +24,21 @@ smesh::SmeshCmd command(smesh::SmeshFunct funct,
 }
 
 bool testLocalAddr() {
-  constexpr auto sp = smesh::makeSpAddr(6);
+  constexpr auto sp = smesh::makeSpAddr(smesh::kSpBankRows + 2);
   constexpr auto acc = smesh::makeAccAddr(10, true, true, 5);
   constexpr auto garbage =
       smesh::makeLocalAddr(
-          smesh::makeAccAddr(smesh::kAccAddrMask, true, true).raw |
+          smesh::makeAccAddr(0, true, true).raw | smesh::kLocalAddrDataMask |
           smesh::kLocalAddrGarbageMask);
-  constexpr auto sp_sum = smesh::add_with_overflow(smesh::makeSpAddr(14), 3);
+  constexpr auto sp_sum = smesh::add_with_overflow(smesh::makeSpAddr(smesh::kSpRows - 2), 3);
   constexpr auto acc_sum =
-      smesh::add_with_overflow(smesh::makeAccAddr(14, true, true, 5), 3);
+      smesh::add_with_overflow(smesh::makeAccAddr(smesh::kAccRows - 2, true, true, 5), 3);
 
-  return smesh::kSpAddrBits == 4 && smesh::kAccAddrBits == 4 &&
-         smesh::kLocalAddrDataBits == 4 &&
+  return smesh::kSpAddrMask == smesh::kSpRows - 1 &&
+         smesh::kAccAddrMask == smesh::kAccRows - 1 &&
+         smesh::kLocalAddrDataMask == (smesh::kSpAddrMask | smesh::kAccAddrMask) &&
          !sp.is_acc_addr() && sp.sp_bank() == 1 && sp.sp_row() == 2 &&
-         sp.full_sp_addr() == 6 &&
+         sp.full_sp_addr() == smesh::kSpBankRows + 2 &&
          acc.is_acc_addr() && acc.acc_bank() == 1 && acc.acc_row() == 2 &&
          acc.full_acc_addr() == 10 && acc.accumulate() &&
          acc.read_full_acc_row() && acc.norm_cmd() == 5 &&
@@ -60,11 +61,11 @@ bool testOverlap() {
   const auto sp_b = makeRange(smesh::makeSpAddr(4), 4);     // [4,8)
   const auto touching = makeRange(smesh::makeSpAddr(6), 3); // [6,9)
   const auto acc_same_rows = makeRange(smesh::makeAccAddr(4), 4);
-  const auto wrapping = makeRange(smesh::makeSpAddr(14), 4); // [14,2)
+  const auto wrapping = makeRange(smesh::makeSpAddr(smesh::kSpRows - 2), 4); // crosses the SPAD boundary
   const auto wrapped_hit = makeRange(smesh::makeSpAddr(1), 2);
   const auto wrapped_miss = makeRange(smesh::makeSpAddr(4), 2);
   const auto garbage_start = smesh::makeLocalAddr(
-      smesh::makeAccAddr(smesh::kAccAddrMask, true, true).raw |
+      smesh::makeAccAddr(0, true, true).raw | smesh::kLocalAddrDataMask |
       smesh::kLocalAddrGarbageMask);
   const auto garbage = makeRange(garbage_start, 1);
 

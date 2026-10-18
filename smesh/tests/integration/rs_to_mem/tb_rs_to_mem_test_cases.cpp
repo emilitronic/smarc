@@ -162,9 +162,9 @@ RsMemTestCase makeBasicCase() {
   test.description = "CONFIG, PRELOAD, COMPUTE_FLIP, COMPUTE_STAY via real RS";
 
   const auto d1 = makeSpAddr(0);   // bank 0
-  const auto b0 = makeSpAddr(4);   // bank 1 (doubles as math D for COMPUTE_FLIP)
-  const auto a1 = makeSpAddr(8);   // bank 2
-  const auto a0 = makeSpAddr(12);  // bank 3
+  const auto b0 = makeSpAddr(kSpBankRows);      // bank 1 (doubles as math D for COMPUTE_FLIP)
+  const auto a1 = makeSpAddr(2 * kSpBankRows);  // bank 2
+  const auto a0 = makeSpAddr(3 * kSpBankRows);  // bank 3
   const auto c0 = makeAccAddr(8);  // accum bank 1
 
   const std::vector<MeshInputRow> d1_rows = {
@@ -177,9 +177,9 @@ RsMemTestCase makeBasicCase() {
       row({48, 49, 50, 51}), row({52, 53, 54, 55}), row({56, 57, 58, 59}), row({60, 61, 62, 63})};
 
   test.spad_rows = spadRows(0, {d1_rows[0], d1_rows[1], d1_rows[2], d1_rows[3]});
-  const auto b0v = spadRows(4, {b0_rows[0], b0_rows[1], b0_rows[2], b0_rows[3]});
-  const auto a1v = spadRows(8, {a1_rows[0], a1_rows[1], a1_rows[2], a1_rows[3]});
-  const auto a0v = spadRows(12, {a0_rows[0], a0_rows[1], a0_rows[2], a0_rows[3]});
+  const auto b0v = spadRows(b0.full_sp_addr(), {b0_rows[0], b0_rows[1], b0_rows[2], b0_rows[3]});
+  const auto a1v = spadRows(a1.full_sp_addr(), {a1_rows[0], a1_rows[1], a1_rows[2], a1_rows[3]});
+  const auto a0v = spadRows(a0.full_sp_addr(), {a0_rows[0], a0_rows[1], a0_rows[2], a0_rows[3]});
   test.spad_rows.insert(test.spad_rows.end(), b0v.begin(), b0v.end());
   test.spad_rows.insert(test.spad_rows.end(), a1v.begin(), a1v.end());
   test.spad_rows.insert(test.spad_rows.end(), a0v.begin(), a0v.end());
@@ -219,9 +219,9 @@ RsMemTestCase makeMulPreCase() {
   test.description = "COMPUTE+PRELOAD overlap, two results, via real RS";
 
   const auto a0 = makeSpAddr(0);   // bank 0 (A0 == A1)
-  const auto d0 = makeSpAddr(4);   // bank 1 (D0 == D1)
-  const auto b1 = makeSpAddr(8);   // bank 2
-  const auto b0 = makeSpAddr(12);  // bank 3
+  const auto d0 = makeSpAddr(kSpBankRows);      // bank 1 (D0 == D1)
+  const auto b1 = makeSpAddr(2 * kSpBankRows);  // bank 2
+  const auto b0 = makeSpAddr(3 * kSpBankRows);  // bank 3
   const auto c0 = makeAccAddr(0);  // accum bank 0
   const auto c1 = makeAccAddr(8);  // accum bank 1
 
@@ -235,9 +235,9 @@ RsMemTestCase makeMulPreCase() {
       row({48, 49, 50, 51}), row({52, 53, 54, 55}), row({56, 57, 58, 59}), row({60, 61, 62, 63})};
 
   test.spad_rows = spadRows(0, {a0_rows[0], a0_rows[1], a0_rows[2], a0_rows[3]});
-  const auto d0v = spadRows(4, {d0_rows[0], d0_rows[1], d0_rows[2], d0_rows[3]});
-  const auto b1v = spadRows(8, {b1_rows[0], b1_rows[1], b1_rows[2], b1_rows[3]});
-  const auto b0v = spadRows(12, {b0_rows[0], b0_rows[1], b0_rows[2], b0_rows[3]});
+  const auto d0v = spadRows(d0.full_sp_addr(), {d0_rows[0], d0_rows[1], d0_rows[2], d0_rows[3]});
+  const auto b1v = spadRows(b1.full_sp_addr(), {b1_rows[0], b1_rows[1], b1_rows[2], b1_rows[3]});
+  const auto b0v = spadRows(b0.full_sp_addr(), {b0_rows[0], b0_rows[1], b0_rows[2], b0_rows[3]});
   test.spad_rows.insert(test.spad_rows.end(), d0v.begin(), d0v.end());
   test.spad_rows.insert(test.spad_rows.end(), b1v.begin(), b1v.end());
   test.spad_rows.insert(test.spad_rows.end(), b0v.begin(), b0v.end());
@@ -300,8 +300,8 @@ RsMemTestCase makeSameBankSerializesCase() {
   test.description = "Compute's A and addend alias one Spad bank -- checks read-priority conflicts still serialize";
 
   const auto a0 = makeSpAddr(0);  // bank 0 -- shared by the compute's A and its addend
-  const auto b1 = makeSpAddr(4);  // bank 1 -- overlapping preload's weight
-  const auto b0 = makeSpAddr(8);  // bank 2 -- first preload's weight
+  const auto b1 = makeSpAddr(kSpBankRows);      // bank 1 -- overlapping preload's weight
+  const auto b0 = makeSpAddr(2 * kSpBankRows);  // bank 2 -- first preload's weight
   const auto c0 = makeAccAddr(0);
   const auto c1 = makeAccAddr(8);
 
@@ -313,8 +313,8 @@ RsMemTestCase makeSameBankSerializesCase() {
       row({32, 33, 34, 35}), row({36, 37, 38, 39}), row({40, 41, 42, 43}), row({44, 45, 46, 47})};
 
   test.spad_rows = spadRows(0, {a0_rows[0], a0_rows[1], a0_rows[2], a0_rows[3]});
-  const auto b1v = spadRows(4, {b1_rows[0], b1_rows[1], b1_rows[2], b1_rows[3]});
-  const auto b0v = spadRows(8, {b0_rows[0], b0_rows[1], b0_rows[2], b0_rows[3]});
+  const auto b1v = spadRows(b1.full_sp_addr(), {b1_rows[0], b1_rows[1], b1_rows[2], b1_rows[3]});
+  const auto b0v = spadRows(b0.full_sp_addr(), {b0_rows[0], b0_rows[1], b0_rows[2], b0_rows[3]});
   test.spad_rows.insert(test.spad_rows.end(), b1v.begin(), b1v.end());
   test.spad_rows.insert(test.spad_rows.end(), b0v.begin(), b0v.end());
 
@@ -861,7 +861,7 @@ RsMemTestCase makeLoopConvTemporal3Case() {
                   (2ull << 48) | (2ull << 32) | (2ull << 16) | 4),
       loopCommand(SmeshFunct::LoopConvWsConfig5, weight_base, output_base),
       loopCommand(SmeshFunct::LoopConvWsConfig6, bias_base, input_base),
-      // Input rows 0-5; weight rows 10-15. Disable pooling and transposition.
+      // Input rows 0-5; weights occupy the final six SPAD rows. Disable pooling and transposition.
       loopCommand(SmeshFunct::LoopConvWs, (1ull << 18) | (2ull << 16), 1),
   };
   // Two setup CONFIGs, three load CONFIGs, six loads, six execute commands,

@@ -22,6 +22,8 @@ It checks payloads and that a command stays stable under backpressure.
 
 namespace {
 
+constexpr auto kBBase = smesh::kSpRows / 2 - smesh::kDim;
+
 smesh::SmeshQueuedCmd command(smesh::SmeshFunct funct, std::uint64_t rs1,
                               std::uint64_t rs2) {
   smesh::SmeshQueuedCmd value{};
@@ -79,11 +81,11 @@ class Driver : public Component {
       {static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin3), 0x3000,
        smesh::packLocal(smesh::makeAccAddr(0), {4, 4})},
       {static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin2), 0x2000,
-       smesh::packLocal(smesh::makeSpAddr(4), {4, 4})},
+       smesh::packLocal(smesh::makeSpAddr(kBBase), {4, 4})},
       {static_cast<std::uint32_t>(smesh::SmeshFunct::Mvin), 0x1000,
        smesh::packLocal(smesh::makeSpAddr(0), {4, 4})},
       {static_cast<std::uint32_t>(smesh::SmeshFunct::Preload),
-       smesh::packLocal(smesh::makeSpAddr(4), {4, 4}),
+       smesh::packLocal(smesh::makeSpAddr(kBBase), {4, 4}),
        smesh::packLocal(smesh::makeAccAddr(0), {4, 4})},
       {static_cast<std::uint32_t>(smesh::SmeshFunct::ComputeFlip),
        smesh::packLocal(smesh::makeSpAddr(0), {4, 4}),

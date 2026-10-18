@@ -95,9 +95,9 @@ Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   // build 3 test programs
   for (unsigned n = 0; n < 3; ++n) {
     const auto base      = std::uint64_t{0x1000} + std::uint64_t{n} * 0x4000;
-    const auto local_a   = (n % 2) * 8u;
-    const auto local_b   = local_a + 4u;
-    const auto local_acc = (n % 2) * 8u;
+    const auto local_a   = (n % 2) * (smesh::kSpRows / 2);
+    const auto local_b   = local_a + smesh::kSpRows / 2 - smesh::kDim;
+    const auto local_acc = (n % 2) * (smesh::kAccRows / 2);
     const auto p         = n * 6; // ea. prog. has 6 commands
     program_[p + 0] = command(smesh::SmeshFunct::LoopWsBounds,    0,             (1ull << 32) | (1ull << 16) | 1ull);
     program_[p + 1] = command(smesh::SmeshFunct::LoopWsAddrsAb,   base,          base + 0x1000);

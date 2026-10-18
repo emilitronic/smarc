@@ -27,7 +27,7 @@ struct SmeshConfig {
   std::size_t dim = SMESH_DIM;
 
   std::size_t sp_banks        =  4;
-  std::size_t sp_bank_rows    =  4;
+  std::size_t sp_bank_rows    =  8;   // four banks provide 32 SPAD rows in total
   std::size_t spad_read_delay =  4;   // cycles from an accepted SPAD read to its response
   bool sp_singleported        = true; // same-bank writes take priority over reads
 

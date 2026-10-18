@@ -130,10 +130,12 @@ int main() {
 
   constexpr std::uint64_t shape = (std::uint64_t{4} << 48) | (std::uint64_t{4} << 32);
   constexpr std::uint64_t acc0 = 0x80000000ull;
+  constexpr std::uint64_t half_spad = smesh::kSpRows / 2;
+  constexpr std::uint64_t full_spad = smesh::kSpRows;
   passed &= check("load A", got.load_a[0], smesh::SmeshFunct::Mvin, 0x1000, shape);
-  passed &= check("load B", got.load_b[0], smesh::SmeshFunct::Mvin2, 0x2000, shape | 4);
+  passed &= check("load B", got.load_b[0], smesh::SmeshFunct::Mvin2, 0x2000, shape | (half_spad - 4));
   passed &= check("load D", got.load_d[0], smesh::SmeshFunct::Mvin3, 0x3000, shape | acc0);
-  passed &= check("preload", got.execute[0], smesh::SmeshFunct::Preload, shape | 4, shape | acc0);
+  passed &= check("preload", got.execute[0], smesh::SmeshFunct::Preload, shape | (half_spad - 4), shape | acc0);
   const bool compute_ok = got.execute[1].funct == smesh::SmeshFunct::ComputeFlip &&
                           got.execute[1].rs1 == shape && isGarbageTile(got.execute[1].rs2);
   if (!compute_ok) {
@@ -143,16 +145,17 @@ int main() {
   passed &= check("store C", got.store_c[0], smesh::SmeshFunct::Mvout,
                   0x4000, shape | acc0);
 
-  // Expanding any axis makes B overlap A when B still ends at the first half-SPAD boundary.
-  for (const auto bounds : {(1ull << 32) | (1ull << 16) | 2ull,
-                            (1ull << 32) | (2ull << 16) | 1ull,
-                            (2ull << 32) | (1ull << 16) | 1ull}) {
+  // Fill the first half with A or B, forcing the other operand to overlap it.
+  constexpr auto half_tiles = half_spad / smesh::kDim;
+  for (const auto bounds : {(1ull << 32) | (1ull << 16) | half_tiles,
+                            (1ull << 32) | (half_tiles << 16) | 1ull,
+                            (half_tiles << 32) | (1ull << 16) | 1ull}) {
     auto overlapping = program;
     overlapping[0].rs2 = bounds;
     passed &= checkOverlapRejected("first-half B placement", overlapping);
   }
 
-  // Advance I once. B moves to a separate SPAD region so A's second tile cannot overlap it.
+  // Advance I once and select the full-SPAD endpoint for B.
   auto two_tile_program = program;
   two_tile_program[0].rs2 = (1ull << 32) | (1ull << 16) | 2ull;
   two_tile_program[5].rs1 = 2ull << 16;
@@ -179,11 +182,11 @@ int main() {
 
   passed &= check("A tile 0", two.load_a[0], smesh::SmeshFunct::Mvin, 0x1000, shape);
   passed &= check("A tile 1", two.load_a[1], smesh::SmeshFunct::Mvin, 0x1100, shape | 4);
-  passed &= check("B tile", two.load_b[0], smesh::SmeshFunct::Mvin2, 0x2000, shape | 12);
+  passed &= check("B tile", two.load_b[0], smesh::SmeshFunct::Mvin2, 0x2000, shape | (full_spad - 4));
   passed &= check("D tile 0", two.load_d[0], smesh::SmeshFunct::Mvin3, 0x3000, shape | acc0);
   passed &= check("D tile 1", two.load_d[1], smesh::SmeshFunct::Mvin3, 0x3800, shape | acc0 | 4);
   passed &= check("preload 0", two.execute[0], smesh::SmeshFunct::Preload,
-                  shape | 12, shape | acc0);
+                  shape | (full_spad - 4), shape | acc0);
   const bool preload_reuses_b = two.execute[2].funct == smesh::SmeshFunct::Preload &&
                                 isGarbageTile(two.execute[2].rs1) &&
                                 two.execute[2].rs2 == (shape | acc0 | 4);
@@ -230,13 +233,13 @@ int main() {
   constexpr std::uint64_t wide_shape = (std::uint64_t{4} << 48) | (std::uint64_t{8} << 32);
   passed &= check("J load A", two_j.load_a[0], smesh::SmeshFunct::Mvin, 0x1000, shape);
   passed &= check("J load B", two_j.load_b[0], smesh::SmeshFunct::Mvin2,
-                  0x2000, wide_shape | 8);
+                  0x2000, wide_shape | (full_spad - 8));
   passed &= check("J load D", two_j.load_d[0], smesh::SmeshFunct::Mvin3,
                   0x3000, wide_shape | acc0);
   passed &= check("J preload 0", two_j.execute[0], smesh::SmeshFunct::Preload,
-                  shape | 8, shape | acc0);
+                  shape | (full_spad - 8), shape | acc0);
   passed &= check("J preload 1", two_j.execute[2], smesh::SmeshFunct::Preload,
-                  shape | 12, shape | acc0 | 4);
+                  shape | (full_spad - 4), shape | acc0 | 4);
   const bool j_computes_ok = two_j.execute[1].funct == smesh::SmeshFunct::ComputeFlip &&
                              two_j.execute[1].rs1 == shape &&
                              isGarbageTile(two_j.execute[1].rs2) &&
@@ -276,15 +279,15 @@ int main() {
   passed &= check("K load A", two_k.load_a[0], smesh::SmeshFunct::Mvin,
                   0x1000, wide_shape);
   passed &= check("K load B 0", two_k.load_b[0], smesh::SmeshFunct::Mvin2,
-                  0x2000, shape | 8);
+                  0x2000, shape | (full_spad - 8));
   passed &= check("K load B 1", two_k.load_b[1], smesh::SmeshFunct::Mvin2,
-                  0x2180, shape | 12);
+                  0x2180, shape | (full_spad - 4));
   passed &= check("K load D", two_k.load_d[0], smesh::SmeshFunct::Mvin3,
                   0x3000, shape | acc0);
   passed &= check("K preload 0", two_k.execute[0], smesh::SmeshFunct::Preload,
-                  shape | 8, shape | acc0);
+                  shape | (full_spad - 8), shape | acc0);
   passed &= check("K preload 1", two_k.execute[2], smesh::SmeshFunct::Preload,
-                  shape | 12, shape | acc0 | smesh::kLocalAddrAccumulateMask);
+                  shape | (full_spad - 4), shape | acc0 | smesh::kLocalAddrAccumulateMask);
   const bool k_computes_ok =
       two_k.execute[1].funct == smesh::SmeshFunct::ComputeFlip &&
       two_k.execute[1].rs1 == shape && isGarbageTile(two_k.execute[1].rs2) &&
@@ -297,7 +300,7 @@ int main() {
   passed &= check("K store C", two_k.store_c[0], smesh::SmeshFunct::Mvout,
                   0x4000, shape | acc0);
 
-  // Two tile rows and two tile columns fill both SPAD halves and all accumulator rows.
+  // Two tile rows and two tile columns fill all accumulator rows.
   auto two_by_two_program = program;
   two_by_two_program[0].rs2 = (1ull << 32) | (2ull << 16) | 2ull;
   two_by_two_program[5].rs1 = 2ull << 16;
@@ -309,18 +312,18 @@ int main() {
       {smesh::SmeshFunct::Mvin, 0x1100, shape | 4},
   });
   passed &= checkStream("I2 J2 load B", two_by_two.load_b, {
-      {smesh::SmeshFunct::Mvin2, 0x2000, wide_shape | 8},
+      {smesh::SmeshFunct::Mvin2, 0x2000, wide_shape | (full_spad - 8)},
   });
   passed &= checkStream("I2 J2 load D", two_by_two.load_d, {
       {smesh::SmeshFunct::Mvin3, 0x3000, wide_shape | acc0},
       {smesh::SmeshFunct::Mvin3, 0x3800, wide_shape | acc0 | 8},
   });
   passed &= checkStream("I2 J2 execute", two_by_two.execute, {
-      {smesh::SmeshFunct::Preload, shape | 8, shape | acc0},
+      {smesh::SmeshFunct::Preload, shape | (full_spad - 8), shape | acc0},
       {smesh::SmeshFunct::ComputeFlip, shape, garbage},
       {smesh::SmeshFunct::Preload, garbage, shape | acc0 | 8},
       {smesh::SmeshFunct::ComputeStay, shape | 4, garbage},
-      {smesh::SmeshFunct::Preload, shape | 12, shape | acc0 | 4},
+      {smesh::SmeshFunct::Preload, shape | (full_spad - 4), shape | acc0 | 4},
       {smesh::SmeshFunct::ComputeFlip, shape, garbage},
       {smesh::SmeshFunct::Preload, garbage, shape | acc0 | 12},
       {smesh::SmeshFunct::ComputeStay, shape | 4, garbage},
@@ -330,7 +333,7 @@ int main() {
       {smesh::SmeshFunct::Mvout, 0x4280, wide_shape | acc0 | 8},
   });
 
-  // A takes three tiles and B the fourth; C occupies three accumulator tiles.
+  // A takes the first three tiles and B the final tile; C occupies three accumulator tiles.
   auto three_i_program = program;
   three_i_program[0].rs2 = (1ull << 32) | (1ull << 16) | 3ull;
   three_i_program[5].rs1 = 2ull << 16;
@@ -342,7 +345,7 @@ int main() {
       {smesh::SmeshFunct::Mvin, 0x1200, shape | 8},
   });
   passed &= checkStream("I3 load B", three_i.load_b, {
-      {smesh::SmeshFunct::Mvin2, 0x2000, shape | 12},
+      {smesh::SmeshFunct::Mvin2, 0x2000, shape | (full_spad - 4)},
   });
   passed &= checkStream("I3 load D", three_i.load_d, {
       {smesh::SmeshFunct::Mvin3, 0x3000, shape | acc0},
@@ -350,7 +353,7 @@ int main() {
       {smesh::SmeshFunct::Mvin3, 0x4000, shape | acc0 | 8},
   });
   passed &= checkStream("I3 execute", three_i.execute, {
-      {smesh::SmeshFunct::Preload, shape | 12, shape | acc0},
+      {smesh::SmeshFunct::Preload, shape | (full_spad - 4), shape | acc0},
       {smesh::SmeshFunct::ComputeFlip, shape, garbage},
       {smesh::SmeshFunct::Preload, garbage, shape | acc0 | 4},
       {smesh::SmeshFunct::ComputeStay, shape | 4, garbage},
@@ -363,7 +366,7 @@ int main() {
       {smesh::SmeshFunct::Mvout, 0x4500, shape | acc0 | 8},
   });
 
-  // B takes three tiles and A the fourth; each J tile gets its own compute pair.
+  // B takes the final three tiles and A the first; each J tile gets its own compute pair.
   auto three_j_program = program;
   three_j_program[0].rs2 = (1ull << 32) | (3ull << 16) | 1ull;
   three_j_program[5].rs1 = 2ull << 16;
@@ -374,17 +377,17 @@ int main() {
       {smesh::SmeshFunct::Mvin, 0x1000, shape},
   });
   passed &= checkStream("J3 load B", three_j.load_b, {
-      {smesh::SmeshFunct::Mvin2, 0x2000, three_shape | 4},
+      {smesh::SmeshFunct::Mvin2, 0x2000, three_shape | (full_spad - 12)},
   });
   passed &= checkStream("J3 load D", three_j.load_d, {
       {smesh::SmeshFunct::Mvin3, 0x3000, three_shape | acc0},
   });
   passed &= checkStream("J3 execute", three_j.execute, {
-      {smesh::SmeshFunct::Preload, shape | 4, shape | acc0},
+      {smesh::SmeshFunct::Preload, shape | (full_spad - 12), shape | acc0},
       {smesh::SmeshFunct::ComputeFlip, shape, garbage},
-      {smesh::SmeshFunct::Preload, shape | 8, shape | acc0 | 4},
+      {smesh::SmeshFunct::Preload, shape | (full_spad - 8), shape | acc0 | 4},
       {smesh::SmeshFunct::ComputeFlip, shape, garbage},
-      {smesh::SmeshFunct::Preload, shape | 12, shape | acc0 | 8},
+      {smesh::SmeshFunct::Preload, shape | (full_spad - 4), shape | acc0 | 8},
       {smesh::SmeshFunct::ComputeFlip, shape, garbage},
   });
   passed &= checkStream("J3 store C", three_j.store_c, {
@@ -392,9 +395,10 @@ int main() {
   });
 
   auto over_capacity = program;
-  over_capacity[0].rs2 = (2ull << 32) | (1ull << 16) | 2ull;
+  constexpr auto over_k = full_spad / (3 * smesh::kDim) + 1;
+  over_capacity[0].rs2 = (over_k << 32) | (1ull << 16) | 2ull;
   over_capacity[5].rs1 = 2ull << 16;
-  passed &= checkOverlapRejected("I2 J1 K2 exceeds SPAD", over_capacity);
+  passed &= checkOverlapRejected("I2 J1 exceeds SPAD", over_capacity);
 
   std::puts(passed ? "[LOOP_MATMUL_REFERENCE] PASS" : "[LOOP_MATMUL_REFERENCE] FAIL");
   return passed ? 0 : 1;

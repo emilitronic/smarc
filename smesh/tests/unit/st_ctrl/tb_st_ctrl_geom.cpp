@@ -105,7 +105,7 @@ GeomDriver::GeomDriver(std::string /*name*/, IMPL_CTOR) {
 
 void GeomDriver::update() {
   vaddr = cycle_ == 0 ? 0x1000 : 0x2000;
-  localaddr = smesh::makeSpAddr(cycle_ == 0 ? 10 : 4);
+  localaddr = smesh::makeSpAddr(cycle_ == 0 ? smesh::kSpRows - 6 : 4);
   dst_spad_addr = smesh::makeSpAddr(20);
   dst_spad_stride = 3;
   stride = cycle_ == 0 ? 16 : 8;
@@ -211,8 +211,8 @@ void GeomMonitor::update() {
   if (cycle_ == 0) {
     ok = pooling_is_enabled == 0 && mvout_1d_enabled == 0 &&
          *current_vaddr == 0x1020 &&
-         current_localaddr->raw == smesh::makeSpAddr(16).raw &&
-         *current_dst_spad_addr == 10;
+         current_localaddr->raw == smesh::makeSpAddr(0).raw &&
+         *current_dst_spad_addr == std::uint64_t{smesh::makeSpAddr(20).raw} + 6;
   } else if (cycle_ == 1) {
     ok = pooling_is_enabled == 1 && mvout_1d_enabled == 0 &&
          *orow == 1 && *ocol == 4 &&
