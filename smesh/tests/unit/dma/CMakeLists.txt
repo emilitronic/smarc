@@ -20,6 +20,9 @@ foreach(width IN ITEMS 8 4)
   set_target_properties(${target} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
   add_test(NAME smesh_unit_dma_reader_stream_beat${width} COMMAND ${target})
-  set_tests_properties(smesh_unit_dma_reader_stream_beat${width} PROPERTIES
+  add_test(NAME smesh_unit_dma_reader_zero_beat${width} COMMAND ${target} -all_zeros=1)
+  add_test(NAME smesh_unit_dma_reader_zero_accum_beat${width} COMMAND ${target} -all_zeros=1 -full_acc=1)
+  set_tests_properties(smesh_unit_dma_reader_stream_beat${width}
+    smesh_unit_dma_reader_zero_beat${width} smesh_unit_dma_reader_zero_accum_beat${width} PROPERTIES
     LABELS "unit;dma;beat${width}" TIMEOUT 10)
 endforeach()

@@ -54,6 +54,11 @@ The suite currently covers:
   output per channel. Checks input SPAD rows 0-11, weight rows 26-31 in the
   default 32-row SPAD, eight accumulator rows, DRAM bytes, completions, and
   loop/utilization drain. Horizontal windows must stay within their image row.
+- `loop_conv_temporal3_padded`: the 1x6 image with one zero position at each
+  end, producing six outputs per channel. Checks all eight input SPAD rows,
+  the six weight rows, independent Accum results, DRAM bytes, completions, and
+  loop retirement. Nonzero initial border rows and nonzero DRAM data at address
+  zero ensure padding is generated locally rather than read from memory.
 - `loop_conv_padding`: a 1x1 image with one input channel, a 2x2 kernel,
   two output channels, and bias. One pixel of padding on all four sides
   produces a 2x2 output. Checks zero-fill of eight initially nonzero SPAD
@@ -107,6 +112,7 @@ cmake --build build --target tb_rs_to_mem_suite -j
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_kernel2
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_temporal3
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_temporal3_2x6
+./build/smesh/tb_rs_to_mem_suite -test=loop_conv_temporal3_padded
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_padding
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_images
 ./build/smesh/tb_rs_to_mem_suite -test=full_width_accum_load

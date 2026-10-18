@@ -21,6 +21,12 @@ Requests can span more than two narrow rows (previous limit), up to the
 configured byte limit.  Each row keeps its own bytes_read and completion
 marker.
 
+all_zeros requests generate data locally without issuing memory reads. They use
+the same row buffering and completion accounting, with identity scaling. This
+models zero-fill inside DmaReader rather than Original's separate ZeroWriter;
+local data is generated in mem_beat_bytes chunks, so its throughput follows
+that model's beat width rather than a separate zero-writer implementation.
+
 TODO: model larger memory transactions returned over multiple response beats.
 The current MemReq/MemResp interface transfers one 4- or 8-byte beat per request.
 */
@@ -71,8 +77,8 @@ class DmaReader : public Component {
     DmaReadData   row_data{};
     std::uint64_t beat_data            = 0; // holds data from one mem resp beat
     std::uint32_t total_bytes          = 0;
-    std::uint32_t bytes_requested      = 0; // track active read req: # of B requested
-    std::uint32_t bytes_received       = 0; // track active read req: # of B received (i.e. for entire request, not just for a row)
+    std::uint32_t bytes_requested      = 0; // bytes scheduled from memory or the local zero generator
+    std::uint32_t bytes_received       = 0; // bytes processed for the entire request, not just the current row
     std::uint16_t row_fill             = 0; // number of B currently accumulated in row_data for row being assembled
     std::uint16_t beat_bytes           = 0;
     std::uint16_t beat_offset          = 0; // track which byte of mem resp beat will be processed by row-loop next
