@@ -782,11 +782,13 @@ RsMemTestCase makeLoopConvKernel2Case() {
   return test;
 }
 
-// A two-channel time series: each output combines three consecutive time steps.
-RsMemTestCase makeLoopConvTemporal3Case() {
+// A horizontal 1x3 kernel processes each image row independently.
+static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows) {
   RsMemTestCase test{};
-  test.name = "loop_conv_temporal3";
-  test.description = "1x3 kernel over a 1x6 two-channel image produces four two-channel outputs";
+  test.name = input_rows == 1 ? "loop_conv_temporal3" : "loop_conv_temporal3_2x6";
+  test.description = input_rows == 1
+      ? "1x3 kernel over a 1x6 two-channel image produces four two-channel outputs"
+      : "1x3 kernel over a 2x6 two-channel image produces eight two-channel outputs";
   test.max_cycles = 1200;
   test.drain_cycles = 16;
   test.expect_conv_release = true;
@@ -794,7 +796,10 @@ RsMemTestCase makeLoopConvTemporal3Case() {
   constexpr std::uint64_t weight_base = 0x80029000;
   constexpr std::uint64_t bias_base = 0x8002a000;
   constexpr std::uint64_t output_base = 0x8002b000;
-  constexpr int input[6][2] = {{1, 2}, {2, -1}, {0, 3}, {-2, 1}, {3, 2}, {1, -2}};
+  constexpr int input[2][6][2] = {
+      {{1, 2}, {2, -1}, {0, 3}, {-2, 1}, {3, 2}, {1, -2}},
+      {{-3, 1}, {4, 2}, {-1, -2}, {2, 0}, {0, 3}, {-2, 4}},
+  };
   // [kernel time offset][input channel][output channel]; no kernel reversal.
   constexpr int weights[3][2][2] = {
       {{1, -1}, {2, 1}}, {{-1, 2}, {1, -2}}, {{2, 1}, {-1, 2}},
@@ -805,15 +810,18 @@ RsMemTestCase makeLoopConvTemporal3Case() {
     for (unsigned byte = 0; byte < sizeof(Acc); ++byte)
       bias_bytes.push_back(static_cast<std::uint32_t>(value) >> (8 * byte));
   test.dram_initial.push_back({bias_base, bias_bytes});
-  for (unsigned time = 0; time < 6; ++time) {
-    MeshInputRow pixel{};
-    std::vector<std::uint8_t> bytes;
-    for (unsigned ich = 0; ich < 2; ++ich) {
-      pixel[ich] = input[time][ich];
-      bytes.push_back(static_cast<std::uint8_t>(pixel[ich]));
+  for (unsigned image_row = 0; image_row < input_rows; ++image_row) {
+    for (unsigned time = 0; time < 6; ++time) {
+      MeshInputRow pixel{};
+      std::vector<std::uint8_t> bytes;
+      for (unsigned ich = 0; ich < 2; ++ich) {
+        pixel[ich] = input[image_row][time][ich];
+        bytes.push_back(static_cast<std::uint8_t>(pixel[ich]));
+      }
+      const auto position = image_row * 6 + time;
+      test.dram_initial.push_back({input_base + position * 2, bytes});
+      test.expected_loaded_spad_rows.push_back({makeSpAddr(position), pixel});
     }
-    test.dram_initial.push_back({input_base + time * 2, bytes});
-    test.expected_loaded_spad_rows.push_back({makeSpAddr(time), pixel});
   }
   const auto b_start = static_cast<std::uint32_t>(kSpRows - 6);
   for (unsigned tap = 0; tap < 3; ++tap)
@@ -829,48 +837,59 @@ RsMemTestCase makeLoopConvTemporal3Case() {
       test.expected_loaded_spad_rows.push_back({makeSpAddr(b_start + row), weight});
     }
   std::vector<MeshAccumRow> results;
-  for (unsigned time = 0; time < 4; ++time) {
-    MeshAccumRow result{};
-    std::vector<std::uint8_t> bytes;
-    for (unsigned och = 0; och < 2; ++och) {
-      result[och] = bias[och];
-      // Direct temporal convolution, independent of worker geometry and commands.
-      for (unsigned tap = 0; tap < 3; ++tap)
-        for (unsigned ich = 0; ich < 2; ++ich)
-          result[och] += input[time + tap][ich] * weights[tap][ich][och];
-      bytes.push_back(static_cast<std::uint8_t>(result[och]));
+  for (unsigned image_row = 0; image_row < input_rows; ++image_row) {
+    for (unsigned time = 0; time < 4; ++time) {
+      MeshAccumRow result{};
+      std::vector<std::uint8_t> bytes;
+      for (unsigned och = 0; och < 2; ++och) {
+        result[och] = bias[och];
+        // Direct convolution stays within this image row, independent of worker commands.
+        for (unsigned tap = 0; tap < 3; ++tap)
+          for (unsigned ich = 0; ich < 2; ++ich)
+            result[och] += input[image_row][time + tap][ich] * weights[tap][ich][och];
+        bytes.push_back(static_cast<std::uint8_t>(result[och]));
+      }
+      results.push_back(result);
+      test.expected_dram.push_back({output_base + (image_row * 4 + time) * 2, bytes});
     }
-    results.push_back(result);
-    test.expected_dram.push_back({output_base + time * 2, bytes});
   }
   test.expected_results.push_back({makeAccAddr(0), results});
   test.program = {
       configExCmd(),
       loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
                   (std::uint64_t{kAccScaleIdentityBits} << 32) | 2),
-      // One batch, input height 1, two input/output channels; valid stride-1 output width 4.
+      // One batch, two input/output channels; height is preserved by the 1x3 kernel.
       loopCommand(SmeshFunct::LoopConvWsConfig1,
-                  (2ull << 48) | (2ull << 32) | (1ull << 16) | 1,
-                  (1ull << 48) | (4ull << 32) | 1),
+                  (2ull << 48) | (2ull << 32) | (std::uint64_t{input_rows} << 16) | 1,
+                  (1ull << 48) | (4ull << 32) | input_rows),
       // The normal weight layout uses kernel_dim as its kernel-row pitch.
       loopCommand(SmeshFunct::LoopConvWsConfig2, 3ull << 48, (1ull << 48) | 2),
       // Process one kernel row, three kernel columns, two channels; input width 6.
       loopCommand(SmeshFunct::LoopConvWsConfig3,
                   (1ull << 48) | (3ull << 32) | (2ull << 16), 6),
-      loopCommand(SmeshFunct::LoopConvWsConfig4, (1ull << 48) | 1,
+      loopCommand(SmeshFunct::LoopConvWsConfig4, (std::uint64_t{input_rows} << 48) | 1,
                   (2ull << 48) | (2ull << 32) | (2ull << 16) | 4),
       loopCommand(SmeshFunct::LoopConvWsConfig5, weight_base, output_base),
       loopCommand(SmeshFunct::LoopConvWsConfig6, bias_base, input_base),
-      // Input rows 0-5; weights occupy the final six SPAD rows. Disable pooling and transposition.
+      // Inputs occupy 6*height SPAD rows; weights occupy the final six rows.
       loopCommand(SmeshFunct::LoopConvWs, (1ull << 18) | (2ull << 16), 1),
   };
-  // Two setup CONFIGs, three load CONFIGs, six loads, six execute commands,
-  // and one STORE. Load/Store CONFIGs retire on issue; all others complete.
-  for (unsigned tag = 0; tag < 18; ++tag) {
-    if (tag == 1 || tag == 2 || tag == 4 || tag == 8) continue;
+  // Five CONFIGs, 3+3*height loads, 6*height execute commands, height stores.
+  // Bias, weight, and input workers issue in priority order. Load/Store CONFIGs
+  // retire on issue; CONFIG_EX and every non-CONFIG command must complete.
+  for (unsigned tag = 0; tag < 8 + 10 * input_rows; ++tag) {
+    if (tag == 1 || tag == 2 || tag == 3 + input_rows || tag == 7 + input_rows) continue;
     test.expected_completion_tags.push_back(tag);
   }
   return test;
+}
+
+RsMemTestCase makeLoopConvTemporal3Case() {
+  return makeLoopConvTemporal3RowsCase(1);
+}
+
+RsMemTestCase makeLoopConvTemporal3TwoRowsCase() {
+  return makeLoopConvTemporal3RowsCase(2);
 }
 
 // Every output window touches padding: a 1x1 image and 2x2 kernel produce
@@ -1310,6 +1329,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase()};
   if (kDim == 4) tests.push_back(makeLoopConvKernel2Case());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3Case());
+  if (kDim == 4) tests.push_back(makeLoopConvTemporal3TwoRowsCase());
   if (kDim == 4) tests.push_back(makeLoopConvPaddingCase());
   if (kDim == 4) tests.push_back(makeLoopConvImagesCase());
   if (kDim == 4) tests.push_back(makeSharedAccumReadCase());

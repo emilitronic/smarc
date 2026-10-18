@@ -66,6 +66,7 @@ add_test(NAME smesh_rs_to_mem_loop_ws_dma COMMAND tb_rs_to_mem_suite -test=loop_
 add_test(NAME smesh_rs_to_mem_loop_conv_dma COMMAND tb_rs_to_mem_suite -test=loop_conv_dma)
 add_test(NAME smesh_rs_to_mem_loop_conv_kernel2 COMMAND tb_rs_to_mem_suite -test=loop_conv_kernel2)
 add_test(NAME smesh_rs_to_mem_loop_conv_temporal3 COMMAND tb_rs_to_mem_suite -test=loop_conv_temporal3)
+add_test(NAME smesh_rs_to_mem_loop_conv_temporal3_2x6 COMMAND tb_rs_to_mem_suite -test=loop_conv_temporal3_2x6)
 add_test(NAME smesh_rs_to_mem_loop_conv_padding COMMAND tb_rs_to_mem_suite -test=loop_conv_padding)
 add_test(NAME smesh_rs_to_mem_loop_conv_images COMMAND tb_rs_to_mem_suite -test=loop_conv_images)
 add_test(NAME smesh_rs_to_mem_loop_ws_dma_i2 COMMAND tb_rs_to_mem_suite -test=loop_ws_dma_i2)
@@ -86,6 +87,7 @@ set_tests_properties(
   smesh_rs_to_mem_loop_conv_dma
   smesh_rs_to_mem_loop_conv_kernel2
   smesh_rs_to_mem_loop_conv_temporal3
+  smesh_rs_to_mem_loop_conv_temporal3_2x6
   smesh_rs_to_mem_loop_conv_padding
   smesh_rs_to_mem_loop_conv_images
   smesh_rs_to_mem_loop_ws_dma_i2
