@@ -77,6 +77,13 @@ add_test(NAME smesh_rs_to_mem_repeated_loads COMMAND tb_rs_to_mem_suite -test=re
 add_test(NAME smesh_rs_to_mem_scaled_shrink_load COMMAND tb_rs_to_mem_suite -test=scaled_shrink_load)
 add_test(NAME smesh_rs_to_mem_shared_accum_read COMMAND tb_rs_to_mem_suite -test=shared_accum_read)
 add_test(NAME smesh_rs_to_mem_accum_scale_store COMMAND tb_rs_to_mem_suite -test=accum_scale_store)
+add_test(NAME smesh_rs_to_mem_zero_writer COMMAND tb_rs_to_mem_suite -test=zero_writer)
+add_test(NAME smesh_rs_to_mem_beat4_zero_writer COMMAND tb_rs_to_mem_suite_beat4 -test=zero_writer)
+add_test(NAME smesh_rs_to_mem_dim8_zero_writer COMMAND tb_rs_to_mem_suite_dim8 -test=zero_writer)
+set_tests_properties(smesh_rs_to_mem_beat4_zero_writer PROPERTIES
+  LABELS "integration;rs_to_mem;beat4" TIMEOUT 30)
+set_tests_properties(smesh_rs_to_mem_dim8_zero_writer PROPERTIES
+  LABELS "integration;rs_to_mem;dim8" TIMEOUT 30)
 
 set_tests_properties(
   smesh_rs_to_mem_basic
@@ -99,6 +106,7 @@ set_tests_properties(
   smesh_rs_to_mem_scaled_shrink_load
   smesh_rs_to_mem_shared_accum_read
   smesh_rs_to_mem_accum_scale_store
+  smesh_rs_to_mem_zero_writer
   PROPERTIES
     LABELS "integration;rs_to_mem"
     TIMEOUT 30

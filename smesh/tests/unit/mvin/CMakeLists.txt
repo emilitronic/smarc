@@ -24,3 +24,12 @@ set_target_properties(tb_mvin_latency PROPERTIES
 add_test(NAME smesh_unit_mvin_latency COMMAND tb_mvin_latency)
 set_tests_properties(smesh_unit_mvin_latency PROPERTIES
   LABELS "unit;mvin" TIMEOUT 10)
+
+add_executable(tb_zero_writer tb_zero_writer.cpp)
+target_link_libraries(tb_zero_writer PRIVATE
+  smesh_model cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_zero_writer PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+add_test(NAME smesh_unit_zero_writer COMMAND tb_zero_writer)
+set_tests_properties(smesh_unit_zero_writer PROPERTIES
+  LABELS "unit;mvin" TIMEOUT 10)

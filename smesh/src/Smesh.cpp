@@ -57,6 +57,8 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   mvin_scale_           = new MvinScale("MvinScale", mvin_scale_latency);
   mvin_scale_acc_       = new MvinScaleAcc("MvinScaleAcc");
   pixel_repeater_       = new MvinPixelRepeater("MvinPixelRepeater");
+  zero_writer_          = new ZeroWriter("ZeroWriter");
+  zero_writer_pixel_repeater_ = new MvinPixelRepeater("ZeroWriterPixelRepeater");
   local_router_         = new MvinLocalRouter("MvinLocalRouter");
   spad_                 = new Spad("Spad");
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
@@ -113,6 +115,8 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   mvin_scale_->clk           << clk;
   mvin_scale_acc_->clk       << clk;
   pixel_repeater_->clk       << clk;
+  zero_writer_->clk << clk;
+  zero_writer_pixel_repeater_->clk << clk;
   local_router_->clk         << clk;
   spad_->clk                 << clk;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
@@ -156,9 +160,16 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   completion_arb_->st_completed_bits << st_ctrl_->completed_bits;
   st_ctrl_->completed_rdy << completion_arb_->st_completed_rdy;
   rs_->completed   << completion_arb_->rs_completed;
-  read_issue_queue_->req_val << ld_ctrl_->dma_req_val;
+  // Zero-fill bypasses the read-issue queue, DmaReader, and both scale branches.
+  read_issue_queue_->req_val << read_issue_val_;
   read_issue_queue_->req_bits << ld_ctrl_->dma_req_bits;
-  ld_ctrl_->dma_req_rdy << read_issue_queue_->req_rdy;
+  ld_ctrl_->dma_req_rdy << load_req_rdy_;
+  zero_writer_->req_val << zero_req_val_;
+  zero_writer_->req_bits << ld_ctrl_->dma_req_bits;
+  zero_writer_pixel_repeater_->in_val << zero_writer_->resp_val;
+  zero_writer_pixel_repeater_->in_bits << zero_writer_->resp_bits;
+  zero_writer_->resp_rdy << zero_writer_pixel_repeater_->in_rdy;
+  zero_writer_pixel_repeater_->out_rdy << zero_resp_rdy_;
   dma_reader_->req_in       << read_issue_queue_->req_out;
   ex_ctrl_->cmd_val << rs_->issue_ex_val;
   ex_ctrl_->cmd_bits << rs_->issue_ex_bits;
@@ -264,8 +275,9 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
     arb_write_spad_[bank]->dmaread_val    << write_ctrl_->arb_spad_dmaread_val[bank];
     arb_write_spad_[bank]->dmaread_bits   << write_ctrl_->arb_spad_dmaread_bits[bank];
     write_ctrl_->arb_spad_dmaread_rdy[bank] << arb_write_spad_[bank]->dmaread_rdy;
-    arb_write_spad_[bank]->zerowrite_val  << write_arb_zero_val_;
-    arb_write_spad_[bank]->zerowrite_bits << write_arb_zero_bits_;
+    arb_write_spad_[bank]->zerowrite_val  << zero_spad_val_[bank];
+    arb_write_spad_[bank]->zerowrite_bits << zero_writer_pixel_repeater_->out_bits;
+    zero_spad_rdy_[bank] << arb_write_spad_[bank]->zerowrite_rdy;
     arb_write_spad_[bank]->write_rdy      << spad_->write_rdy_bnk[bank];
     spad_->write_val_bnk[bank]            << arb_write_spad_[bank]->write_val;
     spad_->write_bits_bnk[bank]           << arb_write_spad_[bank]->write_bits;
@@ -281,8 +293,9 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
     arb_write_accum_[bank]->dmaread_full_val  << write_ctrl_->arb_accum_dmaread_full_val[bank];
     arb_write_accum_[bank]->dmaread_full_bits << write_ctrl_->arb_accum_dmaread_full_bits[bank];
     write_ctrl_->arb_accum_dmaread_full_rdy[bank] << arb_write_accum_[bank]->dmaread_full_rdy;
-    arb_write_accum_[bank]->zerowrite_val     << write_arb_zero_val_;
-    arb_write_accum_[bank]->zerowrite_bits    << write_arb_zero_bits_;
+    arb_write_accum_[bank]->zerowrite_val     << zero_accum_val_[bank];
+    arb_write_accum_[bank]->zerowrite_bits    << zero_writer_pixel_repeater_->out_bits;
+    zero_accum_rdy_[bank] << arb_write_accum_[bank]->zerowrite_rdy;
     arb_write_accum_[bank]->write_rdy         << accum_->write_rdy_bnk[bank];
     accum_->write_val_bnk[bank]               << arb_write_accum_[bank]->write_val;
     accum_->write_bits_bnk[bank]              << arb_write_accum_[bank]->write_bits;
@@ -347,7 +360,19 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   // Enable Execute commands from the reservation station.
   rs_->setExecuteIssuePortEnabled(true);
 
-  UPDATE(update).writes(write_arb_zero_val_, write_arb_zero_bits_);
+  UPDATE(update);
+  UPDATE(updateLoadRequest).reads(ld_ctrl_->dma_req_val, ld_ctrl_->dma_req_bits)
+      .writes(read_issue_val_, zero_req_val_);
+  UPDATE(updateLoadReady).reads(ld_ctrl_->dma_req_bits, read_issue_queue_->req_rdy,
+                                zero_writer_->req_rdy).writes(load_req_rdy_);
+  UPDATE(updateZeroWrites)
+      .reads(zero_writer_pixel_repeater_->out_val, zero_writer_pixel_repeater_->out_bits,
+             local_router_->dmaread_spad_val, local_router_->dmaread_spad_bits,
+             local_router_->dmaread_accum_val, local_router_->dmaread_accum_bits,
+             mvin_scale_acc_->out_val, mvin_scale_acc_->out_bits)
+      .writes(zero_spad_val_, zero_accum_val_);
+  UPDATE(updateZeroReady).reads(zero_spad_val_, zero_accum_val_,
+                                zero_spad_rdy_, zero_accum_rdy_).writes(zero_resp_rdy_);
   UPDATE(updateLoopCompletions)
       .reads(rs_->loop_st_completed, rs_->loop_st_config_issued)
       .reads(rs_->conv_ld_completed, rs_->conv_ld_config_issued, rs_->conv_st_completed, rs_->conv_st_config_issued)
@@ -366,6 +391,8 @@ Smesh::~Smesh() {
   delete spad_;
   delete local_router_;
   delete pixel_repeater_;
+  delete zero_writer_pixel_repeater_;
+  delete zero_writer_;
   delete mvin_scale_acc_;
   delete mvin_scale_;
   delete mvin_scale_split_;
@@ -427,19 +454,60 @@ void Smesh::update() {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
   rs_->setExecuteIssuePortEnabled(true);
-  write_arb_zero_val_ = 0;
-  write_arb_zero_bits_ = DmaReadResp{};
+}
+
+// Select Original's separate zero-fill branch before requests enter read_issue_queue_.
+// TODO: define protection for overlapping writes from the two load branches.
+// RS releases same-load-queue dependencies on issue, so a zero fill can overtake
+// an older memory load to the same address; bank arbitration alone cannot order them.
+void Smesh::updateLoadRequest() {
+  const bool zeros = ld_ctrl_->dma_req_bits->all_zeros == 1;
+  read_issue_val_ = bit(ld_ctrl_->dma_req_val == 1 && !zeros);
+  zero_req_val_ = bit(ld_ctrl_->dma_req_val == 1 && zeros);
+}
+
+void Smesh::updateLoadReady() {
+  load_req_rdy_ = ld_ctrl_->dma_req_bits->all_zeros == 1
+                      ? *zero_writer_->req_rdy : *read_issue_queue_->req_rdy;
+}
+
+// Route zero rows to one bank only. Normal load completions take precedence,
+// even across banks, so a memory never accepts two final DMA writes together.
+void Smesh::updateZeroWrites() {
+  const auto row = *zero_writer_pixel_repeater_->out_bits;
+  const bool normal_final =
+      (local_router_->dmaread_spad_val == 1 && local_router_->dmaread_spad_bits->last == 1) ||
+      (local_router_->dmaread_accum_val == 1 && local_router_->dmaread_accum_bits->last == 1) ||
+      (mvin_scale_acc_->out_val == 1 && mvin_scale_acc_->out_bits->last == 1);
+  const bool valid = zero_writer_pixel_repeater_->out_val == 1 && !normal_final;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank)
+    zero_spad_val_[bank] = bit(valid && !row.laddr.is_acc_addr() && row.laddr.sp_bank() == bank);
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank)
+    zero_accum_val_[bank] = bit(valid && row.laddr.is_acc_addr() && row.laddr.acc_bank() == bank);
+}
+
+void Smesh::updateZeroReady() {
+  bool ready = false;
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank)
+    ready |= zero_spad_val_[bank] == 1 && zero_spad_rdy_[bank] == 1;
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank)
+    ready |= zero_accum_val_[bank] == 1 && zero_accum_rdy_[bank] == 1;
+  zero_resp_rdy_ = bit(ready);
 }
 
 void Smesh::reset() {
   rs_->setLoadIssuePortEnabled(true);
   rs_->setStoreIssuePortEnabled(true);
   rs_->setExecuteIssuePortEnabled(true);
-  write_arb_zero_val_.reset(0);
+  read_issue_val_.reset(0);
+  zero_req_val_.reset(0);
+  load_req_rdy_.reset(0);
+  zero_resp_rdy_.reset(0);
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) zero_spad_val_[bank].reset(0);
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) zero_accum_val_[bank].reset(0);
   loop_st_completed_total_.reset(0);
   conv_ld_completed_total_.reset(0);
   conv_st_completed_total_.reset(0);
-  write_arb_zero_bits_.reset(DmaReadResp{});
   trace("smesh: reset");
 }
 

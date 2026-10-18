@@ -3,7 +3,7 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Oct 1 2026
 
-// Check streamed rows, masks, backpressure, and local zero-fill without memory reads.
+// Check streamed rows, masks, and backpressure on real memory reads.
 
 #include <cascade/Cascade.hpp>
 #include <descore/Parameter.hpp>
@@ -20,14 +20,11 @@ constexpr std::uint64_t kBase = 0x80001000;
 constexpr unsigned kCols = 3 * smesh::kDim + 2;
 constexpr unsigned kRows = 4;
 
-BoolParameter(all_zeros, false, "Generate zero rows locally instead of reading memory");
-BoolParameter(full_acc, false, "Use full-width accumulator elements for zero-fill");
-
 class Driver : public Component {
   DECLARE_COMPONENT(Driver);
 
  public:
-  Driver(std::string name, bool zeros, bool accumulator, COMPONENT_CTOR);
+  Driver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
   FifoOutput(smesh::DmaReadReq, req_out);
@@ -44,8 +41,6 @@ class Driver : public Component {
   bool passed() const;
 
  private:
-  const bool zeros_;
-  const bool accumulator_;
   Register(u16, cycle_D_);
   bool sent_ = false;
   bool saw_early_row_ = false;
@@ -54,8 +49,7 @@ class Driver : public Component {
   unsigned received_ = 0;
 };
 
-Driver::Driver(std::string /*name*/, bool zeros, bool accumulator, IMPL_CTOR)
-    : zeros_(zeros), accumulator_(accumulator) {
+Driver::Driver(std::string /*name*/, IMPL_CTOR) {
   cycle <= cycle_D_;
   UPDATE(updateRequest).writes(req_out);
   UPDATE(updateReady).reads(cycle).writes(resp_rdy);
@@ -67,13 +61,10 @@ void Driver::updateRequest() {
   if (Sim::state == Sim::SimResetting || sent_ || req_out.full()) return;
   smesh::DmaReadReq req{};
   req.vaddr = kBase;
-  req.laddr = accumulator_ ? smesh::makeAccAddr(2) : smesh::makeSpAddr(2);
+  req.laddr = smesh::makeSpAddr(2);
   req.cols = u16(kCols);
   req.block_stride = 1;
-  req.scale = zeros_ ? 0x7fc00000u : 0x3f800000u;
-  req.all_zeros = bit(zeros_);
-  req.has_acc_bitwidth = bit(accumulator_);
-  req.repeats = zeros_ ? 2 : 0;
+  req.scale = 0x3f800000u;
   req.cmd_id = 7;
   req_out.push(req);
   sent_ = true;
@@ -92,17 +83,16 @@ void Driver::updateCheck() {
   if (resp_rdy == 0) saw_stall_ = true;
   const auto& row = *resp_bits;
   const unsigned cols = std::min<unsigned>(smesh::kDim, kCols - received_ * smesh::kDim);
-  const auto address = accumulator_ ? smesh::makeAccAddr(2 + received_)
-                                    : smesh::makeSpAddr(2 + received_);
-  const auto element_bytes = accumulator_ ? sizeof(smesh::Acc) : sizeof(smesh::Elem);
+  const auto address = smesh::makeSpAddr(2 + received_);
+  const auto element_bytes = sizeof(smesh::Elem);
   data_ok_ &= received_ < kRows && row.laddr.raw == address.raw &&
               static_cast<unsigned>(row.len) == cols &&
               static_cast<std::uint32_t>(row.mask) == (1u << cols) - 1u &&
               static_cast<unsigned>(row.bytes_read) == cols * element_bytes &&
-              row.cmd_id == 7 && row.last == 1 && row.has_acc_bitwidth == bit(accumulator_) &&
-              row.scale == 0x3f800000u && row.repeats == (zeros_ ? 2 : 0);
+              row.cmd_id == 7 && row.last == 1 && row.has_acc_bitwidth == 0 &&
+              row.scale == 0x3f800000u && row.repeats == 0;
   for (unsigned byte = 0; byte < row.data.size(); ++byte) {
-    const auto expected = zeros_ || byte >= cols * element_bytes
+    const auto expected = byte >= cols * element_bytes
         ? 0u : 0x20 + received_ * smesh::kDim + byte;
     data_ok_ &= row.data[byte] == expected;
   }
@@ -120,14 +110,14 @@ void Driver::reset() {
 }
 
 bool Driver::passed() const {
-  return sent_ && (zeros_ || saw_early_row_) && saw_stall_ && data_ok_ && received_ == kRows;
+  return sent_ && saw_early_row_ && saw_stall_ && data_ok_ && received_ == kRows;
 }
 
 class Memory : public Component {
   DECLARE_COMPONENT(Memory);
 
  public:
-  Memory(std::string name, bool zeros, COMPONENT_CTOR);
+  Memory(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
   FifoInput(smem::MemReq, req_in);
@@ -141,7 +131,6 @@ class Memory : public Component {
   bool passed() const;
 
  private:
-  const bool zeros_;
   struct Pending {
     bit valid = 0;
     smem::MemReq req{};
@@ -157,7 +146,7 @@ class Memory : public Component {
   bool requests_ok_ = true;
 };
 
-Memory::Memory(std::string /*name*/, bool zeros, IMPL_CTOR) : zeros_(zeros) {
+Memory::Memory(std::string /*name*/, IMPL_CTOR) {
   pending_Q_ <= pending_D_;
   requested_Q_ <= requested_D_;
   delivered <= delivered_D_;
@@ -193,7 +182,7 @@ void Memory::updateAccept() {
   const auto req = req_in.pop();
   const unsigned index = static_cast<std::uint16_t>(*requested_Q_);
   const auto offset = index * smesh::kMemBeatBytes;
-  requests_ok_ &= !zeros_ && req.write == 0 && req.id == 7 &&
+  requests_ok_ &= req.write == 0 && req.id == 7 &&
                   static_cast<std::uint64_t>(req.addr) == kBase + offset &&
                   static_cast<std::uint16_t>(req.size) ==
                       std::min<unsigned>(smesh::kMemBeatBytes, kCols - offset);
@@ -214,7 +203,7 @@ void Memory::reset() {
 }
 
 bool Memory::passed() const {
-  const auto expected = zeros_ ? 0 : (kCols + smesh::kMemBeatBytes - 1) / smesh::kMemBeatBytes;
+  const auto expected = (kCols + smesh::kMemBeatBytes - 1) / smesh::kMemBeatBytes;
   return requests_ok_ && requested_Q_ == expected && delivered == expected;
 }
 
@@ -225,8 +214,8 @@ int main(int argc, char* argv[]) {
   Parameter::parseCommandLine(argc, argv);
   Sim::parseDumps(argc, argv);
 
-  Driver driver("Driver", all_zeros, full_acc);
-  Memory memory("Memory", all_zeros);
+  Driver driver("Driver");
+  Memory memory("Memory");
   smesh::DmaReader reader("DmaReader");
   reader.req_in << driver.req_out;
   memory.req_in << reader.mem_req;
@@ -248,8 +237,7 @@ int main(int argc, char* argv[]) {
   Sim::reset();
   for (int step = 0; step < 100; ++step) Sim::run();
   const bool pass = driver.passed() && memory.passed();
-  std::printf("[DMA_READER_STREAM] %s beat=%zu zeros=%u full_acc=%u\n",
-              pass ? "PASS" : "FAIL", smesh::kMemBeatBytes,
-              unsigned(bool(all_zeros)), unsigned(bool(full_acc)));
+  std::printf("[DMA_READER_STREAM] %s beat=%zu\n",
+              pass ? "PASS" : "FAIL", smesh::kMemBeatBytes);
   return pass ? 0 : 1;
 }

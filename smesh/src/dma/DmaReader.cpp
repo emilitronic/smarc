@@ -11,7 +11,6 @@ smesh/include/common/SmeshTypes.hpp (kMemBeatBytes=mem_beat_bytes)
 */
 
 #include "DmaReader.hpp"
-#include "SmeshCommand.hpp"
 
 #include <algorithm>
 
@@ -79,8 +78,7 @@ void DmaReader::update() {
       row.laddr            = state.active.laddr + row_index * static_cast<std::uint16_t>(state.active.block_stride);
       row.mask             = u32((std::uint64_t{1} << cols) - 1u);
       row.has_acc_bitwidth = state.active.has_acc_bitwidth;
-      // Zero-fill skips arithmetic scaling, as Original's separate ZeroWriter does.
-      row.scale            = state.active.all_zeros == 1 ? u32(kMvinScaleIdentityBits) : state.active.scale;
+      row.scale            = state.active.scale;
       row.repeats          = state.active.repeats;
       row.len              = u16(cols);
       row.bytes_read       = u16(state.row_fill);
@@ -118,6 +116,8 @@ void DmaReader::update() {
   if (state.active_valid == 0 && !req_in.empty()) {
     state                        = ReaderState{};
     state.active                 = req_in.pop();
+    assert_always(state.active.all_zeros == 0,
+                  "Zero-fill requests must use ZeroWriter, not DmaReader");
     const auto bytes_per_element = state.active.has_acc_bitwidth == 1 ? sizeof(Acc) : sizeof(Elem);
     state.total_bytes            = static_cast<std::uint32_t>(state.active.cols) * bytes_per_element;
     const auto max_bytes         = std::max(kDefaultConfig.dma_max_bytes, kDim * sizeof(Acc));
@@ -127,33 +127,23 @@ void DmaReader::update() {
     state_changed                = true;
   }
 
-  // Obtain the next beat once the previous beat is consumed. Padding requests
-  // generate zeros locally; ordinary requests wait for memory-queue capacity.
-  if (state.active_valid == 1 && state.waiting == 0 && state.beat_bytes == 0 && state.bytes_requested < state.total_bytes) {
+  // Request the next memory beat once the previous beat has been consumed.
+  if (state.active_valid == 1 && state.waiting == 0 && state.beat_bytes == 0 &&
+      state.bytes_requested < state.total_bytes && !mem_req.full()) {
     const auto beat_bytes = static_cast<std::uint16_t>(std::min<std::size_t>(kMemBeatBytes, state.total_bytes - state.bytes_requested));
-    if (state.active.all_zeros == 1) {
-      state.beat_data = 0;
-      state.beat_bytes = beat_bytes;
-      state.beat_offset = 0;
-      state.bytes_requested += beat_bytes;
-      state_changed = true;
-      trace("dma_reader: zero-fill bytes=%u cmd_id=%u\n",
-            unsigned(beat_bytes), unsigned(state.active.cmd_id));
-    } else if (!mem_req.full()) {
-      smem::MemReq req{};
-      state.requested_beat_bytes = beat_bytes;
-      req.addr  = state.active.vaddr + state.bytes_requested;
-      req.size  = u16(beat_bytes);
-      req.write = false;
-      req.id    = state.active.cmd_id;
-      mem_req.push(req);
-      state.waiting = 1;
-      state.bytes_requested += beat_bytes;
-      state_changed = true;
-      trace("dma_reader: read addr=0x%llx bytes=%u cmd_id=%u\n",
-            static_cast<unsigned long long>(req.addr), static_cast<unsigned>(req.size),
-            static_cast<unsigned>(req.id));
-    }
+    smem::MemReq req{};
+    state.requested_beat_bytes = beat_bytes;
+    req.addr  = state.active.vaddr + state.bytes_requested;
+    req.size  = u16(beat_bytes);
+    req.write = false;
+    req.id    = state.active.cmd_id;
+    mem_req.push(req);
+    state.waiting = 1;
+    state.bytes_requested += beat_bytes;
+    state_changed = true;
+    trace("dma_reader: read addr=0x%llx bytes=%u cmd_id=%u\n",
+          static_cast<unsigned long long>(req.addr), static_cast<unsigned>(req.size),
+          static_cast<unsigned>(req.id));
   }
 
   if (pending_changed) {

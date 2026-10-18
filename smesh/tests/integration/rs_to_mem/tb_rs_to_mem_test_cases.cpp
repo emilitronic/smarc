@@ -1239,6 +1239,68 @@ RsMemTestCase makeRepeatedLoadsCase() {
   return test;
 }
 
+// ZeroWriter uses its own return path: masked writes must preserve untouched lanes,
+// and only the final row of each zero-fill request acknowledges its whole byte count.
+RsMemTestCase makeZeroWriterCase() {
+  RsMemTestCase test{};
+  test.name = "zero_writer";
+  test.description = "Separate zero-fill branch with partial SPAD/Accum rows and ordinary DMA loads";
+  test.max_cycles = 600;
+  constexpr std::uint64_t acc_base = 0x80030000;
+  constexpr std::uint64_t spad_base = 0x80031000;
+  constexpr std::uint64_t saved_acc_base = 0x80032000;
+  const auto spad_dest = makeSpAddr(kSpBankRows - 2);
+  const auto acc_dest = makeAccAddr(8);
+  MeshInputRow poison{};
+  MeshInputRow normal{};
+  MeshInputRow partial{};
+  MeshAccumRow acc_poison{};
+  MeshAccumRow acc_partial{};
+  std::vector<std::uint8_t> acc_bytes;
+  std::vector<std::uint8_t> spad_bytes;
+  for (std::size_t lane = 0; lane < kDim; ++lane) {
+    poison[lane] = static_cast<Elem>(31 + lane);
+    partial[lane] = lane < 2 ? 0 : poison[lane];
+    normal[lane] = static_cast<Elem>(5 + lane);
+    spad_bytes.push_back(static_cast<std::uint8_t>(normal[lane]));
+    acc_poison[lane] = static_cast<Acc>(0x12340000 + lane);
+    acc_partial[lane] = lane == 0 ? 0 : acc_poison[lane];
+  }
+  for (unsigned row = 0; row < 2; ++row) {
+    for (auto value : acc_poison) {
+      for (unsigned byte = 0; byte < sizeof(Acc); ++byte)
+        acc_bytes.push_back(static_cast<std::uint8_t>(static_cast<std::uint32_t>(value) >> (8 * byte)));
+    }
+  }
+  test.spad_rows = {{spad_dest, poison}, {spad_dest + 1, poison}, {spad_dest + 2, poison}};
+  test.dram_initial = {{acc_base, acc_bytes}, {spad_base, spad_bytes},
+                       {0, std::vector<std::uint8_t>(kMemBeatBytes, 93)}};
+  test.expected_dram = {{saved_acc_base,
+      std::vector<std::uint8_t>(acc_bytes.begin(), acc_bytes.begin() + kDim * sizeof(Acc))}};
+  test.program = {
+      loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, 2), 0),
+      loopCommand(SmeshFunct::Mvin, acc_base, packLocal(acc_dest, MatrixShape{1, 2 * kDim})),
+      // The store waits for the poison load; the later zero-fill waits for this
+      // store's read. Issue order alone does not serialize the two load branches.
+      loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+                  (std::uint64_t{kMvinScaleIdentityBits} << 32) | (kDim * sizeof(Acc))),
+      loopCommand(SmeshFunct::Mvout, saved_acc_base,
+                  packLocal(makeAccAddr(10, false, true), MatrixShape{1, kDim})),
+      // NaN scaling must not affect the separate zero-fill path.
+      loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, 2, 0x7fc00000u), 0),
+      loopCommand(SmeshFunct::Mvin, 0, packLocal(spad_dest, MatrixShape{1, kDim + 2})),
+      loopCommand(SmeshFunct::Mvin, 0, packLocal(acc_dest, MatrixShape{1, kDim + 1})),
+      loopCommand(SmeshFunct::Config, packConfigLoadRs1(0, 1), 0),
+      loopCommand(SmeshFunct::Mvin, spad_base, packLocal(makeSpAddr(kSpRows - 1), MatrixShape{1, kDim})),
+  };
+  test.expected_loaded_spad_rows = {
+      {spad_dest, MeshInputRow{}}, {spad_dest + 1, poison}, {spad_dest + 2, partial},
+      {makeSpAddr(kSpRows - 1), normal}};
+  test.expected_results = {{acc_dest, {MeshAccumRow{}}}, {acc_dest + 2, {acc_partial}}};
+  test.expected_completion_tags = {1, 3, 5, 6, 8};
+  return test;
+}
+
 // Shrunk accumulator loads use normal-width scaling before sign extension on write.
 RsMemTestCase makeScaledShrinkLoadCase() {
   RsMemTestCase test{};
@@ -1354,7 +1416,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeBasicCase(), makeMulPreCase(), makeConcurrentBanksCase(),
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(), makeLoopConvDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
-      makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase()};
+      makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase(), makeZeroWriterCase()};
   if (kDim == 4) tests.push_back(makeLoopConvKernel2Case());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3Case());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3TwoRowsCase());

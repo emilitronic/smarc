@@ -59,6 +59,11 @@ The suite currently covers:
   the six weight rows, independent Accum results, DRAM bytes, completions, and
   loop retirement. Nonzero initial border rows and nonzero DRAM data at address
   zero ensure padding is generated locally rather than read from memory.
+- `zero_writer`: separate local zero-fill path, interleaved with real DMA loads.
+  Checks partial SPAD/Accum masks, block strides, preserved neighboring values,
+  skipped scaling, and final-row byte accounting. Also runs with DIM=8 and 4-byte beats.
+  A dependent store separates the poison load from its overlapping zero fill:
+  the independent load branches do not themselves guarantee same-address ordering.
 - `loop_conv_padding`: a 1x1 image with one input channel, a 2x2 kernel,
   two output channels, and bias. One pixel of padding on all four sides
   produces a 2x2 output. Checks zero-fill of eight initially nonzero SPAD

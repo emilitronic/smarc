@@ -67,6 +67,7 @@ add_library(smesh_model
   src/loop_matmul/LoopMatmulCmdArb.cpp
   src/mvin/MvinLocalRouter.cpp
   src/mvin/MvinPixelRepeater.cpp
+  src/mvin/ZeroWriter.cpp
   src/mvin/MvinScale.cpp
   src/mesh/MeshCore.cpp
   src/mesh/MeshHull.cpp

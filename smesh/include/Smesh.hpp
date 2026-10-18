@@ -44,6 +44,7 @@ smesh/tests/integration/rs_to_mem/ and smesh/tests/integration/top/.
 #include "StReadCtrl.hpp"
 #include "StScaleCtrl.hpp"
 #include "WriteCtrl.hpp"
+#include "ZeroWriter.hpp"
 #include "smem/MemTypes.hpp"
 
 namespace smesh {
@@ -102,6 +103,10 @@ class Smesh : public Component {
   auto& storeDmaWriterReqBits() { return dma_writer_->req_bits; }
 
   void update();
+  void updateLoadRequest();
+  void updateLoadReady();
+  void updateZeroWrites();
+  void updateZeroReady();
   void updateLoopCompletions();
   void reset();
 
@@ -127,8 +132,16 @@ class Smesh : public Component {
   std::array<ArbReadAccum*, kAccBanks> arb_read_accum_{};
   std::array<ArbWriteSpad*, kSpBanks> arb_write_spad_{};
   std::array<ArbWriteAccum*, kAccBanks> arb_write_accum_{};
-  Output(bit, write_arb_zero_val_);
-  Output(DmaReadResp, write_arb_zero_bits_);
+  Output(bit, read_issue_val_);
+  Output(bit, zero_req_val_);
+  Output(bit, load_req_rdy_);
+  OutputArray(bit, zero_spad_val_, kSpBanks);
+  OutputArray(bit, zero_accum_val_, kAccBanks);
+  InputArray(bit, zero_spad_rdy_, kSpBanks);
+  InputArray(bit, zero_accum_rdy_, kAccBanks);
+  Output(bit, zero_resp_rdy_);
+  ZeroWriter*              zero_writer_ = nullptr;
+  MvinPixelRepeater*        zero_writer_pixel_repeater_ = nullptr;
   WriteCtrl*               write_ctrl_ = nullptr;
   std::array<ArbRespSpad*, kSpBanks> arb_resp_spad_{};
   DmaWriteNormQueue*       write_norm_queue_ = nullptr;
