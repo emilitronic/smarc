@@ -23,6 +23,10 @@ namespace smesh {
 #define SMESH_MEM_BEAT_BYTES 8 // memory beat bytes (bytes to transfer / mem req); this is configurable
 #endif
 
+#ifndef SMESH_FIRST_LAYER_OPTIMIZATIONS
+#define SMESH_FIRST_LAYER_OPTIMIZATIONS 0
+#endif
+
 struct SmeshConfig {
   std::size_t dim = SMESH_DIM;
 
@@ -38,7 +42,7 @@ struct SmeshConfig {
   int acc_scale_latency       =  4;   // clocked pipe stages after each lane's arbOut register
 
   std::size_t load_states   =  3;
-  bool has_first_layer_optimizations = false;
+  bool has_first_layer_optimizations = SMESH_FIRST_LAYER_OPTIMIZATIONS != 0;
   std::size_t max_in_flight_mem_reqs = 16; // default up to 16 in-flight mem reqs for load
 
   std::size_t elem_bits      =  8;

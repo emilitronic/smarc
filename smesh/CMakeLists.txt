@@ -141,6 +141,12 @@ if(BUILD_TESTING)
     $<TARGET_PROPERTY:smesh_model,INTERFACE_INCLUDE_DIRECTORIES>)
   target_compile_definitions(smesh_model_beat4 PUBLIC SMESH_MEM_BEAT_BYTES=4)
   target_link_libraries(smesh_model_beat4 PUBLIC cascade)
+
+  add_library(smesh_model_first_layer ${SMESH_MODEL_SOURCES})
+  target_include_directories(smesh_model_first_layer PUBLIC
+    $<TARGET_PROPERTY:smesh_model,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_compile_definitions(smesh_model_first_layer PUBLIC SMESH_FIRST_LAYER_OPTIMIZATIONS=1)
+  target_link_libraries(smesh_model_first_layer PUBLIC cascade)
 endif()
 
 add_executable(tb_ex_ctrl_arch
