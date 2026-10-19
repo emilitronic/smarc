@@ -18,6 +18,23 @@ set_target_properties(tb_rs_to_mem_suite PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh"
 )
 
+add_executable(tb_rs_to_mem_suite_first_layer
+  tb_rs_to_mem_suite.cpp
+  tb_rs_to_mem_harness.cpp
+  tb_rs_to_mem_test_cases.cpp
+)
+target_link_libraries(tb_rs_to_mem_suite_first_layer PRIVATE
+  smesh_model_first_layer smem_memory cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_rs_to_mem_suite_first_layer PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+add_test(NAME smesh_rs_to_mem_loop_conv_temporal3_pixel2
+  COMMAND tb_rs_to_mem_suite_first_layer -test=loop_conv_temporal3_pixel2)
+add_test(NAME smesh_rs_to_mem_loop_conv_temporal3_padded_pixel2
+  COMMAND tb_rs_to_mem_suite_first_layer -test=loop_conv_temporal3_padded_pixel2)
+set_tests_properties(smesh_rs_to_mem_loop_conv_temporal3_pixel2
+  smesh_rs_to_mem_loop_conv_temporal3_padded_pixel2 PROPERTIES
+  LABELS "integration;rs_to_mem;loop_conv;first_layer" TIMEOUT 30)
+
 add_executable(tb_rs_to_mem_suite_dim8
   tb_rs_to_mem_suite.cpp
   tb_rs_to_mem_harness.cpp

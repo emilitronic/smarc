@@ -379,6 +379,57 @@ bool testComputeRange() {
   return flip_ok && stay_ok;
 }
 
+// Pixel copies extend the load destination backwards, while its final source
+// row remains part of the write range. Each SPAD half provides a separate floor.
+bool testPixelRepeatRange() {
+  smesh::SmeshRS rs("PixelRangeRS");
+  struct Case { unsigned base; unsigned copies; unsigned first; };
+  const unsigned half = smesh::kSpRows / 2;
+  const Case cases[] = {
+      {4, 2, 3}, {0, 3, 0}, {half, 2, half}, {half + 1, 3, half},
+      {unsigned(smesh::kSpBankRows), 2, unsigned(smesh::kSpBankRows - 1)},
+      {4, 0, 4}, {4, 1, 4},
+  };
+  for (const auto& item : cases) {
+    const auto config = command(smesh::SmeshFunct::Config,
+        smesh::packConfigLoadRs1(0, smesh::kDim, smesh::kMvinScaleIdentityBits, false, item.copies), 2);
+    if (!rs.allocate(config) || !rs.complete(rs.entry().rs_tag)) return false;
+    const auto load = command(smesh::SmeshFunct::Mvin, 0x80001000,
+        smesh::packLocal(smesh::makeSpAddr(item.base), {1, 2}));
+    if (!rs.allocate(load)) return false;
+    const auto& entry = rs.loadEntry();
+    const unsigned first = smesh::kDefaultConfig.has_first_layer_optimizations ? item.first : item.base;
+    if (!entry.opa.valid || entry.opa.bits.start.full_sp_addr() != first ||
+        entry.opa.bits.end.full_sp_addr() != item.base + 1 || entry.opa.bits.wraps_around)
+      return false;
+    if (!rs.complete(entry.rs_tag)) return false;
+  }
+  return true;
+}
+
+// A compute that reads the preceding row must wait for the repeated load to
+// complete, including after that load has issued to LdCtrl.
+bool testPixelRepeatDependency() {
+  smesh::SmeshRS rs("PixelDependencyRS");
+  const auto config_ex = command(smesh::SmeshFunct::Config,
+      smesh::packConfigExRs1(1), smesh::packConfigExRs2(1));
+  const auto config_ld = command(smesh::SmeshFunct::Config,
+      smesh::packConfigLoadRs1(0, smesh::kDim, smesh::kMvinScaleIdentityBits, false, 2), 2);
+  for (const auto& config : {config_ex, config_ld})
+    if (!rs.allocate(config) || !rs.complete(rs.entry().rs_tag)) return false;
+  if (!rs.allocate(command(smesh::SmeshFunct::Mvin, 0x80001000,
+          smesh::packLocal(smesh::makeSpAddr(4), {1, 2})))) return false;
+  const auto load_tag = rs.loadEntry().rs_tag;
+  if (!rs.allocate(command(smesh::SmeshFunct::ComputeFlip,
+          smesh::packLocal(smesh::makeSpAddr(3), {1, smesh::kDim}),
+          smesh::packLocal(0xffffffffu, {1, 2})))) return false;
+  const unsigned expected = smesh::kDefaultConfig.has_first_layer_optimizations ? 1 : 0;
+  if (rs.executeEntry().deps_ld != expected || !rs.markIssued(load_tag) ||
+      rs.executeEntry().deps_ld != expected || (expected == 1 && rs.issueExecute() != nullptr))
+    return false;
+  return rs.complete(load_tag) && rs.executeEntry().deps_ld == 0 && rs.issueExecute() != nullptr;
+}
+
 } // namespace
 
 int main() {
@@ -391,6 +442,8 @@ int main() {
   const bool store_spad_ok = testStoreSpadRange();
   const bool preload_ok = testPreloadRange();
   const bool compute_ok = testComputeRange();
+  const bool pixel_range_ok = testPixelRepeatRange();
+  const bool pixel_dependency_ok = testPixelRepeatDependency();
   std::printf("[SMESH_RS] %s local_addr\n",
               local_addr_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s overlap\n", overlap_ok ? "PASS" : "FAIL");
@@ -405,8 +458,10 @@ int main() {
               preload_ok ? "PASS" : "FAIL");
   std::printf("[SMESH_RS] %s compute_range\n",
               compute_ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_RS] %s pixel_repeat_range\n", pixel_range_ok ? "PASS" : "FAIL");
+  std::printf("[SMESH_RS] %s pixel_repeat_dependency\n", pixel_dependency_ok ? "PASS" : "FAIL");
   return (local_addr_ok && overlap_ok && capacity_ok && dependencies_ok && load_ok &&
-          store_ok && store_spad_ok && preload_ok && compute_ok)
+          store_ok && store_spad_ok && preload_ok && compute_ok && pixel_range_ok && pixel_dependency_ok)
              ? 0
              : 1;
 }

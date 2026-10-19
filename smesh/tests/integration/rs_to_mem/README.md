@@ -59,6 +59,12 @@ The suite currently covers:
   the six weight rows, independent Accum results, DRAM bytes, completions, and
   loop retirement. Nonzero initial border rows and nonzero DRAM data at address
   zero ensure padding is generated locally rather than read from memory.
+- `loop_conv_temporal3_pixel2` and `loop_conv_temporal3_padded_pixel2`: the
+  same convolutions with `max_pixels_per_row=2`, using the separately compiled
+  first-layer model. Check packed SPAD rows, the exact generated execution
+  commands, independent convolution results in Accum and DRAM, and completions.
+  The padded case poisons all four SPAD columns before loading, including the
+  upper columns that the zero-writer pixel repeater must clear.
 - `zero_writer`: separate local zero-fill path, interleaved with real DMA loads.
   Checks partial SPAD/Accum masks, block strides, preserved neighboring values,
   skipped scaling, and final-row byte accounting. Also runs with DIM=8 and 4-byte beats.
@@ -90,6 +96,60 @@ stages after arbOut (currently four). Completed rows go to StIssueCtrl for
 stores or AccumExResp for ExCtrl, according to `from_dma`. Softmax remains deferred.
 The runner waits for expected DRAM bytes as well as RS completion before its
 final drain countdown: Store completion can precede scaling and memory writes.
+
+## Two-pixel convolution packing
+
+`tb_rs_to_mem_suite_first_layer` links `smesh_model_first_layer`, which enables
+`has_first_layer_optimizations`. The normal suite keeps this feature disabled.
+Both new cases explicitly request two pixels in the `LOOP_CONV_WS` launch.
+
+Each pair below is one input position's two channels. Repetition packs the next
+position into the upper two columns of the preceding SPAD row:
+
+| SPAD row | Unpadded input | Padded input |
+| --- | --- | --- |
+| 0 | `1, 2, 2, -1` | `0, 0, 1, 2` |
+| 1 | `2, -1, 0, 3` | `1, 2, 2, -1` |
+| 2 | `0, 3, -2, 1` | `2, -1, 0, 3` |
+| 3 | `-2, 1, 3, 2` | `0, 3, -2, 1` |
+| 4 | `3, 2, 1, -2` | `-2, 1, 3, 2` |
+| 5 | `1, -2, 0, 0` | `3, 2, 1, -2` |
+| 6 | unused | `1, -2, 0, 0` |
+| 7 | unused | `0, 0, 23, -17` |
+
+The padded row 7's upper columns deliberately retain poison: no generated
+compute reads them. The zero-writer repeater must clear row 6's upper columns
+and row 7's lower columns. The left border's shifted copy is suppressed at
+SPAD row zero. Weight rows 26-31 retain their original two-column layout.
+
+Each table row below represents a PRELOAD followed by a COMPUTE. Every PRELOAD
+targets the indicated accumulator rows with accumulation enabled. Shapes are
+rows x columns; a garbage B operand reuses the preceding group's weights.
+
+| Case | B operand for PRELOAD | A operand for COMPUTE | C destination | COMPUTE |
+| --- | --- | --- | --- | --- |
+| Unpadded | `spad[26], 4x2` | `spad[0], 4x4` | `acc[0], 4x2` | FLIP |
+| Unpadded | `spad[30], 2x2` | `spad[2], 4x2` | `acc[0], 4x2` | FLIP |
+| Padded | `spad[26], 4x2` | `spad[0], 4x4` | `acc[0], 4x2` | FLIP |
+| Padded | `garbage, 4x2` | `spad[4], 2x4` | `acc[4], 2x2` | STAY |
+| Padded | `spad[30], 2x2` | `spad[2], 4x2` | `acc[0], 4x2` | FLIP |
+| Padded | `garbage, 2x2` | `spad[6], 2x2` | `acc[4], 2x2` | STAY |
+
+Thus taps 0-1 are computed together and tap 2 separately. Expected output pairs
+are `[[2,11],[1,-11],[16,2],[6,0]]` without padding, and
+`[[9,-4],[2,11],[1,-11],[16,2],[6,0],[7,3]]` with padding.
+The checker computes these values directly from the input, weights, and bias.
+
+RS load ranges include the preceding rows written by pixel repetition and
+retain the original final row. Execute dependencies on any of those rows are
+released only when the load completes.
+
+```bash
+cmake --build build --target tb_rs_to_mem_suite_first_layer -j
+ctest --test-dir build -R 'temporal3.*pixel2' --output-on-failure
+./build/smesh/tb_rs_to_mem_suite_first_layer -test=loop_conv_temporal3_pixel2 -trace '*/rs_mem_conv_execute_'
+./build/smesh/tb_rs_to_mem_suite_first_layer -test=loop_conv_temporal3_padded_pixel2 -trace '*/rs_mem_conv_execute_;*MvinPixelRepeater*;*ZeroWriter*'
+```
 
 ## Current size contract
 

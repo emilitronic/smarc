@@ -56,6 +56,28 @@ void CompletionObserver::update() {
 
 void CompletionObserver::reset() { observed_.clear(); }
 
+TraceKey(rs_mem_conv_execute_);
+
+ConvExecuteObserver::ConvExecuteObserver(std::string /*name*/, IMPL_CTOR) {
+  UPDATE(update).reads(cmd_val, cmd_rdy, cmd_bits);
+}
+
+void ConvExecuteObserver::update() {
+  if (Sim::state == Sim::SimResetting || cmd_val == 0 || cmd_rdy == 0 ||
+      cmd_bits->from_conv_loop == 0) return;
+  const auto cmd = cmd_bits->cmd;
+  const auto funct = static_cast<SmeshFunct>(static_cast<unsigned>(cmd.funct));
+  if (funct != SmeshFunct::Preload && funct != SmeshFunct::ComputeFlip &&
+      funct != SmeshFunct::ComputeStay) return;
+  observed_.push_back(cmd);
+  trace(rs_mem_conv_execute_, "%12s rs1=0x%016llx rs2=0x%016llx\n",
+        funct == SmeshFunct::Preload ? "PRELOAD" :
+        funct == SmeshFunct::ComputeFlip ? "COMPUTE_FLIP" : "COMPUTE_STAY",
+        static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
+}
+
+void ConvExecuteObserver::reset() { observed_.clear(); }
+
 RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test,
                                            const std::string& prefix, Clock& clk)
     : test_(test) {
@@ -66,6 +88,7 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test,
 
   cmd_driver_ = std::make_unique<RsMemCmdDriver>(test_.program, prefix + "CmdDriver");
   completion_observer_ = std::make_unique<CompletionObserver>(prefix + "CompletionObserver");
+  conv_execute_observer_ = std::make_unique<ConvExecuteObserver>(prefix + "ConvExecuteObserver");
 
   top_->cmd_valid << cmd_driver_->cmd_valid;
   top_->cmd_bits  << cmd_driver_->cmd_bits;
@@ -86,9 +109,13 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test,
   completion_observer_->st_completed_val << top_->stCtrlCompletedVal();
   completion_observer_->st_completed_bits << top_->stCtrlCompletedBits();
   completion_observer_->st_completed_rdy << top_->stCtrlCompletedRdy();
+  conv_execute_observer_->cmd_val << top_->loopConvOutVal();
+  conv_execute_observer_->cmd_rdy << top_->loopConvOutRdy();
+  conv_execute_observer_->cmd_bits << top_->loopConvOutBits();
 
   cmd_driver_->clk << clk;
   completion_observer_->clk << clk;
+  conv_execute_observer_->clk << clk;
   top_->clk << clk;
   mem_->clk << clk;
   dram_->clk << clk;
@@ -152,6 +179,7 @@ bool RsMemHarnessInstance::activityComplete() const {
 }
 
 bool RsMemHarnessInstance::passed() const {
+  if (!convExecuteMatches()) return false;
   auto expected_tags = test_.expected_completion_tags;
   auto observed_tags = completion_observer_->observed();
   std::sort(expected_tags.begin(), expected_tags.end());
@@ -204,7 +232,27 @@ bool RsMemHarnessInstance::dramResultsMatch() const {
   return true;
 }
 
+bool RsMemHarnessInstance::convExecuteMatches() const {
+  if (test_.expected_conv_execute.empty()) return true;
+  const auto& observed = conv_execute_observer_->observed();
+  if (observed.size() != test_.expected_conv_execute.size()) return false;
+  for (std::size_t i = 0; i < observed.size(); ++i) {
+    const auto& expected = test_.expected_conv_execute[i];
+    const auto& actual = observed[i];
+    if (actual.funct != expected.funct || actual.rs1 != expected.rs1 || actual.rs2 != expected.rs2)
+      return false;
+  }
+  return true;
+}
+
 void RsMemHarnessInstance::report() const {
+  if (!convExecuteMatches()) {
+    std::printf("  LoopConv execute commands: expected=%zu observed=%zu\n",
+                test_.expected_conv_execute.size(), conv_execute_observer_->observed().size());
+    for (const auto& cmd : conv_execute_observer_->observed())
+      std::printf("    funct=%u rs1=0x%llx rs2=0x%llx\n", unsigned(cmd.funct),
+                  static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
+  }
   std::printf("  rs_empty=%u cmd_driver_done=%u\n",
               top_->rs().empty() ? 1u : 0u, cmd_driver_->done() ? 1u : 0u);
   if (test_.expect_conv_release) {
@@ -252,7 +300,13 @@ void RsMemHarnessInstance::report() const {
   for (const auto& expected : test_.expected_loaded_spad_rows) {
     const auto& actual = top_->spad().row(expected.laddr);
     if (actual != expected.data) {
-      std::printf("  spad[%u] loaded row mismatch\n", expected.laddr.data());
+      std::printf("  spad[%u] expected={", expected.laddr.data());
+      for (std::size_t lane = 0; lane < kDim; ++lane)
+        std::printf("%s%d", lane == 0 ? "" : ",", int(expected.data[lane]));
+      std::printf("} actual={");
+      for (std::size_t lane = 0; lane < kDim; ++lane)
+        std::printf("%s%d", lane == 0 ? "" : ",", int(actual[lane]));
+      std::printf("}\n");
     }
   }
   for (const auto& expected : test_.expected_dram) {

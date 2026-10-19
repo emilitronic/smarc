@@ -56,6 +56,8 @@ struct RsMemTestCase {
   std::vector<SpadPreloadRow> expected_loaded_spad_rows;
   std::vector<ExpectedAccumResult> expected_results;
   std::vector<SmeshRsTag> expected_completion_tags;
+  // Optional exact PRELOAD/COMPUTE sequence accepted from LoopConv's output.
+  std::vector<SmeshCmd> expected_conv_execute;
   bool posted_writes = false;
   bool expect_loop_release = false;
   bool expect_conv_release = false;

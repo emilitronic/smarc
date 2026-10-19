@@ -91,6 +91,11 @@ class Smesh : public Component {
   auto& stCtrlCompletedBits() { return st_ctrl_->completed_bits; }
   auto& stCtrlCompletedRdy()  { return completion_arb_->st_completed_rdy; }
 
+  // Observation taps for commands accepted from the convolution unroller.
+  auto& loopConvOutVal() { return loop_conv_->out_val; }
+  auto& loopConvOutRdy() { return loop_conv_->out_rdy; }
+  auto& loopConvOutBits() { return loop_conv_->out_bits; }
+
   // Store-path monitor taps for testbench-only checkers.
   auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad[0]; }
   auto& storeSpadReadReqRdy() { return spad_->read_req_rdy_bnk[0]; }

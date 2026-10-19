@@ -127,6 +127,8 @@ void updateConfigState(const SmeshCmd& cmd, SmeshRSConfigState& state) {
   const auto state_id = unpackConfigStateId(rs1);
   if (state_id < state.ld_block_stride.size()) {
     state.ld_block_stride.at(state_id) = unpackConfigLoadBlockStride(rs1);
+    const auto copies = static_cast<std::uint32_t>((rs1 >> 8) & 0xffu);
+    state.ld_pixel_repeats.at(state_id) = copies > 0 ? copies - 1 : 0;
   }
 }
 
@@ -147,8 +149,19 @@ void fillOperands(SmeshRsEntry& entry, const SmeshRSConfigState& config_state) {
     case SmeshFunct::Mvin3: {
       const auto packed = static_cast<std::uint64_t>(entry.cmd.rs2); // read shape & local_addr from rs2
       const auto state_id = loadStateId(funct);  // is it LOAD,LOAD2, or LOAD3?
-      const auto rows_touched = loadRowsTouched(unpackLocal(packed).shape, config_state.ld_block_stride.at(state_id)); // strip extent
-      entry.opa = makeRSOp(packed, rows_touched);  // make opa for LOAD
+      auto rows_touched = loadRowsTouched(unpackLocal(packed).shape, config_state.ld_block_stride.at(state_id)); // strip extent
+      auto destination = makeLocalAddr(static_cast<std::uint32_t>(packed));
+      if (kDefaultConfig.has_first_layer_optimizations &&
+          !destination.is_acc_addr() && rows_touched > 0) {
+        const auto address = destination.full_sp_addr();
+        const auto floor = address < kSpRows / 2 ? 0u : static_cast<std::uint32_t>(kSpRows / 2);
+        const auto extension = std::min(config_state.ld_pixel_repeats.at(state_id), address - floor);
+        destination.raw = (destination.raw & ~kLocalAddrDataMask) | (address - extension);
+        // Protect both the preceding copies and the original final row.
+        // Moving the start alone would lose rows at the end of this range.
+        rows_touched += extension;
+      }
+      entry.opa = makeRSOp(destination.raw, rows_touched);
       entry.opa_is_dst = true;
       break;
     }

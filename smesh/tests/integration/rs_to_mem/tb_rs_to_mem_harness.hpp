@@ -71,6 +71,22 @@ class CompletionObserver : public Component {
   std::vector<SmeshRsTag> observed_;
 };
 
+// Records the generated execution commands on their real output handshake.
+class ConvExecuteObserver : public Component {
+  DECLARE_COMPONENT(ConvExecuteObserver);
+ public:
+  ConvExecuteObserver(std::string name, COMPONENT_CTOR);
+  Clock(clk);
+  Input(bit, cmd_val);
+  Input(bit, cmd_rdy);
+  Input(SmeshQueuedCmd, cmd_bits);
+  void update();
+  void reset();
+  const std::vector<SmeshCmd>& observed() const { return observed_; }
+ private:
+  std::vector<SmeshCmd> observed_;
+};
+
 // Owns and wires one full-Smesh simulation for a single scenario.
 class RsMemHarnessInstance {
  public:
@@ -89,10 +105,12 @@ class RsMemHarnessInstance {
 
  private:
   bool dramResultsMatch() const;
+  bool convExecuteMatches() const;
   const RsMemTestCase& test_;
 
   std::unique_ptr<RsMemCmdDriver> cmd_driver_;
   std::unique_ptr<CompletionObserver> completion_observer_;
+  std::unique_ptr<ConvExecuteObserver> conv_execute_observer_;
   std::unique_ptr<Smesh> top_;
   std::unique_ptr<smem::MemCtrl> mem_;
   std::unique_ptr<smem::Dram> dram_;

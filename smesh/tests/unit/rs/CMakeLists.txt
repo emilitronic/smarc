@@ -13,6 +13,14 @@ set_target_properties(tb_smesh_rs PROPERTIES
 
 add_test(NAME smesh_unit_rs COMMAND tb_smesh_rs)
 
+add_executable(tb_smesh_rs_first_layer tb_smesh_rs.cpp)
+target_link_libraries(tb_smesh_rs_first_layer PRIVATE smesh_model_first_layer)
+set_target_properties(tb_smesh_rs_first_layer PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+add_test(NAME smesh_unit_rs_first_layer COMMAND tb_smesh_rs_first_layer)
+set_tests_properties(smesh_unit_rs_first_layer PROPERTIES
+  LABELS "unit;rs;first_layer" TIMEOUT 10)
+
 add_executable(tb_rs_store_issue tb_rs_store_issue.cpp)
 target_link_libraries(tb_rs_store_issue PRIVATE smesh_model)
 set_target_properties(tb_rs_store_issue PROPERTIES

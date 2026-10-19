@@ -783,7 +783,8 @@ RsMemTestCase makeLoopConvKernel2Case() {
 }
 
 // A horizontal 1x3 kernel processes each image row independently.
-static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool padded = false) {
+static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool padded = false,
+                                                 unsigned pixel_repeats = 1) {
   RsMemTestCase test{};
   test.name = padded ? "loop_conv_temporal3_padded"
                     : input_rows == 1 ? "loop_conv_temporal3" : "loop_conv_temporal3_2x6";
@@ -792,6 +793,10 @@ static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool pad
       : input_rows == 1
       ? "1x3 kernel over a 1x6 two-channel image produces four two-channel outputs"
       : "1x3 kernel over a 2x6 two-channel image produces eight two-channel outputs";
+  if (pixel_repeats == 2) {
+    test.name += "_pixel2";
+    test.description += "; pack two neighboring pixels into each SPAD row";
+  }
   const unsigned pad = padded ? 1 : 0;
   const unsigned output_cols = 4 + 2 * pad;
   const unsigned padded_cols = 6 + 2 * pad;
@@ -820,12 +825,18 @@ static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool pad
     // A zero-fill load must not fetch this nonzero DRAM data at address zero.
     test.dram_initial.push_back({0, {91, 73, 55, 37, 19, 1, 83, 65}});
     for (unsigned position = 0; position < input_rows * padded_cols; ++position)
-      test.spad_rows.push_back({makeSpAddr(position), row({47, -31})});
+      test.spad_rows.push_back({makeSpAddr(position),
+          pixel_repeats == 2 ? row({47, -31, 23, -17}) : row({47, -31})});
   }
   for (unsigned image_row = 0; image_row < input_rows; ++image_row) {
     if (padded) {
-      test.expected_loaded_spad_rows.push_back({makeSpAddr(image_row * padded_cols), MeshInputRow{}});
-      test.expected_loaded_spad_rows.push_back({makeSpAddr((image_row + 1) * padded_cols - 1), MeshInputRow{}});
+      const auto first = pixel_repeats == 2
+          ? row({0, 0, input[image_row][0][0], input[image_row][0][1]}) : MeshInputRow{};
+      // The final padding row's upper columns are outside every compute window;
+      // its lower columns are zeroed, while the original poison above is retained.
+      const auto last = pixel_repeats == 2 ? row({0, 0, 23, -17}) : MeshInputRow{};
+      test.expected_loaded_spad_rows.push_back({makeSpAddr(image_row * padded_cols), first});
+      test.expected_loaded_spad_rows.push_back({makeSpAddr((image_row + 1) * padded_cols - 1), last});
     }
     for (unsigned time = 0; time < 6; ++time) {
       MeshInputRow pixel{};
@@ -833,6 +844,10 @@ static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool pad
       for (unsigned ich = 0; ich < 2; ++ich) {
         pixel[ich] = input[image_row][time][ich];
         bytes.push_back(static_cast<std::uint8_t>(pixel[ich]));
+      }
+      if (pixel_repeats == 2 && time + 1 < 6) {
+        pixel[2] = input[image_row][time + 1][0];
+        pixel[3] = input[image_row][time + 1][1];
       }
       const auto position = image_row * padded_cols + time + pad;
       test.dram_initial.push_back({input_base + (image_row * 6 + time) * 2, bytes});
@@ -893,17 +908,36 @@ static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool pad
       loopCommand(SmeshFunct::LoopConvWsConfig5, weight_base, output_base),
       loopCommand(SmeshFunct::LoopConvWsConfig6, bias_base, input_base),
       // Inputs include the horizontal zero borders; weights occupy the final six rows.
-      loopCommand(SmeshFunct::LoopConvWs, (1ull << 18) | (2ull << 16), 1),
+      loopCommand(SmeshFunct::LoopConvWs, (1ull << 18) | (2ull << 16) |
+                  (std::uint64_t{pixel_repeats == 2 ? 2u : 0u} << 8), 1),
   };
   const unsigned output_blocks = input_rows * ((output_cols + kDim - 1) / kDim);
   const unsigned input_loads = input_rows * ((6 + kDim - 1) / kDim + 2 * pad);
-  // Five CONFIGs, three weight loads, plus input loads and eight commands per
-  // output block (one bias load, six execute commands, and one store).
+  const unsigned tap_groups = pixel_repeats == 2 ? 2 : 3;
+  // Each output block needs one bias load, a PRELOAD/COMPUTE pair per tap
+  // group, and one store. The five CONFIGs and three weight loads are shared.
   // Bias, weight, and input workers issue in priority order. Load/Store CONFIGs
   // retire on issue; CONFIG_EX and every non-CONFIG command must complete.
-  for (unsigned tag = 0; tag < 8 + input_loads + 8 * output_blocks; ++tag) {
+  for (unsigned tag = 0; tag < 8 + input_loads + (2 + 2 * tap_groups) * output_blocks; ++tag) {
     if (tag == 1 || tag == 2 || tag == 3 + output_blocks || tag == 7 + output_blocks) continue;
     test.expected_completion_tags.push_back(tag);
+  }
+  if (pixel_repeats == 2) {
+    // Golden grouped command stream: taps 0-1 use four inner elements; tap 2
+    // uses two. Later output blocks reuse the weights of the same tap group.
+    for (unsigned tap : {0u, 2u}) {
+      const unsigned k = tap == 0 ? 4 : 2;
+      for (unsigned start = 0; start < output_cols; start += kDim) {
+        const unsigned rows = std::min<unsigned>(kDim, output_cols - start);
+        test.expected_conv_execute.push_back(loopCommand(SmeshFunct::Preload,
+            packLocal(start == 0 ? makeSpAddr(b_start + tap * 2).raw : 0xffffffffu, {k, 2}),
+            packLocal(makeAccAddr(start, true), {rows, 2})));
+        test.expected_conv_execute.push_back(loopCommand(
+            start == 0 ? SmeshFunct::ComputeFlip : SmeshFunct::ComputeStay,
+            packLocal(makeSpAddr(start + tap), {rows, k}),
+            packLocal(0xffffffffu, {rows, 2})));
+      }
+    }
   }
   return test;
 }
@@ -1421,6 +1455,10 @@ std::vector<RsMemTestCase> rsMemTestCases() {
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3Case());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3TwoRowsCase());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3PaddedCase());
+  if (kDim == 4 && kDefaultConfig.has_first_layer_optimizations) {
+    tests.push_back(makeLoopConvTemporal3RowsCase(1, false, 2));
+    tests.push_back(makeLoopConvTemporal3RowsCase(1, true, 2));
+  }
   if (kDim == 4) tests.push_back(makeLoopConvPaddingCase());
   if (kDim == 4) tests.push_back(makeLoopConvImagesCase());
   if (kDim == 4) tests.push_back(makeSharedAccumReadCase());

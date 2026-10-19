@@ -30,6 +30,8 @@ enum class SmeshQueueClass : std::uint8_t {
 // local-memory ranges. These strides are measured in local rows.
 struct SmeshRSConfigState {
   std::array<std::uint32_t, kLoadStates> ld_block_stride{};
+  // Additional pixel copies written before each load's original SPAD row.
+  std::array<std::uint32_t, kLoadStates> ld_pixel_repeats{};
   std::uint32_t a_stride = 0;
   std::uint32_t c_stride = 0;
   bool a_transpose = false;
