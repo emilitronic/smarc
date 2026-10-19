@@ -97,28 +97,28 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_resp_spad_[bank]->clk << clk;
   }
-  write_norm_queue_->clk     << clk;
-  st_norm_ctrl_->clk         << clk;
-  normalizer_->clk           << clk;
-  acc_scale_unit_->clk       << clk;
-  accum_ex_resp_->clk        << clk;
-  st_scale_ctrl_->clk        << clk;
-  write_scale_queue_->clk    << clk;
-  write_issue_queue_->clk    << clk;
-  st_issue_ctrl_->clk        << clk;
-  st_issue_mux_->clk         << clk;
-  dma_writer_->clk           << clk;
-  spad_writer_->clk          << clk;
-  dma_reader_->clk           << clk;
-  dma_mem_mux_->clk          << clk;
-  mvin_scale_split_->clk     << clk;
-  mvin_scale_->clk           << clk;
-  mvin_scale_acc_->clk       << clk;
-  pixel_repeater_->clk       << clk;
-  zero_writer_->clk << clk;
+  write_norm_queue_->clk           << clk;
+  st_norm_ctrl_->clk               << clk;
+  normalizer_->clk                 << clk;
+  acc_scale_unit_->clk             << clk;
+  accum_ex_resp_->clk              << clk;
+  st_scale_ctrl_->clk              << clk;
+  write_scale_queue_->clk          << clk;
+  write_issue_queue_->clk          << clk;
+  st_issue_ctrl_->clk              << clk;
+  st_issue_mux_->clk               << clk;
+  dma_writer_->clk                 << clk;
+  spad_writer_->clk                << clk;
+  dma_reader_->clk                 << clk;
+  dma_mem_mux_->clk                << clk;
+  mvin_scale_split_->clk           << clk;
+  mvin_scale_->clk                 << clk;
+  mvin_scale_acc_->clk             << clk;
+  pixel_repeater_->clk             << clk;
+  zero_writer_->clk                << clk;
   zero_writer_pixel_repeater_->clk << clk;
-  local_router_->clk         << clk;
-  spad_->clk                 << clk;
+  local_router_->clk               << clk;
+  spad_->clk                       << clk;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank]->clk << clk;
     spad_ex_read_pipe_[bank]->clk  << clk;
@@ -161,25 +161,25 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   st_ctrl_->completed_rdy << completion_arb_->st_completed_rdy;
   rs_->completed   << completion_arb_->rs_completed;
   // Zero-fill bypasses the read-issue queue, DmaReader, and both scale branches.
-  read_issue_queue_->req_val << read_issue_val_;
-  read_issue_queue_->req_bits << ld_ctrl_->dma_req_bits;
-  ld_ctrl_->dma_req_rdy << load_req_rdy_;
-  zero_writer_->req_val << zero_req_val_;
-  zero_writer_->req_bits << ld_ctrl_->dma_req_bits;
-  zero_writer_pixel_repeater_->in_val << zero_writer_->resp_val;
+  read_issue_queue_->req_val           << read_issue_val_;
+  read_issue_queue_->req_bits          << ld_ctrl_->dma_req_bits;
+  ld_ctrl_->dma_req_rdy                << load_req_rdy_;
+  zero_writer_->req_val                << zero_req_val_;
+  zero_writer_->req_bits               << ld_ctrl_->dma_req_bits;
+  zero_writer_pixel_repeater_->in_val  << zero_writer_->resp_val;
   zero_writer_pixel_repeater_->in_bits << zero_writer_->resp_bits;
-  zero_writer_->resp_rdy << zero_writer_pixel_repeater_->in_rdy;
+  zero_writer_->resp_rdy               << zero_writer_pixel_repeater_->in_rdy;
   zero_writer_pixel_repeater_->out_rdy << zero_resp_rdy_;
-  dma_reader_->req_in       << read_issue_queue_->req_out;
-  ex_ctrl_->cmd_val << rs_->issue_ex_val;
-  ex_ctrl_->cmd_bits << rs_->issue_ex_bits;
-  rs_->issue_ex_rdy << ex_ctrl_->cmd_rdy;
-  st_ctrl_->cmd_val << rs_->issue_st_val;
-  st_ctrl_->cmd_bits << rs_->issue_st_bits;
-  rs_->issue_st_rdy << st_ctrl_->cmd_rdy;
-  write_dispatch_queue_->req_val << st_ctrl_->dma_req_val;
-  write_dispatch_queue_->req_bits << st_ctrl_->dma_req_bits;
-  st_ctrl_->dma_req_rdy << write_dispatch_queue_->req_rdy;
+  dma_reader_->req_in               << read_issue_queue_->req_out;
+  ex_ctrl_->cmd_val                 << rs_->issue_ex_val;
+  ex_ctrl_->cmd_bits                << rs_->issue_ex_bits;
+  rs_->issue_ex_rdy                 << ex_ctrl_->cmd_rdy;
+  st_ctrl_->cmd_val                 << rs_->issue_st_val;
+  st_ctrl_->cmd_bits                << rs_->issue_st_bits;
+  rs_->issue_st_rdy                 << st_ctrl_->cmd_rdy;
+  write_dispatch_queue_->req_val    << st_ctrl_->dma_req_val;
+  write_dispatch_queue_->req_bits   << st_ctrl_->dma_req_bits;
+  st_ctrl_->dma_req_rdy             << write_dispatch_queue_->req_rdy;
   st_read_ctrl_->dispatch_val       << write_dispatch_queue_->deq_val;
   st_read_ctrl_->dispatch_bits      << write_dispatch_queue_->deq_bits;
   st_read_ctrl_->norm_rdy           << write_norm_queue_->enq_rdy;
@@ -269,18 +269,18 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   write_ctrl_->dmaread_accum_full_bits << mvin_scale_acc_->out_bits;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     // Route ExCtrl writeback through this bank's normal write arbiter.
-    arb_write_spad_[bank]->exwrite_val    << ex_ctrl_->spad_write_val[bank];
-    arb_write_spad_[bank]->exwrite_bits   << ex_ctrl_->spad_write_bits[bank];
-    ex_ctrl_->spad_write_rdy[bank]        << arb_write_spad_[bank]->exwrite_rdy;
-    arb_write_spad_[bank]->dmaread_val    << write_ctrl_->arb_spad_dmaread_val[bank];
-    arb_write_spad_[bank]->dmaread_bits   << write_ctrl_->arb_spad_dmaread_bits[bank];
+    arb_write_spad_[bank]->exwrite_val      << ex_ctrl_->spad_write_val[bank];
+    arb_write_spad_[bank]->exwrite_bits     << ex_ctrl_->spad_write_bits[bank];
+    ex_ctrl_->spad_write_rdy[bank]          << arb_write_spad_[bank]->exwrite_rdy;
+    arb_write_spad_[bank]->dmaread_val      << write_ctrl_->arb_spad_dmaread_val[bank];
+    arb_write_spad_[bank]->dmaread_bits     << write_ctrl_->arb_spad_dmaread_bits[bank];
     write_ctrl_->arb_spad_dmaread_rdy[bank] << arb_write_spad_[bank]->dmaread_rdy;
-    arb_write_spad_[bank]->zerowrite_val  << zero_spad_val_[bank];
-    arb_write_spad_[bank]->zerowrite_bits << zero_writer_pixel_repeater_->out_bits;
-    zero_spad_rdy_[bank] << arb_write_spad_[bank]->zerowrite_rdy;
-    arb_write_spad_[bank]->write_rdy      << spad_->write_rdy_bnk[bank];
-    spad_->write_val_bnk[bank]            << arb_write_spad_[bank]->write_val;
-    spad_->write_bits_bnk[bank]           << arb_write_spad_[bank]->write_bits;
+    arb_write_spad_[bank]->zerowrite_val    << zero_spad_val_[bank];
+    arb_write_spad_[bank]->zerowrite_bits   << zero_writer_pixel_repeater_->out_bits;
+    zero_spad_rdy_[bank]                    << arb_write_spad_[bank]->zerowrite_rdy;
+    arb_write_spad_[bank]->write_rdy        << spad_->write_rdy_bnk[bank];
+    spad_->write_val_bnk[bank]              << arb_write_spad_[bank]->write_val;
+    spad_->write_bits_bnk[bank]             << arb_write_spad_[bank]->write_bits;
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     // Route ExCtrl accumulator writeback through this bank's write arbiter.
@@ -462,13 +462,12 @@ void Smesh::update() {
 // an older memory load to the same address; bank arbitration alone cannot order them.
 void Smesh::updateLoadRequest() {
   const bool zeros = ld_ctrl_->dma_req_bits->all_zeros == 1;
-  read_issue_val_ = bit(ld_ctrl_->dma_req_val == 1 && !zeros);
-  zero_req_val_ = bit(ld_ctrl_->dma_req_val == 1 && zeros);
+  read_issue_val_  = bit(ld_ctrl_->dma_req_val == 1 && !zeros);
+  zero_req_val_    = bit(ld_ctrl_->dma_req_val == 1 && zeros);
 }
 
 void Smesh::updateLoadReady() {
-  load_req_rdy_ = ld_ctrl_->dma_req_bits->all_zeros == 1
-                      ? *zero_writer_->req_rdy : *read_issue_queue_->req_rdy;
+  load_req_rdy_ = ld_ctrl_->dma_req_bits->all_zeros == 1 ? *zero_writer_->req_rdy : *read_issue_queue_->req_rdy;
 }
 
 // Route zero rows to one bank only. Normal load completions take precedence,
