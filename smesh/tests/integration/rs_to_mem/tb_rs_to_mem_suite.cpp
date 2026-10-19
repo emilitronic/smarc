@@ -21,6 +21,7 @@ Run:
 
 #include "tb_rs_to_mem_harness.hpp"
 #include "tb_rs_to_mem_test_cases.hpp"
+#include "tb_rs_to_mem_perf.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -28,6 +29,7 @@ Run:
 
 StringParameter(test, "basic", "One rs_to_mem test name");
 BoolParameter(list_tests, false, "List rs_to_mem tests and exit");
+BoolParameter(perf, true, "Report execution, startup, and drain cycle counts");
 
 int main(int argc, char* argv[]) {
   descore::parseTraces(argc, argv);
@@ -61,11 +63,16 @@ int main(int argc, char* argv[]) {
   Sim::reset();
   harness.initializeMemoryImages();
 
+  smesh::tb::RsMemPerfObserver performance;
+  performance.reset();
+
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
     harness.sampleBankConcurrency();
-    drain_count = harness.activityComplete() ? drain_count + 1 : 0;
+    const bool complete = harness.activityComplete();
+    performance.sample(harness.inputCommandAccepted(), complete);
+    drain_count = complete ? drain_count + 1 : 0;
     if (drain_count >= tc.drain_cycles) {
       break;
     }
@@ -76,5 +83,7 @@ int main(int argc, char* argv[]) {
   if (!passed) {
     harness.report();
   }
+  if (perf) performance.report(tc.name);
+  descore::flushLog();
   return passed ? 0 : 1;
 }

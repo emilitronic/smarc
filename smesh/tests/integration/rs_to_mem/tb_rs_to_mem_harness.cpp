@@ -165,6 +165,10 @@ void RsMemHarnessInstance::sampleBankConcurrency() {
   }
 }
 
+bool RsMemHarnessInstance::inputCommandAccepted() const {
+  return cmd_driver_->cmd_valid == 1 && cmd_driver_->cmd_ready == 1;
+}
+
 bool RsMemHarnessInstance::activityComplete() const {
   if (!cmd_driver_->done() || !top_->rs().empty()) return false;
   // Store completion can precede the scaler and writer finishing their rows.

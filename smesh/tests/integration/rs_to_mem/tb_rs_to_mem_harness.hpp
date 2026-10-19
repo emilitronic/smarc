@@ -94,6 +94,7 @@ class RsMemHarnessInstance {
   ~RsMemHarnessInstance();
 
   bool activityComplete() const;
+  bool inputCommandAccepted() const;
   bool passed() const;
   void report() const;
   void initializeMemoryImages();

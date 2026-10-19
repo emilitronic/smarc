@@ -97,6 +97,25 @@ stores or AccumExResp for ExCtrl, according to `from_dma`. Softmax remains defer
 The runner waits for expected DRAM bytes as well as RS completion before its
 final drain countdown: Store completion can precede scaling and memory writes.
 
+## Performance measurements
+
+Every runner variant prints a `[SMESH_PERF]` summary by default. It separates
+startup, execution, and extra drain cycles, and counts external input commands.
+Use `-perf=0` to hide the summary or `-trace '*/rs_mem_perf_'` to inspect its
+cycle-by-cycle observations. Measurement code lives entirely under `tests/`.
+See [performance measurement](../../support/perf/README.md) for definitions,
+file organization, and how to add events.
+
+For the unpadded 1x6/1x3 convolution in the current DIM4 model:
+
+| Mode | Execution cycles | Extra drain cycles | Total simulation cycles |
+| --- | ---: | ---: | ---: |
+| Repetition disabled | 123 | 15 | 138 |
+| Two-pixel repetition | 126 | 15 | 141 |
+
+Both accept nine external commands and have zero startup cycles. These are
+end-to-end scenario times; they do not identify the reason for the difference.
+
 ## Two-pixel convolution packing
 
 `tb_rs_to_mem_suite_first_layer` links `smesh_model_first_layer`, which enables

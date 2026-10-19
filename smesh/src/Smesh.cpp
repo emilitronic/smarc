@@ -284,21 +284,21 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
     // Route ExCtrl accumulator writeback through this bank's write arbiter.
-    arb_write_accum_[bank]->exwrite_val       << ex_ctrl_->accum_write_val[bank];
-    arb_write_accum_[bank]->exwrite_bits      << ex_ctrl_->accum_write_bits[bank];
-    ex_ctrl_->accum_write_rdy[bank]           << arb_write_accum_[bank]->exwrite_rdy;
-    arb_write_accum_[bank]->dmaread_val       << write_ctrl_->arb_accum_dmaread_val[bank];
-    arb_write_accum_[bank]->dmaread_bits      << write_ctrl_->arb_accum_dmaread_bits[bank];
-    write_ctrl_->arb_accum_dmaread_rdy[bank]  << arb_write_accum_[bank]->dmaread_rdy;
-    arb_write_accum_[bank]->dmaread_full_val  << write_ctrl_->arb_accum_dmaread_full_val[bank];
-    arb_write_accum_[bank]->dmaread_full_bits << write_ctrl_->arb_accum_dmaread_full_bits[bank];
+    arb_write_accum_[bank]->exwrite_val           << ex_ctrl_->accum_write_val[bank];
+    arb_write_accum_[bank]->exwrite_bits          << ex_ctrl_->accum_write_bits[bank];
+    ex_ctrl_->accum_write_rdy[bank]               << arb_write_accum_[bank]->exwrite_rdy;
+    arb_write_accum_[bank]->dmaread_val           << write_ctrl_->arb_accum_dmaread_val[bank];
+    arb_write_accum_[bank]->dmaread_bits          << write_ctrl_->arb_accum_dmaread_bits[bank];
+    write_ctrl_->arb_accum_dmaread_rdy[bank]      << arb_write_accum_[bank]->dmaread_rdy;
+    arb_write_accum_[bank]->dmaread_full_val      << write_ctrl_->arb_accum_dmaread_full_val[bank];
+    arb_write_accum_[bank]->dmaread_full_bits     << write_ctrl_->arb_accum_dmaread_full_bits[bank];
     write_ctrl_->arb_accum_dmaread_full_rdy[bank] << arb_write_accum_[bank]->dmaread_full_rdy;
-    arb_write_accum_[bank]->zerowrite_val     << zero_accum_val_[bank];
-    arb_write_accum_[bank]->zerowrite_bits    << zero_writer_pixel_repeater_->out_bits;
-    zero_accum_rdy_[bank] << arb_write_accum_[bank]->zerowrite_rdy;
-    arb_write_accum_[bank]->write_rdy         << accum_->write_rdy_bnk[bank];
-    accum_->write_val_bnk[bank]               << arb_write_accum_[bank]->write_val;
-    accum_->write_bits_bnk[bank]              << arb_write_accum_[bank]->write_bits;
+    arb_write_accum_[bank]->zerowrite_val         << zero_accum_val_[bank];
+    arb_write_accum_[bank]->zerowrite_bits        << zero_writer_pixel_repeater_->out_bits;
+    zero_accum_rdy_[bank]                         << arb_write_accum_[bank]->zerowrite_rdy;
+    arb_write_accum_[bank]->write_rdy             << accum_->write_rdy_bnk[bank];
+    accum_->write_val_bnk[bank]                   << arb_write_accum_[bank]->write_val;
+    accum_->write_bits_bnk[bank]                  << arb_write_accum_[bank]->write_bits;
   }
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     arb_read_spad_[bank]->exread_val    << ex_ctrl_->spad_read_req_val[bank];
@@ -307,8 +307,8 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
     arb_read_spad_[bank]->dmawrite_val  << st_read_ctrl_->dmawrite_spad[bank];
     arb_read_spad_[bank]->dmawrite_bits << st_read_ctrl_->spad_req_bits[bank];
     arb_read_spad_[bank]->read_req_rdy  << spad_->read_req_rdy_bnk[bank];
-    spad_->read_req_val_bnk[bank]    << arb_read_spad_[bank]->read_req_val;
-    spad_->read_req_bits_bnk[bank]   << arb_read_spad_[bank]->read_req_bits;
+    spad_->read_req_val_bnk[bank]       << arb_read_spad_[bank]->read_req_val;
+    spad_->read_req_bits_bnk[bank]      << arb_read_spad_[bank]->read_req_bits;
   }
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
     spad_dma_read_pipe_[bank]->resp_val  << spad_->read_resp_val_bnk[bank];

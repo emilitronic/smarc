@@ -1,3 +1,4 @@
+add_subdirectory(support/perf)
 add_subdirectory(integration)
 add_subdirectory(legacy)
 add_subdirectory(unit)
