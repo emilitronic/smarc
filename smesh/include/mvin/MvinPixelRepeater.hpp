@@ -3,7 +3,14 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 6 2026
 /*
-Load-path pixel repetition stage. Only pixel_repeats=1 is currently supported.
+Original's load-path pixel repeater. With repetition enabled, save one packet
+and emit shifted copies into preceding SPAD rows, ending at its original row.
+Copies never cross the start of the selected SPAD half. Only the final copy
+retains last, so the memory write path acknowledges the source bytes once.
+
+passthrough=true keeps the original combinational path. Otherwise input is
+registered, one copy can leave per cycle, and the final copy can leave while
+a new packet is accepted. Repetition is supported only for SPAD destinations.
 */
 
 #pragma once
@@ -18,7 +25,9 @@ class MvinPixelRepeater : public Component {
   DECLARE_COMPONENT(MvinPixelRepeater);
 
  public:
-  MvinPixelRepeater(std::string name, COMPONENT_CTOR);
+  MvinPixelRepeater(std::string name,
+                    bool passthrough = !kDefaultConfig.has_first_layer_optimizations,
+                    COMPONENT_CTOR);
 
   Clock(clk);
 
@@ -31,7 +40,20 @@ class MvinPixelRepeater : public Component {
 
   void updateView();
   void updateReady();
+  void updateStorage();
   void reset();
+
+ private:
+  const bool passthrough_;
+  // Saved source packet and the number of copies left after the current copy.
+  struct Entry {
+    bit valid = 0;
+    DmaReadResp bits{};
+    u8 remaining = 0;
+  };
+  Output(Entry, entry_Q_);
+  Register(Entry, entry_D_);
+  Output(bit, underflow_);
 };
 
 } // namespace smesh
