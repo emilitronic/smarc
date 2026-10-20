@@ -128,7 +128,11 @@ void SdfStreamPipe::updateCtrl() {
   assert_always(!(in_fire && in_last == 1) || cnt == N - 1,
                 "in_last must mark the last sample of a frame");
 
-  chain_in_ = in_fire ? *in_bits : SdfComplex{};
+  // Zeros during the flush, in_bits otherwise, taken or not: at P = 0
+  // out_bits is a function of chain_in_ and must hold through a stall. A
+  // cycle without enable enters the free-running pipes with v = 0 and is
+  // never queued.
+  chain_in_ = state == kFlush ? SdfComplex{} : *in_bits;
   chain_en_ = bit(enable ? 1 : 0);
 
   SdfVF vf;
@@ -137,7 +141,8 @@ void SdfStreamPipe::updateCtrl() {
   vp_in_ = vf;
 
   const bool pkt_end = out_fire && obin == N - 1;
-  out_last = bit(pkt_end ? 1 : 0);
+  // A sideband of the bin at the head, held with it through a stall.
+  out_last = bit((val && obin == N - 1) ? 1 : 0);
   busy     = bit(state == kIdle ? 0 : 1);
 
   // The flush ends on the last bin of the last frame accepted, however many

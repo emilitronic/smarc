@@ -85,6 +85,9 @@ class SdfStreamPipe : public Component {
   Input(bit,         in_last);
   Output(bit,        in_rdy);
 
+  // As SdfStream: out_last is held with the last bin of a frame, and a valid
+  // bin holds until out_rdy takes it, provided the source holds in_val and
+  // in_bits until in_rdy. At P > 0 a stalled bin waits in the queue.
   Output(bit,        out_val);
   Output(SdfComplex, out_bits);
   Output(bit,        out_last);

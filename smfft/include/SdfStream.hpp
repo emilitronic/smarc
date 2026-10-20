@@ -78,7 +78,10 @@ class SdfStream : public Component {
   Output(bit,        in_rdy);
 
   // Bin output, in bit-reversed order (spec section 6). out_last marks the
-  // last bin of a frame.
+  // last bin of a frame and is held with it. Once out_val is high, out_val,
+  // out_bits and out_last hold until out_rdy takes the bin, provided the
+  // source holds in_val and in_bits until in_rdy: a bin here is computed from
+  // the sample currently on the input.
   Output(bit,        out_val);
   Output(SdfComplex, out_bits);
   Output(bit,        out_last);

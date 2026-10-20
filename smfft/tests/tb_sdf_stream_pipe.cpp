@@ -199,12 +199,14 @@ class StreamDriver : public Component {
   std::size_t latency() const { return first_out_ - first_in_; }
 
   bool passed() const {
-    return complete() && mismatches_ == 0 && last_errors_ == 0 && busy_errors_ == 0;
+    return complete() && mismatches_ == 0 && last_errors_ == 0 && busy_errors_ == 0 &&
+           hold_errors_ == 0;
   }
   const std::vector<SdfComplex>& got() const { return got_; }
   std::size_t mismatches() const { return mismatches_; }
   std::size_t lastErrors() const { return last_errors_; }
   std::size_t busyErrors() const { return busy_errors_; }
+  std::size_t holdErrors() const { return hold_errors_; }
 
  private:
   static constexpr std::size_t kNever = ~std::size_t{0};
@@ -223,6 +225,14 @@ class StreamDriver : public Component {
   std::size_t             mismatches_  = 0;
   std::size_t             last_errors_ = 0;
   std::size_t             busy_errors_ = 0;
+  std::size_t             hold_errors_ = 0;
+
+  // Handshake hold state: a sample offered and not taken is offered again,
+  // and a bin offered and not taken must be offered again unchanged.
+  bool       in_held_   = false;
+  bool       out_held_  = false;
+  SdfComplex held_bits_ = {};
+  bit        held_last_ = 0;
 };
 
 StreamDriver::StreamDriver(const VectorCase& vc, Mode mode, std::size_t P, std::string /*name*/,
@@ -253,7 +263,9 @@ StreamDriver::StreamDriver(const VectorCase& vc, Mode mode, std::size_t P, std::
 void StreamDriver::updateDrive() {
   const std::size_t c = cycle_ < gap_.size() ? cycle_ : gap_.size() - 1;
 
-  const bool offering = sent_ < vc_.in.size() && gap_[c] != 0;
+  // A gap only starts between samples: once offered, a sample stays on the
+  // input until in_rdy takes it, as a ready/valid source must.
+  const bool offering = sent_ < vc_.in.size() && (gap_[c] != 0 || in_held_);
   in_val  = bit(offering ? 1 : 0);
   in_bits = offering ? vc_.in[sent_] : SdfComplex{};
   // Flush at every frame boundary in kFlushEach, otherwise once at the end.
@@ -279,6 +291,20 @@ void StreamDriver::updateAccept() {
     }
     ++busy_errors_;
   }
+
+  // A bin left waiting by out_rdy must still be there, unchanged, with its
+  // out_last.
+  if (out_held_ && (out_val != 1 || *out_bits != held_bits_ || out_last != held_last_)) {
+    if (hold_errors_ < 4) {
+      std::printf("  %s/%s: stalled bin %zu changed at cycle %zu\n", vc_.suite.c_str(),
+                  vc_.name.c_str(), got_.size(), cycle_);
+    }
+    ++hold_errors_;
+  }
+  out_held_  = out_val == 1 && out_rdy != 1;
+  held_bits_ = *out_bits;
+  held_last_ = *out_last;
+  in_held_   = in_val == 1 && in_rdy != 1;
 
   if (out_val == 1 && out_rdy == 1) {
     if (first_out_ == kNever) {
@@ -326,6 +352,9 @@ void StreamDriver::reset() {
   mismatches_  = 0;
   last_errors_ = 0;
   busy_errors_ = 0;
+  hold_errors_ = 0;
+  in_held_     = false;
+  out_held_    = false;
   in_val.reset(0);
   in_bits.reset(SdfComplex{});
   in_last.reset(0);
@@ -501,6 +530,9 @@ int main(int argc, char* argv[]) {
     }
     if (h.drv->busyErrors() != 0) {
       std::printf("  %zu busy", h.drv->busyErrors());
+    }
+    if (h.drv->holdErrors() != 0) {
+      std::printf("  %zu stall-hold", h.drv->holdErrors());
     }
     std::printf("\n");
   }

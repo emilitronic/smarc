@@ -69,11 +69,15 @@ void SdfStream::updateCtrl() {
   // the flush.
   const bool enable = in_fire || (state == kFlush && out_rdy == 1);
 
-  // Zeros rather than stale input during the flush; see the header.
-  chain_in_ = in_fire ? *in_bits : SdfComplex{};
+  // Zeros during the flush (see the header); otherwise in_bits whether or not
+  // it is taken. At P = 0 out_bits is a function of chain_in_, so gating it
+  // on in_fire would change a valid bin while out_rdy stalls it. Only
+  // chain_en_ needs the fire.
+  chain_in_ = state == kFlush ? SdfComplex{} : *in_bits;
   chain_en_ = bit(enable ? 1 : 0);
 
-  out_last = bit((out_fire && obin == N - 1) ? 1 : 0);
+  // A sideband of the bin, held with it through a stall.
+  out_last = bit((val == 1 && obin == N - 1) ? 1 : 0);
   busy     = bit(state == kIdle ? 0 : 1);
 
   // The last output of a frame ends the flush and returns the block to idle.
