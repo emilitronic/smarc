@@ -1,7 +1,12 @@
 # Smesh performance measurement
 
-These files support simulation measurements independently of the functional
-hardware model. The first observer is used by every `rs_to_mem` runner variant.
+This README explains the performance report printed by the
+`tb_rs_to_mem_suite` test runner. It counts clock cycles and commands accepted
+at Smesh's top-level input, such as `CONFIG`, `PRELOAD`, and `LOOP_CONV`. It
+also reports cycles before the first command, while the workload runs, and
+while the runner waits for remaining activity to finish. A test helper samples
+the signals once per cycle; we call it an **observer**. This measurement code
+is separate from the functional Smesh model.
 
 ## Organization
 

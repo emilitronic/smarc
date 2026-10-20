@@ -1,25 +1,27 @@
 # RS-to-memory integration tests
 
-This suite sends raw `SmeshCmd` instructions through the real top-level
-`Smesh` composition. It covers the path from command acceptance through the
-RS and ExCtrl to the real Spad/Accum blocks, including the production
-arbitration and memory wiring.
+This suite sends raw `SmeshCmd` instructions into the full Smesh system. It
+checks their path from command acceptance through the RS and ExCtrl to Spad,
+Accum, and the connected memory, including arbitration along the way.
 
 ## Scope
 
-The `ex_ctrl` integration suite focuses on ExCtrl itself, with its neighbors
-modeled by the harness. This suite instead instantiates `Smesh`, so it checks
-the composition and handshakes between the real blocks around ExCtrl.
-That makes it complementary to the unit tests and the ExCtrl suite: it catches
-integration issues such as bank arbitration and backpressure that an isolated
-ExCtrl simulation cannot expose.
+The tests contained in this suite exercise commands across the system: from command input and the RS,
+through the load, execute, and store paths, to Spad, Accum, and connected memory.
+They check end-to-end results as well as interactions such as bank arbitration
+and backpressure. Tests focused on ExCtrl alone are in
+`smesh/tests/integration/ex_ctrl`.  In that case, the components surrounding ExCtrl
+are modelled by the testbench itself.
 
-The direct-command scenarios issue `CONFIG_EX`, `PRELOAD`, and `COMPUTE_*`.
-The `loop_ws` scenario starts with Spad data already loaded. The `loop_ws_dma`
-scenarios instead seed A, B, and D in DRAM and exercise generated loads,
-execute commands, and stores through the shared memory boundary. The harness
-checks completions and Accum results, plus loaded Spad rows and final DRAM
-bytes for the DMA scenarios.
+The scenarios covered by this suite fall into five groups: direct ExCtrl commands, LoopMatmul
+workloads, LoopConv workloads, focused memory-path checks, and interactions
+between controllers. Direct-command tests issue `CONFIG_EX`, `PRELOAD`, and
+`COMPUTE_*` themselves. LoopMatmul cases test one or more tiles, either with
+operands already in Spad or with generated loads and stores through memory.
+LoopConv cases vary image and kernel shapes, channels, padding, and pixel
+repetition. Memory-path cases focus on zero fill, accumulator loads and
+scaling, and bank arbitration. The cases below describe each scenario and its
+checks.
 
 Commands now pass through `SmeshCmdQueue -> LoopConv -> LoopMatmul ->
 SmeshUnrolledCmdQueue -> SmeshRS`. Each unroller receives credits only for its
@@ -28,14 +30,22 @@ ordinary command credits return on controller completion.
 
 The suite currently covers:
 
+**Direct ExCtrl commands and RS interactions**
+
 - `basic`: PRELOAD followed by COMPUTE_FLIP and COMPUTE_STAY.
 - `mul_pre`: two operations using the overlapping COMPUTE+PRELOAD path.
 - `concurrent_banks`: checks that Spad reads can fire on three banks at once.
 - `same_bank_serializes`: checks that aliased A/addend reads serialize.
+
+**LoopMatmul workloads**
+
 - `loop_ws`: one tile with operands initialized in Spad.
 - `loop_ws_dma`: one tile loaded from DRAM and stored back to DRAM.
 - `loop_ws_dma_i2`: two output tiles with a shared B tile.
 - `loop_ws_dma_k2`: two products accumulated into one output tile.
+
+**LoopConv workloads**
+
 - `loop_conv_dma`: one 1x4 NHWC image with four input channels, a 1x1 kernel
   producing two output channels, and signed full-width bias. Loads all operands
   from DRAM, checks the independently computed accumulator rows and stored
@@ -80,14 +90,24 @@ The suite currently covers:
   1x1 kernel, bias, and SPAD A/B locations, but separate DRAM destinations.
   Checks both numerical results, final SPAD contents, completion tags,
   and loop/utilization drain.
+
+**Memory-path checks**
+
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
-- `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
 - `accum_scale_store`: loads signed full-width accumulator rows and stores half-scaled, ReLU, and original full-width values. Checks rounding, clipping, completion tags, and DRAM bytes in DIM4, DIM8, and four-byte memory builds.
 - `dim8_loads`: separate `dim=8` build; full and partial SPAD/Accum row loads.
 
-The focused memory unit tests cover bank-local arbitration and simultaneous
-operations independently. This suite also checks Spad read concurrency and
-same-bank serialization through the full command-to-memory composition.
+**Cross-controller interaction**
+
+- `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
+
+## Related memory unit tests
+
+Separate unit tests in `smesh/tests/unit/memory` check bank behavior without
+running the full command path: `tb_spad_banked` and `tb_accum_banked` exercise
+independent banks and simultaneous operations. This suite's `concurrent_banks`
+and `same_bank_serializes` scenarios check Spad read concurrency and
+same-bank serialization through the command-to-memory path.
 
 Accumulator responses use `AccScaleFinite` after Normalizer and StScaleCtrl.
 `SmeshConfig::acc_scale_lanes` selects the total lanes (currently eight: four
