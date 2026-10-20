@@ -3,6 +3,9 @@ add_library(smfft_model
   src/SdfStage.cpp
   src/SdfChain.cpp
   src/SdfStream.cpp
+  src/SdfStagePipe.cpp
+  src/SdfChainPipe.cpp
+  src/SdfStreamPipe.cpp
 )
 
 target_include_directories(smfft_model
@@ -176,4 +179,64 @@ add_test(NAME smfft_stream COMMAND tb_sdf_stream)
 set_tests_properties(smfft_stream PROPERTIES
   LABELS "smfft;vectors"
   TIMEOUT 300
+)
+
+add_executable(tb_sdf_chain_pipe
+  tests/tb_sdf_chain_pipe.cpp
+)
+
+target_link_libraries(tb_sdf_chain_pipe
+  PRIVATE
+    smfft_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+target_compile_definitions(tb_sdf_chain_pipe
+  PRIVATE
+    SMFFT_VECTOR_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors"
+    SMFFT_VECTOR_DIR_B16W24="${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors_b16_w24"
+)
+
+set_target_properties(tb_sdf_chain_pipe PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smfft"
+)
+
+add_test(NAME smfft_chain_pipe COMMAND tb_sdf_chain_pipe)
+
+set_tests_properties(smfft_chain_pipe PROPERTIES
+  LABELS "smfft;vectors"
+  TIMEOUT 600
+)
+
+add_executable(tb_sdf_stream_pipe
+  tests/tb_sdf_stream_pipe.cpp
+)
+
+target_link_libraries(tb_sdf_stream_pipe
+  PRIVATE
+    smfft_model
+    cascade
+    -lz
+    -ltermcap
+    -lpthread
+)
+
+target_compile_definitions(tb_sdf_stream_pipe
+  PRIVATE
+    SMFFT_VECTOR_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors"
+    SMFFT_VECTOR_DIR_B16W24="${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors_b16_w24"
+)
+
+set_target_properties(tb_sdf_stream_pipe PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smfft"
+)
+
+add_test(NAME smfft_stream_pipe COMMAND tb_sdf_stream_pipe)
+
+set_tests_properties(smfft_stream_pipe PROPERTIES
+  LABELS "smfft;vectors"
+  TIMEOUT 900
 )
