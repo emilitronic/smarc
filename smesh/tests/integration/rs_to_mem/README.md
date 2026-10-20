@@ -101,14 +101,6 @@ The suite currently covers:
 
 - `shared_accum_read`: ExCtrl reads accumulator D while Store reads another accumulator tile; checks C, DRAM output, and both completion paths.
 
-## Related memory unit tests
-
-Separate unit tests in `smesh/tests/unit/memory` check bank behavior without
-running the full command path: `tb_spad_banked` and `tb_accum_banked` exercise
-independent banks and simultaneous operations. This suite's `concurrent_banks`
-and `same_bank_serializes` scenarios check Spad read concurrency and
-same-bank serialization through the command-to-memory path.
-
 Accumulator responses use `AccScaleFinite` after Normalizer and StScaleCtrl.
 `SmeshConfig::acc_scale_lanes` selects the total lanes (currently eight: four
 normalization-capable and four ordinary); `acc_scale_latency` selects pipe
