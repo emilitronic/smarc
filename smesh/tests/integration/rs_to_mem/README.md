@@ -47,6 +47,10 @@ the RS.
 - **Observers and checks**: record completions and selected generated
   commands; the harness compares these and the resulting memory contents with
   the test case's expected results.
+- **Performance observer** (`tb_rs_to_mem_perf.hpp/.cpp`): counts accepted
+  input commands and calculates startup, execution, and drain cycles from
+  observations supplied by the runner. It uses the shared counters in
+  `smesh/tests/support/perf`.
 
 ## Test cases
 
@@ -133,12 +137,73 @@ final drain countdown: Store completion can precede scaling and memory writes.
 
 ## Performance measurements
 
-Every runner variant prints a `[SMESH_PERF]` summary by default. It separates
-startup, execution, and extra drain cycles, and counts external input commands.
-Use `-perf=0` to hide the summary or `-trace '*/rs_mem_perf_'` to inspect its
-cycle-by-cycle observations. Measurement code lives entirely under `tests/`.
-See [performance measurement](../../support/perf/README.md) for definitions,
-file organization, and how to add events.
+The `tb_rs_to_mem_suite` runner and its variants measure how many simulation
+cycles a test case takes and how many commands Smesh accepts at its external
+input. Every variant prints a `[SMESH_PERF]` summary by default. These are
+end-to-end measurements, including waits and overlapping load, execute, and
+store work. They do not measure useful mesh MAC cycles.
+
+### How measurements are collected
+
+After each `Sim::run()`, the runner asks the harness two questions: was an input
+command accepted, and is the test's activity complete? It passes these two
+answers to `RsMemPerfObserver::sample()` in `tb_rs_to_mem_perf.cpp`. This helper
+updates totals using the [shared performance counters](../../support/perf/README.md).
+The shared counters store and report values; this suite's observer defines when
+to count them.
+
+Input acceptance means the command driver's `cmd_valid && cmd_ready`. These are
+commands at Smesh's external input, including `CONFIG`, `PRELOAD`, and loop
+macro commands. Commands generated internally by LoopConv or LoopMatmul are
+not counted separately here.
+
+Completion means the harness's `activityComplete()` condition: command driver
+finished, RS empty, expected DRAM results visible, pending memory writes
+finished, and any required loop retirement completed. The numerical PASS/FAIL
+checks remain separate. Reset and memory-image setup happen before sampling
+begins. All measurement code lives under `tests/`; the functional Smesh
+components contain no added measurement ports or counters.
+
+### Measurement definitions
+
+| Name | Meaning |
+| --- | --- |
+| `simulation_cycles` | Number of sampled `Sim::run()` calls after reset/setup. |
+| `startup_cycles` | Cycles before the first input command is accepted. |
+| `execution_cycles` | First accepted input command through the first cycle of the final uninterrupted completion period, including both endpoints. |
+| `drain_cycles` | Additional sampled cycles after that completion cycle. |
+| `input_commands` | Accepted commands at the external Smesh input, including configuration and loop macro commands. |
+| `execution_window` | `not_started`, `incomplete`, or `complete`; independent of the numerical PASS/FAIL result. |
+
+`startup_cycles + execution_cycles + drain_cycles == simulation_cycles`.
+If activity resumes during drain, the earlier completion boundary is cancelled;
+the provisional drain cycles become part of execution. A timeout before completion
+reports an incomplete execution window. With no accepted command, all sampled
+cycles are startup and the window is `not_started`.
+
+The test case's `drain_cycles` setting counts consecutive completion checks,
+including the first completion cycle. A setting of 16 therefore produces 15
+additional drain cycles in the report. The observer follows the runner's
+existing termination rule.
+
+### Output and tracing
+
+Use `-perf=0` to hide the summary. Counting continues regardless of this option
+or trace selection. From the repository root:
+
+```bash
+cmake --build build --target tb_rs_to_mem_suite tb_rs_to_mem_suite_first_layer -j
+./build/smesh/tb_rs_to_mem_suite -test=loop_conv_temporal3
+./build/smesh/tb_rs_to_mem_suite_first_layer -test=loop_conv_temporal3_pixel2
+./build/smesh/tb_rs_to_mem_suite -test=basic -trace '*/rs_mem_perf_'
+```
+
+The optional `rs_mem_perf_` trace shows input acceptance, the completion condition,
+and execution/drain totals each cycle. Its explicit cycle number starts at 1;
+Cascade's timestamp prefix is simulation time in nanoseconds. The runner
+flushes Descore output before exiting.
+
+### Example comparison
 
 For the unpadded 1x6/1x3 convolution in the current DIM4 model:
 

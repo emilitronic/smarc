@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  const bool passed = harness.passed();
+  const bool passed = harness.passed(); // runner asks harness if we passed or not
   std::printf("[RS_TO_MEM_SUITE] %s %s\n", passed ? "PASS" : "FAIL", tc.name.c_str());
   if (!passed) {
     harness.report();

@@ -1,82 +1,73 @@
-# Smesh performance measurement
+# Shared performance counters
 
-This README explains the performance report printed by the
-`tb_rs_to_mem_suite` test runner. It counts clock cycles and commands accepted
-at Smesh's top-level input, such as `CONFIG`, `PRELOAD`, and `LOOP_CONV`. It
-also reports cycles before the first command, while the workload runs, and
-while the runner waits for remaining activity to finish. A test helper samples
-the signals once per cycle; we call it an **observer**. This measurement code
-is separate from the functional Smesh model.
+This README describes the reusable counters that Smesh testbenches use to
+record performance measurements, such as clock cycles and accepted commands.
+The counter code stores and reports totals. Each testbench supplies the code
+that watches simulation signals and decides when to update those totals.
 
 ## Organization
 
 - `SmeshPerfEvents.hpp`: the shared list of measurement names.
 - `SmeshPerfCounters.hpp/cpp`: exact 64-bit totals and Descore log reporting.
-- `../../integration/rs_to_mem/tb_rs_to_mem_perf.hpp/cpp`: the observer that
-  determines the execution window from the input handshake and harness completion.
 
-The runner calls the observer once after each `Sim::run()`. Input acceptance is
-the command driver's `cmd_valid && cmd_ready` for that simulated cycle. Reset
-and memory-image setup happen before sampling begins. There are no added hardware
-ports or counters in the functional Smesh components.
+These files have no dependency on a particular test runner or harness. The
+current measurement names are `simulation_cycles`, `startup_cycles`,
+`execution_cycles`, `drain_cycles`, and `input_commands`. The testbench that
+records them defines the exact counting conditions.
 
-## Measurement definitions
+## Using the counters
 
-| Name | Meaning |
-| --- | --- |
-| `simulation_cycles` | Number of sampled `Sim::run()` calls after reset/setup. |
-| `startup_cycles` | Cycles before the first input command is accepted. |
-| `execution_cycles` | First accepted input command through the first cycle of the final uninterrupted completion period, including both endpoints. |
-| `drain_cycles` | Additional sampled cycles after that completion cycle. |
-| `input_commands` | Accepted commands at the external Smesh input, including configuration and loop macro commands. |
-| `execution_window` | `not_started`, `incomplete`, or `complete`; independent of the numerical PASS/FAIL result. |
+`SmeshPerfCounters` provides five operations:
 
-`startup_cycles + execution_cycles + drain_cycles == simulation_cycles`.
-If activity resumes during drain, the earlier completion boundary is cancelled;
-the provisional drain cycles become part of execution. A timeout before completion
-reports an incomplete execution window. With no accepted command, all sampled
-cycles are startup and the window is `not_started`.
+- `reset()`: clear every total.
+- `add(event, amount)`: increment a total; `amount` defaults to one.
+- `set(event, value)`: assign a total calculated by the testbench.
+- `value(event)`: read a total.
+- `report(name)`: print the totals with a name identifying the measured run.
 
-Completion means the existing harness's `activityComplete()` condition: command
-driver finished, RS empty, expected DRAM results visible, pending memory writes
-finished, and any required loop retirement completed. This measures the whole
-scenario, including waits and overlapping load/execute/store work. It does not
-measure useful mesh MAC cycles or replace the numerical checker.
+For example, testbench code can count one observed cycle and an accepted command:
 
-The runner's `drain_cycles` scenario setting counts consecutive completion checks,
-including the first completion cycle. A setting of 16 therefore produces 15
-additional drain cycles. This observer preserves the existing termination rule.
-
-## Output and tracing
-
-Performance summaries are enabled by default; use `-perf=0` to suppress them.
-Accumulation is independent of both the report flag and trace selection.
-
-```bash
-cmake --build build --target tb_rs_to_mem_suite tb_rs_to_mem_suite_first_layer -j
-./build/smesh/tb_rs_to_mem_suite -test=loop_conv_temporal3
-./build/smesh/tb_rs_to_mem_suite_first_layer -test=loop_conv_temporal3_pixel2
-./build/smesh/tb_rs_to_mem_suite -test=basic -trace '*/rs_mem_perf_'
-ctest --test-dir build -R '^smesh_unit_perf$' --output-on-failure
+```cpp
+counters.add(smesh::tb::SmeshPerfEvent::SimulationCycles);
+if (command_accepted) {
+  counters.add(smesh::tb::SmeshPerfEvent::InputCommands);
+}
 ```
 
-The optional `rs_mem_perf_` trace shows the input handshake, completion condition,
-and execution/drain totals each cycle. Its explicit cycle number starts at 1;
-Cascade's timestamp prefix is simulation time in nanoseconds.
+The testbench decides where to call this code and how to determine
+`command_accepted`. A helper that watches signals and updates counters is called
+an **observer**. Such helpers belong with the tests whose signals and completion
+rules they understand.
 
 Totals use integer Descore logging instead of `Statistics::recordStat()`, whose
-float argument can lose precision for large cycle or byte totals. The runner
-flushes Descore output before exiting.
+float argument can lose precision for large cycle or byte totals. The caller
+should flush Descore output before exiting.
+
+## Existing use
+
+The `rs_to_mem` integration suite uses these counters through
+`tb_rs_to_mem_perf.hpp/cpp`, located alongside that suite. Its
+[performance documentation](../../integration/rs_to_mem/README.md#performance-measurements)
+defines the sampling points, execution interval, completion rules, and report
+options. Other testbenches can use the shared counters with their own observation
+code.
 
 ## Adding measurements
 
 Add an event and its report name together in `SmeshPerfEvents.hpp`, then record it
-from the observer that can see its signals. Use `add()` for event occurrences or
+from testbench code that can see the relevant signals. Use `add()` for event occurrences or
 byte increments and `set()` for totals derived from measurement boundaries.
-Other events may overlap in a cycle; only startup/execution/drain partition time.
+Document the counting condition alongside that testbench's measurement code.
 When adopting an Original event, preserve and document its actual predicate:
 for example, `EXE_ACTIVE_CYCLE` denotes ExCtrl's compute state, not useful MACs.
 
 Verify a new observation condition with a known event sequence, especially its
 behavior during stalls. `tb_smesh_perf` currently checks inclusive boundaries,
 resumed activity, incomplete runs, reset, and integer totals above float precision.
+
+Run those checks from the repository root:
+
+```bash
+cmake --build build --target tb_smesh_perf -j
+ctest --test-dir build -R '^smesh_unit_perf$' --output-on-failure
+```
