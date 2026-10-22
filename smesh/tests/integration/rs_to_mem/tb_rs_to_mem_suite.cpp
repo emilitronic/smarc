@@ -20,6 +20,7 @@ Run:
 #include <descore/Parameter.hpp>
 
 #include "tb_rs_to_mem_harness.hpp"
+#include "tb_rs_to_mem_monitor.hpp"
 #include "tb_rs_to_mem_test_cases.hpp"
 #include "tb_rs_to_mem_perf.hpp"
 
@@ -57,6 +58,7 @@ int main(int argc, char* argv[]) {
 
   Clock clk;
   smesh::tb::RsMemHarnessInstance harness(tc, "RsMem_", clk); // build the Smesh HW and connnect it to test driver and memory model
+  smesh::tb::RsMemMonitor monitor(harness.smesh(), "RsMem_", clk); // connect test observations to Smesh
   clk.generateClock();
 
   Cascade::params.MaxResetIterations = 1;
@@ -70,7 +72,7 @@ int main(int argc, char* argv[]) {
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
-    harness.sampleBankConcurrency();
+    monitor.sampleBankConcurrency();
     const bool complete = harness.activityComplete();
     performance.sample(harness.inputCommandAccepted(), complete); // run the sample function
     drain_count = complete ? drain_count + 1 : 0;
@@ -79,10 +81,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  const bool passed = harness.passed(); // runner asks harness if we passed or not
+  const bool passed = harness.passed(monitor); // compare results and monitor records with the test's expectations
   std::printf("[RS_TO_MEM_SUITE] %s %s\n", passed ? "PASS" : "FAIL", tc.name.c_str());
   if (!passed) {
-    harness.report();
+    harness.report(monitor);
   }
   if (perf) performance.report(tc.name);
   descore::flushLog();

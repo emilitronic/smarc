@@ -4,6 +4,7 @@
 // Sebastian Claudiusz Magierowski Sep 20 2026
 
 #include "tb_rs_to_mem_harness.hpp"
+#include "tb_rs_to_mem_monitor.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -35,48 +36,6 @@ void RsMemCmdDriver::reset() {
   cmd_bits.reset(SmeshCmd{});
 }
 
-CompletionObserver::CompletionObserver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(completed_val, completed_bits,
-                       ld_completed_val, ld_completed_bits, ld_completed_rdy,
-                       st_completed_val, st_completed_bits, st_completed_rdy);
-}
-
-void CompletionObserver::update() {
-  if (completed_val == 1) {
-    observed_.push_back(*completed_bits);
-  }
-  if (ld_completed_val == 1 && ld_completed_rdy == 1) {
-    observed_.push_back(*ld_completed_bits);
-  }
-  if (st_completed_val == 1 && st_completed_rdy == 1) {
-    observed_.push_back(*st_completed_bits);
-  }
-}
-
-void CompletionObserver::reset() { observed_.clear(); }
-
-TraceKey(rs_mem_conv_execute_);
-
-ConvExecuteObserver::ConvExecuteObserver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).reads(cmd_val, cmd_rdy, cmd_bits);
-}
-
-void ConvExecuteObserver::update() {
-  if (Sim::state == Sim::SimResetting || cmd_val == 0 || cmd_rdy == 0 ||
-      cmd_bits->from_conv_loop == 0) return;
-  const auto cmd = cmd_bits->cmd;
-  const auto funct = static_cast<SmeshFunct>(static_cast<unsigned>(cmd.funct));
-  if (funct != SmeshFunct::Preload && funct != SmeshFunct::ComputeFlip &&
-      funct != SmeshFunct::ComputeStay) return;
-  observed_.push_back(cmd);
-  trace(rs_mem_conv_execute_, "%12s rs1=0x%016llx rs2=0x%016llx\n",
-        funct == SmeshFunct::Preload ? "PRELOAD" :
-        funct == SmeshFunct::ComputeFlip ? "COMPUTE_FLIP" : "COMPUTE_STAY",
-        static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
-}
-
-void ConvExecuteObserver::reset() { observed_.clear(); }
-
 RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std::string& prefix, Clock& clk)
     : test_(test) {
   top_ = std::make_unique<Smesh>(prefix + "Smesh", test_.mvin_scale_latency);
@@ -85,8 +44,6 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
   dram_ = std::make_unique<smem::Dram>(prefix + "Dram", 0);
 
   cmd_driver_ = std::make_unique<RsMemCmdDriver>(test_.program, prefix + "CmdDriver");
-  completion_observer_ = std::make_unique<CompletionObserver>(prefix + "CompletionObserver");
-  conv_execute_observer_ = std::make_unique<ConvExecuteObserver>(prefix + "ConvExecuteObserver");
 
   top_->cmd_valid << cmd_driver_->cmd_valid;
   top_->cmd_bits  << cmd_driver_->cmd_bits;
@@ -99,21 +56,7 @@ RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std:
   dram_->s_req << mem_->s_req;
   mem_->s_resp << dram_->s_resp;
 
-  completion_observer_->completed_val  << top_->exCtrlCompletedVal();
-  completion_observer_->completed_bits << top_->exCtrlCompletedBits();
-  completion_observer_->ld_completed_val << top_->ldCtrlCompletedVal();
-  completion_observer_->ld_completed_bits << top_->ldCtrlCompletedBits();
-  completion_observer_->ld_completed_rdy << top_->ldCtrlCompletedRdy();
-  completion_observer_->st_completed_val << top_->stCtrlCompletedVal();
-  completion_observer_->st_completed_bits << top_->stCtrlCompletedBits();
-  completion_observer_->st_completed_rdy << top_->stCtrlCompletedRdy();
-  conv_execute_observer_->cmd_val << top_->loopConvOutVal();
-  conv_execute_observer_->cmd_rdy << top_->loopConvOutRdy();
-  conv_execute_observer_->cmd_bits << top_->loopConvOutBits();
-
   cmd_driver_->clk << clk;
-  completion_observer_->clk << clk;
-  conv_execute_observer_->clk << clk;
   top_->clk << clk;
   mem_->clk << clk;
   dram_->clk << clk;
@@ -127,39 +70,6 @@ void RsMemHarnessInstance::initializeMemoryImages() {
   }
   for (const auto& data : test_.dram_initial) {
     dram_->write(data.addr, data.bytes.data(), data.bytes.size());
-  }
-}
-
-void RsMemHarnessInstance::sampleBankConcurrency() {
-  std::size_t fired = 0;
-  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    if (top_->spad().read_req_val_bnk[bank] != 0 &&
-        top_->spad().read_req_rdy_bnk[bank] != 0) {
-      ++fired;
-    }
-  }
-  max_concurrent_spad_banks_ = std::max(max_concurrent_spad_banks_, fired);
-
-  bool ex_read = false;
-  bool store_read = false;
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    if (top_->accum().read_req_val_bnk[bank] == 0 ||
-        top_->accum().read_req_rdy_bnk[bank] == 0) continue;
-    if (top_->accum().read_req_bits_bnk[bank]->from_dma == 0) {
-      ++ex_accum_reads_;
-      ex_read = true;
-    } else {
-      ++store_accum_reads_;
-      store_read = true;
-    }
-  }
-  concurrent_accum_reads_ |= ex_read && store_read;
-  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    if (top_->accum().read_resp_val_bnk[bank] != 0 &&
-        top_->accum().read_resp_bits_bnk[bank]->from_dma == 0 &&
-        top_->accum().read_resp_rdy_bnk[bank] == 0) {
-      ++ex_accum_response_stall_cycles_;
-    }
   }
 }
 
@@ -180,10 +90,10 @@ bool RsMemHarnessInstance::activityComplete() const {
        top_->loopMatmul().loop1->configured == 0);
 }
 
-bool RsMemHarnessInstance::passed() const {
-  if (!convExecuteMatches()) return false;
+bool RsMemHarnessInstance::passed(const RsMemMonitor& monitor) const {
+  if (!convExecuteMatches(monitor)) return false;
   auto expected_tags = test_.expected_completion_tags;
-  auto observed_tags = completion_observer_->observed();
+  auto observed_tags = monitor.completions();
   std::sort(expected_tags.begin(), expected_tags.end());
   std::sort(observed_tags.begin(), observed_tags.end());
   if (observed_tags != expected_tags) {
@@ -197,16 +107,16 @@ bool RsMemHarnessInstance::passed() const {
        top_->loopConv().loop1->configured == 1 || top_->loopConv().ld_outstanding != 0 ||
        top_->loopConv().ex_outstanding != 0 || top_->loopConv().st_outstanding != 0)) return false;
   if (test_.min_concurrent_spad_banks > 0 &&
-      max_concurrent_spad_banks_ < test_.min_concurrent_spad_banks) {
+      monitor.maxConcurrentSpadBanks() < test_.min_concurrent_spad_banks) {
     return false;
   }
   if (test_.max_concurrent_spad_banks > 0 &&
-      max_concurrent_spad_banks_ > test_.max_concurrent_spad_banks) {
+      monitor.maxConcurrentSpadBanks() > test_.max_concurrent_spad_banks) {
     return false;
   }
-  if (ex_accum_reads_ < test_.min_ex_accum_reads ||
-      store_accum_reads_ < test_.min_store_accum_reads ||
-      (test_.require_concurrent_accum_reads && !concurrent_accum_reads_)) return false;
+  if (monitor.exAccumReads() < test_.min_ex_accum_reads ||
+      monitor.storeAccumReads() < test_.min_store_accum_reads ||
+      (test_.require_concurrent_accum_reads && !monitor.concurrentAccumReads())) return false;
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);
@@ -234,9 +144,9 @@ bool RsMemHarnessInstance::dramResultsMatch() const {
   return true;
 }
 
-bool RsMemHarnessInstance::convExecuteMatches() const {
+bool RsMemHarnessInstance::convExecuteMatches(const RsMemMonitor& monitor) const {
   if (test_.expected_conv_execute.empty()) return true;
-  const auto& observed = conv_execute_observer_->observed();
+  const auto& observed = monitor.convExecuteCommands();
   if (observed.size() != test_.expected_conv_execute.size()) return false;
   for (std::size_t i = 0; i < observed.size(); ++i) {
     const auto& expected = test_.expected_conv_execute[i];
@@ -247,11 +157,11 @@ bool RsMemHarnessInstance::convExecuteMatches() const {
   return true;
 }
 
-void RsMemHarnessInstance::report() const {
-  if (!convExecuteMatches()) {
+void RsMemHarnessInstance::report(const RsMemMonitor& monitor) const {
+  if (!convExecuteMatches(monitor)) {
     std::printf("  LoopConv execute commands: expected=%zu observed=%zu\n",
-                test_.expected_conv_execute.size(), conv_execute_observer_->observed().size());
-    for (const auto& cmd : conv_execute_observer_->observed())
+                test_.expected_conv_execute.size(), monitor.convExecuteCommands().size());
+    for (const auto& cmd : monitor.convExecuteCommands())
       std::printf("    funct=%u rs1=0x%llx rs2=0x%llx\n", unsigned(cmd.funct),
                   static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
   }
@@ -276,17 +186,17 @@ void RsMemHarnessInstance::report() const {
     std::printf(" %u", static_cast<unsigned>(tag));
   }
   std::printf("\n  observed completions:");
-  for (const auto tag : completion_observer_->observed()) {
+  for (const auto tag : monitor.completions()) {
     std::printf(" %u", static_cast<unsigned>(tag));
   }
   std::printf("\n");
   std::printf("  max_concurrent_spad_banks observed=%zu expected_min=%zu expected_max=%zu\n",
-              max_concurrent_spad_banks_, test_.min_concurrent_spad_banks,
+              monitor.maxConcurrentSpadBanks(), test_.min_concurrent_spad_banks,
               test_.max_concurrent_spad_banks);
   std::printf("  accum reads ex=%zu store=%zu concurrent=%u\n",
-              ex_accum_reads_, store_accum_reads_, concurrent_accum_reads_ ? 1u : 0u);
+              monitor.exAccumReads(), monitor.storeAccumReads(), monitor.concurrentAccumReads() ? 1u : 0u);
   std::printf("  ExCtrl accumulator response stalled cycles=%zu\n",
-              ex_accum_response_stall_cycles_);
+              monitor.exAccumResponseStallCycles());
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);

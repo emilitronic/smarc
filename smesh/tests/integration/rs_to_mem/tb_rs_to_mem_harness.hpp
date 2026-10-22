@@ -3,9 +3,9 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Sep 20 2026
 /*
-Full-Smesh integration harness for raw RS commands and the real top-level
-composition. Test setup seeds the behavioral Spad image before the first
-simulated cycle; these scenarios do not issue load commands.
+Builds and connects Smesh, its command driver, and simulated external memory.
+Initializes memory images and checks results against the selected test case.
+Signal sampling and recorded observations live in tb_rs_to_mem_monitor.*.
 */
 #pragma once
 
@@ -22,6 +22,8 @@ simulated cycle; these scenarios do not issue load commands.
 
 namespace smesh {
 namespace tb {
+
+class RsMemMonitor;
 
 // Sends the test's raw command sequence into Smesh and holds each until accepted.
 class RsMemCmdDriver : public Component {
@@ -45,48 +47,6 @@ class RsMemCmdDriver : public Component {
   std::size_t next_ = 0;
 };
 
-// Records completed RS tags for the integration test's checker.
-class CompletionObserver : public Component {
-  DECLARE_COMPONENT(CompletionObserver);
-
- public:
-  CompletionObserver(std::string name, COMPONENT_CTOR);
-
-  Clock(clk);
-  Input(bit,        completed_val);
-  Input(SmeshRsTag, completed_bits);
-  Input(bit,        ld_completed_val);
-  Input(SmeshRsTag, ld_completed_bits);
-  Input(bit,        ld_completed_rdy);
-  Input(bit,        st_completed_val);
-  Input(SmeshRsTag, st_completed_bits);
-  Input(bit,        st_completed_rdy);
-
-  const std::vector<SmeshRsTag>& observed() const { return observed_; }
-
-  void update();
-  void reset();
-
- private:
-  std::vector<SmeshRsTag> observed_;
-};
-
-// Records the generated execution commands on their real output handshake.
-class ConvExecuteObserver : public Component {
-  DECLARE_COMPONENT(ConvExecuteObserver);
- public:
-  ConvExecuteObserver(std::string name, COMPONENT_CTOR);
-  Clock(clk);
-  Input(bit,            cmd_val);
-  Input(bit,            cmd_rdy);
-  Input(SmeshQueuedCmd, cmd_bits);
-  void update();
-  void reset();
-  const std::vector<SmeshCmd>& observed() const { return observed_; }
- private:
-  std::vector<SmeshCmd> observed_;
-};
-
 // Owns and wires one full-Smesh simulation for a single scenario.
 class RsMemHarnessInstance {
  public:
@@ -95,32 +55,22 @@ class RsMemHarnessInstance {
 
   bool activityComplete() const;
   bool inputCommandAccepted() const;
-  bool passed() const;
-  void report() const;
+  bool passed(const RsMemMonitor& monitor) const;
+  void report(const RsMemMonitor& monitor) const;
   void initializeMemoryImages();
 
-  // Call once per cycle, after Sim::run(), from the runner loop -- Smesh's
-  // Spad is private, so bank concurrency is sampled from outside via
-  // Smesh's own read-only taps rather than a wired monitor component.
-  void sampleBankConcurrency();
+  // The runner gives the monitor access to the Smesh instance built here.
+  Smesh& smesh() { return *top_; }
 
  private:
   bool dramResultsMatch() const;
-  bool convExecuteMatches() const;
+  bool convExecuteMatches(const RsMemMonitor& monitor) const;
   const RsMemTestCase& test_;
 
   std::unique_ptr<RsMemCmdDriver> cmd_driver_;
-  std::unique_ptr<CompletionObserver> completion_observer_;
-  std::unique_ptr<ConvExecuteObserver> conv_execute_observer_;
   std::unique_ptr<Smesh> top_;
   std::unique_ptr<smem::MemCtrl> mem_;
   std::unique_ptr<smem::Dram> dram_;
-
-  std::size_t max_concurrent_spad_banks_      = 0; // max num of spad banks to accept read in a cycle
-  std::size_t ex_accum_reads_                 = 0;
-  std::size_t store_accum_reads_              = 0;
-  bool        concurrent_accum_reads_         = false;
-  std::size_t ex_accum_response_stall_cycles_ = 0;
 };
 
 } // namespace tb

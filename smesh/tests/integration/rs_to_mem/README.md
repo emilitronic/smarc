@@ -44,9 +44,16 @@ the RS.
   test case.
 - **Command driver** (`RsMemCmdDriver`): sends the test case's commands into
   Smesh, holding each command until the input accepts it.
-- **Observers and checks**: record completions and selected generated
-  commands; the harness compares these and the resulting memory contents with
-  the test case's expected results.
+- **Monitor** (`tb_rs_to_mem_monitor.hpp/.cpp`): records completion tags,
+  selected LoopConv commands, and Spad/Accum read activity. The runner creates
+  `RsMemMonitor` alongside the harness, giving it access to Smesh. Two wired
+  observer components record completions and commands during `Sim::run()`;
+  the runner calls `monitor.sampleBankConcurrency()` after each `Sim::run()`
+  to sample the local-memory signals. The monitor keeps command/tag lists,
+  read totals, a peak Spad bank count, an Accum concurrency flag, and an ExCtrl
+  Accum response stall count. It does not keep a per-cycle memory history.
+  The harness's `passed(monitor)` and `report(monitor)` use those records
+  alongside memory contents to check the test case's expectations.
 - **Performance observer** (`tb_rs_to_mem_perf.hpp/.cpp`): counts accepted
   input commands and calculates startup, execution, and drain cycles from
   observations supplied by the runner. It uses the shared counters in

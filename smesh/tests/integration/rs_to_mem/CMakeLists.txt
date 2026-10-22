@@ -102,10 +102,10 @@ set_tests_properties(smesh_rs_to_mem_beat4_zero_writer PROPERTIES
 set_tests_properties(smesh_rs_to_mem_dim8_zero_writer PROPERTIES
   LABELS "integration;rs_to_mem;dim8" TIMEOUT 30)
 
-# Every size/feature variant uses the same simulation-only observer and counters.
+# Every size/feature variant uses the same test monitor and performance helper.
 foreach(runner tb_rs_to_mem_suite tb_rs_to_mem_suite_first_layer
     tb_rs_to_mem_suite_dim8 tb_rs_to_mem_suite_beat4)
-  target_sources(${runner} PRIVATE tb_rs_to_mem_perf.cpp)
+  target_sources(${runner} PRIVATE tb_rs_to_mem_monitor.cpp tb_rs_to_mem_perf.cpp)
   target_link_libraries(${runner} PRIVATE smesh_test_perf)
 endforeach()
 
