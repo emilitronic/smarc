@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
   Sim::reset();
   harness.initializeMemoryImages();
 
-  smesh::tb::RsMemPerfObserver performance;
+  smesh::tb::RsMemPerfObserver performance; // observe performance metrics
   performance.reset();
 
   int drain_count = 0;
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     Sim::run();
     harness.sampleBankConcurrency();
     const bool complete = harness.activityComplete();
-    performance.sample(harness.inputCommandAccepted(), complete);
+    performance.sample(harness.inputCommandAccepted(), complete); // run the sample function
     drain_count = complete ? drain_count + 1 : 0;
     if (drain_count >= tc.drain_cycles) {
       break;

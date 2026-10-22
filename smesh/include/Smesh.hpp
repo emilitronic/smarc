@@ -59,22 +59,22 @@ class Smesh : public Component {
 
   Clock(clk);
 
-  Input(bit, cmd_valid);
+  Input(bit,      cmd_valid);
   Input(SmeshCmd, cmd_bits);
-  Output(bit, cmd_ready);
+  Output(bit,     cmd_ready);
 
   // Memory accessors let the testbench connect the current memory boundary.
-  auto& memReq() { return dma_mem_mux_->mem_req; }
+  auto& memReq()  { return dma_mem_mux_->mem_req; }
   auto& memResp() { return dma_mem_mux_->mem_resp; }
 
   // narrow inspection accessors for testbench to check internal state
-  const SmeshRS& rs()     const { return *rs_; }
-  const LoopMatmul& loopMatmul() const { return *loop_matmul_; }
-  const LoopConv& loopConv() const { return *loop_conv_; }
-  const LdCtrl& ldCtrl() const { return *ld_ctrl_; }
-  const Spad&    spad()   const { return *spad_; }
+  const SmeshRS&         rs()              const { return *rs_; }
+  const LoopMatmul&      loopMatmul()      const { return *loop_matmul_; }
+  const LoopConv&        loopConv()        const { return *loop_conv_; }
+  const LdCtrl&          ldCtrl()          const { return *ld_ctrl_; }
+  const Spad&            spad()            const { return *spad_; }
   const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_[0]; }
-  const Accum&   accum()  const { return *accum_; }
+  const Accum&           accum()           const { return *accum_; }
 
   // Seed the behavioral Spad memory image before the first simulated cycle.
   void initializeSpadRow(SmeshLocalAddr addr, const Spad::Row& data) {
@@ -92,19 +92,19 @@ class Smesh : public Component {
   auto& stCtrlCompletedRdy()  { return completion_arb_->st_completed_rdy; }
 
   // Observation taps for commands accepted from the convolution unroller.
-  auto& loopConvOutVal() { return loop_conv_->out_val; }
-  auto& loopConvOutRdy() { return loop_conv_->out_rdy; }
+  auto& loopConvOutVal()  { return loop_conv_->out_val; }
+  auto& loopConvOutRdy()  { return loop_conv_->out_rdy; }
   auto& loopConvOutBits() { return loop_conv_->out_bits; }
 
   // Store-path monitor taps for testbench-only checkers.
-  auto& storeSpadReadReqVal() { return st_read_ctrl_->dmawrite_spad[0]; }
-  auto& storeSpadReadReqRdy() { return spad_->read_req_rdy_bnk[0]; }
-  auto& storeSpadReadReqBits() { return st_read_ctrl_->spad_req_bits[0]; }
-  auto& storeNormEnqVal() { return st_read_ctrl_->read_req_fire; }
-  auto& storeNormEnqRdy() { return write_norm_queue_->enq_rdy; }
-  auto& storeNormEnqBits() { return write_dispatch_queue_->deq_bits; }
-  auto& storeDmaWriterReqVal() { return dma_writer_->req_val; }
-  auto& storeDmaWriterReqRdy() { return dma_writer_->req_rdy; }
+  auto& storeSpadReadReqVal()   { return st_read_ctrl_->dmawrite_spad[0]; }
+  auto& storeSpadReadReqRdy()   { return spad_->read_req_rdy_bnk[0]; }
+  auto& storeSpadReadReqBits()  { return st_read_ctrl_->spad_req_bits[0]; }
+  auto& storeNormEnqVal()       { return st_read_ctrl_->read_req_fire; }
+  auto& storeNormEnqRdy()       { return write_norm_queue_->enq_rdy; }
+  auto& storeNormEnqBits()      { return write_dispatch_queue_->deq_bits; }
+  auto& storeDmaWriterReqVal()  { return dma_writer_->req_val; }
+  auto& storeDmaWriterReqRdy()  { return dma_writer_->req_rdy; }
   auto& storeDmaWriterReqBits() { return dma_writer_->req_bits; }
 
   void update();

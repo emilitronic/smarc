@@ -31,9 +31,9 @@ class RsMemCmdDriver : public Component {
   RsMemCmdDriver(const std::vector<SmeshCmd>& program, std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  Output(bit, cmd_valid);
+  Output(bit,      cmd_valid);
   Output(SmeshCmd, cmd_bits);
-  Input(bit, cmd_ready);
+  Input(bit,       cmd_ready);
 
   bool done() const { return next_ >= program_.size(); }
 
@@ -53,14 +53,14 @@ class CompletionObserver : public Component {
   CompletionObserver(std::string name, COMPONENT_CTOR);
 
   Clock(clk);
-  Input(bit, completed_val);
+  Input(bit,        completed_val);
   Input(SmeshRsTag, completed_bits);
-  Input(bit, ld_completed_val);
+  Input(bit,        ld_completed_val);
   Input(SmeshRsTag, ld_completed_bits);
-  Input(bit, ld_completed_rdy);
-  Input(bit, st_completed_val);
+  Input(bit,        ld_completed_rdy);
+  Input(bit,        st_completed_val);
   Input(SmeshRsTag, st_completed_bits);
-  Input(bit, st_completed_rdy);
+  Input(bit,        st_completed_rdy);
 
   const std::vector<SmeshRsTag>& observed() const { return observed_; }
 
@@ -77,8 +77,8 @@ class ConvExecuteObserver : public Component {
  public:
   ConvExecuteObserver(std::string name, COMPONENT_CTOR);
   Clock(clk);
-  Input(bit, cmd_val);
-  Input(bit, cmd_rdy);
+  Input(bit,            cmd_val);
+  Input(bit,            cmd_rdy);
   Input(SmeshQueuedCmd, cmd_bits);
   void update();
   void reset();
@@ -116,10 +116,10 @@ class RsMemHarnessInstance {
   std::unique_ptr<smem::MemCtrl> mem_;
   std::unique_ptr<smem::Dram> dram_;
 
-  std::size_t max_concurrent_spad_banks_ = 0;
-  std::size_t ex_accum_reads_ = 0;
-  std::size_t store_accum_reads_ = 0;
-  bool concurrent_accum_reads_ = false;
+  std::size_t max_concurrent_spad_banks_      = 0; // max num of spad banks to accept read in a cycle
+  std::size_t ex_accum_reads_                 = 0;
+  std::size_t store_accum_reads_              = 0;
+  bool        concurrent_accum_reads_         = false;
   std::size_t ex_accum_response_stall_cycles_ = 0;
 };
 
