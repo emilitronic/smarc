@@ -23,8 +23,7 @@ namespace tb {
 
 namespace {
 
-std::vector<SpadPreloadRow> spadRows(std::uint32_t base,
-                                     std::initializer_list<MeshInputRow> rows) {
+std::vector<SpadPreloadRow> spadRows(std::uint32_t base, std::initializer_list<MeshInputRow> rows) {
   std::vector<SpadPreloadRow> out;
   std::uint32_t addr = base;
   for (const auto& data : rows) {

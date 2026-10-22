@@ -1,8 +1,10 @@
 # RS-to-memory integration tests
 
-This suite sends raw `SmeshCmd` instructions into the full Smesh system. It
-checks their path from command acceptance through the RS and ExCtrl to Spad,
-Accum, and the connected memory, including arbitration along the way.
+This suite checks how commands move through the connected Smesh system and
+whether they produce the expected results. The name `rs_to_mem` reflects its
+original focus on commands moving from the reservation station (RS) through the
+execution and memory paths. The suite now also covers LoopConv and LoopMatmul,
+which accept higher-level commands before the RS.
 
 ## Scope
 
@@ -11,21 +13,44 @@ and backpressure. Tests focused on ExCtrl (execute controller) alone are in
 `smesh/tests/integration/ex_ctrl`.  In that case, the components surrounding ExCtrl
 are modelled by the testbench itself.
 
-The scenarios covered by this suite fall into five groups: direct ExCtrl commands, LoopMatmul
-workloads, LoopConv workloads, focused memory-path checks, and interactions
-between controllers. Direct-command tests issue `CONFIG_EX`, `PRELOAD`, and
-`COMPUTE_*` themselves. LoopMatmul cases test one or more tiles, either with
-operands already in Spad or with generated loads and stores through memory.
-LoopConv cases vary image and kernel shapes, channels, padding, and pixel
-repetition. Memory-path cases focus on zero fill, accumulator loads and
-scaling, and bank arbitration. The cases below describe each scenario and its
-checks.
+The scenarios covered by this suite fall into five groups:
+
+- Direct ExCtrl command sequences using `CONFIG_EX`, `PRELOAD`, and `COMPUTE_*`.
+- LoopMatmul workloads, with operands initialized in Spad or loaded from memory.
+- LoopConv workloads with varied image and kernel shapes, channels, padding,
+  and pixel repetition.
+- Memory-path checks for zero fill, accumulator loads and scaling, and bank
+  arbitration.
+- Cross-controller interactions, such as ExCtrl and Store reading Accum at the
+  same time.
+
+The cases below describe each scenario and what it checks.
 
 Some scenarios provide primitive commands directly; others provide LoopMatmul
 or LoopConv commands that are expanded into primitive commands before reaching
 the RS.
 
-The suite currently covers:
+## Testbench parts
+
+- **Test runner** (`tb_rs_to_mem_suite.cpp`): the executable
+  `tb_rs_to_mem_suite`. It selects the scenario named by `-test`, initializes
+  the simulation, runs clock cycles, and prints PASS or FAIL.
+- **Test-case catalog** (`tb_rs_to_mem_test_cases.hpp/.cpp`): defines each
+  scenario's input commands, initial memory contents, expected results, and
+  cycle limits. Names such as `basic` and `loop_conv_temporal3` are scenario
+  names accepted by the test runner.
+- **Harness** (`tb_rs_to_mem_harness.hpp/.cpp`): builds and connects the
+  Smesh system, memory model, command driver, and result checks for one
+  scenario.
+- **Command driver** (`RsMemCmdDriver`): sends the scenario's commands into
+  Smesh, holding each command until the input accepts it.
+- **Observers and checks**: record completions and selected generated
+  commands; the harness compares these and the resulting memory contents with
+  the scenario's expectations.
+
+## Scenarios
+
+The suite currently covers the following cases:
 
 **Direct ExCtrl commands and RS interactions**
 
