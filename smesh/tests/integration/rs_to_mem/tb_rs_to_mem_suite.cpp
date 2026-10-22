@@ -27,16 +27,17 @@ Run:
 #include <cstdio>
 #include <string>
 
-StringParameter(test, "basic", "One rs_to_mem test name");
+StringParameter(test, "basic", "One rs_to_mem test name");                      // -test default=basic
 BoolParameter(list_tests, false, "List rs_to_mem tests and exit");
 BoolParameter(perf, true, "Report execution, startup, and drain cycle counts");
 
 int main(int argc, char* argv[]) {
   descore::parseTraces(argc, argv);
-  Parameter::parseCommandLine(argc, argv);
+  Parameter::parseCommandLine(argc, argv); // parse the command line for our parameters
   Sim::parseDumps(argc, argv);
 
-  const auto tests = smesh::tb::rsMemTestCases();
+  const auto tests = smesh::tb::rsMemTestCases(); // get whole catalog of test cases (from tb_rs_to_mem_test_cases.hpp/cpp)
+  // print available test names and exit if requested
   if (list_tests) {
     for (const auto& t : tests) {
       std::printf("%-10s %s\n", t.name.c_str(), t.description.c_str());
@@ -44,18 +45,18 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  const auto found = std::find_if(tests.begin(), tests.end(),
-                                  [](const smesh::tb::RsMemTestCase& t) {
+  // search tests (catalog) for specified (-test) case
+  const auto found = std::find_if(tests.begin(), tests.end(), [](const smesh::tb::RsMemTestCase& t) {
                                     return t.name == std::string(test);
                                   });
   if (found == tests.end()) {
     std::fprintf(stderr, "Unknown rs_to_mem test '%s'.\n", std::string(test).c_str());
     return 2;
   }
-  const auto& tc = *found;
+  const auto& tc = *found; // found matching test case
 
   Clock clk;
-  smesh::tb::RsMemHarnessInstance harness(tc, "RsMem_", clk);
+  smesh::tb::RsMemHarnessInstance harness(tc, "RsMem_", clk); // build the Smesh HW and connnect it to test driver and memory model
   clk.generateClock();
 
   Cascade::params.MaxResetIterations = 1;

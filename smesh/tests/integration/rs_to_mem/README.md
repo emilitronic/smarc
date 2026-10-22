@@ -13,7 +13,7 @@ and backpressure. Tests focused on ExCtrl (execute controller) alone are in
 `smesh/tests/integration/ex_ctrl`.  In that case, the components surrounding ExCtrl
 are modelled by the testbench itself.
 
-The scenarios covered by this suite fall into five groups:
+The test cases in this suite fall into five groups:
 
 - Direct ExCtrl command sequences using `CONFIG_EX`, `PRELOAD`, and `COMPUTE_*`.
 - LoopMatmul workloads, with operands initialized in Spad or loaded from memory.
@@ -24,31 +24,31 @@ The scenarios covered by this suite fall into five groups:
 - Cross-controller interactions, such as ExCtrl and Store reading Accum at the
   same time.
 
-The cases below describe each scenario and what it checks.
+The list below describes each test case and what it checks.
 
-Some scenarios provide primitive commands directly; others provide LoopMatmul
+Some test cases provide primitive commands directly; others provide LoopMatmul
 or LoopConv commands that are expanded into primitive commands before reaching
 the RS.
 
 ## Testbench parts
 
 - **Test runner** (`tb_rs_to_mem_suite.cpp`): the executable
-  `tb_rs_to_mem_suite`. It selects the scenario named by `-test`, initializes
+  `tb_rs_to_mem_suite`. It selects the test case named by `-test`, initializes
   the simulation, runs clock cycles, and prints PASS or FAIL.
 - **Test-case catalog** (`tb_rs_to_mem_test_cases.hpp/.cpp`): defines each
-  scenario's input commands, initial memory contents, expected results, and
-  cycle limits. Names such as `basic` and `loop_conv_temporal3` are scenario
-  names accepted by the test runner.
+  test case as an `RsMemTestCase` record. The record holds its input commands,
+  initial memory contents, expected results, and cycle limits. Names such as
+  `basic` and `loop_conv_temporal3` select records from this catalog.
 - **Harness** (`tb_rs_to_mem_harness.hpp/.cpp`): builds and connects the
   Smesh system, memory model, command driver, and result checks for one
-  scenario.
-- **Command driver** (`RsMemCmdDriver`): sends the scenario's commands into
+  test case.
+- **Command driver** (`RsMemCmdDriver`): sends the test case's commands into
   Smesh, holding each command until the input accepts it.
 - **Observers and checks**: record completions and selected generated
   commands; the harness compares these and the resulting memory contents with
-  the scenario's expectations.
+  the test case's expected results.
 
-## Scenarios
+## Test cases
 
 The suite currently covers the following cases:
 
@@ -148,7 +148,7 @@ For the unpadded 1x6/1x3 convolution in the current DIM4 model:
 | Two-pixel repetition | 126 | 15 | 141 |
 
 Both accept nine external commands and have zero startup cycles. These are
-end-to-end scenario times; they do not identify the reason for the difference.
+end-to-end test-case times; they do not identify the reason for the difference.
 
 ## Two-pixel convolution packing
 

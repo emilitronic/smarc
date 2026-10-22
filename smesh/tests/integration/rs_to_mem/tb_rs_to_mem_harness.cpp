@@ -11,8 +11,7 @@
 namespace smesh {
 namespace tb {
 
-RsMemCmdDriver::RsMemCmdDriver(const std::vector<SmeshCmd>& program,
-                               std::string /*name*/, IMPL_CTOR)
+RsMemCmdDriver::RsMemCmdDriver(const std::vector<SmeshCmd>& program, std::string /*name*/, IMPL_CTOR)
     : program_(program) {
   UPDATE(update).reads(cmd_ready).writes(cmd_valid, cmd_bits);
 }
@@ -78,8 +77,7 @@ void ConvExecuteObserver::update() {
 
 void ConvExecuteObserver::reset() { observed_.clear(); }
 
-RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test,
-                                           const std::string& prefix, Clock& clk)
+RsMemHarnessInstance::RsMemHarnessInstance(const RsMemTestCase& test, const std::string& prefix, Clock& clk)
     : test_(test) {
   top_ = std::make_unique<Smesh>(prefix + "Smesh", test_.mvin_scale_latency);
   mem_ = std::make_unique<smem::MemCtrl>(prefix + "MemCtrl");

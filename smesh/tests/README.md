@@ -57,14 +57,14 @@ To select multiple tests by pattern, use regex features such as `|` for “or”
 ctest --test-dir build -R '^smesh_rs_to_mem_(basic|loop_conv_temporal3)$' --output-on-failure
 ```
 
-To inspect a test with traces or choose a scenario interactively, run its suite
+To inspect a test with traces or choose a test case interactively, run its suite
 executable directly. For example:
 
 ```bash
 ./build/smesh/tb_rs_to_mem_suite -test=loop_conv_temporal3 -trace '*/rs_mem_conv_execute_'
 ```
 
-Here `loop_conv_temporal3` is the scenario name accepted by the executable;
+Here `loop_conv_temporal3` is the test-case name accepted by the executable;
 CTest registers that same case as `smesh_rs_to_mem_loop_conv_temporal3`.
 
-The integration-suite READMEs describe their scenarios and trace commands.
+The integration-suite READMEs describe their test cases and trace commands.
