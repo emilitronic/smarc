@@ -6,10 +6,8 @@ Accum, and the connected memory, including arbitration along the way.
 
 ## Scope
 
-The tests contained in this suite exercise commands across the system: from command input and the RS,
-through the load, execute, and store paths, to Spad, Accum, and connected memory.
-They check end-to-end results as well as interactions such as bank arbitration
-and backpressure. Tests focused on ExCtrl alone are in
+The tests contained in this suite exercise commands across the system: from command input and the reservation station, through the load, execute, and store paths, to scratchpad memory, accumulator memory, and externally  connected memory.  They check end-to-end results as well as interactions such as bank arbitration
+and backpressure. Tests focused on ExCtrl (execute controller) alone are in
 `smesh/tests/integration/ex_ctrl`.  In that case, the components surrounding ExCtrl
 are modelled by the testbench itself.
 
@@ -23,10 +21,9 @@ repetition. Memory-path cases focus on zero fill, accumulator loads and
 scaling, and bank arbitration. The cases below describe each scenario and its
 checks.
 
-Commands now pass through `SmeshCmdQueue -> LoopConv -> LoopMatmul ->
-SmeshUnrolledCmdQueue -> SmeshRS`. Each unroller receives credits only for its
-own generated commands. Load/Store CONFIG credits return on RS issue;
-ordinary command credits return on controller completion.
+Some scenarios provide primitive commands directly; others provide LoopMatmul
+or LoopConv commands that are expanded into primitive commands before reaching
+the RS.
 
 The suite currently covers:
 

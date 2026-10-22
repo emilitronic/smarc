@@ -19,25 +19,39 @@ system and check the resulting data and completions.
 
 ## Running tests
 
-CTest is the catalog and launcher for tests registered by CMake. From the
-repository root, use:
+CTest is the catalog and launcher for tests registered by CMake. Its main job is to
+launch test executables and report which tests pass or fail.  It can also filter tests
+by name or label, run them in parallel, enforce timeouts, and summarize results.
+
+Build the project before running tests (or after changing the code):
 
 ```bash
 cmake --build build -j
+```
+
+Some examples of CTest commands follow. The `--test-dir` option is required if the
+current working directory is not the build directory. The `--output-on-failure` option 
+shows the test's output if it fails, which is useful for debugging.
+
+```bash
+# List the tests CTest knows about
 ctest --test-dir build -N
+# Run every registered test
 ctest --test-dir build --output-on-failure
+# Run only tests labelled as unit tests
 ctest --test-dir build -L unit --output-on-failure
+# Run only tests labelled as integration tests
 ctest --test-dir build -L integration --output-on-failure
 ```
 
-To run one registered test, match its full CTest name:
+To run one registered test, pass its CTest name to `-R`. A unique name works
+without extra regex characters:
 
 ```bash
-ctest --test-dir build -R '^smesh_unit_spad_banked$' --output-on-failure
-ctest --test-dir build -R '^smesh_rs_to_mem_loop_conv_temporal3$' --output-on-failure
+ctest --test-dir build -R smesh_unit_spad_banked --output-on-failure
 ```
 
-To run a small selection, use a regular expression:
+To select multiple tests by pattern, use regex features such as `|` for “or”:
 
 ```bash
 ctest --test-dir build -R '^smesh_rs_to_mem_(basic|loop_conv_temporal3)$' --output-on-failure
