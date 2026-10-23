@@ -782,29 +782,31 @@ RsMemTestCase makeLoopConvKernel2Case() {
 }
 
 // A horizontal 1x3 kernel processes each image row independently.
-static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool padded = false,
-                                                 unsigned pixel_repeats = 1) {
+static RsMemTestCase makeLoopConvTemporal3RowsCase(unsigned input_rows, bool padded = false, unsigned pixel_repeats = 1) {
   RsMemTestCase test{};
-  test.name = padded ? "loop_conv_temporal3_padded"
-                    : input_rows == 1 ? "loop_conv_temporal3" : "loop_conv_temporal3_2x6";
+  test.name        = padded 
+      ? "loop_conv_temporal3_padded" 
+      : input_rows == 1 
+      ? "loop_conv_temporal3" 
+      : "loop_conv_temporal3_2x6";
   test.description = padded
       ? "1x3 kernel with one zero at each end preserves the 1x6 two-channel output shape"
       : input_rows == 1
       ? "1x3 kernel over a 1x6 two-channel image produces four two-channel outputs"
       : "1x3 kernel over a 2x6 two-channel image produces eight two-channel outputs";
   if (pixel_repeats == 2) {
-    test.name += "_pixel2";
+    test.name        += "_pixel2";
     test.description += "; pack two neighboring pixels into each SPAD row";
   }
-  const unsigned pad = padded ? 1 : 0;
+  const unsigned pad         = padded ? 1 : 0;
   const unsigned output_cols = 4 + 2 * pad;
   const unsigned padded_cols = 6 + 2 * pad;
-  test.max_cycles = 1200;
-  test.drain_cycles = 16;
-  test.expect_conv_release = true;
-  constexpr std::uint64_t input_base = 0x80028000;
+  test.max_cycles            = 1200;
+  test.drain_cycles          = 16;
+  test.expect_conv_release   = true;
+  constexpr std::uint64_t input_base  = 0x80028000;
   constexpr std::uint64_t weight_base = 0x80029000;
-  constexpr std::uint64_t bias_base = 0x8002a000;
+  constexpr std::uint64_t bias_base   = 0x8002a000;
   constexpr std::uint64_t output_base = 0x8002b000;
   constexpr int input[2][6][2] = {
       {{1, 2}, {2, -1}, {0, 3}, {-2, 1}, {3, 2}, {1, -2}},
