@@ -72,6 +72,7 @@ add_library(smesh_model
   src/mesh/MeshCore.cpp
   src/mesh/MeshHull.cpp
   src/mesh/Mesher.cpp
+  src/mesh/Transposer.cpp
   src/accum_response/Normalizer.cpp
   src/accum_response/NormalizerState.cpp
   src/accum_response/NormRowChunk.cpp

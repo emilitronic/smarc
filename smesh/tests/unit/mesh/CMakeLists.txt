@@ -56,3 +56,24 @@ set_tests_properties(
     LABELS "unit;mesh"
     TIMEOUT 10
 )
+
+# The same cycle checks cover two grid sizes without changing the implementation.
+foreach(variant IN ITEMS default dim8)
+  if(variant STREQUAL "default")
+    set(transposer_target tb_transposer)
+    set(transposer_model smesh_model)
+    set(transposer_test smesh_unit_transposer)
+  else()
+    set(transposer_target tb_transposer_dim8)
+    set(transposer_model smesh_model_dim8)
+    set(transposer_test smesh_unit_transposer_dim8)
+  endif()
+  add_executable(${transposer_target} tb_transposer.cpp)
+  target_link_libraries(${transposer_target} PRIVATE
+    ${transposer_model} cascade -lz -ltermcap -lpthread)
+  set_target_properties(${transposer_target} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+  add_test(NAME ${transposer_test} COMMAND ${transposer_target})
+  set_tests_properties(${transposer_test} PROPERTIES LABELS "unit;mesh;transposer" TIMEOUT 10)
+endforeach()
+set_property(TEST smesh_unit_transposer_dim8 APPEND PROPERTY LABELS dim8)

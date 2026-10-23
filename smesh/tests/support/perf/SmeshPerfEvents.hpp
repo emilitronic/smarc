@@ -13,12 +13,12 @@ namespace tb {
 // Named measurements shared by test monitors. Add events here as
 // their observation conditions are implemented and checked.
 enum class SmeshPerfEvent : std::size_t {
-  SimulationCycles,
-  StartupCycles,
-  ExecutionCycles,
-  DrainCycles,
-  InputCommands,
-  Count
+  SimulationCycles, // cycles after reset and setup
+  StartupCycles,    // cycles before first input command is accepted
+  ExecutionCycles,  // cycles spent executing (from fist i/p cmd to complete flag)
+  DrainCycles,      // extra cycles after completion
+  InputCommands,    // number of commands accepted at Smesh's input
+  Count // number of events in enumeration; must be last
 };
 
 constexpr std::size_t kSmeshPerfEventCount = static_cast<std::size_t>(SmeshPerfEvent::Count);
