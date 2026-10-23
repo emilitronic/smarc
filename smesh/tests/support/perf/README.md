@@ -36,7 +36,7 @@ if (command_accepted) {
 
 The testbench decides where to call this code and how to determine
 `command_accepted`. A helper that watches signals and updates counters is called
-an **observer**. Such helpers belong with the tests whose signals and completion
+a **monitor**. Such helpers belong with the tests whose signals and completion
 rules they understand.
 
 Totals use integer Descore logging instead of `Statistics::recordStat()`, whose

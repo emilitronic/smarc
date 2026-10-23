@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
   Sim::reset();
   harness.initializeMemoryImages();
 
-  smesh::tb::RsMemPerfObserver performance; // observe performance metrics
+  smesh::tb::RsMemPerfMonitor performance; // track performance metrics
   performance.reset();
 
   int drain_count = 0;

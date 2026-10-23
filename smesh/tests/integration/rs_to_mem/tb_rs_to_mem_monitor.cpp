@@ -9,13 +9,13 @@
 namespace smesh {
 namespace tb {
 
-CompletionObserver::CompletionObserver(std::string /*name*/, IMPL_CTOR) {
+CompletionMonitor::CompletionMonitor(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).reads(completed_val, completed_bits,
                        ld_completed_val, ld_completed_bits, ld_completed_rdy,
                        st_completed_val, st_completed_bits, st_completed_rdy);
 }
 
-void CompletionObserver::update() {
+void CompletionMonitor::update() {
   if (completed_val == 1) {
     observed_.push_back(*completed_bits);
   }
@@ -27,15 +27,15 @@ void CompletionObserver::update() {
   }
 }
 
-void CompletionObserver::reset() { observed_.clear(); }
+void CompletionMonitor::reset() { observed_.clear(); }
 
 TraceKey(rs_mem_conv_execute_);
 
-ConvExecuteObserver::ConvExecuteObserver(std::string /*name*/, IMPL_CTOR) {
+ConvExecuteMonitor::ConvExecuteMonitor(std::string /*name*/, IMPL_CTOR) {
   UPDATE(update).reads(cmd_val, cmd_rdy, cmd_bits);
 }
 
-void ConvExecuteObserver::update() {
+void ConvExecuteMonitor::update() {
   if (Sim::state == Sim::SimResetting || cmd_val == 0 || cmd_rdy == 0 ||
       cmd_bits->from_conv_loop == 0) return;
   const auto cmd = cmd_bits->cmd;
@@ -49,28 +49,28 @@ void ConvExecuteObserver::update() {
         static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
 }
 
-void ConvExecuteObserver::reset() { observed_.clear(); }
+void ConvExecuteMonitor::reset() { observed_.clear(); }
 
 // Connect the completion and LoopConv command recorders before simulation starts.
 RsMemMonitor::RsMemMonitor(Smesh& top, const std::string& prefix, Clock& clk)
     : top_(top) {
-  completion_observer_   = std::make_unique<CompletionObserver>(prefix + "CompletionObserver");
-  conv_execute_observer_ = std::make_unique<ConvExecuteObserver>(prefix + "ConvExecuteObserver");
+  completion_monitor_   = std::make_unique<CompletionMonitor>(prefix + "CompletionMonitor");
+  conv_execute_monitor_ = std::make_unique<ConvExecuteMonitor>(prefix + "ConvExecuteMonitor");
 
-  completion_observer_->completed_val     << top_.exCtrlCompletedVal();
-  completion_observer_->completed_bits    << top_.exCtrlCompletedBits();
-  completion_observer_->ld_completed_val  << top_.ldCtrlCompletedVal();
-  completion_observer_->ld_completed_bits << top_.ldCtrlCompletedBits();
-  completion_observer_->ld_completed_rdy  << top_.ldCtrlCompletedRdy();
-  completion_observer_->st_completed_val  << top_.stCtrlCompletedVal();
-  completion_observer_->st_completed_bits << top_.stCtrlCompletedBits();
-  completion_observer_->st_completed_rdy  << top_.stCtrlCompletedRdy();
-  conv_execute_observer_->cmd_val         << top_.loopConvOutVal();
-  conv_execute_observer_->cmd_rdy         << top_.loopConvOutRdy();
-  conv_execute_observer_->cmd_bits        << top_.loopConvOutBits();
+  completion_monitor_->completed_val     << top_.exCtrlCompletedVal();
+  completion_monitor_->completed_bits    << top_.exCtrlCompletedBits();
+  completion_monitor_->ld_completed_val  << top_.ldCtrlCompletedVal();
+  completion_monitor_->ld_completed_bits << top_.ldCtrlCompletedBits();
+  completion_monitor_->ld_completed_rdy  << top_.ldCtrlCompletedRdy();
+  completion_monitor_->st_completed_val  << top_.stCtrlCompletedVal();
+  completion_monitor_->st_completed_bits << top_.stCtrlCompletedBits();
+  completion_monitor_->st_completed_rdy  << top_.stCtrlCompletedRdy();
+  conv_execute_monitor_->cmd_val         << top_.loopConvOutVal();
+  conv_execute_monitor_->cmd_rdy         << top_.loopConvOutRdy();
+  conv_execute_monitor_->cmd_bits        << top_.loopConvOutBits();
 
-  completion_observer_->clk   << clk;
-  conv_execute_observer_->clk << clk;
+  completion_monitor_->clk   << clk;
+  conv_execute_monitor_->clk << clk;
 }
 
 // Read local-memory handshakes and update the saved totals, peak, and flag.

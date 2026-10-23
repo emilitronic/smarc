@@ -14,13 +14,13 @@ namespace tb {
 
 TraceKey(rs_mem_perf_);
 
-void RsMemPerfObserver::reset() {
+void RsMemPerfMonitor::reset() {
   counters_.reset();
   first_input_cycle_ = 0;
   completion_cycle_ = 0;
 }
 
-void RsMemPerfObserver::sample(bool input_command_accepted, bool workload_complete) {
+void RsMemPerfMonitor::sample(bool input_command_accepted, bool workload_complete) {
   counters_.add(SmeshPerfEvent::SimulationCycles);
   const auto cycle = counters_.value(SmeshPerfEvent::SimulationCycles);
   if (input_command_accepted) {
@@ -48,7 +48,7 @@ void RsMemPerfObserver::sample(bool input_command_accepted, bool workload_comple
           counters_.value(SmeshPerfEvent::DrainCycles));
 }
 
-void RsMemPerfObserver::report(const std::string& scenario) const {
+void RsMemPerfMonitor::report(const std::string& scenario) const {
   counters_.report(scenario);
   ::log("  execution_window   %s\n",
                !started() ? "not_started" : completed() ? "complete" : "incomplete");

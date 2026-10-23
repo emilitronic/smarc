@@ -10,7 +10,7 @@
 namespace smesh {
 namespace tb {
 
-// Named measurements shared by test observers. Add events here as
+// Named measurements shared by test monitors. Add events here as
 // their observation conditions are implemented and checked.
 enum class SmeshPerfEvent : std::size_t {
   SimulationCycles,

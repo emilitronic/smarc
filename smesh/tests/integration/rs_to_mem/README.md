@@ -46,15 +46,16 @@ the RS.
   Smesh, holding each command until the input accepts it.
 - **Monitor** (`tb_rs_to_mem_monitor.hpp/.cpp`): records completion tags,
   selected LoopConv commands, and Spad/Accum read activity. The runner creates
-  `RsMemMonitor` alongside the harness, giving it access to Smesh. Two wired
-  observer components record completions and commands during `Sim::run()`;
+  `RsMemMonitor` alongside the harness, giving it access to Smesh. Its wired
+  `CompletionMonitor` and `ConvExecuteMonitor` components record completions
+  and commands during `Sim::run()`;
   the runner calls `monitor.sampleBankConcurrency()` after each `Sim::run()`
   to sample the local-memory signals. The monitor keeps command/tag lists,
   read totals, a peak Spad bank count, an Accum concurrency flag, and an ExCtrl
   Accum response stall count. It does not keep a per-cycle memory history.
   The harness's `passed(monitor)` and `report(monitor)` use those records
   alongside memory contents to check the test case's expectations.
-- **Performance observer** (`tb_rs_to_mem_perf.hpp/.cpp`): counts accepted
+- **Performance monitor** (`RsMemPerfMonitor` in `tb_rs_to_mem_perf.hpp/.cpp`): counts accepted
   input commands and calculates startup, execution, and drain cycles from
   observations supplied by the runner. It uses the shared counters in
   `smesh/tests/support/perf`.
@@ -154,9 +155,9 @@ store work. They do not measure useful mesh MAC cycles.
 
 After each `Sim::run()`, the runner asks the harness two questions: was an input
 command accepted, and is the test's activity complete? It passes these two
-answers to `RsMemPerfObserver::sample()` in `tb_rs_to_mem_perf.cpp`. This helper
+answers to `RsMemPerfMonitor::sample()` in `tb_rs_to_mem_perf.cpp`. This helper
 updates totals using the [shared performance counters](../../support/perf/README.md).
-The shared counters store and report values; this suite's observer defines when
+The shared counters store and report values; this suite's monitor defines when
 to count them.
 
 Input acceptance means the command driver's `cmd_valid && cmd_ready`. These are
@@ -190,7 +191,7 @@ cycles are startup and the window is `not_started`.
 
 The test case's `drain_cycles` setting counts consecutive completion checks,
 including the first completion cycle. A setting of 16 therefore produces 15
-additional drain cycles in the report. The observer follows the runner's
+additional drain cycles in the report. The monitor follows the runner's
 existing termination rule.
 
 ### Output and tracing

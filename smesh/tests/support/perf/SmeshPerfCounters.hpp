@@ -12,7 +12,7 @@
 namespace smesh {
 namespace tb {
 
-// Simulation-only integer counters. Observers decide which events occurred;
+// Simulation-only integer counters. Monitors decide which events occurred;
 // this class stores exact totals and reports them through Descore logging.
 class SmeshPerfCounters {
  public:

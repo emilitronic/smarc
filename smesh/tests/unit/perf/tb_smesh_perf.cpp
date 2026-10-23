@@ -6,13 +6,13 @@
 
 #include <cstdio>
 
-using smesh::tb::RsMemPerfObserver;
+using smesh::tb::RsMemPerfMonitor;
 using smesh::tb::SmeshPerfEvent;
 
 // Check inclusive execution endpoints and the partition of all sampled cycles.
-bool matches(const RsMemPerfObserver& observer, std::uint64_t startup,
+bool matches(const RsMemPerfMonitor& monitor, std::uint64_t startup,
              std::uint64_t execution, std::uint64_t drain, std::uint64_t commands) {
-  const auto& counters = observer.counters();
+  const auto& counters = monitor.counters();
   return counters.value(SmeshPerfEvent::StartupCycles) == startup &&
       counters.value(SmeshPerfEvent::ExecutionCycles) == execution &&
       counters.value(SmeshPerfEvent::DrainCycles) == drain &&
@@ -21,37 +21,37 @@ bool matches(const RsMemPerfObserver& observer, std::uint64_t startup,
 }
 
 int main() {
-  RsMemPerfObserver observer;
-  observer.sample(false, false);
-  observer.sample(false, false);
-  observer.sample(true, false);
-  observer.sample(true, false);
-  observer.sample(false, false);
-  observer.sample(false, false);
-  observer.sample(false, true);
-  observer.sample(false, true);
-  observer.sample(false, true);
-  bool ok = observer.started() && observer.completed() && matches(observer, 2, 5, 2, 2);
+  RsMemPerfMonitor monitor;
+  monitor.sample(false, false);
+  monitor.sample(false, false);
+  monitor.sample(true, false);
+  monitor.sample(true, false);
+  monitor.sample(false, false);
+  monitor.sample(false, false);
+  monitor.sample(false, true);
+  monitor.sample(false, true);
+  monitor.sample(false, true);
+  bool ok = monitor.started() && monitor.completed() && matches(monitor, 2, 5, 2, 2);
 
   // Activity resumes during drain, so the earlier completion was provisional.
-  observer.sample(false, false);
-  ok &= !observer.completed() && matches(observer, 2, 8, 0, 2);
-  observer.sample(false, true);
-  observer.sample(false, true);
-  ok &= observer.completed() && matches(observer, 2, 9, 1, 2);
+  monitor.sample(false, false);
+  ok &= !monitor.completed() && matches(monitor, 2, 8, 0, 2);
+  monitor.sample(false, true);
+  monitor.sample(false, true);
+  ok &= monitor.completed() && matches(monitor, 2, 9, 1, 2);
 
-  observer.reset();
-  ok &= !observer.started() && !observer.completed() && matches(observer, 0, 0, 0, 0);
-  observer.sample(true, true);
-  observer.sample(false, true);
-  ok &= observer.completed() && matches(observer, 0, 1, 1, 1);
+  monitor.reset();
+  ok &= !monitor.started() && !monitor.completed() && matches(monitor, 0, 0, 0, 0);
+  monitor.sample(true, true);
+  monitor.sample(false, true);
+  ok &= monitor.completed() && matches(monitor, 0, 1, 1, 1);
 
-  observer.reset();
-  observer.sample(false, true);
-  ok &= !observer.started() && !observer.completed() && matches(observer, 1, 0, 0, 0);
-  observer.sample(true, false);
-  observer.sample(false, false);
-  ok &= observer.started() && !observer.completed() && matches(observer, 1, 2, 0, 1);
+  monitor.reset();
+  monitor.sample(false, true);
+  ok &= !monitor.started() && !monitor.completed() && matches(monitor, 1, 0, 0, 0);
+  monitor.sample(true, false);
+  monitor.sample(false, false);
+  ok &= monitor.started() && !monitor.completed() && matches(monitor, 1, 2, 0, 1);
 
   smesh::tb::SmeshPerfCounters exact;
   const auto large = (std::uint64_t{1} << 40) + 3;
