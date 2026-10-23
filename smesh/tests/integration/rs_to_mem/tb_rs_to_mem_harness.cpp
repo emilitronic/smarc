@@ -146,7 +146,7 @@ bool RsMemHarnessInstance::dramResultsMatch() const {
 
 bool RsMemHarnessInstance::convExecuteMatches(const RsMemMonitor& monitor) const {
   if (test_.expected_conv_execute.empty()) return true;
-  const auto& observed = monitor.convExecute().observed();
+  const auto& observed = monitor.convExec().observed();
   if (observed.size() != test_.expected_conv_execute.size()) return false;
   for (std::size_t i = 0; i < observed.size(); ++i) {
     const auto& expected = test_.expected_conv_execute[i];
@@ -160,8 +160,8 @@ bool RsMemHarnessInstance::convExecuteMatches(const RsMemMonitor& monitor) const
 void RsMemHarnessInstance::report(const RsMemMonitor& monitor) const {
   if (!convExecuteMatches(monitor)) {
     std::printf("  LoopConv execute commands: expected=%zu observed=%zu\n",
-                test_.expected_conv_execute.size(), monitor.convExecute().observed().size());
-    for (const auto& cmd : monitor.convExecute().observed())
+                test_.expected_conv_execute.size(), monitor.convExec().observed().size());
+    for (const auto& cmd : monitor.convExec().observed())
       std::printf("    funct=%u rs1=0x%llx rs2=0x%llx\n", unsigned(cmd.funct),
                   static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
   }

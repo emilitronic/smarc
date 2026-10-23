@@ -25,7 +25,7 @@ void CompletionMonitor::reset() { observed_.clear(); }
 
 TraceKey(rs_mem_conv_execute_);
 
-void ConvExecuteMonitor::sample(Smesh& top) {
+void ConvExecMonitor::sample(Smesh& top) {
   // 1. read signals: check whether a command is accepted from the LoopConv unroller
   if (top.loopConvOutVal() == 0 || top.loopConvOutRdy() == 0 || top.loopConvOutBits()->from_conv_loop == 0) return;
   // 2. recognize event: check the command type
@@ -41,7 +41,7 @@ void ConvExecuteMonitor::sample(Smesh& top) {
         static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
 }
 
-void ConvExecuteMonitor::reset() { observed_.clear(); }
+void ConvExecMonitor::reset() { observed_.clear(); }
 
 // Read local-memory handshakes and update the saved totals, peak, and flag.
 void LocalMemMonitor::sample(const Spad& spad, const Accum& accum) {
@@ -86,13 +86,13 @@ void LocalMemMonitor::reset() {
 // Read the completed cycle's signals through Smesh's public inspection accessors.
 void RsMemMonitor::sample() {
   completion_monitor_.sample(top_);
-  conv_execute_monitor_.sample(top_);
+  conv_exec_monitor_.sample(top_);
   local_mem_monitor_.sample(top_.spad(), top_.accum());
 }
 
 void RsMemMonitor::reset() {
   completion_monitor_.reset();
-  conv_execute_monitor_.reset();
+  conv_exec_monitor_.reset();
   local_mem_monitor_.reset();
 }
 

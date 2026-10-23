@@ -24,7 +24,7 @@ class CompletionMonitor {
 };
 
 // Records the generated execution commands on their real output handshake.
-class ConvExecuteMonitor {
+class ConvExecMonitor {
  public:
   void sample(Smesh& top);
   void reset();
@@ -66,14 +66,14 @@ class RsMemMonitor {
 
   // Give test checks read access to the records owned by each monitor.
   const CompletionMonitor& completion() const { return completion_monitor_; }
-  const ConvExecuteMonitor& convExecute() const { return conv_execute_monitor_; }
-  const LocalMemMonitor& localMem() const { return local_mem_monitor_; }
+  const ConvExecMonitor&   convExec() const { return conv_exec_monitor_; }
+  const LocalMemMonitor&   localMem() const { return local_mem_monitor_; }
 
  private:
   Smesh& top_;
-  CompletionMonitor  completion_monitor_;
-  ConvExecuteMonitor conv_execute_monitor_;
-  LocalMemMonitor    local_mem_monitor_;
+  CompletionMonitor completion_monitor_;
+  ConvExecMonitor   conv_exec_monitor_;
+  LocalMemMonitor   local_mem_monitor_;
 };
 
 } // namespace tb

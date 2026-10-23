@@ -48,7 +48,7 @@ the RS.
   selected LoopConv commands, and Spad/Accum read activity. The runner creates
   `RsMemMonitor` alongside the harness, giving it access to Smesh. After each
   `Sim::run()`, the runner calls `monitor.sample()`. This calls the ordinary C++
-  `CompletionMonitor`, `ConvExecuteMonitor`, and `LocalMemMonitor` classes to
+  `CompletionMonitor`, `ConvExecMonitor`, and `LocalMemMonitor` classes to
   read the completed cycle's signals and record completions, commands, and
   local-memory activity. The runner calls `monitor.reset()` after `Sim::reset()`
   to clear all records for a new run.
