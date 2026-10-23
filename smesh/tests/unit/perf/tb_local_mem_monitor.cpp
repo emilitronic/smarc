@@ -17,14 +17,16 @@ class Driver : public Component {
   Driver(std::string name, COMPONENT_CTOR);
   Clock(clk);
   Output(bit, val);
-  Output(bit, rdy);
   Output(bit, resp_rdy);
+  FifoInput(DmaReadCompletion, spad_dma_resp);
+  FifoInput(DmaReadCompletion, accum_dma_resp);
   bool active = false;
   bool blocked = false;
   void update() {
+    if (!spad_dma_resp.empty()) spad_dma_resp.pop();
+    if (!accum_dma_resp.empty()) accum_dma_resp.pop();
     val = bit(active);
-    rdy = bit(!blocked);
-    resp_rdy = bit(blocked);
+    resp_rdy = bit(!blocked);
   }
   void reset() {
     active = false;
@@ -33,7 +35,7 @@ class Driver : public Component {
 };
 
 Driver::Driver(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(update).writes(val, rdy, resp_rdy);
+  UPDATE(update).reads(spad_dma_resp, accum_dma_resp).writes(val, resp_rdy);
 }
 
 bool matches(const tb::LocalMemMonitor& monitor, std::size_t peak,
@@ -57,49 +59,64 @@ int main() {
   static_assert(kSpBanks >= 2 && kAccBanks >= 2, "Test requires two banks");
   Clock clk;
   Driver driver("Driver");
-  smesh::tb::LocalMemMonitor monitor("LocalMemMonitor");
+  Spad spad("Spad");
+  Accum accum("Accum");
+  smesh::tb::LocalMemMonitor monitor;
   driver.clk << clk;
-  monitor.clk << clk;
+  spad.clk << clk;
+  accum.clk << clk;
+  driver.spad_dma_resp << spad.dma_resp;
+  driver.accum_dma_resp << accum.dma_resp;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    if (bank < 2) monitor.spad_read_req_val[bank] << driver.val;
-    else monitor.spad_read_req_val[bank].wireToConst(bit(0));
-    monitor.spad_read_req_rdy[bank] << driver.rdy;
+    if (bank < 2) spad.read_req_val_bnk[bank] << driver.val;
+    else spad.read_req_val_bnk[bank].wireToConst(bit(0));
+    spad.read_req_bits_bnk[bank].wireToConst(SpadBankReadReq{});
+    spad.read_resp_rdy_bnk[bank] << driver.resp_rdy;
+    spad.write_val_bnk[bank].wireToConst(bit(0));
+    spad.write_bits_bnk[bank].wireToConst(DmaReadResp{});
   }
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    if (bank < 2) monitor.accum_read_req_val[bank] << driver.val;
-    else monitor.accum_read_req_val[bank].wireToConst(bit(0));
-    monitor.accum_read_req_rdy[bank] << driver.rdy;
+    if (bank < 2) accum.read_req_val_bnk[bank] << driver.val;
+    else accum.read_req_val_bnk[bank].wireToConst(bit(0));
     AccumBankReadReq req{};
     req.from_dma = bit(bank == 1);
-    monitor.accum_read_req_bits[bank].wireToConst(req);
-    if (bank == 0) monitor.accum_read_resp_val[bank] << driver.val;
-    else monitor.accum_read_resp_val[bank].wireToConst(bit(0));
-    monitor.accum_read_resp_rdy[bank] << driver.resp_rdy;
-    AccumReadResp resp{};
-    resp.from_dma = 0;
-    monitor.accum_read_resp_bits[bank].wireToConst(resp);
+    accum.read_req_bits_bnk[bank].wireToConst(req);
+    accum.read_resp_rdy_bnk[bank] << driver.resp_rdy;
+    accum.write_val_bnk[bank].wireToConst(bit(0));
+    accum.write_bits_bnk[bank].wireToConst(DmaReadResp{});
   }
   clk.generateClock();
   Sim::init();
   Sim::reset();
+  monitor.reset();
   bool ok = matches(monitor, 0, 0, 0, false);
 
   driver.active = true;
   for (int cycle = 1; cycle <= 4; ++cycle) {
     Sim::run();
-    ok &= matches(monitor, 2, cycle, cycle, true);
+    monitor.sample(spad, accum);
+    ok &= matches(monitor, 2, cycle, 0, true);
   }
-  // Requests stay valid but cannot transfer; the response is now accepted.
+  // Occupied response slots block new requests while their responses stall.
   driver.blocked = true;
-  for (int cycle = 0; cycle < 3; ++cycle) Sim::run();
-  ok &= matches(monitor, 2, 4, 4, true);
+  for (int cycle = 1; cycle <= 3; ++cycle) {
+    Sim::run();
+    monitor.sample(spad, accum);
+    ok &= matches(monitor, 2, 4, cycle, true);
+  }
   driver.active = false;
-  for (int cycle = 0; cycle < 2; ++cycle) Sim::run();
-  ok &= matches(monitor, 2, 4, 4, true);
+  driver.blocked = false;
+  for (int cycle = 0; cycle < 2; ++cycle) {
+    Sim::run();
+    monitor.sample(spad, accum);
+  }
+  ok &= matches(monitor, 2, 4, 3, true);
 
   Sim::reset();
+  monitor.reset();
   ok &= matches(monitor, 0, 0, 0, false);
   Sim::run();
+  monitor.sample(spad, accum);
   ok &= matches(monitor, 0, 0, 0, false);
   std::printf("[LOCAL_MEM_MONITOR] %s repeated cycles, handshakes, stalls, reset\n",
               ok ? "PASS" : "FAIL");

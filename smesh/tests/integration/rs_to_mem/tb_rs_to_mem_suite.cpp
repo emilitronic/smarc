@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
 
   Clock clk;
   smesh::tb::RsMemHarnessInstance harness(tc, "RsMem_", clk);              // build Smesh HW and connnect it to test driver and mem model
-  smesh::tb::RsMemMonitor         monitor(harness.smesh(), "RsMem_", clk); // samples Smesh sigs & records observations for test checks
+  smesh::tb::RsMemMonitor         monitor(harness.smesh()); // samples Smesh sigs & records observations for test checks
   smesh::tb::RsMemPerfStats       performance;                             // track performance metrics
 
   clk.generateClock();
@@ -66,6 +66,7 @@ int main(int argc, char* argv[]) {
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
+  monitor.reset();
 
   harness.initializeMemoryImages();
   performance.reset();
@@ -73,6 +74,7 @@ int main(int argc, char* argv[]) {
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
+    monitor.sample();
     const bool complete = harness.activityComplete();             // checks whether test's work and expected results are complete
     performance.sample(harness.inputCommandAccepted(), complete); // run the sample function
     drain_count = complete ? drain_count + 1 : 0;

@@ -4,37 +4,19 @@
 // Sebastian Claudiusz Magierowski Oct 22 2026
 #pragma once
 
-#include <cascade/Cascade.hpp>
-
 #include "Smesh.hpp"
 
-#include <memory>
-#include <string>
 #include <vector>
 
 namespace smesh {
 namespace tb {
 
 // Records completed RS tags for the integration test's checker.
-class CompletionMonitor : public Component {
-  DECLARE_COMPONENT(CompletionMonitor);
-
+class CompletionMonitor {
  public:
-  CompletionMonitor(std::string name, COMPONENT_CTOR);
-
-  Clock(clk);
-  Input(bit,        completed_val);
-  Input(SmeshRsTag, completed_bits);
-  Input(bit,        ld_completed_val);
-  Input(SmeshRsTag, ld_completed_bits);
-  Input(bit,        ld_completed_rdy);
-  Input(bit,        st_completed_val);
-  Input(SmeshRsTag, st_completed_bits);
-  Input(bit,        st_completed_rdy);
-
   const std::vector<SmeshRsTag>& observed() const { return observed_; }
 
-  void update();
+  void sample(Smesh& top);
   void reset();
 
  private:
@@ -42,15 +24,9 @@ class CompletionMonitor : public Component {
 };
 
 // Records the generated execution commands on their real output handshake.
-class ConvExecuteMonitor : public Component {
-  DECLARE_COMPONENT(ConvExecuteMonitor);
+class ConvExecuteMonitor {
  public:
-  ConvExecuteMonitor(std::string name, COMPONENT_CTOR);
-  Clock(clk);
-  Input(bit,            cmd_val);
-  Input(bit,            cmd_rdy);
-  Input(SmeshQueuedCmd, cmd_bits);
-  void update();
+  void sample(Smesh& top);
   void reset();
   const std::vector<SmeshCmd>& observed() const { return observed_; }
  private:
@@ -58,23 +34,9 @@ class ConvExecuteMonitor : public Component {
 };
 
 // Records accepted local-memory reads, concurrent banks, and Accum response stalls.
-class LocalMemMonitor : public Component {
-  DECLARE_COMPONENT(LocalMemMonitor);
-
+class LocalMemMonitor {
  public:
-  LocalMemMonitor(std::string name, COMPONENT_CTOR);
-
-  Clock(clk);
-  InputArray(bit,              spad_read_req_val, kSpBanks);
-  InputArray(bit,              spad_read_req_rdy, kSpBanks);
-  InputArray(bit,              accum_read_req_val, kAccBanks);
-  InputArray(bit,              accum_read_req_rdy, kAccBanks);
-  InputArray(AccumBankReadReq, accum_read_req_bits, kAccBanks);
-  InputArray(bit,              accum_read_resp_val, kAccBanks);
-  InputArray(bit,              accum_read_resp_rdy, kAccBanks);
-  InputArray(AccumReadResp,    accum_read_resp_bits, kAccBanks);
-
-  void update();
+  void sample(const Spad& spad, const Accum& accum);
   void reset();
 
   std::size_t maxConcurrentSpadBanks()     const { return max_concurrent_spad_banks_; }
@@ -97,17 +59,21 @@ class LocalMemMonitor : public Component {
 // the harness that builds Smesh and the helper that calculates run timing.
 class RsMemMonitor {
  public:
-  RsMemMonitor(Smesh& top, const std::string& prefix, Clock& clk);
+  explicit RsMemMonitor(Smesh& top) : top_(top) {}
+
+  void reset(); // Clear the records before a simulation run or after Sim::reset().
+  void sample(); // Call once after each Sim::run() to record that cycle's events.
 
   // Give test checks read access to the records owned by each monitor.
-  const CompletionMonitor& completion() const { return *completion_monitor_; }
-  const ConvExecuteMonitor& convExecute() const { return *conv_execute_monitor_; }
-  const LocalMemMonitor& localMem() const { return *local_mem_monitor_; }
+  const CompletionMonitor& completion() const { return completion_monitor_; }
+  const ConvExecuteMonitor& convExecute() const { return conv_execute_monitor_; }
+  const LocalMemMonitor& localMem() const { return local_mem_monitor_; }
 
  private:
-  std::unique_ptr<CompletionMonitor>  completion_monitor_;
-  std::unique_ptr<ConvExecuteMonitor> conv_execute_monitor_;
-  std::unique_ptr<LocalMemMonitor>    local_mem_monitor_;
+  Smesh& top_;
+  CompletionMonitor  completion_monitor_;
+  ConvExecuteMonitor conv_execute_monitor_;
+  LocalMemMonitor    local_mem_monitor_;
 };
 
 } // namespace tb

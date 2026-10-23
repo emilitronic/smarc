@@ -46,9 +46,12 @@ the RS.
   Smesh, holding each command until the input accepts it.
 - **Monitor** (`tb_rs_to_mem_monitor.hpp/.cpp`): records completion tags,
   selected LoopConv commands, and Spad/Accum read activity. The runner creates
-  `RsMemMonitor` alongside the harness, giving it access to Smesh. Its wired
-  `CompletionMonitor`, `ConvExecuteMonitor`, and `LocalMemMonitor` components
-  record completions, commands, and local-memory activity during `Sim::run()`.
+  `RsMemMonitor` alongside the harness, giving it access to Smesh. After each
+  `Sim::run()`, the runner calls `monitor.sample()`. This calls the ordinary C++
+  `CompletionMonitor`, `ConvExecuteMonitor`, and `LocalMemMonitor` classes to
+  read the completed cycle's signals and record completions, commands, and
+  local-memory activity. The runner calls `monitor.reset()` after `Sim::reset()`
+  to clear all records for a new run.
   The monitor keeps command/tag lists,
   read totals, a peak Spad bank count, an Accum concurrency flag, and an ExCtrl
   Accum response stall count. It does not keep a per-cycle memory history.
@@ -58,6 +61,33 @@ the RS.
   input commands and calculates startup, execution, and drain cycles from
   observations supplied by the runner. It uses the shared counters in
   `smesh/tests/support/perf`.
+
+### Monitor implementation choice
+
+Commit `686f5b29d0e60cdfc30ee33f586604a98c1796ec`
+(`Move local-memory sampling into a clocked monitor`) contains the version where
+all three signal monitors are Cascade components, with input ports, declared
+read dependencies, and clock connections. It provides a reference if we need
+to revisit that approach.
+
+We are now trying ordinary C++ monitors, sampled once after each `Sim::run()`.
+The reason is simpler, more compact code: the monitors read Smesh directly,
+without separate port declarations and wiring. Their measurement responsibilities
+and the harness's result checks remain the same.
+
+The timing tradeoff is that C++ sampling sees the signals available after
+`Sim::run()` returns. It cannot observe an earlier value that was overwritten
+during that call, or declare that a measurement must occur between particular
+Cascade updates. A Cascade monitor can use its declared dependencies to place
+its observation within the simulator's update order. For a future measurement
+that requires such timing, check whether sampling after `Sim::run()` still
+captures the intended event before choosing its implementation.
+
+For the C++ conversion, all 34 relevant tests passed, and detailed reports from
+ten representative cases matched the Cascade version exactly. This verifies
+the observations exercised by those cases; it does not establish that every
+future timing measurement can use the same sampling point. Command traces now
+print when the runner samples, so their timestamps reflect that sampling point.
 
 ## Test cases
 
