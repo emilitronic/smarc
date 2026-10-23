@@ -9,10 +9,11 @@
 namespace smesh {
 namespace tb {
 
-// Monitors one harness cycle after Sim::run(). Execution includes the first
+// Accumulates timing statistics from one sample per cycle after Sim::run().
+// Execution includes the first
 // accepted input command and the cycle activityComplete() first becomes true.
 // Only subsequent completion cycles count as drain; reset/setup are excluded.
-class RsMemPerfMonitor {
+class RsMemPerfStats {
  public:
   void reset();
   void sample(bool input_command_accepted, bool workload_complete);

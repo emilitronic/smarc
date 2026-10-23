@@ -57,8 +57,8 @@ int main(int argc, char* argv[]) {
   const auto& tc = *found; // found matching test case
 
   Clock clk;
-  smesh::tb::RsMemHarnessInstance harness(tc, "RsMem_", clk); // build the Smesh HW and connnect it to test driver and memory model
-  smesh::tb::RsMemMonitor monitor(harness.smesh(), "RsMem_", clk); // connect test observations to Smesh
+  smesh::tb::RsMemHarnessInstance harness(tc, "RsMem_", clk);              // build Smesh HW and connnect it to test driver and mem model
+  smesh::tb::RsMemMonitor         monitor(harness.smesh(), "RsMem_", clk); // samples Smesh sigs & records observations for test checks
   clk.generateClock();
 
   Cascade::params.MaxResetIterations = 1;
@@ -66,14 +66,14 @@ int main(int argc, char* argv[]) {
   Sim::reset();
   harness.initializeMemoryImages();
 
-  smesh::tb::RsMemPerfMonitor performance; // track performance metrics
+  smesh::tb::RsMemPerfStats performance; // track performance metrics
   performance.reset();
 
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
     monitor.sampleBankConcurrency();
-    const bool complete = harness.activityComplete();
+    const bool complete = harness.activityComplete();             // checks whether test's work and expected results are complete
     performance.sample(harness.inputCommandAccepted(), complete); // run the sample function
     drain_count = complete ? drain_count + 1 : 0;
     if (drain_count >= tc.drain_cycles) {

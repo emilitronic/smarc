@@ -6,11 +6,11 @@
 
 #include <cstdio>
 
-using smesh::tb::RsMemPerfMonitor;
+using smesh::tb::RsMemPerfStats;
 using smesh::tb::SmeshPerfEvent;
 
 // Check inclusive execution endpoints and the partition of all sampled cycles.
-bool matches(const RsMemPerfMonitor& monitor, std::uint64_t startup,
+bool matches(const RsMemPerfStats& monitor, std::uint64_t startup,
              std::uint64_t execution, std::uint64_t drain, std::uint64_t commands) {
   const auto& counters = monitor.counters();
   return counters.value(SmeshPerfEvent::StartupCycles) == startup &&
@@ -21,7 +21,7 @@ bool matches(const RsMemPerfMonitor& monitor, std::uint64_t startup,
 }
 
 int main() {
-  RsMemPerfMonitor monitor;
+  RsMemPerfStats monitor;
   monitor.sample(false, false);
   monitor.sample(false, false);
   monitor.sample(true, false);

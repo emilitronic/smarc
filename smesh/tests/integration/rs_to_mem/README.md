@@ -55,7 +55,7 @@ the RS.
   Accum response stall count. It does not keep a per-cycle memory history.
   The harness's `passed(monitor)` and `report(monitor)` use those records
   alongside memory contents to check the test case's expectations.
-- **Performance monitor** (`RsMemPerfMonitor` in `tb_rs_to_mem_perf.hpp/.cpp`): counts accepted
+- **Performance statistics** (`RsMemPerfStats` in `tb_rs_to_mem_perf.hpp/.cpp`): counts accepted
   input commands and calculates startup, execution, and drain cycles from
   observations supplied by the runner. It uses the shared counters in
   `smesh/tests/support/perf`.
@@ -155,7 +155,7 @@ store work. They do not measure useful mesh MAC cycles.
 
 After each `Sim::run()`, the runner asks the harness two questions: was an input
 command accepted, and is the test's activity complete? It passes these two
-answers to `RsMemPerfMonitor::sample()` in `tb_rs_to_mem_perf.cpp`. This helper
+answers to `RsMemPerfStats::sample()` in `tb_rs_to_mem_perf.cpp`. This helper
 updates totals using the [shared performance counters](../../support/perf/README.md).
 The shared counters store and report values; this suite's monitor defines when
 to count them.
