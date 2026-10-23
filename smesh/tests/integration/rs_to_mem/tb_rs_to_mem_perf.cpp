@@ -17,7 +17,7 @@ TraceKey(rs_mem_perf_);
 void RsMemPerfStats::reset() {
   counters_.reset();
   first_input_cycle_ = 0;
-  completion_cycle_ = 0;
+  completion_cycle_  = 0;
 }
 
 void RsMemPerfStats::sample(bool input_command_accepted, bool workload_complete) {
@@ -35,9 +35,9 @@ void RsMemPerfStats::sample(bool input_command_accepted, bool workload_complete)
     else if (!completed()) completion_cycle_ = cycle;
 
     const auto end = completed() ? completion_cycle_ : cycle;
-    counters_.set(SmeshPerfEvent::StartupCycles, first_input_cycle_ - 1);
+    counters_.set(SmeshPerfEvent::StartupCycles,   first_input_cycle_ - 1);
     counters_.set(SmeshPerfEvent::ExecutionCycles, end - first_input_cycle_ + 1);
-    counters_.set(SmeshPerfEvent::DrainCycles, completed() ? cycle - end : 0);
+    counters_.set(SmeshPerfEvent::DrainCycles,     completed() ? cycle - end : 0);
   } else {
     counters_.set(SmeshPerfEvent::StartupCycles, cycle);
   }
@@ -50,8 +50,7 @@ void RsMemPerfStats::sample(bool input_command_accepted, bool workload_complete)
 
 void RsMemPerfStats::report(const std::string& scenario) const {
   counters_.report(scenario);
-  ::log("  execution_window   %s\n",
-               !started() ? "not_started" : completed() ? "complete" : "incomplete");
+  ::log("  execution_window   %s\n", !started() ? "not_started" : completed() ? "complete" : "incomplete");
 }
 
 } // namespace tb

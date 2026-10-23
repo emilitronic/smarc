@@ -36,13 +36,15 @@ ConvExecuteMonitor::ConvExecuteMonitor(std::string /*name*/, IMPL_CTOR) {
 }
 
 void ConvExecuteMonitor::update() {
-  if (Sim::state == Sim::SimResetting || cmd_val == 0 || cmd_rdy == 0 ||
-      cmd_bits->from_conv_loop == 0) return;
-  const auto cmd = cmd_bits->cmd;
+  // 1. read signals: check whether a command is accepted from the LoopConv unroller
+  if (Sim::state == Sim::SimResetting || cmd_val == 0 || cmd_rdy == 0 || cmd_bits->from_conv_loop == 0) return;
+  // 2. recognize event: check the command type
+  const auto cmd   = cmd_bits->cmd;
   const auto funct = static_cast<SmeshFunct>(static_cast<unsigned>(cmd.funct));
-  if (funct != SmeshFunct::Preload && funct != SmeshFunct::ComputeFlip &&
-      funct != SmeshFunct::ComputeStay) return;
+  if (funct != SmeshFunct::Preload && funct != SmeshFunct::ComputeFlip && funct != SmeshFunct::ComputeStay) return;
+  // 3. record: save the command (append to monitor's recorded command list which test can later check)
   observed_.push_back(cmd);
+  // 4. optionally (when trace channel is enabled) print the command for debugging purposes
   trace(rs_mem_conv_execute_, "%12s rs1=0x%016llx rs2=0x%016llx\n",
         funct == SmeshFunct::Preload ? "PRELOAD" :
         funct == SmeshFunct::ComputeFlip ? "COMPUTE_FLIP" : "COMPUTE_STAY",

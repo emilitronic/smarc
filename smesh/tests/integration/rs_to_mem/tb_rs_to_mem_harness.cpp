@@ -19,12 +19,12 @@ RsMemCmdDriver::RsMemCmdDriver(const std::vector<SmeshCmd>& program, std::string
 
 void RsMemCmdDriver::update() {
   cmd_valid = 0;
-  cmd_bits = SmeshCmd{};
+  cmd_bits  = SmeshCmd{};
   if (Sim::state == Sim::SimResetting || done()) {
     return;
   }
   cmd_valid = 1;
-  cmd_bits = program_[next_];
+  cmd_bits  = program_[next_];
   if (cmd_ready == 1) {
     ++next_;
   }

@@ -71,8 +71,8 @@ std::array<MeshInputRow, kDim> toArray(const std::vector<MeshInputRow>& rows) {
 SmeshCmd configExCmd() {
   SmeshCmd cmd{};
   cmd.funct = u32(static_cast<std::uint32_t>(SmeshFunct::Config));
-  cmd.rs1 = u64(packConfigExRs1(/*a_stride=*/1));
-  cmd.rs2 = u64(packConfigExRs2(/*c_stride=*/1));
+  cmd.rs1   = u64(packConfigExRs1(/*a_stride=*/1));
+  cmd.rs2   = u64(packConfigExRs2(/*c_stride=*/1));
   return cmd;
 }
 

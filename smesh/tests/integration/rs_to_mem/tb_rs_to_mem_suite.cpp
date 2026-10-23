@@ -59,14 +59,15 @@ int main(int argc, char* argv[]) {
   Clock clk;
   smesh::tb::RsMemHarnessInstance harness(tc, "RsMem_", clk);              // build Smesh HW and connnect it to test driver and mem model
   smesh::tb::RsMemMonitor         monitor(harness.smesh(), "RsMem_", clk); // samples Smesh sigs & records observations for test checks
+  smesh::tb::RsMemPerfStats       performance;                             // track performance metrics
+
   clk.generateClock();
 
   Cascade::params.MaxResetIterations = 1;
   Sim::init();
   Sim::reset();
-  harness.initializeMemoryImages();
 
-  smesh::tb::RsMemPerfStats performance; // track performance metrics
+  harness.initializeMemoryImages();
   performance.reset();
 
   int drain_count = 0;
