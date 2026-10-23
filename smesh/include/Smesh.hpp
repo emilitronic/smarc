@@ -96,6 +96,16 @@ class Smesh : public Component {
   auto& loopConvOutRdy()  { return loop_conv_->out_rdy; }
   auto& loopConvOutBits() { return loop_conv_->out_bits; }
 
+  // Local-memory signal taps for wiring testbench monitors.
+  auto& spadReadReqVal()    { return spad_->read_req_val_bnk; }
+  auto& spadReadReqRdy()    { return spad_->read_req_rdy_bnk; }
+  auto& accumReadReqVal()   { return accum_->read_req_val_bnk; }
+  auto& accumReadReqRdy()   { return accum_->read_req_rdy_bnk; }
+  auto& accumReadReqBits()  { return accum_->read_req_bits_bnk; }
+  auto& accumReadRespVal()  { return accum_->read_resp_val_bnk; }
+  auto& accumReadRespRdy()  { return accum_->read_resp_rdy_bnk; }
+  auto& accumReadRespBits() { return accum_->read_resp_bits_bnk; }
+
   // Store-path monitor taps for testbench-only checkers.
   auto& storeSpadReadReqVal()   { return st_read_ctrl_->dmawrite_spad[0]; }
   auto& storeSpadReadReqRdy()   { return spad_->read_req_rdy_bnk[0]; }

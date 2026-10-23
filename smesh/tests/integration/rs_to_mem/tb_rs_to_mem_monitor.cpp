@@ -53,34 +53,21 @@ void ConvExecuteMonitor::update() {
 
 void ConvExecuteMonitor::reset() { observed_.clear(); }
 
-// Connect the completion and LoopConv command recorders before simulation starts.
-RsMemMonitor::RsMemMonitor(Smesh& top, const std::string& prefix, Clock& clk)
-    : top_(top) {
-  completion_monitor_   = std::make_unique<CompletionMonitor>(prefix + "CompletionMonitor");
-  conv_execute_monitor_ = std::make_unique<ConvExecuteMonitor>(prefix + "ConvExecuteMonitor");
-
-  completion_monitor_->completed_val     << top_.exCtrlCompletedVal();
-  completion_monitor_->completed_bits    << top_.exCtrlCompletedBits();
-  completion_monitor_->ld_completed_val  << top_.ldCtrlCompletedVal();
-  completion_monitor_->ld_completed_bits << top_.ldCtrlCompletedBits();
-  completion_monitor_->ld_completed_rdy  << top_.ldCtrlCompletedRdy();
-  completion_monitor_->st_completed_val  << top_.stCtrlCompletedVal();
-  completion_monitor_->st_completed_bits << top_.stCtrlCompletedBits();
-  completion_monitor_->st_completed_rdy  << top_.stCtrlCompletedRdy();
-  conv_execute_monitor_->cmd_val         << top_.loopConvOutVal();
-  conv_execute_monitor_->cmd_rdy         << top_.loopConvOutRdy();
-  conv_execute_monitor_->cmd_bits        << top_.loopConvOutBits();
-
-  completion_monitor_->clk   << clk;
-  conv_execute_monitor_->clk << clk;
+LocalMemMonitor::LocalMemMonitor(std::string /*name*/, IMPL_CTOR) {
+  // Sample once per clock cycle, after the watched signals have been computed.
+  UPDATE(update).clock(clk)
+      .reads(spad_read_req_val, spad_read_req_rdy,
+             accum_read_req_val, accum_read_req_rdy, accum_read_req_bits,
+             accum_read_resp_val, accum_read_resp_rdy, accum_read_resp_bits);
 }
 
 // Read local-memory handshakes and update the saved totals, peak, and flag.
-void RsMemMonitor::sampleBankConcurrency() {
+void LocalMemMonitor::update() {
+  if (Sim::state == Sim::SimResetting) return;
+
   std::size_t fired = 0;
   for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
-    if (top_.spad().read_req_val_bnk[bank] != 0 &&
-        top_.spad().read_req_rdy_bnk[bank] != 0) {
+    if (spad_read_req_val[bank] == 1 && spad_read_req_rdy[bank] == 1) {
       ++fired;
     }
   }
@@ -89,9 +76,8 @@ void RsMemMonitor::sampleBankConcurrency() {
   bool ex_read = false;
   bool store_read = false;
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    if (top_.accum().read_req_val_bnk[bank] == 0 ||
-        top_.accum().read_req_rdy_bnk[bank] == 0) continue;
-    if (top_.accum().read_req_bits_bnk[bank]->from_dma == 0) {
+    if (accum_read_req_val[bank] == 0 || accum_read_req_rdy[bank] == 0) continue;
+    if (accum_read_req_bits[bank]->from_dma == 0) {
       ++ex_accum_reads_;
       ex_read = true;
     } else {
@@ -101,12 +87,56 @@ void RsMemMonitor::sampleBankConcurrency() {
   }
   concurrent_accum_reads_ |= ex_read && store_read;
   for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
-    if (top_.accum().read_resp_val_bnk[bank] != 0 &&
-        top_.accum().read_resp_bits_bnk[bank]->from_dma == 0 &&
-        top_.accum().read_resp_rdy_bnk[bank] == 0) {
+    if (accum_read_resp_val[bank] == 1 &&
+        accum_read_resp_bits[bank]->from_dma == 0 &&
+        accum_read_resp_rdy[bank] == 0) {
       ++ex_accum_response_stall_cycles_;
     }
   }
+}
+
+void LocalMemMonitor::reset() {
+  max_concurrent_spad_banks_ = 0;
+  ex_accum_reads_ = 0;
+  store_accum_reads_ = 0;
+  concurrent_accum_reads_ = false;
+  ex_accum_response_stall_cycles_ = 0;
+}
+
+// Connect all three signal monitors before simulation starts.
+RsMemMonitor::RsMemMonitor(Smesh& top, const std::string& prefix, Clock& clk) {
+  completion_monitor_   = std::make_unique<CompletionMonitor>(prefix + "CompletionMonitor");
+  conv_execute_monitor_ = std::make_unique<ConvExecuteMonitor>(prefix + "ConvExecuteMonitor");
+  local_mem_monitor_    = std::make_unique<LocalMemMonitor>(prefix + "LocalMemMonitor");
+
+  completion_monitor_->completed_val     << top.exCtrlCompletedVal();
+  completion_monitor_->completed_bits    << top.exCtrlCompletedBits();
+  completion_monitor_->ld_completed_val  << top.ldCtrlCompletedVal();
+  completion_monitor_->ld_completed_bits << top.ldCtrlCompletedBits();
+  completion_monitor_->ld_completed_rdy  << top.ldCtrlCompletedRdy();
+  completion_monitor_->st_completed_val  << top.stCtrlCompletedVal();
+  completion_monitor_->st_completed_bits << top.stCtrlCompletedBits();
+  completion_monitor_->st_completed_rdy  << top.stCtrlCompletedRdy();
+  conv_execute_monitor_->cmd_val         << top.loopConvOutVal();
+  conv_execute_monitor_->cmd_rdy         << top.loopConvOutRdy();
+  conv_execute_monitor_->cmd_bits        << top.loopConvOutBits();
+
+  for (std::size_t bank = 0; bank < kSpBanks; ++bank) {
+    local_mem_monitor_->spad_read_req_val[bank] << top.spadReadReqVal()[bank];
+    local_mem_monitor_->spad_read_req_rdy[bank] << top.spadReadReqRdy()[bank];
+  }
+  for (std::size_t bank = 0; bank < kAccBanks; ++bank) {
+    local_mem_monitor_->accum_read_req_val[bank]   << top.accumReadReqVal()[bank];
+    local_mem_monitor_->accum_read_req_rdy[bank]   << top.accumReadReqRdy()[bank];
+    local_mem_monitor_->accum_read_req_bits[bank]  << top.accumReadReqBits()[bank];
+    local_mem_monitor_->accum_read_resp_val[bank]  << top.accumReadRespVal()[bank];
+    local_mem_monitor_->accum_read_resp_rdy[bank]  << top.accumReadRespRdy()[bank];
+    local_mem_monitor_->accum_read_resp_bits[bank] << top.accumReadRespBits()[bank];
+  }
+
+  completion_monitor_->clk   << clk;
+  conv_execute_monitor_->clk << clk;
+  local_mem_monitor_->clk    << clk;
 }
 
 } // namespace tb

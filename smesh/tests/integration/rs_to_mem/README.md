@@ -47,10 +47,9 @@ the RS.
 - **Monitor** (`tb_rs_to_mem_monitor.hpp/.cpp`): records completion tags,
   selected LoopConv commands, and Spad/Accum read activity. The runner creates
   `RsMemMonitor` alongside the harness, giving it access to Smesh. Its wired
-  `CompletionMonitor` and `ConvExecuteMonitor` components record completions
-  and commands during `Sim::run()`;
-  the runner calls `monitor.sampleBankConcurrency()` after each `Sim::run()`
-  to sample the local-memory signals. The monitor keeps command/tag lists,
+  `CompletionMonitor`, `ConvExecuteMonitor`, and `LocalMemMonitor` components
+  record completions, commands, and local-memory activity during `Sim::run()`.
+  The monitor keeps command/tag lists,
   read totals, a peak Spad bank count, an Accum concurrency flag, and an ExCtrl
   Accum response stall count. It does not keep a per-cycle memory history.
   The harness's `passed(monitor)` and `report(monitor)` use those records

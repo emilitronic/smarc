@@ -57,6 +57,41 @@ class ConvExecuteMonitor : public Component {
   std::vector<SmeshCmd> observed_;
 };
 
+// Records accepted local-memory reads, concurrent banks, and Accum response stalls.
+class LocalMemMonitor : public Component {
+  DECLARE_COMPONENT(LocalMemMonitor);
+
+ public:
+  LocalMemMonitor(std::string name, COMPONENT_CTOR);
+
+  Clock(clk);
+  InputArray(bit,              spad_read_req_val, kSpBanks);
+  InputArray(bit,              spad_read_req_rdy, kSpBanks);
+  InputArray(bit,              accum_read_req_val, kAccBanks);
+  InputArray(bit,              accum_read_req_rdy, kAccBanks);
+  InputArray(AccumBankReadReq, accum_read_req_bits, kAccBanks);
+  InputArray(bit,              accum_read_resp_val, kAccBanks);
+  InputArray(bit,              accum_read_resp_rdy, kAccBanks);
+  InputArray(AccumReadResp,    accum_read_resp_bits, kAccBanks);
+
+  void update();
+  void reset();
+
+  std::size_t maxConcurrentSpadBanks()     const { return max_concurrent_spad_banks_; }
+  std::size_t exAccumReads()               const { return ex_accum_reads_; }
+  std::size_t storeAccumReads()            const { return store_accum_reads_; }
+  bool        concurrentAccumReads()       const { return concurrent_accum_reads_; }
+  std::size_t exAccumResponseStallCycles() const { return ex_accum_response_stall_cycles_; }
+
+ private:
+  // Summary values for one simulation run; no per-cycle history is retained.
+  std::size_t max_concurrent_spad_banks_      = 0;
+  std::size_t ex_accum_reads_                 = 0;
+  std::size_t store_accum_reads_              = 0;
+  bool        concurrent_accum_reads_         = false;
+  std::size_t ex_accum_response_stall_cycles_ = 0;
+};
+
 // Collects Smesh signals for test checks: completion tags, LoopConv commands,
 // and local-memory activity. The runner owns this monitor separately from
 // the harness that builds Smesh and the helper that calculates run timing.
@@ -64,29 +99,15 @@ class RsMemMonitor {
  public:
   RsMemMonitor(Smesh& top, const std::string& prefix, Clock& clk);
 
-  // Call once after each Sim::run() to record Spad/Accum read activity.
-  // The two wired monitors above record their signals during Sim::run().
-  void sampleBankConcurrency();
-
-  const std::vector<SmeshRsTag>& completions() const { return completion_monitor_->observed(); }
-  const std::vector<SmeshCmd>& convExecuteCommands() const { return conv_execute_monitor_->observed(); }
-  std::size_t maxConcurrentSpadBanks() const { return max_concurrent_spad_banks_; }
-  std::size_t exAccumReads() const { return ex_accum_reads_; }
-  std::size_t storeAccumReads() const { return store_accum_reads_; }
-  bool concurrentAccumReads() const { return concurrent_accum_reads_; }
-  std::size_t exAccumResponseStallCycles() const { return ex_accum_response_stall_cycles_; }
+  // Give test checks read access to the records owned by each monitor.
+  const CompletionMonitor& completion() const { return *completion_monitor_; }
+  const ConvExecuteMonitor& convExecute() const { return *conv_execute_monitor_; }
+  const LocalMemMonitor& localMem() const { return *local_mem_monitor_; }
 
  private:
-  Smesh& top_;
-  std::unique_ptr<CompletionMonitor> completion_monitor_;
+  std::unique_ptr<CompletionMonitor>  completion_monitor_;
   std::unique_ptr<ConvExecuteMonitor> conv_execute_monitor_;
-
-  // Summary values for one simulation run; no per-cycle history is retained.
-  std::size_t max_concurrent_spad_banks_      = 0; // max num of spad banks to accept read in a cycle
-  std::size_t ex_accum_reads_                 = 0;
-  std::size_t store_accum_reads_              = 0;
-  bool        concurrent_accum_reads_         = false;
-  std::size_t ex_accum_response_stall_cycles_ = 0;
+  std::unique_ptr<LocalMemMonitor>    local_mem_monitor_;
 };
 
 } // namespace tb

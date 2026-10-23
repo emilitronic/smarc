@@ -93,7 +93,7 @@ bool RsMemHarnessInstance::activityComplete() const {
 bool RsMemHarnessInstance::passed(const RsMemMonitor& monitor) const {
   if (!convExecuteMatches(monitor)) return false;
   auto expected_tags = test_.expected_completion_tags;
-  auto observed_tags = monitor.completions();
+  auto observed_tags = monitor.completion().observed();
   std::sort(expected_tags.begin(), expected_tags.end());
   std::sort(observed_tags.begin(), observed_tags.end());
   if (observed_tags != expected_tags) {
@@ -107,16 +107,16 @@ bool RsMemHarnessInstance::passed(const RsMemMonitor& monitor) const {
        top_->loopConv().loop1->configured == 1 || top_->loopConv().ld_outstanding != 0 ||
        top_->loopConv().ex_outstanding != 0 || top_->loopConv().st_outstanding != 0)) return false;
   if (test_.min_concurrent_spad_banks > 0 &&
-      monitor.maxConcurrentSpadBanks() < test_.min_concurrent_spad_banks) {
+      monitor.localMem().maxConcurrentSpadBanks() < test_.min_concurrent_spad_banks) {
     return false;
   }
   if (test_.max_concurrent_spad_banks > 0 &&
-      monitor.maxConcurrentSpadBanks() > test_.max_concurrent_spad_banks) {
+      monitor.localMem().maxConcurrentSpadBanks() > test_.max_concurrent_spad_banks) {
     return false;
   }
-  if (monitor.exAccumReads() < test_.min_ex_accum_reads ||
-      monitor.storeAccumReads() < test_.min_store_accum_reads ||
-      (test_.require_concurrent_accum_reads && !monitor.concurrentAccumReads())) return false;
+  if (monitor.localMem().exAccumReads() < test_.min_ex_accum_reads ||
+      monitor.localMem().storeAccumReads() < test_.min_store_accum_reads ||
+      (test_.require_concurrent_accum_reads && !monitor.localMem().concurrentAccumReads())) return false;
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);
@@ -146,7 +146,7 @@ bool RsMemHarnessInstance::dramResultsMatch() const {
 
 bool RsMemHarnessInstance::convExecuteMatches(const RsMemMonitor& monitor) const {
   if (test_.expected_conv_execute.empty()) return true;
-  const auto& observed = monitor.convExecuteCommands();
+  const auto& observed = monitor.convExecute().observed();
   if (observed.size() != test_.expected_conv_execute.size()) return false;
   for (std::size_t i = 0; i < observed.size(); ++i) {
     const auto& expected = test_.expected_conv_execute[i];
@@ -160,8 +160,8 @@ bool RsMemHarnessInstance::convExecuteMatches(const RsMemMonitor& monitor) const
 void RsMemHarnessInstance::report(const RsMemMonitor& monitor) const {
   if (!convExecuteMatches(monitor)) {
     std::printf("  LoopConv execute commands: expected=%zu observed=%zu\n",
-                test_.expected_conv_execute.size(), monitor.convExecuteCommands().size());
-    for (const auto& cmd : monitor.convExecuteCommands())
+                test_.expected_conv_execute.size(), monitor.convExecute().observed().size());
+    for (const auto& cmd : monitor.convExecute().observed())
       std::printf("    funct=%u rs1=0x%llx rs2=0x%llx\n", unsigned(cmd.funct),
                   static_cast<unsigned long long>(cmd.rs1), static_cast<unsigned long long>(cmd.rs2));
   }
@@ -186,17 +186,17 @@ void RsMemHarnessInstance::report(const RsMemMonitor& monitor) const {
     std::printf(" %u", static_cast<unsigned>(tag));
   }
   std::printf("\n  observed completions:");
-  for (const auto tag : monitor.completions()) {
+  for (const auto tag : monitor.completion().observed()) {
     std::printf(" %u", static_cast<unsigned>(tag));
   }
   std::printf("\n");
   std::printf("  max_concurrent_spad_banks observed=%zu expected_min=%zu expected_max=%zu\n",
-              monitor.maxConcurrentSpadBanks(), test_.min_concurrent_spad_banks,
+              monitor.localMem().maxConcurrentSpadBanks(), test_.min_concurrent_spad_banks,
               test_.max_concurrent_spad_banks);
   std::printf("  accum reads ex=%zu store=%zu concurrent=%u\n",
-              monitor.exAccumReads(), monitor.storeAccumReads(), monitor.concurrentAccumReads() ? 1u : 0u);
+              monitor.localMem().exAccumReads(), monitor.localMem().storeAccumReads(), monitor.localMem().concurrentAccumReads() ? 1u : 0u);
   std::printf("  ExCtrl accumulator response stalled cycles=%zu\n",
-              monitor.exAccumResponseStallCycles());
+              monitor.localMem().exAccumResponseStallCycles());
   for (const auto& expected : test_.expected_results) {
     for (std::size_t r = 0; r < expected.rows.size(); ++r) {
       const auto addr = expected.base + static_cast<std::uint32_t>(r);

@@ -73,7 +73,6 @@ int main(int argc, char* argv[]) {
   int drain_count = 0;
   for (int cycle = 0; cycle < tc.max_cycles; ++cycle) {
     Sim::run();
-    monitor.sampleBankConcurrency();
     const bool complete = harness.activityComplete();             // checks whether test's work and expected results are complete
     performance.sample(harness.inputCommandAccepted(), complete); // run the sample function
     drain_count = complete ? drain_count + 1 : 0;
