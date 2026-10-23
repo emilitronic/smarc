@@ -54,22 +54,22 @@ void ConvExecuteObserver::reset() { observed_.clear(); }
 // Connect the completion and LoopConv command recorders before simulation starts.
 RsMemMonitor::RsMemMonitor(Smesh& top, const std::string& prefix, Clock& clk)
     : top_(top) {
-  completion_observer_ = std::make_unique<CompletionObserver>(prefix + "CompletionObserver");
+  completion_observer_   = std::make_unique<CompletionObserver>(prefix + "CompletionObserver");
   conv_execute_observer_ = std::make_unique<ConvExecuteObserver>(prefix + "ConvExecuteObserver");
 
-  completion_observer_->completed_val  << top_.exCtrlCompletedVal();
-  completion_observer_->completed_bits << top_.exCtrlCompletedBits();
-  completion_observer_->ld_completed_val << top_.ldCtrlCompletedVal();
+  completion_observer_->completed_val     << top_.exCtrlCompletedVal();
+  completion_observer_->completed_bits    << top_.exCtrlCompletedBits();
+  completion_observer_->ld_completed_val  << top_.ldCtrlCompletedVal();
   completion_observer_->ld_completed_bits << top_.ldCtrlCompletedBits();
-  completion_observer_->ld_completed_rdy << top_.ldCtrlCompletedRdy();
-  completion_observer_->st_completed_val << top_.stCtrlCompletedVal();
+  completion_observer_->ld_completed_rdy  << top_.ldCtrlCompletedRdy();
+  completion_observer_->st_completed_val  << top_.stCtrlCompletedVal();
   completion_observer_->st_completed_bits << top_.stCtrlCompletedBits();
-  completion_observer_->st_completed_rdy << top_.stCtrlCompletedRdy();
-  conv_execute_observer_->cmd_val << top_.loopConvOutVal();
-  conv_execute_observer_->cmd_rdy << top_.loopConvOutRdy();
-  conv_execute_observer_->cmd_bits << top_.loopConvOutBits();
+  completion_observer_->st_completed_rdy  << top_.stCtrlCompletedRdy();
+  conv_execute_observer_->cmd_val         << top_.loopConvOutVal();
+  conv_execute_observer_->cmd_rdy         << top_.loopConvOutRdy();
+  conv_execute_observer_->cmd_bits        << top_.loopConvOutBits();
 
-  completion_observer_->clk << clk;
+  completion_observer_->clk   << clk;
   conv_execute_observer_->clk << clk;
 }
 
