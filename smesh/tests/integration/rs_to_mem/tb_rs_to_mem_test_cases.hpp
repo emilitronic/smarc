@@ -62,6 +62,7 @@ struct RsMemTestCase {
   bool expect_loop_release = false;
   bool expect_conv_release = false;
   int mvin_scale_latency = 1;
+  bool transpose_preload_unroll = true; // false only for manually expanded diagnostic programs
   int max_cycles = 200;
   int drain_cycles = 8;
 

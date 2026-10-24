@@ -203,17 +203,20 @@ RsMemTestCase makeBasicCase() {
 }
 
 // Exercise transpose through the real RS, ExCtrl, banked Spad, and Accum.
-// B transpose needs Original's extra PRELOAD/STAY expansion, supplied explicitly
-// here until Smesh has a TransposePreloadUnroller at ExCtrl's command input.
-static RsMemTestCase makeTransposeCase(bool transpose_weights, bool same_bank = false) {
+// Normally ExCtrl expands the B-transpose pair internally. The explicit version
+// bypasses that stage to retain the focused helper-operand comparison.
+static RsMemTestCase makeTransposeCase(bool transpose_weights, bool same_bank = false,
+                                       bool expanded = false) {
   RsMemTestCase test{};
-  test.name = transpose_weights ? "transpose_b_expanded" : "transpose_a";
+  test.name = transpose_weights ? (expanded ? "transpose_b_expanded" : "transpose_b") : "transpose_a";
   if (same_bank) test.name += "_same_bank";
   test.description = transpose_weights
-      ? "A*B-transpose+D through RS/ExCtrl, with explicitly expanded preload commands"
+      ? "A*B-transpose+D through RS/ExCtrl and the transpose-preload unroller"
       : "A-transpose*B+D through RS/ExCtrl and the shared mesh transposer";
   test.max_cycles = 600;
   test.drain_cycles = 16;
+  test.transpose_preload_unroll = !expanded;
+  if (expanded) test.description = "A*B-transpose+D with manual expansion and the input unroller bypassed";
 
   const auto a_addr = makeSpAddr(0);
   const auto b_addr = makeSpAddr(same_bank ? kDim : kSpBankRows);
@@ -233,7 +236,7 @@ static RsMemTestCase makeTransposeCase(bool transpose_weights, bool same_bank = 
   }
 
   test.program.push_back(configExCmd(!transpose_weights, transpose_weights));
-  if (transpose_weights) {
+  if (transpose_weights && expanded) {
     test.program.push_back(preloadCmd(b_addr, garbage));
     test.program.push_back(computeStayCmd(garbage, garbage));
     test.program.push_back(preloadCmd(garbage, c_addr));
@@ -1510,6 +1513,7 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase(), makeZeroWriterCase()};
   tests.push_back(makeTransposeCase(false));
   tests.push_back(makeTransposeCase(true));
+  tests.push_back(makeTransposeCase(true, false, true));
   if (kDim == 4) tests.push_back(makeTransposeCase(false, true));
   if (kDim == 4) tests.push_back(makeLoopConvKernel2Case());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3Case());

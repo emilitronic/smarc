@@ -5,7 +5,7 @@
 /*
 Compare real and garbage helper operands in the explicitly expanded WS
 B-transpose sequence through Smesh. This does not simulate Original's RTL
-or connect TransposePreloadUnroller inside ExCtrl.
+and explicitly bypasses ExCtrl's integrated TransposePreloadUnroller.
 
 The separated case initially supplies only CONFIG, PRELOAD, and helper
 COMPUTE_STAY. After the helper completes, the test appends the second PRELOAD

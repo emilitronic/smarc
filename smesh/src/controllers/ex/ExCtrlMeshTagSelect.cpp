@@ -30,7 +30,8 @@ void ExCtrlMeshTagSelect::update() {
   const auto issue = *head_bits[place];
 
   mesh_rs_tag       = issue.rs_tag;
-  mesh_rs_tag_valid = bit(performing_single_mul == 0 && !(*c_address_rs2).is_garbage());
+  mesh_rs_tag_valid = bit(issue.rs_tag_valid == 1 && performing_single_mul == 0 &&
+                         !(*c_address_rs2).is_garbage());
 }
 
 } // namespace smesh

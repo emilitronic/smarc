@@ -103,18 +103,21 @@ The suite currently covers the following cases:
   produce `A^T * B + D` using signed, asymmetric matrices and a nonzero addend.
 - `transpose_a_same_bank`: the same operation with input and weights in the
   same Spad bank, forcing their preload reads to serialize.
-- `transpose_b_expanded`: checks `A * B^T + D` using an explicitly expanded
-  preload sequence. See the command-input limitation below.
+- `transpose_b`: ordinary PRELOAD/COMPUTE_FLIP commands produce `A * B^T + D`;
+  ExCtrl's input unroller inserts the required helpers internally.
+- `transpose_b_expanded`: the manually expanded diagnostic version, with
+  ExCtrl's input unroller bypassed explicitly by the test configuration.
 
 The A and expanded-B transpose cases also run in the DIM8 suite. They exercise
 the real RS, ExCtrl configuration/operand reads, Spad response timing, Mesher's
 shared transposer, and accumulator writeback. Expected results come from direct
 matrix calculations; completion tags must all appear exactly once.
 
-**B-transpose command-input limitation:** Original inserts a
-`TransposePreloadUnroller` before ExCtrl's command queue. The standalone Smesh
-unroller is not connected inside ExCtrl yet. The B-transpose test therefore
-supplies these primitive commands:
+**B-transpose command expansion:** ExCtrl now instantiates
+`TransposePreloadUnroller` ahead of its main command queue, as Original does.
+The normal `transpose_b` test supplies only CONFIG_EX, PRELOAD B -> C, and
+COMPUTE_FLIP A,D. After the RS issues the PRELOAD/COMPUTE pair, ExCtrl expands
+it internally to:
 
 ```text
 CONFIG_EX: B transpose enabled
@@ -125,25 +128,49 @@ COMPUTE_FLIP A, D                      (compute A * B^T + D)
 ```
 
 The checked sequence requires the helper COMPUTE_STAY and following PRELOAD
-to overlap inside ExCtrl; the focused verification below checks that they do.
-All five commands enter the RS in this test and receive completion tags.
-This verifies the expanded execution path; it does not establish automatic
-expansion of an ordinary B-transposed PRELOAD/COMPUTE pair. A transpose uses
-the ordinary CONFIG_EX/PRELOAD/COMPUTE_FLIP sequence without these helpers.
+to overlap inside ExCtrl; the integration test below checks that they do.
+The inserted commands have invalid completion tags. Only the three original
+RS commands complete; helpers do not consume RS entries. A transpose uses
+CONFIG_EX/PRELOAD/COMPUTE_FLIP without needing this expansion.
+
+For the older `transpose_b_expanded` diagnostic, all five commands above
+enter the RS and receive tags. Its explicit `transpose_preload_unroll=false`
+constructor setting avoids expanding an already-expanded sequence a second time.
+Normal Smesh and ExCtrl instances enable the input unroller by default.
 
 ```bash
 ./build/smesh/tb_rs_to_mem_suite -test=transpose_a
 ./build/smesh/tb_rs_to_mem_suite -test=transpose_a_same_bank
+./build/smesh/tb_rs_to_mem_suite -test=transpose_b
 ./build/smesh/tb_rs_to_mem_suite -test=transpose_b_expanded
 ./build/smesh/tb_rs_to_mem_suite_dim8 -test=transpose_a
+./build/smesh/tb_rs_to_mem_suite_dim8 -test=transpose_b
 ctest --test-dir build -R 'rs_to_mem.*transpose_' --output-on-failure
 ```
 
-**Transpose helper comparison**
+**Integrated unroller verification**
+
+`tb_transpose_integration` checks the input unroller with one ordinary command
+pair, a pair whose COMPUTE_FLIP arrives 40 cycles late, and sixteen consecutive
+pairs that fill the main command queue. The pressure run must observe both
+unroller-output and RS-input backpressure. All runs check every useful mesh row,
+SPAD read counts, Accum write counts/addresses, delayed destination tags, and
+exactly the original RS completions. Request counts also verify that the helper
+does not execute separately from its following PRELOAD. These tests cover DIM=4
+and DIM=8 with the current eight-entry ExCtrl command queue; other dimensions
+or queue depths need their own verification.
+
+```bash
+cmake --build build --target tb_transpose_integration tb_transpose_integration_dim8 -j
+./build/smesh/tb_transpose_integration
+./build/smesh/tb_transpose_integration_dim8
+```
+
+**Transpose helper comparison (input unroller bypassed)**
 
 `tb_transpose_helper` runs the expanded B-transpose program twice through Smesh:
 once with the helper's actual operands retained, as in the inspected Original
-source, and once with garbage operands, as our standalone unroller generates.
+source, and once with garbage operands, as our integrated unroller generates.
 Original's helper assignments target `cmd.inst.rs1/rs2` (register-number fields),
 leaving its `cmd.rs1/rs2` operand values unchanged. Smesh deliberately changes
 the operand values instead. This test checks the effect in Smesh, not Original RTL.
@@ -172,8 +199,9 @@ cmake --build build --target tb_transpose_helper tb_transpose_helper_dim8 -j
 has completed forces four separate mesh requests. In Smesh this produces D alone,
 with either helper variant: the extra standalone PRELOAD advances the transposer
 again and replaces the weights before the final COMPUTE_FLIP. This is not caused
-by suppressing the helper's operand reads. Future unroller integration must verify
-that ExCtrl has sufficient command lookahead to overlap helper and second PRELOAD.
+by suppressing the helper's operand reads. The integrated tests above verify that
+normal unroller output preserves the overlap under the exercised input delays
+and queue pressure. This forced-separated diagnostic bypasses that unroller.
 
 The opt-in diagnostic below reproduces that numerical failure and returns a
 nonzero exit status. It is not registered as a passing CTest regression:

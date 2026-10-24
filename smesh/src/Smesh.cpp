@@ -8,7 +8,7 @@
 
 namespace smesh {
 
-Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
+Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, bool transpose_preload_unroll, IMPL_CTOR) {
   cmd_queue_            = new SmeshCmdQueue("CmdQueue");
   loop_cmd_adapter_     = new SmeshLoopCmdAdapter("LoopCmdAdapter");
   loop_conv_            = new LoopConv("LoopConv");
@@ -18,7 +18,7 @@ Smesh::Smesh(std::string /*name*/, int mvin_scale_latency, IMPL_CTOR) {
   completion_arb_       = new ArbExLdStComplete("ArbExLdStComplete");
   ld_ctrl_              = new LdCtrl("LdCtrl");
   read_issue_queue_     = new DmaReadIssueQueue("DmaReadIssueQueue");
-  ex_ctrl_              = new ExCtrl("ExCtrl");
+  ex_ctrl_              = new ExCtrl("ExCtrl", transpose_preload_unroll);
   st_ctrl_              = new StCtrl("StCtrl");
   write_dispatch_queue_ = new DmaWriteDispatchQueue("DmaWriteDispatchQueue");
   st_read_ctrl_         = new StReadCtrl("StReadCtrl");

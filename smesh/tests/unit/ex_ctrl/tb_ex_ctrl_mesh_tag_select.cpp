@@ -95,6 +95,11 @@ void MeshTagSelectDriver::update() {
   } else if (cycle_ == 3) {
     preload_cmd_place = 2;
     head_val[2] = 0;
+  } else if (cycle_ == 4) {
+    smesh::SmeshIssue helper{};
+    helper.rs_tag = 11;
+    helper.rs_tag_valid = 0;
+    head_bits[1] = helper;
   }
 
   ++cycle_;
@@ -128,6 +133,8 @@ void MeshTagSelectMonitor::update() {
     passed_ = passed_ && mesh_rs_tag_valid == 0 && mesh_rs_tag == 11;
   } else if (cycle_ == 3) {
     passed_ = passed_ && mesh_rs_tag_valid == 0 && mesh_rs_tag == 0;
+  } else if (cycle_ == 4) {
+    passed_ = passed_ && mesh_rs_tag_valid == 0 && mesh_rs_tag == 11;
     done_ = true;
   }
 

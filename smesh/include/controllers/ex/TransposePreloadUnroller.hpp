@@ -19,7 +19,7 @@ Reset disables expansion until CONFIG_EX specifies WS and B transpose.
 Source clarification: Original assigns the helper's garbage operands to
 cmd.inst.rs1/rs2 (instruction register-number fields). Here they are assigned
 to cmd.rs1/rs2, the operand payloads. Upper shape bits are preserved.
-This standalone component is not yet connected inside ExCtrl.
+ExCtrl instantiates this stage ahead of its main command queue by default.
 */
 #pragma once
 

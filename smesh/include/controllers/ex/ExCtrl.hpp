@@ -28,6 +28,7 @@ Structural shell for the smesh execute controller.
 #include "Mesher.hpp"
 #include "SmeshPorts.hpp"
 #include "SmeshTypes.hpp"
+#include "TransposePreloadUnroller.hpp"
 
 namespace smesh {
 
@@ -35,8 +36,12 @@ class ExCtrl : public Component {
   DECLARE_COMPONENT(ExCtrl, ExC);
 
  public:
-  ExCtrl(std::string name, COMPONENT_CTOR);
+  // Disable expansion only for tests that supply the already-expanded stream.
+  ExCtrl(std::string name, bool transpose_preload_unroll = true, COMPONENT_CTOR);
   ~ExCtrl() override;
+
+  // Read-only inspection of command expansion/backpressure; null in bypass tests.
+  const TransposePreloadUnroller* preloadUnroller() const { return preload_unroller_; }
 
   Clock(clk);
 
@@ -109,6 +114,7 @@ class ExCtrl : public Component {
   void reset();
 
  private:
+  TransposePreloadUnroller* preload_unroller_ = nullptr;
   ExCtrlCmdQueue* cmd_queue_    = nullptr;
   ExCtrlCompletion* completion_ = nullptr;
   ExCtrlDecoder* cmd_decoder_   = nullptr;

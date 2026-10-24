@@ -54,7 +54,9 @@ class Smesh : public Component {
 
  public:
   // Normal-width MVIN scaling latency in cycles.
-  Smesh(std::string name, int mvin_scale_latency = 1, COMPONENT_CTOR);
+  // Expansion is bypassed only by tests supplying already-expanded commands.
+  Smesh(std::string name, int mvin_scale_latency = 1,
+        bool transpose_preload_unroll = true, COMPONENT_CTOR);
   ~Smesh() override;
 
   Clock(clk);

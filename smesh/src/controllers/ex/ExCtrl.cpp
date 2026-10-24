@@ -7,7 +7,9 @@
 
 namespace smesh {
 
-ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
+ExCtrl::ExCtrl(std::string /*name*/, bool transpose_preload_unroll, IMPL_CTOR) {
+  if (transpose_preload_unroll)
+    preload_unroller_ = new TransposePreloadUnroller("TransposePreloadUnroller");
   cmd_queue_       = new ExCtrlCmdQueue("ExCtrlCmdQueue");
   completion_      = new ExCtrlCompletion("ExCtrlCompletion");
   cmd_decoder_     = new ExCtrlDecoder("ExCtrlDecoder");
@@ -48,9 +50,20 @@ ExCtrl::ExCtrl(std::string /*name*/, IMPL_CTOR) {
   mesher_->clk             << clk;
   writeback_->clk          << clk;
   
-  cmd_queue_->cmd_val   << cmd_val;
-  cmd_queue_->cmd_bits  << cmd_bits;
-  cmd_rdy               << cmd_queue_->cmd_rdy;
+  // RS commands are expanded before entering ExCtrl's main command queue.
+  if (preload_unroller_) {
+    preload_unroller_->clk << clk;
+    preload_unroller_->in_val << cmd_val;
+    preload_unroller_->in_bits << cmd_bits;
+    cmd_rdy << preload_unroller_->in_rdy;
+    cmd_queue_->cmd_val << preload_unroller_->out_val;
+    cmd_queue_->cmd_bits << preload_unroller_->out_bits;
+    preload_unroller_->out_rdy << cmd_queue_->cmd_rdy;
+  } else {
+    cmd_queue_->cmd_val << cmd_val;
+    cmd_queue_->cmd_bits << cmd_bits;
+    cmd_rdy << cmd_queue_->cmd_rdy;
+  }
   cmd_queue_->pop_count << cmd_state_->cmd_pop_count;
 
   // TEMPORARY TEST OBSERVABILITY: expose internal queue/FSM signals at ExCtrl.
@@ -413,6 +426,7 @@ ExCtrl::~ExCtrl() {
   delete cmd_decoder_;
   delete completion_;
   delete cmd_queue_;
+  delete preload_unroller_;
 }
 
 void ExCtrl::updateReadPorts() {
