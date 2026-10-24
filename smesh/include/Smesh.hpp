@@ -72,6 +72,7 @@ class Smesh : public Component {
   const LoopMatmul&      loopMatmul()      const { return *loop_matmul_; }
   const LoopConv&        loopConv()        const { return *loop_conv_; }
   const LdCtrl&          ldCtrl()          const { return *ld_ctrl_; }
+  const ExCtrl&          exCtrl()          const { return *ex_ctrl_; }
   const Spad&            spad()            const { return *spad_; }
   const SpadDmaReadPipe& spadDmaReadPipe() const { return *spad_dma_read_pipe_[0]; }
   const Accum&           accum()           const { return *accum_; }

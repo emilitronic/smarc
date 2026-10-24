@@ -112,8 +112,9 @@ shared transposer, and accumulator writeback. Expected results come from direct
 matrix calculations; completion tags must all appear exactly once.
 
 **B-transpose command-input limitation:** Original inserts a
-`TransposePreloadUnroller` before ExCtrl's command queue. Smesh does not yet have
-that stage. The B-transpose test therefore supplies these primitive commands:
+`TransposePreloadUnroller` before ExCtrl's command queue. The standalone Smesh
+unroller is not connected inside ExCtrl yet. The B-transpose test therefore
+supplies these primitive commands:
 
 ```text
 CONFIG_EX: B transpose enabled
@@ -123,7 +124,8 @@ PRELOAD garbage -> C destination       (load transposed weights into the array)
 COMPUTE_FLIP A, D                      (compute A * B^T + D)
 ```
 
-The helper COMPUTE_STAY and following PRELOAD may overlap inside ExCtrl.
+The checked sequence requires the helper COMPUTE_STAY and following PRELOAD
+to overlap inside ExCtrl; the focused verification below checks that they do.
 All five commands enter the RS in this test and receive completion tags.
 This verifies the expanded execution path; it does not establish automatic
 expansion of an ordinary B-transposed PRELOAD/COMPUTE pair. A transpose uses
@@ -135,6 +137,49 @@ the ordinary CONFIG_EX/PRELOAD/COMPUTE_FLIP sequence without these helpers.
 ./build/smesh/tb_rs_to_mem_suite -test=transpose_b_expanded
 ./build/smesh/tb_rs_to_mem_suite_dim8 -test=transpose_a
 ctest --test-dir build -R 'rs_to_mem.*transpose_' --output-on-failure
+```
+
+**Transpose helper comparison**
+
+`tb_transpose_helper` runs the expanded B-transpose program twice through Smesh:
+once with the helper's actual operands retained, as in the inspected Original
+source, and once with garbage operands, as our standalone unroller generates.
+Original's helper assignments target `cmd.inst.rs1/rs2` (register-number fields),
+leaving its `cmd.rs1/rs2` operand values unchanged. Smesh deliberately changes
+the operand values instead. This test checks the effect in Smesh, not Original RTL.
+
+Both runs must produce the independently calculated `A * B^T + D`, all five
+RS completions exactly once, and exactly DIM Accum row writes. Three accepted
+mesh requests establish that the helper and second PRELOAD overlapped. Request
+destinations are garbage/C/garbage, but result destinations are garbage/garbage/C:
+the helper's arithmetic is discarded through the delayed destination tag.
+
+| Mesh size | SPAD row reads with real helper operands | With garbage operands |
+| --- | ---: | ---: |
+| DIM=4 | 20 | 12 |
+| DIM=8 | 40 | 24 |
+
+The reduction is DIM reads of A plus DIM reads of the addend D. Both versions
+still read the weight matrix once. These are read counts, not cycle-speedup claims.
+
+```bash
+cmake --build build --target tb_transpose_helper tb_transpose_helper_dim8 -j
+./build/smesh/tb_transpose_helper
+./build/smesh/tb_transpose_helper_dim8
+```
+
+**Known scheduling limitation:** delaying the second PRELOAD until the helper
+has completed forces four separate mesh requests. In Smesh this produces D alone,
+with either helper variant: the extra standalone PRELOAD advances the transposer
+again and replaces the weights before the final COMPUTE_FLIP. This is not caused
+by suppressing the helper's operand reads. Future unroller integration must verify
+that ExCtrl has sufficient command lookahead to overlap helper and second PRELOAD.
+
+The opt-in diagnostic below reproduces that numerical failure and returns a
+nonzero exit status. It is not registered as a passing CTest regression:
+
+```bash
+./build/smesh/tb_transpose_helper -separate_helper
 ```
 
 **LoopMatmul workloads**
