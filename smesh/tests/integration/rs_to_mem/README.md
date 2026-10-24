@@ -99,6 +99,43 @@ The suite currently covers the following cases:
 - `mul_pre`: two operations using the overlapping COMPUTE+PRELOAD path.
 - `concurrent_banks`: checks that Spad reads can fire on three banks at once.
 - `same_bank_serializes`: checks that aliased A/addend reads serialize.
+- `transpose_a`: CONFIG_EX enables A transpose; PRELOAD and COMPUTE_FLIP
+  produce `A^T * B + D` using signed, asymmetric matrices and a nonzero addend.
+- `transpose_a_same_bank`: the same operation with input and weights in the
+  same Spad bank, forcing their preload reads to serialize.
+- `transpose_b_expanded`: checks `A * B^T + D` using an explicitly expanded
+  preload sequence. See the command-input limitation below.
+
+The A and expanded-B transpose cases also run in the DIM8 suite. They exercise
+the real RS, ExCtrl configuration/operand reads, Spad response timing, Mesher's
+shared transposer, and accumulator writeback. Expected results come from direct
+matrix calculations; completion tags must all appear exactly once.
+
+**B-transpose command-input limitation:** Original inserts a
+`TransposePreloadUnroller` before ExCtrl's command queue. Smesh does not yet have
+that stage. The B-transpose test therefore supplies these primitive commands:
+
+```text
+CONFIG_EX: B transpose enabled
+PRELOAD B -> garbage destination       (fill the transposer)
+COMPUTE_STAY garbage, garbage          (helper compute)
+PRELOAD garbage -> C destination       (load transposed weights into the array)
+COMPUTE_FLIP A, D                      (compute A * B^T + D)
+```
+
+The helper COMPUTE_STAY and following PRELOAD may overlap inside ExCtrl.
+All five commands enter the RS in this test and receive completion tags.
+This verifies the expanded execution path; it does not establish automatic
+expansion of an ordinary B-transposed PRELOAD/COMPUTE pair. A transpose uses
+the ordinary CONFIG_EX/PRELOAD/COMPUTE_FLIP sequence without these helpers.
+
+```bash
+./build/smesh/tb_rs_to_mem_suite -test=transpose_a
+./build/smesh/tb_rs_to_mem_suite -test=transpose_a_same_bank
+./build/smesh/tb_rs_to_mem_suite -test=transpose_b_expanded
+./build/smesh/tb_rs_to_mem_suite_dim8 -test=transpose_a
+ctest --test-dir build -R 'rs_to_mem.*transpose_' --output-on-failure
+```
 
 **LoopMatmul workloads**
 

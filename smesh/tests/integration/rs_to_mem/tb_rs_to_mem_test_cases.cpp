@@ -68,10 +68,10 @@ std::array<MeshInputRow, kDim> toArray(const std::vector<MeshInputRow>& rows) {
   return out;
 }
 
-SmeshCmd configExCmd() {
+SmeshCmd configExCmd(bool a_transpose = false, bool b_transpose = false) {
   SmeshCmd cmd{};
   cmd.funct = u32(static_cast<std::uint32_t>(SmeshFunct::Config));
-  cmd.rs1   = u64(packConfigExRs1(/*a_stride=*/1));
+  cmd.rs1   = u64(packConfigExRs1(/*a_stride=*/1, a_transpose, b_transpose));
   cmd.rs2   = u64(packConfigExRs2(/*c_stride=*/1));
   return cmd;
 }
@@ -199,6 +199,62 @@ RsMemTestCase makeBasicCase() {
     c0_rows.push_back(matmulRow(a0arr, b0arr, d0arr, r));
   }
   test.expected_results = {ExpectedAccumResult{c0, c0_rows}};
+  return test;
+}
+
+// Exercise transpose through the real RS, ExCtrl, banked Spad, and Accum.
+// B transpose needs Original's extra PRELOAD/STAY expansion, supplied explicitly
+// here until Smesh has a TransposePreloadUnroller at ExCtrl's command input.
+static RsMemTestCase makeTransposeCase(bool transpose_weights, bool same_bank = false) {
+  RsMemTestCase test{};
+  test.name = transpose_weights ? "transpose_b_expanded" : "transpose_a";
+  if (same_bank) test.name += "_same_bank";
+  test.description = transpose_weights
+      ? "A*B-transpose+D through RS/ExCtrl, with explicitly expanded preload commands"
+      : "A-transpose*B+D through RS/ExCtrl and the shared mesh transposer";
+  test.max_cycles = 600;
+  test.drain_cycles = 16;
+
+  const auto a_addr = makeSpAddr(0);
+  const auto b_addr = makeSpAddr(same_bank ? kDim : kSpBankRows);
+  const auto d_addr = makeSpAddr(2 * kSpBankRows);
+  const auto c_addr = makeAccAddr(0);
+  const SmeshLocalAddr garbage{0xffffffffu};
+  std::array<MeshInputRow, kDim> a{}, b{}, d{};
+  for (std::size_t r = 0; r < kDim; ++r) {
+    for (std::size_t col = 0; col < kDim; ++col) {
+      a[r][col] = static_cast<Elem>(int((r * 3 + col * 2) % 9) - 4);
+      b[r][col] = static_cast<Elem>(int((r * 7 + col * 5) % 13) - 6);
+      d[r][col] = static_cast<Elem>(int((r * 2 + col * 3) % 7) - 3);
+    }
+    test.spad_rows.push_back({a_addr + static_cast<std::uint32_t>(r), a[r]});
+    test.spad_rows.push_back({b_addr + static_cast<std::uint32_t>(r), b[r]});
+    test.spad_rows.push_back({d_addr + static_cast<std::uint32_t>(r), d[r]});
+  }
+
+  test.program.push_back(configExCmd(!transpose_weights, transpose_weights));
+  if (transpose_weights) {
+    test.program.push_back(preloadCmd(b_addr, garbage));
+    test.program.push_back(computeStayCmd(garbage, garbage));
+    test.program.push_back(preloadCmd(garbage, c_addr));
+  } else {
+    test.program.push_back(preloadCmd(b_addr, c_addr));
+  }
+  test.program.push_back(computeFlipCmd(a_addr, d_addr));
+  for (std::size_t tag = 0; tag < test.program.size(); ++tag)
+    test.expected_completion_tags.push_back(static_cast<SmeshRsTag>(tag));
+
+  std::vector<MeshAccumRow> expected(kDim);
+  for (std::size_t r = 0; r < kDim; ++r) {
+    for (std::size_t col = 0; col < kDim; ++col) {
+      Acc value = d[r][col];
+      for (std::size_t k = 0; k < kDim; ++k)
+        value += Acc(transpose_weights ? a[r][k] : a[k][r]) *
+                 Acc(transpose_weights ? b[col][k] : b[k][col]);
+      expected[r][col] = value;
+    }
+  }
+  test.expected_results = {{c_addr, expected}};
   return test;
 }
 
@@ -1452,6 +1508,9 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeSameBankSerializesCase(), makeLoopWsCase(), makeLoopWsDmaCase(), makeLoopConvDmaCase(),
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase(), makeZeroWriterCase()};
+  tests.push_back(makeTransposeCase(false));
+  tests.push_back(makeTransposeCase(true));
+  if (kDim == 4) tests.push_back(makeTransposeCase(false, true));
   if (kDim == 4) tests.push_back(makeLoopConvKernel2Case());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3Case());
   if (kDim == 4) tests.push_back(makeLoopConvTemporal3TwoRowsCase());

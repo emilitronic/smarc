@@ -135,3 +135,14 @@ set_tests_properties(
     LABELS "integration;rs_to_mem"
     TIMEOUT 30
 )
+
+foreach(case IN ITEMS transpose_a transpose_a_same_bank transpose_b_expanded)
+  add_test(NAME smesh_rs_to_mem_${case} COMMAND tb_rs_to_mem_suite -test=${case})
+  set_tests_properties(smesh_rs_to_mem_${case} PROPERTIES
+    LABELS "integration;rs_to_mem;transposer" TIMEOUT 30)
+endforeach()
+foreach(case IN ITEMS transpose_a transpose_b_expanded)
+  add_test(NAME smesh_rs_to_mem_dim8_${case} COMMAND tb_rs_to_mem_suite_dim8 -test=${case})
+  set_tests_properties(smesh_rs_to_mem_dim8_${case} PROPERTIES
+    LABELS "integration;rs_to_mem;transposer;dim8" TIMEOUT 30)
+endforeach()
