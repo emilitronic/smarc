@@ -55,8 +55,12 @@ class MeshHull {
   void step(const MeshHullIn& in);
   void loadC2ForTest(const MeshCore::InputGrid& weights);
 
-  const MeshHullOut& out() const { return out_; }
-  const MeshCore& core() const { return core_; }
+  const MeshHullOut& out()  const { return out_; }
+  const MeshCore&    core() const { return core_; }
+  // Current operand registers feed the shared transposer before step() accepts new rows.
+  const MeshInputRow& aBuffer() const { return a_buf_; }
+  const MeshInputRow& bBuffer() const { return b_buf_; }
+  const MeshInputRow& dBuffer() const { return d_buf_; }
 
  private:
   template <typename T>
@@ -108,7 +112,7 @@ class MeshHull {
   MeshCore core_{};          // Hull, contains Core systolic array
 
   MeshInputRow               a_buf_{};  // straight row input 
-  MeshAccumRow               b_buf_{};  // straight row partial sums
+  MeshInputRow               b_buf_{};  // input-width partial sums, widened before the shifter
   MeshInputRow               d_buf_{};  // straight row weights
   SkewState<Elem>            a_skew_{}; // skewed row input
   SkewState<Acc>             b_skew_{}; // skewed row partial sums

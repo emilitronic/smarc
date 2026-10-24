@@ -5,6 +5,7 @@
 
 #include "Mesher.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace smesh {
@@ -39,13 +40,21 @@ TraceKey(mesher_in_);
 TraceKey(mesher_resp_);
 
 Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateReady)
-      .writes(req_rdy, a_rdy, b_rdy, d_rdy);
+  // One transposer is shared by the A, B, and D operand paths.
+  transposer_ = new Transposer("Transposer");
+  transposer_->clk         << clk;
+  transposer_->in_row_val  << transposer_in_row_val;
+  transposer_->in_row_bits << transposer_in_row_bits;
+  transposer_->out_col_rdy.wireToConst(bit(1));
+  transposer_out_col_bits  << transposer_->out_col_bits;
 
-  UPDATE(updateTagsInProgress)
-      .writes(tags_in_progress);
+  UPDATE(updateReady).writes(req_rdy, a_rdy, b_rdy, d_rdy);
 
+  UPDATE(updateTagsInProgress).writes(tags_in_progress);
+
+  // Evaluate ready from the old wrapper state before update() advances that state.
   UPDATE(update)
+      .reads(req_rdy, a_rdy, b_rdy, d_rdy)
       .reads(req_val, req_bits,
              a_val, a_bits,
              b_val, b_bits,
@@ -54,6 +63,8 @@ Mesher::Mesher(std::string /*name*/, IMPL_CTOR) {
       .writes(transposer_in_row_val, transposer_in_row_bits,
               resp_val, resp_bits);
 }
+
+Mesher::~Mesher() { delete transposer_; }
 
 void Mesher::updateReady() {
   const bool input_next_row_into_spatial_array = req_state_valid_ && ((a_written_ && b_written_ && d_written_) || req_state_.flush > 0);
@@ -103,10 +114,10 @@ void Mesher::update() {
   const bool last_fire = input_next_row_into_spatial_array && cur_fire_counter == total_fires - 1;
 
   // whether a new request can be accepted this cycle
-  const bool req_ready = !cur_req_state_valid || last_fire;
-  const bool a_ready   = !cur_a_written || input_next_row_into_spatial_array || req_ready;
-  const bool b_ready   = !cur_b_written || input_next_row_into_spatial_array || req_ready;
-  const bool d_ready   = !cur_d_written || input_next_row_into_spatial_array || req_ready;
+  const bool req_ready = req_rdy == 1;
+  const bool a_ready   = a_rdy == 1;
+  const bool b_ready   = b_rdy == 1;
+  const bool d_ready   = d_rdy == 1;
 
   const bool req_fire = req_val != 0 && req_ready;
   const bool a_fire   = a_val   != 0 && a_ready;
@@ -174,11 +185,13 @@ void Mesher::update() {
 
   MeshInputRow transposer_in{};
   if (a_from_transposer) {
-    transposer_in = a_bits->data;
+    transposer_in = hull_.aBuffer();
   } else if (b_from_transposer) {
-    transposer_in = b_bits->data;
+    transposer_in = hull_.bBuffer();
   } else if (d_from_transposer) {
-    transposer_in = d_bits->data;
+    transposer_in = hull_.dBuffer();
+    // Original reverses D before transposition and reverses the output back.
+    std::reverse(transposer_in.begin(), transposer_in.end());
   }
   transposer_in_row_val  = bit(!pause && transposer_sources != 0);
   transposer_in_row_bits = transposer_in;

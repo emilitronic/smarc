@@ -10,7 +10,7 @@ namespace smesh {
 void MeshHull::reset() {
   core_.reset();
   a_buf_        = MeshInputRow{};
-  b_buf_        = MeshAccumRow{};
+  b_buf_        = MeshInputRow{};
   d_buf_        = MeshInputRow{};
   a_skew_       = SkewState<Elem>{};
   b_skew_       = SkewState<Acc>{};
@@ -37,13 +37,23 @@ void MeshHull::step(const MeshHullIn& in) {
   auto       next_d_buf       = d_buf_;
 
   if (in.a_fire != 0) {
-    next_a_buf = in.a_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.a_bits;
+    next_a_buf = in.a_bits;
   }
   if (in.b_fire != 0) {
-    next_b_buf = in.b_is_from_transposer != 0 ? widenInputRow(in.transposer_out_col_bits) : widenInputRow(in.b_bits);
+    next_b_buf = in.b_bits;
   }
   if (in.d_fire != 0) {
-    next_d_buf = in.d_is_from_transposer != 0 ? in.transposer_out_col_bits                : in.d_bits;
+    next_d_buf = in.d_bits;
+  }
+
+  // Select saved operand rows or transposed columns immediately before the shifters.
+  const auto a_shifter_in = in.a_is_from_transposer == 1 ? in.transposer_out_col_bits : current_a_buf;
+  const auto b_shifter_in = in.b_is_from_transposer == 1 ? in.transposer_out_col_bits : current_b_buf;
+  auto d_shifter_in = current_d_buf;
+  if (in.d_is_from_transposer == 1) {
+    for (std::size_t lane = 0; lane < kDim; ++lane) {
+      d_shifter_in[lane] = in.transposer_out_col_bits[kDim - 1 - lane];
+    }
   }
 
   MeshCoreIn core_in{}; // temporary input bundle to MeshCore for this cycle
@@ -56,9 +66,9 @@ void MeshHull::step(const MeshHullIn& in) {
     status_in[lane].valid   = in.not_paused != 0;
   }
 
-  core_in.in_a    = stepInputSkew(a_skew_, current_a_buf);
-  core_in.in_b    = stepInputSkew(b_skew_, current_b_buf);
-  core_in.in_d    = stepInputSkew(d_skew_, current_d_buf);
+  core_in.in_a    = stepInputSkew(a_skew_, a_shifter_in);
+  core_in.in_b    = stepInputSkew(b_skew_, widenInputRow(b_shifter_in));
+  core_in.in_d    = stepInputSkew(d_skew_, d_shifter_in);
   core_in.control = stepInputSkew(control_skew_, control_in);
   core_in.status  = stepInputSkew(status_skew_, status_in);
 

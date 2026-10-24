@@ -3,8 +3,10 @@
 // **********************************************************************
 // Sebastian Claudiusz Magierowski Jul 29 2026
 /*
-Systolic mesh wrapper.  Manages the interface between ExCtrl and the MeshHull.
-This includes request tracking, row-beat counting, and tag/total_rows bookkeeping.
+Systolic mesh wrapper. Manages the interface between ExCtrl and MeshHull,
+including request tracking, row-beat counting, and tag/total_rows bookkeeping.
+Owns the shared Transposer, fed from MeshHull's saved operand rows; MeshHull
+selects its columns or the saved rows before the A/B/D shifters.
 */
 
 #pragma once
@@ -15,6 +17,7 @@ This includes request tracking, row-beat counting, and tag/total_rows bookkeepin
 #include <cascade/Cascade.hpp>
 
 #include "MeshHull.hpp"
+#include "Transposer.hpp"
 #include "SmeshPorts.hpp"
 #include "SmeshTypes.hpp"
 
@@ -25,6 +28,7 @@ class Mesher : public Component {
 
  public:
   Mesher(std::string name, COMPONENT_CTOR);
+  ~Mesher() override;
 
   Clock(clk);
 
@@ -46,7 +50,7 @@ class Mesher : public Component {
 
   Output(bit,          transposer_in_row_val);
   Output(MeshInputRow, transposer_in_row_bits);
-  Input(MeshInputRow,  transposer_out_col_bits);
+  Output(MeshInputRow, transposer_out_col_bits); // Observation tap on the internal transposer's output.
 
   Output(bit,        resp_val);
   Output(MesherResp, resp_bits);
@@ -89,6 +93,7 @@ class Mesher : public Component {
   std::uint8_t                                  total_rows_q_count_ = 0;
 
   MeshHull hull_{};
+  Transposer* transposer_ = nullptr;
 };
 
 } // namespace smesh
