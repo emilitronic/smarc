@@ -27,6 +27,7 @@ add_library(smesh_model
   src/controllers/ex/ExCtrlMeshTagSelect.cpp
   src/controllers/ex/ExCtrlOperandPack.cpp
   src/controllers/ex/ExCtrlQueues.cpp
+  src/controllers/ex/TransposePreloadUnroller.cpp
   src/controllers/ex/ExCtrlReadPriority.cpp
   src/controllers/ex/ExCtrlReadReqLogic.cpp
   src/controllers/ex/ExCtrlRowFeedState.cpp

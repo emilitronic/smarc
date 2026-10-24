@@ -1,4 +1,5 @@
 set(EX_CTRL_UNIT_TESTS
+  tb_transpose_preload_unroller
   tb_ex_ctrl_cmd_queue
   tb_ex_ctrl_completion
   tb_ex_ctrl_decoder
@@ -38,6 +39,7 @@ foreach(test_target IN LISTS EX_CTRL_UNIT_TESTS)
 endforeach()
 
 add_test(NAME smesh_unit_ex_ctrl_cmd_queue COMMAND tb_ex_ctrl_cmd_queue)
+add_test(NAME smesh_unit_transpose_preload_unroller COMMAND tb_transpose_preload_unroller)
 add_test(NAME smesh_unit_ex_ctrl_completion COMMAND tb_ex_ctrl_completion)
 add_test(NAME smesh_unit_ex_ctrl_decoder COMMAND tb_ex_ctrl_decoder)
 add_test(NAME smesh_unit_ex_ctrl_feed_signals COMMAND tb_ex_ctrl_feed_signals)
@@ -56,6 +58,7 @@ add_test(NAME smesh_unit_ex_ctrl_state_mul_pre COMMAND tb_ex_ctrl_state_mul_pre)
 add_test(NAME smesh_unit_ex_ctrl_writeback COMMAND tb_ex_ctrl_writeback)
 
 set_tests_properties(
+  smesh_unit_transpose_preload_unroller
   smesh_unit_ex_ctrl_cmd_queue
   smesh_unit_ex_ctrl_completion
   smesh_unit_ex_ctrl_decoder
