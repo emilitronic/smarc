@@ -10,8 +10,7 @@
 
 namespace smfft {
 
-SdfStagePipe::SdfStagePipe(std::string /*name*/, std::size_t delay, std::size_t B_w,
-                           const SdfPipeParams& pipe, IMPL_CTOR)
+SdfStagePipe::SdfStagePipe(std::string /*name*/, std::size_t delay, std::size_t B_w, const SdfPipeParams& pipe, IMPL_CTOR)
     : delay_(delay), B_w_(B_w), pipe_(pipe) {
   assert_always(delay_ >= 1, "stage delay must be at least 1");
   assert_always((delay_ & (delay_ - 1)) == 0, "stage delay must be a power of two");
