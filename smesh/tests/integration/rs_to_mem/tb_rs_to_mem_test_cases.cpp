@@ -16,6 +16,7 @@ checks that every expected tag appears exactly once.
 
 #include "tb_rs_to_mem_test_cases.hpp"
 
+#include <algorithm>
 #include <utility>
 
 namespace smesh {
@@ -1291,6 +1292,94 @@ RsMemTestCase makeAccumScaleStoreCase() {
   return test;
 }
 
+// Pool spatial positions, each stored as one local row of channel values.
+// DRAM guard bytes detect extra writes, incorrect strides, and partial-row errors.
+static RsMemTestCase makeMaxPoolCase(bool padded, bool from_spad = false) {
+  RsMemTestCase test{};
+  test.name = from_spad ? "max_pool_spad" : (padded ? "max_pool_padded" : "max_pool");
+  test.description = "StCtrl 2x2 max pooling, signed channels, guarded DRAM, then ordinary store";
+  test.max_cycles = 1600;
+  constexpr unsigned height = 2, width = 4;
+  const unsigned pad = padded ? 1 : 0;
+  const unsigned out_rows = padded ? 2 : 1;
+  const unsigned out_cols = padded ? 3 : 2;
+  const unsigned out_dim = out_cols + 1; // one untouched output-position gap per row
+  const unsigned stride = kDim + 1; // one untouched byte after each channel vector
+  constexpr std::uint64_t input_base = 0x80018000;
+  constexpr std::uint64_t output_base = 0x80019000;
+  constexpr std::uint64_t ordinary_base = 0x8001a000;
+  const auto source = from_spad ? makeSpAddr(0) : makeAccAddr(0);
+  std::vector<MeshAccumRow> rows(height * width);
+  std::vector<std::uint8_t> input;
+  for (unsigned pixel = 0; pixel < height * width; ++pixel) {
+    for (unsigned channel = 0; channel < kDim; ++channel) {
+      const int value = channel == 0 ? -30 - int(pixel)
+          : int((pixel * 17 + channel * 23) % 101) - 70;
+      rows[pixel][channel] = value;
+      const auto encoded = static_cast<std::uint32_t>(value);
+      const unsigned element_bytes = from_spad ? sizeof(Elem) : sizeof(Acc);
+      for (unsigned byte = 0; byte < element_bytes; ++byte)
+        input.push_back(static_cast<std::uint8_t>(encoded >> (8 * byte)));
+    }
+  }
+  test.dram_initial.push_back({input_base, input});
+  const unsigned row_bytes = kDim * (from_spad ? sizeof(Elem) : sizeof(Acc));
+  test.program.push_back(loopCommand(SmeshFunct::Config,
+      packConfigLoadRs1(0, kDim, kMvinScaleIdentityBits), row_bytes));
+  // A load command can describe at most DIM spatial positions at a time.
+  for (unsigned pixel = 0; pixel < height * width; pixel += kDim) {
+    const auto count = std::min<unsigned>(kDim, height * width - pixel);
+    test.expected_completion_tags.push_back(test.program.size());
+    test.program.push_back(loopCommand(SmeshFunct::Mvin, input_base + pixel * row_bytes,
+        packLocal(source + pixel, MatrixShape{count, kDim})));
+  }
+  // CONFIG_STORE: pool stride=2, window=2; source and pooled spatial dimensions.
+  const auto config = packConfig(ConfigKind::Store) | (2ull << 4) | (2ull << 6) |
+      (std::uint64_t{pad} << 8) | (std::uint64_t{pad} << 10) |
+      (std::uint64_t{out_dim} << 24) | (std::uint64_t{out_rows} << 32) |
+      (std::uint64_t{out_cols} << 40) | (std::uint64_t{height} << 48) |
+      (std::uint64_t{width} << 56);
+  test.program.push_back(loopCommand(SmeshFunct::Config, config,
+      (std::uint64_t{kAccScaleIdentityBits} << 32) | stride));
+  test.expected_completion_tags.push_back(test.program.size());
+  test.program.push_back(loopCommand(SmeshFunct::Mvout, output_base,
+      packLocal(source, MatrixShape{height * width, kDim})));
+
+  std::vector<std::uint8_t> expected(out_rows * out_dim * stride, 0x5a);
+  test.dram_initial.push_back({output_base, expected});
+  for (unsigned r = 0; r < out_rows; ++r) {
+    for (unsigned c = 0; c < out_cols; ++c) {
+      for (unsigned channel = 0; channel < kDim; ++channel) {
+        int maximum = -128;
+        for (unsigned wr = 0; wr < 2; ++wr) {
+          for (unsigned wc = 0; wc < 2; ++wc) {
+            const int ir = int(r * 2 + wr) - int(pad);
+            const int ic = int(c * 2 + wc) - int(pad);
+            const int value = ir < 0 || ic < 0 || ir >= int(height) || ic >= int(width)
+                ? 0 : rows[ir * width + ic][channel];
+            maximum = std::max(maximum, value);
+          }
+        }
+        expected[(r * out_dim + c) * stride + channel] = static_cast<std::uint8_t>(maximum);
+      }
+    }
+  }
+  test.expected_dram.push_back({output_base, expected});
+  test.program.push_back(loopCommand(SmeshFunct::Config, packConfig(ConfigKind::Store),
+      (std::uint64_t{kAccScaleIdentityBits} << 32) | kDim));
+  test.expected_completion_tags.push_back(test.program.size());
+  test.program.push_back(loopCommand(SmeshFunct::Mvout, ordinary_base,
+      packLocal(source, MatrixShape{1, kDim})));
+  std::vector<std::uint8_t> ordinary;
+  for (const auto value : rows[0]) ordinary.push_back(static_cast<std::uint8_t>(value));
+  test.expected_dram.push_back({ordinary_base, ordinary});
+  if (!from_spad) {
+    test.expected_results = {ExpectedAccumResult{source, rows}};
+    test.min_store_accum_reads = height * width + 1;
+  }
+  return test;
+}
+
 // Zero DRAM stride reads one row, then writes it to three local rows.
 RsMemTestCase makeRepeatedLoadsCase() {
   RsMemTestCase test{};
@@ -1512,6 +1601,9 @@ std::vector<RsMemTestCase> rsMemTestCases() {
       makeLoopWsDmaI2Case(), makeLoopWsDmaK2Case(), makeFullWidthAccumLoadCase(),
       makeRepeatedLoadsCase(), makeScaledShrinkLoadCase(), makeAccumScaleStoreCase(), makeZeroWriterCase()};
   tests.push_back(makeTransposeCase(false));
+  tests.push_back(makeMaxPoolCase(false));
+  tests.push_back(makeMaxPoolCase(true));
+  tests.push_back(makeMaxPoolCase(false, true));
   tests.push_back(makeTransposeCase(true));
   tests.push_back(makeTransposeCase(true, false, true));
   if (kDim == 4) tests.push_back(makeTransposeCase(false, true));

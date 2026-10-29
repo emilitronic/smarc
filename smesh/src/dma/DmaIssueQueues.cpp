@@ -88,164 +88,123 @@ void DmaWriteDispatchQueue::reset() {
 }
 
 DmaWriteNormQueue::DmaWriteNormQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateEnqReady).writes(enq_rdy);
-  UPDATE(updateDeqView).writes(deq_val, deq_bits);
-  UPDATE(updateEnqAccept).reads(enq_val, enq_bits);
-  UPDATE(updateDeqPop).reads(deq_rdy);
+  entry_Q_ <= entry_D_;
+  UPDATE(updateEnqReady).reads(entry_Q_).writes(enq_rdy);
+  UPDATE(updateDeqView).reads(entry_Q_).writes(deq_val, deq_bits);
+  UPDATE(updateStorage).reads(entry_Q_, enq_val, enq_rdy, enq_bits, deq_rdy)
+                       .writes(entry_D_);
 }
 
 void DmaWriteNormQueue::updateEnqReady() {
-  enq_rdy = bit(!valid_);
-}
-
-void DmaWriteNormQueue::updateEnqAccept() {
-  if (enq_val == 0 || valid_) {
-    return;
-  }
-
-  entry_ = *enq_bits;
-  valid_ = true;
-
-  trace("dma_write_norm_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
-        static_cast<unsigned long long>(entry_.vaddr),
-        static_cast<unsigned>(entry_.laddr.raw),
-        static_cast<unsigned>(entry_.len),
-        static_cast<unsigned>(entry_.block),
-        static_cast<unsigned>(entry_.cmd_id));
+  // Keep the original one-entry queue's empty-slot-only acceptance policy.
+  enq_rdy = bit(entry_Q_->valid == 0);
 }
 
 void DmaWriteNormQueue::updateDeqView() {
-  deq_val = bit(valid_);
-  deq_bits = valid_ ? entry_ : DmaWriteReq{};
+  deq_val = entry_Q_->valid;
+  deq_bits = entry_Q_->valid == 1 ? entry_Q_->bits : DmaWriteReq{};
 }
 
-void DmaWriteNormQueue::updateDeqPop() {
-  if (!valid_ || deq_rdy == 0) {
-    return;
+void DmaWriteNormQueue::updateStorage() {
+  auto next = *entry_Q_;
+  const bool pop = next.valid == 1 && deq_rdy == 1;
+  const bool push = enq_val == 1 && enq_rdy == 1;
+  if (!pop && !push) return;
+  if (pop) next = Entry{};
+  if (push) {
+    next.valid = 1;
+    next.bits = *enq_bits;
   }
-
-  trace("dma_write_norm_queue: issued vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
-        static_cast<unsigned long long>(entry_.vaddr),
-        static_cast<unsigned>(entry_.laddr.raw),
-        static_cast<unsigned>(entry_.len),
-        static_cast<unsigned>(entry_.block),
-        static_cast<unsigned>(entry_.cmd_id));
-
-  valid_ = false;
-  entry_ = DmaWriteReq{};
+  entry_D_ = next;
+  trace("dma_write_norm_queue: pop=%u push=%u valid=%u cmd_id=%u\n",
+        unsigned(pop), unsigned(push), unsigned(next.valid), unsigned(next.bits.cmd_id));
 }
 
 void DmaWriteNormQueue::reset() {
-  valid_ = false;
-  entry_ = DmaWriteReq{};
+  entry_D_.reset(Entry{});
+  enq_rdy.reset(0);
+  deq_val.reset(0);
+  deq_bits.reset(DmaWriteReq{});
 }
 
 DmaWriteScaleQueue::DmaWriteScaleQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateEnqReady).writes(enq_rdy);
-  UPDATE(updateEnqAccept).reads(enq_val, enq_bits);
-  UPDATE(updateDeqView).writes(deq_val, deq_bits);
-  UPDATE(updateDeqPop).reads(deq_rdy);
+  entry_Q_ <= entry_D_;
+  UPDATE(updateEnqReady).reads(entry_Q_).writes(enq_rdy);
+  UPDATE(updateDeqView).reads(entry_Q_).writes(deq_val, deq_bits);
+  UPDATE(updateStorage).reads(entry_Q_, enq_val, enq_rdy, enq_bits, deq_rdy)
+                       .writes(entry_D_);
 }
 
 void DmaWriteScaleQueue::updateEnqReady() {
-  enq_rdy = bit(!valid_);
-}
-
-void DmaWriteScaleQueue::updateEnqAccept() {
-  if (enq_val == 0 || valid_) {
-    return;
-  }
-
-  const auto req = *enq_bits;
-  entry_ = req;
-  valid_ = true;
-
-  trace("dma_write_scale_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
-        static_cast<unsigned long long>(req.vaddr),
-        static_cast<unsigned>(req.laddr.raw),
-        static_cast<unsigned>(req.len),
-        static_cast<unsigned>(req.block),
-        static_cast<unsigned>(req.cmd_id));
+  // Keep the original one-entry queue's empty-slot-only acceptance policy.
+  enq_rdy = bit(entry_Q_->valid == 0);
 }
 
 void DmaWriteScaleQueue::updateDeqView() {
-  deq_val = bit(valid_);
-  deq_bits = valid_ ? entry_ : DmaWriteReq{};
+  deq_val = entry_Q_->valid;
+  deq_bits = entry_Q_->valid == 1 ? entry_Q_->bits : DmaWriteReq{};
 }
 
-void DmaWriteScaleQueue::updateDeqPop() {
-  if (!valid_ || deq_rdy == 0) {
-    return;
+void DmaWriteScaleQueue::updateStorage() {
+  auto next = *entry_Q_;
+  const bool pop = next.valid == 1 && deq_rdy == 1;
+  const bool push = enq_val == 1 && enq_rdy == 1;
+  if (!pop && !push) return;
+  if (pop) next = Entry{};
+  if (push) {
+    next.valid = 1;
+    next.bits = *enq_bits;
   }
-
-  trace("dma_write_scale_queue: issued vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
-        static_cast<unsigned long long>(entry_.vaddr),
-        static_cast<unsigned>(entry_.laddr.raw),
-        static_cast<unsigned>(entry_.len),
-        static_cast<unsigned>(entry_.block),
-        static_cast<unsigned>(entry_.cmd_id));
-
-  valid_ = false;
-  entry_ = DmaWriteReq{};
+  entry_D_ = next;
+  trace("dma_write_scale_queue: pop=%u push=%u valid=%u cmd_id=%u\n",
+        unsigned(pop), unsigned(push), unsigned(next.valid), unsigned(next.bits.cmd_id));
 }
 
 void DmaWriteScaleQueue::reset() {
-  valid_ = false;
-  entry_ = DmaWriteReq{};
+  entry_D_.reset(Entry{});
+  enq_rdy.reset(0);
+  deq_val.reset(0);
+  deq_bits.reset(DmaWriteReq{});
 }
 
 DmaWriteIssueQueue::DmaWriteIssueQueue(std::string /*name*/, IMPL_CTOR) {
-  UPDATE(updateEnqReady).writes(enq_rdy);
-  UPDATE(updateEnqAccept).reads(enq_val, enq_bits);
-  UPDATE(updateDeqView).writes(deq_val, deq_bits);
-  UPDATE(updateDeqPop).reads(deq_rdy);
+  entry_Q_ <= entry_D_;
+  UPDATE(updateEnqReady).reads(entry_Q_).writes(enq_rdy);
+  UPDATE(updateDeqView).reads(entry_Q_).writes(deq_val, deq_bits);
+  UPDATE(updateStorage).reads(entry_Q_, enq_val, enq_rdy, enq_bits, deq_rdy)
+                       .writes(entry_D_);
 }
 
 void DmaWriteIssueQueue::updateEnqReady() {
-  enq_rdy = bit(!valid_);
-}
-
-void DmaWriteIssueQueue::updateEnqAccept() {
-  if (enq_val == 0 || valid_) {
-    return;
-  }
-
-  const auto req = *enq_bits;
-  entry_ = req;
-  valid_ = true;
-
-  trace("dma_write_issue_queue: accepted vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
-        static_cast<unsigned long long>(req.vaddr),
-        static_cast<unsigned>(req.laddr.raw),
-        static_cast<unsigned>(req.len),
-        static_cast<unsigned>(req.block),
-        static_cast<unsigned>(req.cmd_id));
+  // Keep the original one-entry queue's empty-slot-only acceptance policy.
+  enq_rdy = bit(entry_Q_->valid == 0);
 }
 
 void DmaWriteIssueQueue::updateDeqView() {
-  deq_val = bit(valid_);
-  deq_bits = valid_ ? entry_ : DmaWriteReq{};
+  deq_val = entry_Q_->valid;
+  deq_bits = entry_Q_->valid == 1 ? entry_Q_->bits : DmaWriteReq{};
 }
 
-void DmaWriteIssueQueue::updateDeqPop() {
-  if (!valid_ || deq_rdy == 0) {
-    return;
+void DmaWriteIssueQueue::updateStorage() {
+  auto next = *entry_Q_;
+  const bool pop = next.valid == 1 && deq_rdy == 1;
+  const bool push = enq_val == 1 && enq_rdy == 1;
+  if (!pop && !push) return;
+  if (pop) next = Entry{};
+  if (push) {
+    next.valid = 1;
+    next.bits = *enq_bits;
   }
-
-  trace("dma_write_issue_queue: issued vaddr=0x%llx laddr=0x%x len=%u block=%u cmd_id=%u",
-        static_cast<unsigned long long>(entry_.vaddr),
-        static_cast<unsigned>(entry_.laddr.raw),
-        static_cast<unsigned>(entry_.len),
-        static_cast<unsigned>(entry_.block),
-        static_cast<unsigned>(entry_.cmd_id));
-
-  valid_ = false;
-  entry_ = DmaWriteReq{};
+  entry_D_ = next;
+  trace("dma_write_issue_queue: pop=%u push=%u valid=%u cmd_id=%u\n",
+        unsigned(pop), unsigned(push), unsigned(next.valid), unsigned(next.bits.cmd_id));
 }
 
 void DmaWriteIssueQueue::reset() {
-  valid_ = false;
-  entry_ = DmaWriteReq{};
+  entry_D_.reset(Entry{});
+  enq_rdy.reset(0);
+  deq_val.reset(0);
+  deq_bits.reset(DmaWriteReq{});
 }
 
 } // namespace smesh

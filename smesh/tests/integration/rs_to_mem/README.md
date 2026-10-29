@@ -268,6 +268,9 @@ nonzero exit status. It is not registered as a passing CTest regression:
 
 - `full_width_accum_load`: a four-element, 32-bit accumulator row loaded from two DRAM beats.
 - `accum_scale_store`: loads signed full-width accumulator rows and stores half-scaled, ReLU, and original full-width values. Checks rounding, clipping, completion tags, and DRAM bytes in DIM4, DIM8, and four-byte memory builds.
+- `max_pool`: loads a 2x4 spatial region into Accum, then uses StCtrl to perform 2x2 signed max pooling with stride two. Checks output channel values, untouched DRAM guard bytes, completion tags, and a subsequent ordinary store.
+- `max_pool_padded`: repeats the pooling test with zero padding at the boundaries, including windows where zero beats negative data.
+- `max_pool_spad`: exercises the same unpadded pooling operation using Spad as the source. All three pooling cases run in default, DIM8, and four-byte memory builds.
 - `dim8_loads`: separate `dim=8` build; full and partial SPAD/Accum row loads.
 
 **Cross-controller interaction**

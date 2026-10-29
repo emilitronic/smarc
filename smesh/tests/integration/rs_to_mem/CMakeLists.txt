@@ -102,6 +102,20 @@ set_tests_properties(smesh_rs_to_mem_beat4_zero_writer PROPERTIES
 set_tests_properties(smesh_rs_to_mem_dim8_zero_writer PROPERTIES
   LABELS "integration;rs_to_mem;dim8" TIMEOUT 30)
 
+foreach(variant IN ITEMS default dim8 beat4)
+  if(variant STREQUAL "default")
+    set(pool_runner tb_rs_to_mem_suite)
+  else()
+    set(pool_runner tb_rs_to_mem_suite_${variant})
+  endif()
+  foreach(case IN ITEMS max_pool max_pool_padded max_pool_spad)
+    set(pool_test smesh_rs_to_mem_${variant}_${case})
+    add_test(NAME ${pool_test} COMMAND ${pool_runner} -test=${case})
+    set_tests_properties(${pool_test} PROPERTIES
+      LABELS "integration;rs_to_mem;pooling;${variant}" TIMEOUT 30)
+  endforeach()
+endforeach()
+
 # Every size/feature variant uses the same test monitor and performance helper.
 foreach(runner tb_rs_to_mem_suite tb_rs_to_mem_suite_first_layer
     tb_rs_to_mem_suite_dim8 tb_rs_to_mem_suite_beat4)

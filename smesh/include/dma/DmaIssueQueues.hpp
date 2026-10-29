@@ -77,14 +77,17 @@ class DmaWriteNormQueue : public Component {
   Input(bit, deq_rdy);
 
   void updateEnqReady();
-  void updateEnqAccept();
   void updateDeqView();
-  void updateDeqPop();
+  void updateStorage();
   void reset();
 
  private:
-  bool valid_ = false;
-  DmaWriteReq entry_{};
+  struct Entry {
+    bit valid = 0;
+    DmaWriteReq bits{};
+  };
+  Output(Entry, entry_Q_);
+  Register(Entry, entry_D_);
 };
 
 class DmaWriteScaleQueue : public Component {
@@ -103,14 +106,17 @@ class DmaWriteScaleQueue : public Component {
   Input(bit, deq_rdy);
 
   void updateEnqReady();
-  void updateEnqAccept();
   void updateDeqView();
-  void updateDeqPop();
+  void updateStorage();
   void reset();
 
  private:
-  bool valid_ = false;
-  DmaWriteReq entry_{};
+  struct Entry {
+    bit valid = 0;
+    DmaWriteReq bits{};
+  };
+  Output(Entry, entry_Q_);
+  Register(Entry, entry_D_);
 };
 
 class DmaWriteIssueQueue : public Component {
@@ -129,14 +135,17 @@ class DmaWriteIssueQueue : public Component {
   Input(bit, deq_rdy);
 
   void updateEnqReady();
-  void updateEnqAccept();
   void updateDeqView();
-  void updateDeqPop();
+  void updateStorage();
   void reset();
 
  private:
-  bool valid_ = false;
-  DmaWriteReq entry_{};
+  struct Entry {
+    bit valid = 0;
+    DmaWriteReq bits{};
+  };
+  Output(Entry, entry_Q_);
+  Register(Entry, entry_D_);
 };
 
 } // namespace smesh

@@ -1,3 +1,10 @@
+add_executable(tb_dma_write_queues tb_dma_write_queues.cpp)
+target_link_libraries(tb_dma_write_queues PRIVATE smesh_model cascade -lz -ltermcap -lpthread)
+set_target_properties(tb_dma_write_queues PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+add_test(NAME smesh_unit_dma_write_queues COMMAND tb_dma_write_queues)
+set_tests_properties(smesh_unit_dma_write_queues PROPERTIES LABELS "unit;dma" TIMEOUT 10)
+
 add_executable(tb_dma_writer_beat4 tb_dma_writer_beat4.cpp)
 target_link_libraries(tb_dma_writer_beat4 PRIVATE
   smesh_model_beat4 cascade -lz -ltermcap -lpthread)
