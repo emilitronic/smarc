@@ -23,3 +23,19 @@ foreach(width IN ITEMS 8 4)
   set_tests_properties(smesh_unit_dma_reader_stream_beat${width} PROPERTIES
     LABELS "unit;dma;beat${width}" TIMEOUT 10)
 endforeach()
+
+foreach(variant IN ITEMS default beat4 dim8)
+  set(target tb_dma_writer_pool_${variant})
+  add_executable(${target} tb_dma_writer_pool.cpp)
+  if(variant STREQUAL "default")
+    set(model smesh_model)
+  else()
+    set(model smesh_model_${variant})
+  endif()
+  target_link_libraries(${target} PRIVATE ${model} cascade -lz -ltermcap -lpthread)
+  set_target_properties(${target} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/smesh")
+  add_test(NAME smesh_unit_dma_writer_pool_${variant} COMMAND ${target})
+  set_tests_properties(smesh_unit_dma_writer_pool_${variant} PROPERTIES
+    LABELS "unit;dma;pooling;${variant}" TIMEOUT 10)
+endforeach()

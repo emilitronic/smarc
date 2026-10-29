@@ -5,6 +5,8 @@
 /* 
 Store-side DMA writer; splits a store row into memory beats. Keeps track
 of which piece it is sending.  Pieces are held until memory accepts them.
+For max pooling, saves element-wise signed maxima across accepted rows and
+starts a memory write only when store_en is set. Pooling uses narrow elements.
 */
 
 #pragma once
@@ -34,6 +36,8 @@ class DmaWriter : public Component {
   void reset();
 
  private:
+  Output(StWriterData,   pool_data_Q_);   // running maxima for the current pooling window
+  Register(StWriterData, pool_data_D_);
   Output(bit,           active_valid_Q_); // is a row already partway through being sent
   Register(bit,         active_valid_D_);
   Output(StWriterReq,   active_req_Q_);   // DRAM address, row bytes, number of valid bytes
